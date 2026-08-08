@@ -4,9 +4,9 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
-W0 und W1 sind abgeschlossen. Der erste W2-Slice für Incremental Index, Hashing und generische read-only ToolProvider Runtime ist implementiert und in GitHub Actions vollständig verifiziert.
+W0 und W1 sind abgeschlossen. Der erste W2-Slice für Incremental Index, Hashing und generische read-only ToolProvider Runtime ist implementiert, in GitHub Actions vollständig verifiziert und zusätzlich lokal unter Windows/Docker Desktop geprüft.
 
-**Der nächste Schritt ist der lokale Windows-/Docker-Smoke-Test gemäß `docs/quality/LOCAL_SMOKE_TEST.md`.** Erst danach werden die verbleibenden W2-Funktionen weiterentwickelt.
+**Der nächste Schritt ist `W2-004`: robuste `DELETED`-Bestätigung definieren und implementieren.** `MISSING` darf dabei weiterhin nicht automatisch `DELETED` bedeuten.
 
 ## Vor Änderungen lesen
 
@@ -20,7 +20,9 @@ W0 und W1 sind abgeschlossen. Der erste W2-Slice für Incremental Index, Hashing
 
 ## Verifizierter aktueller Stand
 
-Der aktuelle W2-Slice hat in GitHub Actions bestanden:
+### GitHub Actions
+
+Der finale W2-PR-Head `ef10290da1ed3522e5a261ccb33d5561e32eb497` hat in GitHub Actions Run `31282820586` bestanden und wurde als Merge-Commit `4362d60eca51c3e896ae3a6e4fb4485e644bbc4d` nach `main` übernommen:
 
 ```text
 Install
@@ -34,7 +36,7 @@ Docker incremental scan smoke test
 Docker bootstrap/status
 ```
 
-Der Docker Incremental Scan Smoke Test verwendet dieselbe persistente SQLite-Datenbank über vier getrennte Containerläufe und bestätigt:
+Der automatisierte Docker Incremental Scan Smoke Test verwendet dieselbe persistente SQLite-Datenbank über vier getrennte Containerläufe und bestätigt:
 
 ```text
 NEW: 2
@@ -42,6 +44,23 @@ UNCHANGED: 2
 MODIFIED: 1 / MISSING: 1
 UNCHANGED: 1 / REAPPEARED: 1
 ```
+
+### Lokale Windows-/Docker-Verifikation
+
+`W2-012` wurde am 2026-08-09 mit synthetischen Dateien erfolgreich lokal ausgeführt. Verwendet wurden Docker Engine `29.6.2` und Docker Compose `v5.3.1`.
+
+Empirisch bestätigt wurden:
+
+- erfolgreicher Compose-Build und `foliotone status`;
+- persistentes, beschreibbares `/data` über getrennte Containerläufe;
+- read-only `/media/ebooks`; ein Schreibversuch aus dem Container scheiterte wie vorgesehen;
+- `NEW: 2` beim Erstscan;
+- `UNCHANGED: 2` beim unveränderten Folgescan;
+- `MODIFIED: 1 / MISSING: 1` nach kontrollierter Änderung und Abwesenheit;
+- `UNCHANGED: 1 / REAPPEARED: 1` nach Wiederauftauchen;
+- ein unavailable ScanRoot beendet den Scan fehlerhaft, ohne anschließend falsches `MISSING` zu erzeugen; der nächste gültige Scan meldete `UNCHANGED: 2`.
+
+Der lokale Test verwendete keine reale Mediensammlung. Private Pfade oder reale Medienmetadaten gehören nicht in die Repository-Dokumentation.
 
 ## W2 aktuell implementiert
 
@@ -78,21 +97,13 @@ UNCHANGED: 1 / REAPPEARED: 1
 
 Alembic `0002_incremental_index` ergänzt den W1-Stand. Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
-## Lokale Verifikation
-
-Der Benutzer führt den lokalen Test auf Windows/Docker Desktop aus. Der genaue Ablauf steht in `docs/quality/LOCAL_SMOKE_TEST.md`.
-
-Für den Test werden ausschließlich synthetische Dateien in den von Git ignorierten Runtime-Verzeichnissen verwendet. Es werden keine realen E-Books oder Musikdateien benötigt.
-
-Nach erfolgreicher lokaler Verifikation wird `W2-012` auf DONE gesetzt.
-
 ## Danach weiterarbeiten
 
-Nach dem lokalen Smoke-Test ist die nächste sinnvolle Reihenfolge:
+Die nächste sinnvolle Reihenfolge ist:
 
 1. `W2-004` — `DELETED`-Bestätigung definieren; MISSING darf nicht automatisch DELETED bedeuten.
 2. `W2-006` — Move-/Rename-Kandidaten erkennen.
-3. `W2-007` — Interrupt/Resume vervollständigen.
+3. `W2-007` — Interrupt/Resume vervollständigen; unavailable-root ist bereits implementiert und lokal bestätigt.
 4. `W2-008` — `FilenameParser` und `PathContextAnalyzer`.
 5. `W2-009` — Parsing-Regeln und synthetische Fixtures.
 6. `W2-011` — verbleibende ToolRuntime-Tests für malformed output, Version Changes und selective re-analysis.
