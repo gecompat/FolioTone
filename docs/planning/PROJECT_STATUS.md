@@ -10,7 +10,7 @@ The full planning/foundation state has been migrated to the new FolioTone reposi
 
 Foundation content includes Authority/Entity Resolution, provenance, external enrichment, classical-aware music modeling and multidimensional classification.
 
-The GitHub Actions workflow is installed. The immediate next action is `W0-006`: execute/inspect FolioTone bootstrap verification and fix any remaining foundation defect before starting W1.
+The GitHub Actions workflow is installed and the first FolioTone-native quality run succeeded. The immediate next action remains `W0-006`: verify the Docker bootstrap before starting W1.
 
 ## Implemented/documented foundation
 
@@ -38,11 +38,16 @@ The GitHub Actions workflow is installed. The immediate next action is `W0-006`:
 
 ## Migration/CI note
 
-The predecessor PR's GitHub Actions run reached package installation successfully and then failed at Ruff with `E501` because one bootstrap status line exceeded the configured 100-character line length. The FolioTone CLI has been reformatted so that specific defect is not carried forward.
+The predecessor PR's GitHub Actions run reached package installation successfully and then failed at Ruff with `E501` because one bootstrap status line exceeded the configured 100-character line length. The FolioTone CLI was reformatted during migration, so that defect was not carried forward.
 
-The FolioTone workflow is now present at `.github/workflows/ci.yml` and targets `src/foliotone`. `docs/planning/CI_WORKFLOW.md` preserves the workflow contract and the predecessor failure context.
+FolioTone GitHub Actions run `31276463385` completed successfully on 2026-08-08. The `quality` job passed all configured steps:
 
-Do not claim FolioTone CI, Mypy or Pytest passed until an actual FolioTone run exists.
+- package installation;
+- Ruff;
+- Mypy;
+- Pytest.
+
+The workflow is present at `.github/workflows/ci.yml` and targets `src/foliotone`.
 
 ## Not implemented
 
@@ -66,24 +71,27 @@ No production media functionality exists yet:
 
 ## Verification state
 
-W0 bootstrap verification remains outstanding until an actual FolioTone CI and/or clean local/container result is recorded.
+Verified through FolioTone GitHub Actions:
 
-Required verification commands:
+```text
+Install  PASS
+Ruff     PASS
+Mypy     PASS
+Pytest   PASS
+```
+
+Still unverified in FolioTone:
 
 ```bash
-python -m pip install -e '.[dev]'
-ruff check .
-mypy src/foliotone
-pytest
 docker compose build
 docker compose run --rm foliotone status
 ```
 
-Record actual results here before marking `W0-006` done.
+Do not mark `W0-006` done until the Docker bootstrap is actually verified or a documented reason explicitly removes it from the W0 acceptance criteria.
 
 ## Next implementation sequence
 
-1. `W0-006` — verify/fix bootstrap and record actual results.
+1. `W0-006` — verify Docker bootstrap and record actual result.
 2. `W1-001` — design concrete entity/value-object boundaries and internal ID strategy for the expanded model.
 3. `W1-002` — physical/index core models.
 4. `W1-003` — Agent/AgentName/ExternalIdentifier/Contribution and provenance assertion model.
