@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generic, TypeVar
 
 from alembic import command
 from alembic.config import Config
@@ -14,8 +13,6 @@ from sqlalchemy.engine import Connection
 
 from foliotone.core.ids import EntityId
 from foliotone.persistence.codecs import Codec, codec_for
-
-T = TypeVar("T")
 
 
 def create_sqlite_engine(database: Path | str) -> Engine:
@@ -58,7 +55,7 @@ def transaction(engine: Engine) -> Iterator[Connection]:
         yield connection
 
 
-class SQLiteRepository(Generic[T]):
+class SQLiteRepository[T]:
     """Generic EntityId-keyed repository using an explicit domain codec."""
 
     def __init__(self, engine: Engine, model_type: type[T]) -> None:
@@ -99,6 +96,6 @@ class SQLiteRepository(Generic[T]):
         return [self._codec.decode(row) for row in rows]
 
 
-def repository(engine: Engine, model_type: type[T]) -> SQLiteRepository[T]:
+def repository[T](engine: Engine, model_type: type[T]) -> SQLiteRepository[T]:
     """Create a typed repository for one supported domain model."""
     return SQLiteRepository(engine, model_type)
