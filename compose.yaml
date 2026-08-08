@@ -3,7 +3,7 @@ services:
     build:
       context: .
     volumes:
-      - "${FOLIOTONE_DATA_DIR:-./data}:/data"
+      - "${FOLIOTONE_DATA_DIR:-./data}:/data:rw"
       - "${FOLIOTONE_EBOOKS_DIR:-./media/ebooks}:/media/ebooks:ro"
       - "${FOLIOTONE_MUSIC_DIR:-./media/music}:/media/music:ro"
     read_only: true
