@@ -2,7 +2,9 @@
 
 This registry records external knowledge sources that may help FolioTone resolve identities, enrich metadata, classify content or generate stronger matching evidence.
 
-A listed source is a **candidate provider**, not an unconditional dependency. Before implementation, confirm current API/data access rules, licensing, attribution, rate limits, data quality and operational requirements.
+A listed source is a **candidate knowledge provider**, not an unconditional dependency. Specialist executable software belongs in `EXTERNAL_TOOLS.md`.
+
+Before implementation, confirm current API/data access rules, licensing, attribution, rate limits, data quality and operational requirements.
 
 ## General source policy
 
@@ -131,30 +133,32 @@ Implementation note:
 
 MusicBrainz explicitly models Artists, Works, Recordings, Release Groups, Releases and relationships. FolioTone should map provider data into its own domain concepts rather than exposing MusicBrainz schema objects throughout the core.
 
-### AcoustID / Chromaprint
+A local MusicBrainz server/mirror is an infrastructure/tool deployment option documented separately in `EXTERNAL_TOOLS.md`; the MusicBrainz data model/service remains the knowledge source.
+
+### AcoustID
 
 Purpose:
 
-- identify audio by acoustic fingerprint;
-- generate Recording/Release candidates even when filenames and tags are poor;
+- identify audio using an acoustic fingerprint;
+- generate Recording candidates even when filenames and tags are poor;
 - bridge fingerprints to MusicBrainz metadata where returned by the service.
 
 Access strategy:
 
-- calculate fingerprints through a provider boundary;
-- cache fingerprint lookup results;
+- calculate Chromaprint fingerprints locally through the Chromaprint/`fpcalc` ToolProvider documented in `EXTERNAL_TOOLS.md`;
+- send only the minimum fingerprint/duration/lookup fields required by the configured AcoustID operation;
+- cache lookup results;
 - preserve lookup score/provider result as evidence, not as automatic proof;
 - keep API credentials outside Git.
 
 Official references:
 
 - https://acoustid.org/webservice
-- https://acoustid.org/chromaprint
 - https://acoustid.org/license
 
 Implementation note:
 
-The AcoustID lookup service accepts Chromaprint fingerprints and can return associated MusicBrainz metadata. One fingerprint lookup can still be ambiguous; downstream entity resolution/matching must retain provider score and alternatives.
+Chromaprint and AcoustID are deliberately separated in FolioTone architecture: Chromaprint is local specialist processing; AcoustID is an external knowledge lookup service. One AcoustID lookup can still be ambiguous; downstream entity resolution/matching must retain provider score and alternatives.
 
 ## Provider classes to research later
 
