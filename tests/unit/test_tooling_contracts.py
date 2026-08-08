@@ -1,11 +1,11 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from foliotone.core import EntityId, EntityKind, ToolCapability, ToolExecutionStatus
 from foliotone.tooling import ToolExecution, ToolProviderDescriptor, ToolResult
 
-START = datetime(2026, 8, 8, 20, 0, tzinfo=timezone.utc)
+START = datetime(2026, 8, 8, 20, 0, tzinfo=UTC)
 FINISH = START + timedelta(seconds=1)
 
 
