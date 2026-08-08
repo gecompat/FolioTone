@@ -80,7 +80,8 @@ class FileRecord:
             raise ValueError("consecutive_missing_scans must not be negative")
         if (self.missing_since_at is None) != (self.consecutive_missing_scans == 0):
             raise ValueError(
-                "missing_since_at and consecutive_missing_scans must either both be set or both be empty"
+                "missing_since_at and consecutive_missing_scans must either both be set "
+                "or both be empty"
             )
         if self.presence_state is PresenceState.PRESENT and self.consecutive_missing_scans:
             raise ValueError("a present file cannot retain missing-scan state")
