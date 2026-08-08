@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from sqlalchemy import inspect, select
+from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 
 from foliotone.core import (
@@ -77,8 +77,8 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
     assert table_names == expected
 
     with engine.connect() as connection:
-        revision = connection.execute(select(__import__("foliotone.persistence.schema", fromlist=["metadata"]).metadata.tables.get("alembic_version"))) if False else None
-    assert revision is None
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+    assert revision == "0001_initial"
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:
