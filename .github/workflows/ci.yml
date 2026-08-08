@@ -24,3 +24,9 @@ jobs:
         run: mypy src/foliotone
       - name: Tests
         run: pytest
+      - name: Prepare Docker mount placeholders
+        run: mkdir -p data media/ebooks media/music
+      - name: Docker build
+        run: docker compose build
+      - name: Docker bootstrap
+        run: docker compose run --rm foliotone status
