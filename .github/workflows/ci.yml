@@ -25,7 +25,9 @@ jobs:
       - name: Tests
         run: pytest
       - name: Prepare Docker mount placeholders
-        run: mkdir -p data media/ebooks media/music
+        run: |
+          mkdir -p data media/ebooks media/music
+          chmod 0777 data
       - name: Docker build
         run: docker compose build
       - name: Docker migration smoke test
