@@ -16,6 +16,7 @@ from foliotone.core import (
     ScanRun,
     ScanRunStatus,
 )
+from foliotone.index.deletion import DeletionConfirmationPolicy
 from foliotone.index.discovery import DiscoveredFile, ScanRootBinding, discover_files
 from foliotone.index.hashing import FingerprintWriter, HashMode
 from foliotone.index.store import SQLiteIndexStore
@@ -42,7 +43,7 @@ class ScanSummary:
         return sum(
             count
             for state, count in self.counts.items()
-            if state is not FileChangeState.MISSING
+            if state not in {FileChangeState.MISSING, FileChangeState.DELETED}
         )
 
 
@@ -56,6 +57,7 @@ class IncrementalScanner:
         batch_size: int = 256,
         hash_mode: HashMode = HashMode.QUICK,
         fingerprint_writer: FingerprintWriter | None = None,
+        deletion_policy: DeletionConfirmationPolicy | None = None,
         clock: Clock | None = None,
     ) -> None:
         if batch_size <= 0 or batch_size > 500:
@@ -66,10 +68,11 @@ class IncrementalScanner:
         self._batch_size = batch_size
         self._hash_mode = hash_mode
         self._fingerprints = fingerprint_writer
+        self._deletion_policy = deletion_policy
         self._clock = clock or _utc_now
 
     def scan(self, root: ScanRoot, binding: ScanRootBinding) -> ScanSummary:
-        """Run one incremental scan; missing is marked only after successful discovery."""
+        """Run one incremental scan; absence is classified only after successful discovery."""
         started_at = self._clock()
         run = self._store.start_scan(root, started_at)
         counts: Counter[FileChangeState] = Counter()
@@ -81,7 +84,12 @@ class IncrementalScanner:
                 counts.update(event.change_state for event in outcome.events)
                 self._hash_changed(batch, outcome.observations, outcome.events)
 
-            missing = self._store.mark_missing(root, run, self._clock())
+            missing = self._store.mark_missing(
+                root,
+                run,
+                self._clock(),
+                deletion_policy=self._deletion_policy,
+            )
             counts.update(event.change_state for event in missing)
             run = self._store.finish_scan(run, ScanRunStatus.COMPLETED, self._clock())
         except KeyboardInterrupt:
