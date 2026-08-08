@@ -8,7 +8,14 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from itertools import islice
 
-from foliotone.core import FileChangeState, ScanRoot, ScanRun, ScanRunStatus
+from foliotone.core import (
+    FileChangeState,
+    FileObservation,
+    FileScanEvent,
+    ScanRoot,
+    ScanRun,
+    ScanRunStatus,
+)
 from foliotone.index.discovery import DiscoveredFile, ScanRootBinding, discover_files
 from foliotone.index.hashing import FingerprintWriter, HashMode
 from foliotone.index.store import SQLiteIndexStore
@@ -89,20 +96,14 @@ class IncrementalScanner:
     def _hash_changed(
         self,
         discovered: tuple[DiscoveredFile, ...],
-        observations: tuple[object, ...],
-        events: tuple[object, ...],
+        observations: tuple[FileObservation, ...],
+        events: tuple[FileScanEvent, ...],
     ) -> None:
         if self._hash_mode is HashMode.NONE or self._fingerprints is None:
             return
-        from foliotone.core import FileObservation, FileScanEvent
-
-        typed_observations = tuple(
-            value for value in observations if isinstance(value, FileObservation)
-        )
-        typed_events = tuple(value for value in events if isinstance(value, FileScanEvent))
-        if len(typed_observations) != len(discovered) or len(typed_events) != len(discovered):
+        if len(observations) != len(discovered) or len(events) != len(discovered):
             raise RuntimeError("index batch outcome is not aligned with discovery batch")
-        for item, observation, event in zip(discovered, typed_observations, typed_events, strict=True):
+        for item, observation, event in zip(discovered, observations, events, strict=True):
             if event.change_state in _HASH_STATES:
                 self._fingerprints.calculate_and_save(
                     observation,
