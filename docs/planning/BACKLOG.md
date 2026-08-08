@@ -41,7 +41,7 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W2-001 | DONE | Implement persistent logical scan roots, stable name resolution and scan-run lifecycle using the W1 persistence layer. |
 | W2-002 | DONE | Implement streaming filesystem discovery and relative-path observations without a collection-wide in-memory path list. |
 | W2-003 | DONE | Implement incremental NEW/UNCHANGED/MODIFIED/MISSING/REAPPEARED behavior; unavailable roots must not create false MISSING evidence. |
-| W2-004 | PLANNED | Design and implement robust DELETED confirmation policy; MISSING alone must never imply DELETED. |
+| W2-004 | NEXT | Design and implement robust DELETED confirmation policy; MISSING alone must never imply DELETED. |
 | W2-005 | DONE | Implement staged quick fingerprint and streamed SHA-256 strategy against FileObservation identity. |
 | W2-006 | PLANNED | Implement move/rename candidate detection without premature identity assertion. |
 | W2-007 | READY | Complete interruption/resume behavior; unavailable-root failure handling is already implemented and tested. |
@@ -49,7 +49,7 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W2-009 | PLANNED | Add configurable parsing rules/fixtures for author-title, series/volume, track/disc, year and language conventions. |
 | W2-010 | DONE | Implement generic ToolProvider runtime with version detection, bounded local/container execution, timeout/cancellation, stdout/stderr artifacts, privacy-safe input identity, isolated work areas and read-only input policy. |
 | W2-011 | READY | Complete ToolProvider runtime tests for malformed structured output, version changes and selective re-analysis; missing tool, timeout, non-zero exit, artifact persistence, privacy and container hardening are already tested. |
-| W2-012 | NEXT | Run the documented local Windows/Docker smoke test for persistent `/data`, read-only media mounts and four incremental scan states before continuing W2. |
+| W2-012 | DONE | Verify the documented local Windows/Docker smoke test with synthetic data: persistent `/data`, read-only media mounts, NEW/UNCHANGED/MODIFIED/MISSING/REAPPEARED behavior and unavailable-root protection. |
 
 ## W3 — E-book Analysis / Tool Orchestration
 
