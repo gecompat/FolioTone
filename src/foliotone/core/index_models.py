@@ -62,6 +62,8 @@ class FileRecord:
     presence_state: PresenceState
     first_seen_at: datetime
     last_seen_at: datetime
+    missing_since_at: datetime | None = None
+    consecutive_missing_scans: int = 0
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "relative_path", require_relative_path(self.relative_path))
@@ -72,6 +74,16 @@ class FileRecord:
         require_aware_datetime(self.last_seen_at, "last_seen_at")
         if self.last_seen_at < self.first_seen_at:
             raise ValueError("last_seen_at must not be before first_seen_at")
+        if self.missing_since_at is not None:
+            require_aware_datetime(self.missing_since_at, "missing_since_at")
+        if self.consecutive_missing_scans < 0:
+            raise ValueError("consecutive_missing_scans must not be negative")
+        if (self.missing_since_at is None) != (self.consecutive_missing_scans == 0):
+            raise ValueError(
+                "missing_since_at and consecutive_missing_scans must either both be set or both be empty"
+            )
+        if self.presence_state is PresenceState.PRESENT and self.consecutive_missing_scans:
+            raise ValueError("a present file cannot retain missing-scan state")
 
 
 @dataclass(frozen=True, slots=True)
