@@ -1,4 +1,4 @@
-"""Add incremental scan event bookkeeping and scan indexes.
+"""Add incremental scan bookkeeping and tool runtime artifacts.
 
 Revision ID: 0002_incremental_index
 Revises: 0001_initial
@@ -31,6 +31,15 @@ def upgrade() -> None:
         sa.Column("previous_relative_path", sa.Text()),
         sa.Column("current_relative_path", sa.Text()),
     )
+    op.create_table(
+        "tool_artifacts",
+        sa.Column("id", ID, primary_key=True),
+        sa.Column("execution_id", ID, sa.ForeignKey("tool_executions.id"), nullable=False),
+        sa.Column("artifact_type", sa.Text(), nullable=False),
+        sa.Column("relative_path", sa.Text(), nullable=False),
+        sa.Column("size_bytes", sa.Integer(), nullable=False),
+        sa.Column("sha256", sa.Text(), nullable=False),
+    )
     op.create_index(
         "ix_file_scan_events_run_state",
         "file_scan_events",
@@ -41,9 +50,16 @@ def upgrade() -> None:
         "file_observations",
         ["scan_run_id", "file_id"],
     )
+    op.create_index(
+        "ix_tool_artifacts_execution",
+        "tool_artifacts",
+        ["execution_id"],
+    )
 
 
 def downgrade() -> None:
+    op.drop_index("ix_tool_artifacts_execution", table_name="tool_artifacts")
     op.drop_index("ix_file_observations_run_file", table_name="file_observations")
     op.drop_index("ix_file_scan_events_run_state", table_name="file_scan_events")
+    op.drop_table("tool_artifacts")
     op.drop_table("file_scan_events")
