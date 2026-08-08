@@ -7,6 +7,7 @@ from foliotone.core.enums import (
     AgentNameType,
     AgentType,
     EntityKind,
+    FileChangeState,
     MatchStatus,
     MediaType,
     MusicWorkRelationType,
@@ -29,6 +30,7 @@ from foliotone.core.music_models import (
     ReleaseGroup,
     ReleaseRecording,
 )
+from foliotone.core.scan_events import FileScanEvent
 
 __all__ = [
     "Agent",
@@ -43,8 +45,10 @@ __all__ = [
     "EntityKind",
     "Evidence",
     "ExternalIdentifier",
+    "FileChangeState",
     "FileObservation",
     "FileRecord",
+    "FileScanEvent",
     "Fingerprint",
     "MatchStatus",
     "MediaType",
