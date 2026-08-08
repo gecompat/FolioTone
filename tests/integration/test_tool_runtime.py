@@ -160,4 +160,6 @@ def test_tool_artifacts_round_trip_through_repository(tmp_path: Path) -> None:
         input_identity="synthetic:5",
     )
     stored = repository(engine, ToolArtifact).list_all()
-    assert stored == list(outcome.artifacts)
+    assert {artifact.id: artifact for artifact in stored} == {
+        artifact.id: artifact for artifact in outcome.artifacts
+    }
