@@ -1,9 +1,12 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from sqlalchemy import Engine
 
 from foliotone.core import (
+    EntityId,
     FileChangeState,
     FileRecord,
     Fingerprint,
@@ -25,14 +28,22 @@ from foliotone.persistence import create_sqlite_engine, migrate, repository
 NOW = datetime(2026, 8, 8, 20, 0, tzinfo=UTC)
 
 
+@dataclass(frozen=True, slots=True)
+class IndexEnvironment:
+    engine: Engine
+    root: ScanRoot
+    media: Path
+    scanner: IncrementalScanner
+
+
 @pytest.fixture
-def index_environment(tmp_path: Path):
+def index_environment(tmp_path: Path) -> IndexEnvironment:
     database = tmp_path / "foliotone.db"
     media = tmp_path / "media"
     media.mkdir()
     migrate(database)
     engine = create_sqlite_engine(database)
-    root = ScanRoot(id=__import__("foliotone.core", fromlist=["EntityId"]).EntityId.new(), name="test", media_type=MediaType.EBOOK)
+    root = ScanRoot(id=EntityId.new(), name="test", media_type=MediaType.EBOOK)
     scanner = IncrementalScanner(
         SQLiteIndexStore(engine),
         batch_size=2,
@@ -40,13 +51,16 @@ def index_environment(tmp_path: Path):
         fingerprint_writer=FingerprintWriter(engine),
         clock=lambda: NOW,
     )
-    return engine, root, media, scanner
+    return IndexEnvironment(engine, root, media, scanner)
 
 
 def test_incremental_scan_tracks_new_unchanged_modified_missing_and_reappeared(
-    index_environment,
+    index_environment: IndexEnvironment,
 ) -> None:
-    engine, root, media, scanner = index_environment
+    engine = index_environment.engine
+    root = index_environment.root
+    media = index_environment.media
+    scanner = index_environment.scanner
     first = media / "A.epub"
     second = media / "B.epub"
     first.write_bytes(b"alpha")
@@ -84,8 +98,13 @@ def test_incremental_scan_tracks_new_unchanged_modified_missing_and_reappeared(
     assert len(repository(engine, Fingerprint).list_all()) == 4
 
 
-def test_unavailable_root_fails_run_without_marking_known_files_missing(index_environment) -> None:
-    engine, root, media, scanner = index_environment
+def test_unavailable_root_fails_run_without_marking_known_files_missing(
+    index_environment: IndexEnvironment,
+) -> None:
+    engine = index_environment.engine
+    root = index_environment.root
+    media = index_environment.media
+    scanner = index_environment.scanner
     (media / "A.epub").write_bytes(b"alpha")
     scanner.scan(root, ScanRootBinding(media))
 
