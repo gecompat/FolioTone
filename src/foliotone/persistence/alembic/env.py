@@ -36,7 +36,11 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        # SQLAlchemy 2.x autobegins on exec_driver_sql(). End that small
+        # transaction before Alembic starts the migration transaction so the
+        # version-table update is committed together with the migration.
         connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        connection.commit()
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
