@@ -6,7 +6,7 @@ Stand: 2026-08-09
 
 **W2 — Incremental Index + Filename/Path Context + Tool Runtime**
 
-W0 und W1 sind abgeschlossen. Der erste konsistente W2-Slice ist implementiert und in GitHub Actions vollständig verifiziert. Vor der Fortsetzung mit `DELETED`-Bestätigung, Move/Rename-Erkennung und Filename/Path-Parsing soll der aktuelle Stand zusätzlich lokal unter Windows/Docker Desktop geprüft werden.
+W0 und W1 sind abgeschlossen. Der erste konsistente W2-Slice ist implementiert, in GitHub Actions vollständig verifiziert und zusätzlich lokal unter Windows/Docker Desktop geprüft. Die zuvor gesetzte lokale Verifikationssperre ist damit aufgehoben. Als nächster W2-Punkt folgt `W2-004`, die robuste `DELETED`-Bestätigung.
 
 ## Implementierter W2-Slice
 
@@ -86,7 +86,9 @@ Die automatische Prüfung ersetzt kein fachliches oder sprachliches Review.
 
 ## Verifikation
 
-Der W2-Head `39ff205ab14c4e886362303f4ee883022a9face5` wurde in GitHub Actions Run `31282677449` vollständig geprüft:
+### GitHub Actions
+
+Der finale PR-Head `ef10290da1ed3522e5a261ccb33d5561e32eb497` wurde in GitHub Actions Run `31282820586` vollständig geprüft und anschließend als Merge-Commit `4362d60eca51c3e896ae3a6e4fb4485e644bbc4d` nach `main` übernommen:
 
 ```text
 Install                              PASS
@@ -110,18 +112,26 @@ Der Docker Incremental Scan Smoke Test führt vier getrennte Containerläufe geg
 4. UNCHANGED: 1 / REAPPEARED: 1
 ```
 
+### Lokale Windows-/Docker-Verifikation
+
+`W2-012` wurde am 2026-08-09 mit ausschließlich synthetischen Testdateien lokal ausgeführt. Verwendet wurden Docker Engine `29.6.2` und Docker Compose `v5.3.1`.
+
+**Empirisch bestätigt wurden:**
+
+- `docker compose build` erfolgreich;
+- `foliotone status` erfolgreich;
+- `/data` ist aus dem Container beschreibbar und über getrennte Containerläufe persistent;
+- `/media/ebooks` ist read-only; ein absichtlicher Schreibversuch scheiterte mit `Read-only file system` und Non-zero Exit;
+- erster Scan: `NEW: 2`;
+- unveränderter Folgescan: `UNCHANGED: 2`;
+- nach Änderung einer Datei und Entfernen einer zweiten: `MODIFIED: 1 / MISSING: 1`;
+- nach Wiederanlegen der fehlenden Datei: `UNCHANGED: 1 / REAPPEARED: 1`;
+- ein nicht vorhandener Scan-Pfad beendet den Scan mit Fehler und Non-zero Exit;
+- der unmittelbar folgende gültige Scan meldete wieder `UNCHANGED: 2` und erzeugte damit keine falsche `MISSING`-Evidenz.
+
+Die lokale Verifikation bestätigt den dokumentierten W2-Vertrag für den geprüften Windows-/Docker-Desktop-Pfad. Sie ist kein Test gegen eine reale Mediensammlung und keine Aussage über noch nicht implementierte `DELETED`-, Move-/Rename- oder Parsing-Funktionalität.
+
 Die Source-Media-Verzeichnisse bleiben im Compose-Vertrag read-only. `/data` ist als persistenter Runtime-Bereich explizit read-write eingebunden.
-
-## Lokaler Testpunkt
-
-Der aktuelle Stand ist für einen lokalen Windows-/Docker-Test geeignet. Der reproduzierbare Ablauf ist unter `docs/quality/LOCAL_SMOKE_TEST.md` dokumentiert und verwendet ausschließlich synthetische Dateien unter dem von Git ignorierten Verzeichnis `media/ebooks`.
-
-Der lokale Test soll insbesondere bestätigen:
-
-- Docker-Compose-Build unter der lokalen Plattform;
-- persistente `/data`-Nutzung über mehrere Containerläufe;
-- read-only `/media/ebooks`;
-- NEW/UNCHANGED/MODIFIED/MISSING/REAPPEARED-Verhalten unter Docker Desktop.
 
 ## Noch offen in W2
 
@@ -129,12 +139,10 @@ Als nächste fachliche W2-Arbeiten bleiben:
 
 1. `W2-004` — robuste `DELETED`-Bestätigung definieren und implementieren;
 2. `W2-006` — Move-/Rename-Kandidaten erkennen, ohne vorschnell Identität zu behaupten;
-3. `W2-007` — Interrupt/Resume-Verhalten vervollständigen; der unavailable-root Fall ist bereits getestet;
+3. `W2-007` — Interrupt/Resume-Verhalten vervollständigen; der unavailable-root Fall ist bereits implementiert und lokal bestätigt;
 4. `W2-008` — versionierten `FilenameParser` und `PathContextAnalyzer` implementieren;
 5. `W2-009` — Parsing-Regeln und Fixtures für Autor/Titel, Serie/Band, Track/Disc, Jahr und Sprache ergänzen;
 6. `W2-011` — ToolProvider-Runtime um noch fehlende Tests für malformed structured output, Version Change und selective re-analysis erweitern.
-
-Diese Punkte werden erst nach dem lokalen Smoke-Test des aktuellen Slices fortgesetzt.
 
 ## Nicht implementiert
 
