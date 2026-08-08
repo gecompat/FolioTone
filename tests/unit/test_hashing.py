@@ -1,7 +1,12 @@
 import hashlib
 from pathlib import Path
 
-from foliotone.index.hashing import HashMode, calculate_hashes, quick_file_fingerprint, stream_sha256
+from foliotone.index.hashing import (
+    HashMode,
+    calculate_hashes,
+    quick_file_fingerprint,
+    stream_sha256,
+)
 
 
 def test_stream_sha256_matches_hashlib_with_small_chunks(tmp_path: Path) -> None:
