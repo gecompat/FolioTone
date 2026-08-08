@@ -1,0 +1,156 @@
+# Persistence Architecture
+
+## Purpose
+
+FolioTone persists index state, provenance, resolved identities, specialist-tool evidence, matching evidence and later review/planning state without coupling the domain model to a concrete database library.
+
+W1 uses SQLite with SQLAlchemy Core and Alembic. Domain classes remain immutable provider/tool-independent dataclasses.
+
+## Boundaries
+
+```text
+Domain/Application
+      |
+      v
+Repository[T] contracts
+      |
+      v
+explicit Codec[T]
+      |
+      v
+SQLAlchemy Core tables
+      |
+      v
+SQLite
+
+Schema evolution: Alembic migrations
+```
+
+The domain layer does not import SQLAlchemy or Alembic.
+
+## Internal identity
+
+FolioTone-owned IDs are UUID-backed `EntityId` values. SQLite stores them as canonical UUID strings.
+
+External provider/catalog IDs are separate `ExternalIdentifier` records. They never become primary keys.
+
+## Datetime representation
+
+Domain datetimes must be timezone-aware. Persistence normalizes them to UTC ISO-8601 text.
+
+This avoids relying on SQLite timezone semantics and keeps round-trip behavior explicit.
+
+## Current W1 tables
+
+### Physical/index
+
+- `scan_roots`
+- `scan_runs`
+- `file_records`
+- `file_observations`
+
+`file_records` has a uniqueness constraint on `(scan_root_id, relative_path)`.
+
+### Provenance / authority
+
+- `value_assertions`
+- `agents`
+- `agent_names`
+- `external_identifiers`
+- `contributions`
+
+Provenance-bearing tables flatten the stable source fields (`source_kind`, `source_name`, `source_version`, `observed_at`) while reconstructing the domain `Provenance` value object through codecs.
+
+### E-books
+
+- `works`
+- `editions`
+- `series`
+- `series_memberships`
+
+### Music
+
+- `music_works`
+- `music_work_relations`
+- `catalog_designations`
+- `recordings`
+- `release_groups`
+- `releases`
+- `release_recordings`
+
+### Tool orchestration
+
+- `tool_executions`
+- `tool_results`
+
+Material specialist-tool evidence keeps a link to the exact execution identity and therefore to provider/tool/adapter/input/config versions.
+
+### Classification / matching evidence
+
+- `classification_assertions`
+- `fingerprints`
+- `relations`
+- `evidence`
+
+## Deliberate generic references
+
+Some relationships use `(target_kind, target_id)` rather than a SQL foreign key to one table because the target can be one of several domain entity types. Domain validation and future service-level integrity checks own these polymorphic references.
+
+Concrete single-table relationships use SQLite foreign keys where applicable.
+
+## Foreign-key behavior
+
+Application-created SQLite connections enable `PRAGMA foreign_keys=ON` through an SQLAlchemy connection event.
+
+The Alembic environment also enables foreign keys, but explicitly ends SQLAlchemy's small implicit PRAGMA transaction before starting Alembic's migration transaction. This is important: otherwise the version-table update can be rolled back independently of SQLite DDL.
+
+## Migration policy
+
+- migration files are immutable after merge;
+- `0001_initial` is an explicit schema snapshot and does not call current metadata to create the schema;
+- migrations are applied programmatically with `foliotone.persistence.migrate()`;
+- re-running `upgrade head` is expected to be idempotent;
+- future SQLite changes use Alembic batch operations when required;
+- CI creates a database from nothing and verifies the Alembic revision;
+- CI also runs a migration inside the built FolioTone Docker image to catch missing packaged migration resources.
+
+## Repository behavior
+
+`SQLiteRepository[T]` uses an explicit registered codec for each supported immutable W1 model.
+
+Current contract:
+
+```text
+save(value)
+get(EntityId)
+list_all()
+```
+
+`save()` is an ID-based insert-or-update operation. It does not infer identity from metadata or external IDs.
+
+## Current constraints and deferred integrity
+
+Implemented SQL constraints include:
+
+- primary keys for all durable records;
+- foreign keys for concrete single-table dependencies;
+- unique file path within one scan root;
+- unique namespaced external identifier per target;
+- unique catalog designation per music work/system/value.
+
+Cross-table polymorphic target validation, richer query repositories, bulk write paths, transaction orchestration and performance indexes are intentionally deferred until their W2/W5/W6 access patterns are known. They should be added through migrations rather than speculative schema complexity.
+
+## Tests
+
+W1 persistence integration tests cover:
+
+- empty database -> Alembic head;
+- repeat `upgrade head`;
+- current table set + Alembic revision;
+- full synthetic W1 domain graph round-trip;
+- immutable-record update by internal ID;
+- foreign-key enforcement;
+- unique scan-root-relative file path;
+- deterministic listing.
+
+No real collection data is used in tests.
