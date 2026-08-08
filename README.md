@@ -1,5 +1,35 @@
 # FolioTone
 
+---
+---
+# ⚠️ READ BEFORE USE
+
+## License notice
+
+**NOTICE: This software is NOT Open Source. Use is governed by a custom Community & Attribution License.**
+
+1. **NO RESALE:** Selling or charging for access to this software is strictly prohibited.
+2. **ATTRIBUTION REQUIRED:** You must preserve the copyright notice for **gecompat - Gerhard Pisch**.
+3. **NO LIABILITY:** Use this software at your own risk. The author is **NOT liable** for any damages, data loss, or business interruptions.
+
+Full legal terms can be found in the [LICENSE.md](./LICENSE.md) file.
+
+---
+## Lizenzhinweis
+
+**NOTIZ: FolioTone ist keine Open-Source-Software. Die Nutzung richtet sich nach der projektspezifischen Community & Attribution License.**
+
+1. **NO RESALE:** Der Verkauf der Software und das Entgelt für den Zugang zur Software sind untersagt.
+2. **ATTRIBUTION REQUIRED:** Der Copyright-Hinweis für **gecompat – Gerhard Pisch** muss erhalten bleiben.
+3. **NO LIABILITY:** Die Nutzung erfolgt auf eigenes Risiko; der Autor **haftet nicht** für Schäden, Datenverlust oder Betriebsunterbrechungen.
+
+Maßgeblich ist der vollständige Wortlaut in [LICENSE.md](./LICENSE.md).
+
+# ⚠️ READ BEFORE USE
+
+---
+---
+
 FolioTone is an **orchestration and reconciliation platform for large e-book and music collections**. Instead of reimplementing mature media tooling, it connects proven specialist tools and metadata services, normalizes their results into provenance-preserving evidence, resolves real-world identities, detects duplicates and quality/completeness issues, supports human review, and later produces safe consolidation plans.
 
 ## Current state
@@ -175,4 +205,4 @@ There is currently **no** scan-time source mutation, move, rename, delete, metad
 
 ## License
 
-No project license has been selected yet. Until a license is explicitly added, do not assume redistribution or reuse rights beyond GitHub's normal viewing/forking functionality.
+FolioTone is **not Open Source**. Use is governed by the project's custom Community & Attribution License. See [LICENSE.md](./LICENSE.md) for the legally binding terms.
