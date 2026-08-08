@@ -37,7 +37,7 @@ jobs:
       - name: Docker persistent data write test
         run: >-
           docker compose run --rm --entrypoint sh foliotone
-          -lc "printf 'rw' > /data/.write-test && test \"$(cat /data/.write-test)\" = rw && rm /data/.write-test"
+          -lc 'printf "rw" > /data/.write-test && test "$(cat /data/.write-test)" = rw && rm /data/.write-test'
       - name: Docker incremental scan smoke test
         run: |
           rm -f data/foliotone.db data/foliotone.db-wal data/foliotone.db-shm
