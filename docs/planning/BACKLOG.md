@@ -11,27 +11,27 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W0-003 | DONE | Add Docker/Compose baseline with persistent `/data` and read-only media mounts. |
 | W0-004 | DONE | Add AI/contributor handover contract and authoritative project status. |
 | W0-005 | DONE | Add Python packaging, quality-tool configuration, and bootstrap CLI/tests. |
-| W0-006 | NEXT | FolioTone CI (install/Ruff/Mypy/Pytest) passed; verify Docker build/status bootstrap and record the result before W1. |
+| W0-006 | DONE | Verify Install/Ruff/Mypy/Pytest plus Docker build and `foliotone status` bootstrap in GitHub Actions run `31279709278`. |
 | W0-007 | DECISION | Select a project license before encouraging third-party reuse/distribution. |
 | W0-008 | DONE | Extend architecture with Authority/Entity Resolution, provenance, external enrichment, MusicWork/ReleaseGroup, multidimensional classification, source registry, and W10 safety gate. |
-| W0-009 | DONE | Install the GitHub Actions workflow at `.github/workflows/ci.yml`; workflow verification is covered by W0-006. |
+| W0-009 | DONE | Install the GitHub Actions workflow at `.github/workflows/ci.yml`. |
 | W0-010 | DONE | Adopt orchestration-first ToolProvider architecture; add ADR-0010, external-tool registry, tooling package boundary, safety and AI handover rules. |
 
 ## W1 — Core + Persistence
 
 | ID | Status | Item |
 |---|---|---|
-| W1-001 | READY | Design concrete entity/value-object boundaries and internal ID strategy for the expanded core model; preserve knowledge-provider and ToolProvider independence. |
-| W1-002 | READY | Implement File, ScanRoot, ScanRun, FileObservation, presence/observation states. |
-| W1-003 | READY | Implement Agent, AgentName, AgentType, ExternalIdentifier, Contribution/Credit, and provenance/value assertion states. |
-| W1-004 | READY | Implement Work, Edition, Series, SeriesMembership. |
-| W1-005 | READY | Implement MusicWork, MusicWorkRelation, CatalogDesignation, Recording, ReleaseGroup, Release, ReleaseRecording. |
-| W1-006 | READY | Implement ClassificationAssertion/facets, Fingerprint, Relation, Evidence, match/review status and version metadata. |
-| W1-007 | READY | Choose and implement SQLite migration mechanism; document choice in an ADR. |
+| W1-001 | DONE | Design concrete entity/value-object boundaries and opaque UUID internal ID strategy; preserve knowledge-provider and ToolProvider independence. |
+| W1-002 | DONE | Implement FileRecord, ScanRoot, ScanRun, FileObservation, presence/observation states. |
+| W1-003 | DONE | Implement Agent, AgentName, AgentType, ExternalIdentifier, Contribution, and provenance/value assertion states. |
+| W1-004 | DONE | Implement Work, Edition, Series, SeriesMembership. |
+| W1-005 | DONE | Implement MusicWork, MusicWorkRelation, CatalogDesignation, Recording, ReleaseGroup, Release, ReleaseRecording. |
+| W1-006 | DONE | Implement ClassificationAssertion, Fingerprint, Relation, Evidence, match/review status and version metadata. |
+| W1-007 | NEXT | Choose and implement SQLite migration mechanism; document choice in an ADR. |
 | W1-008 | READY | Implement persistence contracts and SQLite repositories without leaking SQLite/provider/tool schemas into domain logic. |
 | W1-009 | READY | Add round-trip, migration, constraint, provenance, relationship, and failure-mode tests. |
-| W1-010 | READY | Implement adapter-neutral ToolProviderDescriptor/ToolExecution/ToolArtifact-or-result provenance contracts and stale-version metadata. |
-| W1-011 | READY | Update schema/domain documentation and project status from actual implementation; close W1 only after tool-execution provenance is represented. |
+| W1-010 | DONE | Implement adapter-neutral ToolProviderDescriptor, ToolExecution, and ToolResult provenance contracts with stale-version inputs. |
+| W1-011 | READY | Update schema/domain documentation and project status from actual persistence implementation; close W1. |
 
 ## W2 — Incremental Index + Filename/Path Context + Tool Runtime
 
@@ -97,7 +97,7 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W5B-002 | PLANNED | Implement persistent provider cache/import/version state under `/data`; no provider cache in Git. |
 | W5B-003 | PLANNED | Implement privacy-minimized query DTOs; never send absolute paths. |
 | W5B-004 | PLANNED | Review and select first book/authority providers from Open Library, GND/DNB and Wikidata; record current access/license constraints before coding adapters. |
-| W5B-005 | PLANNED | Review and select first music providers from MusicBrainz and AcoustID/Chromaprint; record current access/license constraints before coding adapters. |
+| W5B-005 | PLANNED | Review and select first music knowledge providers from MusicBrainz and AcoustID; Chromaprint/fpcalc remains a local ToolProvider concern. |
 | W5B-006 | PLANNED | Evaluate/import official bulk/local datasets where they are more appropriate than per-file API lookup. |
 | W5B-007 | PLANNED | Implement at least one structured book/authority adapter and one structured music adapter as initial vertical slices. |
 | W5B-008 | PLANNED | Add offline/provider-failure/cache-hit/cache-refresh tests. |
