@@ -1,4 +1,4 @@
-"""Generic domain-to-row codecs for the W1 persistence schema."""
+"""Generic domain-to-row codecs for FolioTone persistence."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from foliotone.core import (
     ExternalIdentifier,
     FileObservation,
     FileRecord,
+    FileScanEvent,
     Fingerprint,
     MusicWork,
     MusicWorkRelation,
@@ -39,6 +40,7 @@ from foliotone.core import (
     Work,
 )
 from foliotone.persistence import schema
+from foliotone.persistence import w2_schema
 from foliotone.persistence._mapping import (
     datetime_to_db,
     provenance_from_row,
@@ -126,6 +128,7 @@ _MODEL_TABLES: dict[type[Any], Table] = {
     ScanRun: schema.scan_runs,
     FileRecord: schema.file_records,
     FileObservation: schema.file_observations,
+    FileScanEvent: w2_schema.file_scan_events,
     ValueAssertion: schema.value_assertions,
     Agent: schema.agents,
     AgentName: schema.agent_names,
