@@ -8,6 +8,7 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 2. [Handover](planning/HANDOVER.md) fasst den aktuellen Übergabepunkt für eine andere KI oder einen anderen Entwickler zusammen.
 3. [Implementation Plan](planning/IMPLEMENTATION_PLAN.md) definiert die geplante Reihenfolge W0 bis W10.
 4. [Backlog](planning/BACKLOG.md) enthält die konkreten Aufgaben und Statuswerte.
+5. [Lokaler W2-Smoke-Test](quality/LOCAL_SMOKE_TEST.md) beschreibt den aktuellen manuellen Windows-/Docker-Testpunkt mit ausschließlich synthetischen Dateien.
 
 ## Architektur
 
@@ -35,6 +36,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [Verbindlicher Schreibstil](quality/DOCUMENTATION_STYLE.md) regelt fachliche Präzision, Nachvollziehbarkeit und den geschützten README-Lizenzblock.
 - [Sprach- und Terminologierichtlinie](quality/LANGUAGE_AND_TERMINOLOGY.md) definiert Deutsch als kanonische erklärende Dokumentationssprache und schützt technische Literale vor Übersetzung.
 - [Glossar](reference/GLOSSARY.md) ist die zentrale Terminologiequelle.
+- [Lokaler W2-Smoke-Test](quality/LOCAL_SMOKE_TEST.md) ist der derzeit maßgebliche manuelle Plattformtest.
 
 Automatische Dokumentationsprüfungen sind bewusst konservativ. Sie verhindern bekannte Regressionen wie Änderungen am geschützten Lizenzblock oder alte Projektnamen, ersetzen aber kein fachliches oder sprachliches Review.
 
