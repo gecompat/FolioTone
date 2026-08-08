@@ -32,5 +32,32 @@ jobs:
         run: >-
           docker compose run --rm --entrypoint python foliotone
           -c "from foliotone.persistence import migrate; migrate('/tmp/foliotone-ci.db')"
+      - name: Docker incremental scan smoke test
+        run: |
+          rm -f data/foliotone.db data/foliotone.db-wal data/foliotone.db-shm
+          printf 'alpha' > media/ebooks/A.epub
+          printf 'bravo' > media/ebooks/B.epub
+
+          first="$(docker compose run --rm foliotone scan --name ci-ebook-smoke --path /media/ebooks --media-type ebook --hash quick --suffix epub)"
+          echo "$first"
+          grep -q 'Status: COMPLETED' <<< "$first"
+          grep -q 'NEW: 2' <<< "$first"
+
+          second="$(docker compose run --rm foliotone scan --name ci-ebook-smoke --path /media/ebooks --media-type ebook --hash quick --suffix epub)"
+          echo "$second"
+          grep -q 'UNCHANGED: 2' <<< "$second"
+
+          printf 'alpha-modified' > media/ebooks/A.epub
+          rm media/ebooks/B.epub
+          third="$(docker compose run --rm foliotone scan --name ci-ebook-smoke --path /media/ebooks --media-type ebook --hash quick --suffix epub)"
+          echo "$third"
+          grep -q 'MODIFIED: 1' <<< "$third"
+          grep -q 'MISSING: 1' <<< "$third"
+
+          printf 'bravo' > media/ebooks/B.epub
+          fourth="$(docker compose run --rm foliotone scan --name ci-ebook-smoke --path /media/ebooks --media-type ebook --hash quick --suffix epub)"
+          echo "$fourth"
+          grep -q 'UNCHANGED: 1' <<< "$fourth"
+          grep -q 'REAPPEARED: 1' <<< "$fourth"
       - name: Docker bootstrap
         run: docker compose run --rm foliotone status
