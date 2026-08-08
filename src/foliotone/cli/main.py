@@ -13,8 +13,8 @@ from foliotone.index import (
     FingerprintWriter,
     HashMode,
     IncrementalScanner,
-    SQLiteIndexStore,
     ScanRootBinding,
+    SQLiteIndexStore,
 )
 from foliotone.persistence import create_sqlite_engine, migrate
 
@@ -88,7 +88,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "status":
-        print("FolioTone W2: incremental indexing and read-only ToolProvider runtime are in progress.")
+        print(
+            "FolioTone W2: incremental indexing and read-only ToolProvider runtime "
+            "are in progress."
+        )
         print("A read-only scan CLI is available for controlled smoke tests.")
         print("Source-media and external-tool mutation commands are not implemented.")
         return 0
