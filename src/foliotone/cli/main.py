@@ -1,4 +1,4 @@
-"""Bootstrap command-line interface for the project foundation."""
+"""Bootstrap command-line interface for the current implementation state."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=__version__)
     subparsers = parser.add_subparsers(dest="command")
-    subparsers.add_parser("status", help="Show the current bootstrap implementation status.")
+    subparsers.add_parser("status", help="Show the current implementation status.")
     return parser
 
 
@@ -28,11 +28,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "status":
-        print(
-            "FolioTone W0 foundation: orchestration-first architecture documented; "
-            "Docker verification pending."
-        )
-        print("Next implementation wave after verification: W1 core and persistence.")
+        print("FolioTone W1: core domain and ToolProvider contracts implemented.")
+        print("Next implementation slice: SQLite migrations and persistence repositories.")
         print("Source-media and external-tool mutation commands are not implemented.")
         return 0
 
