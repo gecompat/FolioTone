@@ -5,10 +5,10 @@ from __future__ import annotations
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from foliotone.persistence.schema import metadata
+from foliotone.persistence.w2_schema import file_scan_events
 
 config = context.config
-target_metadata = metadata
+target_metadata = file_scan_events.metadata
 
 
 def run_migrations_offline() -> None:

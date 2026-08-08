@@ -1,73 +1,104 @@
 # FolioTone
 
-FolioTone is an **orchestration and reconciliation platform for large e-book and music collections**. Instead of reimplementing mature media tooling, it connects proven specialist tools and metadata services, normalizes their results into provenance-preserving evidence, resolves real-world identities, detects duplicates and quality/completeness issues, supports human review, and later produces safe consolidation plans.
+---
+---
+# ⚠️ READ BEFORE USE
 
-## Current state
+## License notice
 
-FolioTone is in **W2 — Incremental Index + Filename/Path Context + Tool Runtime**.
+**NOTICE: This software is NOT Open Source. Use is governed by a custom Community & Attribution License.**
 
-W0 and W1 are complete. The repository now contains:
+1. **NO RESALE:** Selling or charging for access to this software is strictly prohibited.
+2. **ATTRIBUTION REQUIRED:** You must preserve the copyright notice for **gecompat - Gerhard Pisch**.
+3. **NO LIABILITY:** Use this software at your own risk. The author is **NOT liable** for any damages, data loss, or business interruptions.
 
-- a verified Python/Docker bootstrap;
-- provider/tool-independent immutable domain models;
-- read-only ToolProvider execution/evidence contracts;
-- SQLite persistence via SQLAlchemy Core;
-- Alembic migrations with explicit `0001_initial` schema;
-- generic repositories/codecs for the complete W1 model;
-- integration tests for migration, round-trip persistence, constraints and Docker-packaged migrations.
+Full legal terms can be found in the [LICENSE.md](./LICENSE.md) file.
 
-The immediate next task is `W2-001`: implement configured scan roots and the scan-run lifecycle on top of the W1 persistence layer. See [Project Status](docs/planning/PROJECT_STATUS.md) and [Backlog](docs/planning/BACKLOG.md).
+---
+## Lizenzhinweis
 
-## Positioning: orchestrate specialists, do not reinvent them
+**NOTIZ: FolioTone ist keine Open-Source-Software. Die Nutzung richtet sich nach der projektspezifischen Community & Attribution License.**
 
-FolioTone evaluates mature tools before implementing equivalent format-specific functionality itself.
+1. **NO RESALE:** Der Verkauf der Software und das Entgelt für den Zugang zur Software sind untersagt.
+2. **ATTRIBUTION REQUIRED:** Der Copyright-Hinweis für **gecompat – Gerhard Pisch** muss erhalten bleiben.
+3. **NO LIABILITY:** Die Nutzung erfolgt auf eigenes Risiko; der Autor **haftet nicht** für Schäden, Datenverlust oder Betriebsunterbrechungen.
 
-High-value ToolProvider candidates include:
+Maßgeblich ist der vollständige Wortlaut in [LICENSE.md](./LICENSE.md).
 
-- calibre CLI / Content Server for e-book metadata and library access;
-- FFmpeg / `ffprobe` for technical audio/media observations;
-- Chromaprint / `fpcalc` for acoustic fingerprints;
-- beets for music metadata, duplicate and completeness analysis;
-- SongKong for optional automated status/report/preview evidence;
-- MusicBrainz Picard as an optional specialist/validator;
-- a local MusicBrainz mirror later when scale justifies the infrastructure.
+# ⚠️ READ BEFORE USE
 
-These tools remain **replaceable specialists**. Their outputs become observations and evidence. FolioTone owns provenance, cross-tool reconciliation, entity resolution, canonical decisions, matching, review knowledge, and safety.
+---
+---
 
-See [External Analysis Tools](docs/reference/EXTERNAL_TOOLS.md) and [ADR-0010](docs/decisions/ADR-0010-tool-provider-orchestration.md).
+FolioTone ist eine **Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen**. Das Projekt verbindet etablierte Spezialwerkzeuge und strukturierte Wissensquellen, normalisiert deren Ergebnisse als Provenance-erhaltende Evidence und baut darauf Entity Resolution, Duplicate Matching, Qualitäts-/Vollständigkeitsanalysen, Review und später sichere Consolidation Plans auf.
 
-## Core principles
+## Aktueller Stand
 
-- Python 3.12+; Docker/Linux is the primary runtime.
-- Runtime state is host-persistent under `/data`; source media is mounted read-only under `/media`.
-- SQLite is the initial persistence engine behind provider-independent persistence contracts.
-- SQLAlchemy Core is used for schema/query mechanics; domain dataclasses are not ORM entities.
-- Alembic owns immutable versioned schema migrations.
-- Prefer maintained specialist tools over unnecessary native reimplementation.
-- Tool/provider schemas and commands terminate at adapter boundaries.
-- External tool/provider results are evidence, not unquestioned truth.
-- Observed, derived, external, canonical, and user-confirmed values remain distinct and provenance-preserving.
-- Authors/artists/composers are `Agent` identities connected through roles, not flattened strings.
-- Book `Work`/`Edition` and music `MusicWork`/`Recording`/`ReleaseGroup`/`Release` remain separate identity levels.
-- Matching is explainable, versioned, reviewable, and candidate-based rather than global all-vs-all.
-- No destructive operation may be inferred from one tool, score, provider, AI, or web result.
-- Source-media mutation remains blocked until W10 and a future accepted ADR.
+FolioTone befindet sich in **W2 — Incremental Index + Filename/Path Context + Tool Runtime**.
 
-## Target architecture
+W0 und W1 sind abgeschlossen. Der erste W2-Slice ist implementiert und in GitHub Actions verifiziert:
+
+- persistente logische `ScanRoot`-Identitäten und `ScanRun`-Lifecycle;
+- streaming Filesystem Discovery;
+- NEW, UNCHANGED, MODIFIED, MISSING und REAPPEARED;
+- gestuftes Quick-/Full-SHA-256-Hashing;
+- Alembic `0002_incremental_index`;
+- generische read-only ToolProvider Runtime für lokale Prozesse und gehärtete Containerläufe;
+- `ToolArtifact`-Persistenz für stdout/stderr;
+- read-only `foliotone scan` CLI;
+- Custom Community & Attribution License;
+- verbindliche Dokumentations-, Sprach- und Terminologieregeln.
+
+Der nächste Schritt ist ein **lokaler Windows-/Docker-Smoke-Test**. Der Ablauf ist unter [Lokaler W2-Smoke-Test](docs/quality/LOCAL_SMOKE_TEST.md) dokumentiert. Danach werden die verbleibenden W2-Punkte wie `DELETED`-Bestätigung, Move/Rename-Erkennung und Filename/Path-Parsing fortgesetzt.
+
+Siehe außerdem [Projektstatus](docs/planning/PROJECT_STATUS.md), [Backlog](docs/planning/BACKLOG.md) und [Dokumentationsübersicht](docs/README.md).
+
+## Positionierung: Spezialisten orchestrieren statt neu erfinden
+
+FolioTone prüft vor einer eigenen format- oder medienspezifischen Implementierung, ob eine gepflegte Spezialsoftware die Aufgabe bereits über eine stabile dokumentierte Schnittstelle zuverlässig lösen kann.
+
+Wichtige ToolProvider-Kandidaten sind:
+
+- calibre CLI / Content Server für E-Book-Metadaten und Library-Zugriff;
+- FFmpeg / `ffprobe` für technische Media-Observations;
+- Chromaprint / `fpcalc` für Acoustic Fingerprints;
+- beets für Musik-Metadaten, Duplicate- und Completeness-Evidence;
+- SongKong für optionale automatisierte Status-/Report-/Preview-Evidence;
+- MusicBrainz Picard als optionaler zusätzlicher Validator;
+- später optional ein lokaler MusicBrainz-Mirror, wenn Sammlung und Last den Infrastrukturaufwand rechtfertigen.
+
+Diese Werkzeuge bleiben austauschbare Spezialisten. Ihre Ergebnisse werden zu Evidence. FolioTone behält Provenance, Cross-Tool Reconciliation, Entity Resolution, Canonical Decisions, Matching, Review Knowledge und Safety.
+
+Siehe [External Analysis Tools](docs/reference/EXTERNAL_TOOLS.md) und [ADR-0010](docs/decisions/ADR-0010-tool-provider-orchestration.md).
+
+## Kernprinzipien
+
+- Python 3.12+; Docker/Linux ist der primäre Runtime-Kontext.
+- Runtime State liegt host-persistent unter `/data`.
+- Source Media wird read-only unter `/media` eingebunden.
+- SQLite ist die initiale Persistence Engine; SQLAlchemy Core und Alembic bleiben auf die Persistence-Schicht begrenzt.
+- External Tool-/Provider-Ergebnisse sind Evidence und keine ungeprüfte kanonische Wahrheit.
+- Observed, Derived, External, Canonical und User-confirmed Values bleiben getrennt und nachvollziehbar.
+- Autoren, Interpreten und Komponisten werden als `Agent`-Identitäten mit Rollen modelliert.
+- Buch-`Work`/`Edition` und Musik-`MusicWork`/`Recording`/`ReleaseGroup`/`Release` bleiben getrennte Identitätsebenen.
+- Matching ist kandidatengesteuert, versioniert, erklärbar und reviewbar.
+- Source-Media-Mutationen bleiben bis W10 blockiert.
+
+## Zielarchitektur
 
 ```text
                       Specialist tools
        calibre / ffprobe / fpcalc / beets / SongKong / Picard
                               |
                               v
-                         Tool Providers
+                         ToolProviders
                               |
 Filesystem -> Index -> Parsing -> Media analysis/orchestration
                               |
                               +----------------------+
                               |                      |
                               v                      v
-                   knowledge providers        Tool evidence
+                   Knowledge Providers        Tool Evidence
                               |                      |
                               +----------+-----------+
                                          v
@@ -89,90 +120,67 @@ Filesystem -> Index -> Parsing -> Media analysis/orchestration
                           [future gated execution: W10]
 ```
 
-## Implemented W1 foundation
-
-Internal identities use opaque UUID-backed `EntityId` values. External IDs remain namespaced evidence.
+## W1/W2 Foundation
 
 ```text
-Physical/index
-  ScanRoot / ScanRun / FileRecord / FileObservation
-
-Provenance/authority
-  Provenance / ValueAssertion
+Core identity
   Agent / AgentName / ExternalIdentifier / Contribution
-
-E-books
   Work / Edition / Series / SeriesMembership
+  MusicWork / Recording / ReleaseGroup / Release / ReleaseRecording
 
-Music
-  MusicWork / MusicWorkRelation / CatalogDesignation
-  Recording / ReleaseGroup / Release / ReleaseRecording
+Physical/index
+  ScanRoot / ScanRun / FileRecord / FileObservation / FileScanEvent
+  NEW / UNCHANGED / MODIFIED / MISSING / REAPPEARED
+  Quick Fingerprint / streamed SHA-256
 
 Evidence
+  Provenance / ValueAssertion
   ClassificationAssertion / Fingerprint / Relation / Evidence
 
 Tool orchestration
-  ToolProviderDescriptor / ToolExecution / ToolResult
+  ToolProviderDescriptor / ToolExecution / ToolResult / ToolArtifact
+  LocalCommand / ContainerCommand / ToolRuntime
 
 Persistence
   Repository[T] / SQLiteRepository[T]
-  SQLAlchemy Core schema
-  Alembic 0001_initial migration
+  SQLAlchemy Core
+  Alembic 0001_initial + 0002_incremental_index
 ```
 
-See:
+## Repository-Dokumentation
 
-- [W1 Core Implementation Notes](docs/planning/W1_CORE_IMPLEMENTATION.md)
-- [Persistence Architecture](docs/architecture/PERSISTENCE.md)
-- [ADR-0011](docs/decisions/ADR-0011-internal-identifiers-and-core-model.md)
-- [ADR-0012](docs/decisions/ADR-0012-sqlalchemy-alembic-persistence.md)
+- [`AGENTS.md`](AGENTS.md) — verbindlicher Arbeitsvertrag für KI-Systeme und Contributors.
+- [`docs/README.md`](docs/README.md) — aufgabenorientierter Dokumentationsindex.
+- [`docs/quality/DOCUMENTATION_STYLE.md`](docs/quality/DOCUMENTATION_STYLE.md) — verbindlicher Schreibstil.
+- [`docs/quality/LANGUAGE_AND_TERMINOLOGY.md`](docs/quality/LANGUAGE_AND_TERMINOLOGY.md) — Sprach- und Terminologieregeln.
+- [`docs/reference/GLOSSARY.md`](docs/reference/GLOSSARY.md) — kanonische Fachbegriffe.
+- [`docs/reference/EXTERNAL_TOOLS.md`](docs/reference/EXTERNAL_TOOLS.md) — ToolProvider-Kandidaten und Integrationsregeln.
+- [`docs/reference/EXTERNAL_DATA_SOURCES.md`](docs/reference/EXTERNAL_DATA_SOURCES.md) — externe Knowledge-Provider-Kandidaten.
+- [`docs/planning/PROJECT_STATUS.md`](docs/planning/PROJECT_STATUS.md) — autoritativer aktueller Stand.
+- [`docs/planning/BACKLOG.md`](docs/planning/BACKLOG.md) — Aufgaben und Status nach Welle.
 
-## Repository guide
-
-- [`AGENTS.md`](AGENTS.md) — mandatory working contract for AI agents and contributors.
-- [`docs/architecture/`](docs/architecture/) — architecture, domain and persistence design.
-- [`docs/decisions/`](docs/decisions/) — accepted Architecture Decision Records.
-- [`docs/reference/EXTERNAL_TOOLS.md`](docs/reference/EXTERNAL_TOOLS.md) — specialist tool candidates and integration rules.
-- [`docs/reference/EXTERNAL_DATA_SOURCES.md`](docs/reference/EXTERNAL_DATA_SOURCES.md) — external knowledge-provider registry.
-- [`docs/planning/IMPLEMENTATION_PLAN.md`](docs/planning/IMPLEMENTATION_PLAN.md) — W0–W10 development sequence.
-- [`docs/planning/BACKLOG.md`](docs/planning/BACKLOG.md) — actionable status by wave.
-- [`docs/planning/PROJECT_STATUS.md`](docs/planning/PROJECT_STATUS.md) — authoritative current state and next action.
-- [`docs/planning/HANDOVER.md`](docs/planning/HANDOVER.md) — compact continuation guide.
-
-## Bootstrap and quality checks
+## Qualitätstests
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
 python -m pip install -e '.[dev]'
 ruff check .
 mypy src/foliotone
 pytest
-foliotone status
 ```
 
 Docker:
 
 ```bash
-cp .env.example .env
 docker compose build
 docker compose run --rm foliotone status
 ```
 
-Programmatic database migration:
+GitHub Actions prüft zusätzlich die Migration im gebauten Image, den persistenten `/data`-Write-Vertrag und einen mehrstufigen Incremental-Scan über getrennte Containerläufe.
 
-```python
-from foliotone.persistence import migrate
+## Safety Status
 
-migrate("/data/foliotone.db")
-```
-
-GitHub Actions runs Python quality checks, integration tests, Docker build, a migration inside the built image, and the Docker bootstrap.
-
-## Safety status
-
-There is currently **no** scan-time source mutation, move, rename, delete, metadata-write, Calibre-write, external-tool-write, or consolidation execution command. External ToolProvider contracts are read-only by construction through W9.
+Der aktuelle Stand enthält keine Source-Media-Delete-, Move-, Rename-, Retag-, Calibre-Write- oder Consolidation-Execution-Operation. External ToolProvider bleiben durch W9 read-only. `MISSING` ist ausdrücklich keine `DELETED`-Bestätigung.
 
 ## License
 
-No project license has been selected yet. Until a license is explicitly added, do not assume redistribution or reuse rights beyond GitHub's normal viewing/forking functionality.
+FolioTone ist **nicht Open Source**. Die Nutzung richtet sich nach der projektspezifischen Community & Attribution License. Der vollständige und rechtlich maßgebliche Wortlaut steht in [LICENSE.md](./LICENSE.md).

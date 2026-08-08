@@ -1,138 +1,156 @@
-# Project Status
+# Projektstatus
 
-Last updated: 2026-08-08
+Stand: 2026-08-09
 
-## Current wave
+## Aktuelle Welle
 
 **W2 — Incremental Index + Filename/Path Context + Tool Runtime**
 
-W0 and W1 are complete. FolioTone now has a verified Docker/Python foundation, provider/tool-independent immutable core domain, SQLite persistence with versioned migrations, and read-only ToolProvider provenance contracts.
+W0 und W1 sind abgeschlossen. Der erste konsistente W2-Slice ist implementiert und in GitHub Actions vollständig verifiziert. Vor der Fortsetzung mit `DELETED`-Bestätigung, Move/Rename-Erkennung und Filename/Path-Parsing soll der aktuelle Stand zusätzlich lokal unter Windows/Docker Desktop geprüft werden.
 
-The orchestration-first rule remains authoritative: specialist tools produce versioned evidence through replaceable ToolProvider integrations; FolioTone owns provenance, reconciliation, identity, review, and safety.
+## Implementierter W2-Slice
 
-## W1 completion summary
+### Incremental Index
 
-### Core/domain
+Implementiert sind:
 
-Implemented:
+- persistente logische `ScanRoot`-Identitäten mit eindeutigem Namen;
+- `ScanRun`-Lifecycle mit `RUNNING`, `COMPLETED`, `FAILED` und `INTERRUPTED`;
+- streaming-basierte Filesystem Discovery über `os.scandir` ohne collection-weite Pfadliste im Speicher;
+- `FileRecord`, `FileObservation` und auditierbare `FileScanEvent`-Einträge;
+- Zustände `NEW`, `UNCHANGED`, `MODIFIED`, `MISSING` und `REAPPEARED`;
+- Schutz vor falschem `MISSING`, wenn ein ScanRoot nicht verfügbar ist;
+- `MISSING` bleibt ausdrücklich von `DELETED` getrennt;
+- begrenzte Batch-Verarbeitung mit maximal 500 Dateien je Batch;
+- read-only Scan-CLI `foliotone scan` für kontrollierte Smoke-Tests.
 
-- opaque UUID-backed `EntityId`;
-- ScanRoot / ScanRun / FileRecord / FileObservation;
-- Provenance / ValueAssertion;
-- Agent / AgentName / ExternalIdentifier / Contribution;
-- Work / Edition / Series / SeriesMembership;
-- MusicWork / MusicWorkRelation / CatalogDesignation;
-- Recording / ReleaseGroup / Release / ReleaseRecording;
-- ClassificationAssertion / Fingerprint / Relation / Evidence;
-- ToolProviderDescriptor / ToolExecution / ToolResult.
+`DELETED`, `MOVED` und `RENAMED` sind bereits als Vokabular vorgesehen, werden aber noch nicht automatisch festgestellt.
 
-See `docs/planning/W1_CORE_IMPLEMENTATION.md` and ADR-0011.
+### Hashing
+
+Implementiert sind:
+
+- gestuftes `HashMode.NONE`, `QUICK` und `FULL`;
+- Quick Fingerprint über Dateigröße sowie begrenzte Head-/Tail-Bereiche;
+- vollständiges SHA-256 als Streaming-Hash mit begrenztem Speicherverbrauch;
+- Fingerprints werden gegen die konkrete `FileObservation` gespeichert;
+- unveränderte Dateien werden nicht unnötig erneut gehasht;
+- NEW, MODIFIED und REAPPEARED können neu fingerprinted werden.
+
+### Generische ToolProvider Runtime
+
+Implementiert sind:
+
+- lokale Tool-Ausführung ohne Shell;
+- Tool-Versionsermittlung;
+- Timeouts und Cancellation;
+- auditierbare FAILED-Ausführung bei fehlendem Tool oder Non-zero Exit;
+- file-backed stdout/stderr mit `ToolArtifact`, Größe und SHA-256;
+- begrenzte stdout/stderr Previews;
+- Ablehnung absoluter lokaler Pfade als persistierte `ToolExecution.input_identity`;
+- gehärtete Docker-Argumente für ToolProvider mit read-only Container-Dateisystem, `cap-drop=ALL`, `no-new-privileges` und standardmäßig deaktiviertem Netzwerk;
+- ausschließlich read-only Input-Mounts und separatem beschreibbarem Work-Verzeichnis.
+
+Konkrete calibre-, ffprobe-, fpcalc-, beets-, SongKong- oder Picard-Adapter sind noch nicht implementiert.
 
 ### Persistence
 
-Implemented:
+Die bestehende W1-Persistence wurde über die neue Alembic-Revision `0002_incremental_index` erweitert. Die bereits gemergte Migration `0001_initial` wurde nicht verändert.
 
-- SQLAlchemy Core schema behind provider-independent repository contracts;
-- SQLite initial persistence engine;
-- Alembic migration environment and explicit immutable `0001_initial` schema snapshot;
-- generic `Repository[T]` protocol and `SQLiteRepository[T]` implementation;
-- explicit generic domain/row codecs using FolioTone dataclass type information;
-- UUID string, UTC ISO-8601 datetime and stable enum-value serialization;
-- SQLite foreign-key enforcement for application connections;
-- idempotent `migrate(..., "head")` behavior;
-- packaged Alembic resources verified inside the built Docker image.
+`0002_incremental_index` ergänzt insbesondere:
 
-See `docs/architecture/PERSISTENCE.md` and ADR-0012.
+- `file_scan_events`;
+- `tool_artifacts`;
+- Scan-/Tool-relevante Indizes;
+- eindeutige logische `ScanRoot.name`-Werte.
 
-## Verification state
+## Lizenz und Dokumentations-Governance
 
-GitHub Actions run `31280522927` verified the completed W1 persistence implementation before the final documentation-only closure changes:
+Die zuvor offene Lizenzentscheidung ist abgeschlossen:
 
-```text
-Install                       PASS
-Ruff                          PASS
-Mypy                          PASS
-Pytest                        PASS
-Prepare Docker placeholders   PASS
-Docker build                  PASS
-Docker migration smoke test   PASS
-Docker bootstrap/status       PASS
-```
+- `LICENSE.md` verwendet die vom Benutzer vorgegebene Custom Community & Attribution License nach dem Vorbild von `SQL_Server_Analyze`;
+- FolioTone ist ausdrücklich **nicht Open Source**;
+- die englische Lizenzfassung ist entsprechend `LICENSE.md` rechtlich maßgeblich;
+- der zweisprachige Lizenzblock am Anfang der Root-README ist geschützter Inhalt.
 
-Persistence integration tests cover:
+Aus `SQL_Server_Analyze` wurde das Governance-Muster für Dokumentation adaptiert:
 
-- migration from an empty database to `0001_initial`;
-- repeated `upgrade head` without replaying V1;
-- current table set and Alembic revision;
-- full synthetic W1 graph round-trip across all registered model groups;
-- ID-based update of immutable records;
-- SQLite foreign-key enforcement;
-- unique scan-root-relative file paths;
-- deterministic repository listing.
+- `docs/quality/DOCUMENTATION_STYLE.md` ist die verbindliche Schreibstilrichtlinie;
+- `docs/quality/LANGUAGE_AND_TERMINOLOGY.md` definiert Deutsch als kanonische erklärende Dokumentationssprache und schützt technische Literale;
+- `docs/reference/GLOSSARY.md` ist die kanonische Terminologiequelle;
+- `docs/README.md` bietet eine aufgabenorientierte Dokumentationsnavigation;
+- `.github/copilot-instructions.md` verweist auf dieselben Regeln;
+- `tests/static/test_documentation_contracts.py` prüft konservativ bekannte Regressionen, insbesondere den geschützten README-Lizenzblock und alte Projektnamen.
 
-During development the tests found an actual SQLAlchemy 2.x/Alembic transaction issue: enabling the SQLite foreign-key PRAGMA opened an implicit transaction before Alembic's migration transaction, allowing the Alembic version row to roll back while DDL survived. The migration environment now explicitly commits the PRAGMA transaction before Alembic begins its migration transaction. The idempotence test prevents recurrence.
+Die automatische Prüfung ersetzt kein fachliches oder sprachliches Review.
 
-No real collection data is used by the test suite.
+## Verifikation
 
-## Current persistence decisions
-
-- SQLAlchemy **Core**, not ORM, so domain dataclasses remain database-independent;
-- Alembic for versioned migrations;
-- SQLite initially;
-- current dependency bounds: `SQLAlchemy>=2.0,<2.1`, `alembic>=1.18,<2`;
-- migration files are immutable after merge;
-- polymorphic `(target_kind, target_id)` references remain domain/service-validated rather than pretending to be single-table foreign keys;
-- speculative performance indexes are deferred until W2/W5/W6 query patterns exist.
-
-## W2 immediate target
-
-Start with `W2-001`: configured scan roots and scan-run lifecycle using the W1 persistence layer.
-
-The first W2 vertical slice should establish:
+Der W2-Head `39ff205ab14c4e886362303f4ee883022a9face5` wurde in GitHub Actions Run `31282677449` vollständig geprüft:
 
 ```text
-configured ScanRoot
-        ↓
-start ScanRun
-        ↓
-filesystem discovery
-        ↓
-FileRecord + FileObservation persistence
-        ↓
-complete/interrupted ScanRun
+Install                              PASS
+Ruff                                 PASS
+Mypy                                 PASS
+Pytest                               PASS (44 Tests)
+Prepare Docker mount placeholders    PASS
+Docker build                         PASS
+Docker migration smoke test          PASS
+Docker persistent data write test    PASS
+Docker incremental scan smoke test   PASS
+Docker bootstrap/status              PASS
 ```
 
-Then add incremental state comparison, streamed hashing and the generic ToolProvider execution runtime before concrete calibre/ffprobe/fpcalc/beets/SongKong/Picard adapters.
+Der Docker Incremental Scan Smoke Test führt vier getrennte Containerläufe gegen dieselbe persistente SQLite-Datenbank aus und bestätigt:
 
-## Not implemented yet
+```text
+1. NEW: 2
+2. UNCHANGED: 2
+3. MODIFIED: 1 / MISSING: 1
+4. UNCHANGED: 1 / REAPPEARED: 1
+```
 
-- filesystem discovery/index execution;
-- incremental NEW/UNCHANGED/MODIFIED/MISSING/DELETED logic;
-- hashing pipeline;
-- move/rename detection;
-- filename/path parser;
-- generic ToolProvider process/container runtime;
-- calibre/ffprobe/fpcalc/beets/SongKong/Picard adapters;
-- e-book content analysis;
-- authority/entity resolution engine;
-- external knowledge-provider adapters/cache/imports;
-- classification engine;
-- matching engine;
-- review system;
-- Calibre library reconciliation;
-- consolidation planning/execution.
+Die Source-Media-Verzeichnisse bleiben im Compose-Vertrag read-only. `/data` ist als persistenter Runtime-Bereich explizit read-write eingebunden.
 
-## Open decisions
+## Lokaler Testpunkt
 
-- Project license (`W0-007`) remains open but does not block internal development.
-- Exact process/container ToolProvider runtime belongs to W2.
-- DELETED confirmation semantics belong to W2-004.
-- Concrete e-book/music tool compositions belong to W3/W4 after current license/maintenance/security review.
-- External knowledge-provider adapters belong to W5 after current terms/API/bulk/cache review.
-- Matching thresholds belong to W6 calibration.
+Der aktuelle Stand ist für einen lokalen Windows-/Docker-Test geeignet. Der reproduzierbare Ablauf ist unter `docs/quality/LOCAL_SMOKE_TEST.md` dokumentiert und verwendet ausschließlich synthetische Dateien unter dem von Git ignorierten Verzeichnis `media/ebooks`.
 
-## Safety gate
+Der lokale Test soll insbesondere bestätigen:
 
-W10 remains explicitly blocked. No FolioTone-native or external-tool source-media mutation is authorized.
+- Docker-Compose-Build unter der lokalen Plattform;
+- persistente `/data`-Nutzung über mehrere Containerläufe;
+- read-only `/media/ebooks`;
+- NEW/UNCHANGED/MODIFIED/MISSING/REAPPEARED-Verhalten unter Docker Desktop.
 
-W9 may create non-executable consolidation plans only.
+## Noch offen in W2
+
+Als nächste fachliche W2-Arbeiten bleiben:
+
+1. `W2-004` — robuste `DELETED`-Bestätigung definieren und implementieren;
+2. `W2-006` — Move-/Rename-Kandidaten erkennen, ohne vorschnell Identität zu behaupten;
+3. `W2-007` — Interrupt/Resume-Verhalten vervollständigen; der unavailable-root Fall ist bereits getestet;
+4. `W2-008` — versionierten `FilenameParser` und `PathContextAnalyzer` implementieren;
+5. `W2-009` — Parsing-Regeln und Fixtures für Autor/Titel, Serie/Band, Track/Disc, Jahr und Sprache ergänzen;
+6. `W2-011` — ToolProvider-Runtime um noch fehlende Tests für malformed structured output, Version Change und selective re-analysis erweitern.
+
+Diese Punkte werden erst nach dem lokalen Smoke-Test des aktuellen Slices fortgesetzt.
+
+## Nicht implementiert
+
+Noch nicht vorhanden sind unter anderem:
+
+- konkrete E-Book- und Music-ToolProvider;
+- calibre Library Reconciliation;
+- Entity Resolution Engine;
+- externe Knowledge Provider und Provider Cache;
+- Classification Engine;
+- Matching Engine;
+- Review System;
+- Consolidation Planning und Execution.
+
+## Sicherheitsgrenze
+
+W10 bleibt ausdrücklich blockiert. Es gibt keine FolioTone-native oder externe Tool-Operation zum Löschen, Verschieben, Umbenennen oder Retaggen von Source Media.
+
+W9 darf später ausschließlich nicht ausführbare `ConsolidationPlan`-Einträge erzeugen.

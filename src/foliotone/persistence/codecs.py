@@ -1,4 +1,4 @@
-"""Generic domain-to-row codecs for the W1 persistence schema."""
+"""Generic domain-to-row codecs for FolioTone persistence."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from foliotone.core import (
     ExternalIdentifier,
     FileObservation,
     FileRecord,
+    FileScanEvent,
     Fingerprint,
     MusicWork,
     MusicWorkRelation,
@@ -38,7 +39,7 @@ from foliotone.core import (
     ValueAssertion,
     Work,
 )
-from foliotone.persistence import schema
+from foliotone.persistence import schema, w2_schema
 from foliotone.persistence._mapping import (
     datetime_to_db,
     provenance_from_row,
@@ -46,6 +47,7 @@ from foliotone.persistence._mapping import (
     required_datetime_from_db,
 )
 from foliotone.tooling import ToolExecution, ToolResult
+from foliotone.tooling.artifacts import ToolArtifact
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +128,7 @@ _MODEL_TABLES: dict[type[Any], Table] = {
     ScanRun: schema.scan_runs,
     FileRecord: schema.file_records,
     FileObservation: schema.file_observations,
+    FileScanEvent: w2_schema.file_scan_events,
     ValueAssertion: schema.value_assertions,
     Agent: schema.agents,
     AgentName: schema.agent_names,
@@ -144,6 +147,7 @@ _MODEL_TABLES: dict[type[Any], Table] = {
     ReleaseRecording: schema.release_recordings,
     ToolExecution: schema.tool_executions,
     ToolResult: schema.tool_results,
+    ToolArtifact: w2_schema.tool_artifacts,
     ClassificationAssertion: schema.classification_assertions,
     Fingerprint: schema.fingerprints,
     Relation: schema.relations,

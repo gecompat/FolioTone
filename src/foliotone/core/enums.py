@@ -5,6 +5,7 @@ from enum import StrEnum
 
 class EntityKind(StrEnum):
     FILE = "FILE"
+    FILE_OBSERVATION = "FILE_OBSERVATION"
     AGENT = "AGENT"
     WORK = "WORK"
     EDITION = "EDITION"
@@ -24,6 +25,17 @@ class MediaType(StrEnum):
 class PresenceState(StrEnum):
     PRESENT = "PRESENT"
     MISSING = "MISSING"
+    DELETED = "DELETED"
+
+
+class FileChangeState(StrEnum):
+    NEW = "NEW"
+    UNCHANGED = "UNCHANGED"
+    MODIFIED = "MODIFIED"
+    REAPPEARED = "REAPPEARED"
+    MISSING = "MISSING"
+    MOVED = "MOVED"
+    RENAMED = "RENAMED"
     DELETED = "DELETED"
 
 

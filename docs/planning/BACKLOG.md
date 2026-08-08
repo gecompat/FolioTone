@@ -11,11 +11,12 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W0-003 | DONE | Add Docker/Compose baseline with persistent `/data` and read-only media mounts. |
 | W0-004 | DONE | Add AI/contributor handover contract and authoritative project status. |
 | W0-005 | DONE | Add Python packaging, quality-tool configuration, and bootstrap CLI/tests. |
-| W0-006 | DONE | Verify Install/Ruff/Mypy/Pytest plus Docker build and `foliotone status` bootstrap in GitHub Actions run `31279709278`. |
-| W0-007 | DECISION | Select a project license before encouraging third-party reuse/distribution. |
+| W0-006 | DONE | Verify Install/Ruff/Mypy/Pytest plus Docker build and `foliotone status` bootstrap in GitHub Actions. |
+| W0-007 | DONE | Adopt the requested custom Community & Attribution License based on `SQL_Server_Analyze`; add protected bilingual root README notice. |
 | W0-008 | DONE | Extend architecture with Authority/Entity Resolution, provenance, external enrichment, MusicWork/ReleaseGroup, multidimensional classification, source registry, and W10 safety gate. |
 | W0-009 | DONE | Install the GitHub Actions workflow at `.github/workflows/ci.yml`. |
 | W0-010 | DONE | Adopt orchestration-first ToolProvider architecture; add ADR-0010, external-tool registry, tooling package boundary, safety and AI handover rules. |
+| W0-011 | DONE | Adopt binding documentation/language/terminology governance, canonical glossary, protected-license regression check, task-oriented docs index and Copilot instructions. |
 
 ## W1 — Core + Persistence
 
@@ -37,17 +38,18 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 
 | ID | Status | Item |
 |---|---|---|
-| W2-001 | NEXT | Implement configured scan roots and scan-run lifecycle using the W1 persistence layer. |
-| W2-002 | READY | Implement filesystem discovery and relative-path observations. |
-| W2-003 | READY | Implement incremental NEW/UNCHANGED/MODIFIED/MISSING behavior. |
-| W2-004 | PLANNED | Design robust DELETED confirmation policy. |
-| W2-005 | READY | Implement streamed SHA-256 and quick fingerprint strategy. |
-| W2-006 | PLANNED | Implement move/rename candidate detection. |
-| W2-007 | PLANNED | Add interruption/resume and unavailable-root tests. |
+| W2-001 | DONE | Implement persistent logical scan roots, stable name resolution and scan-run lifecycle using the W1 persistence layer. |
+| W2-002 | DONE | Implement streaming filesystem discovery and relative-path observations without a collection-wide in-memory path list. |
+| W2-003 | DONE | Implement incremental NEW/UNCHANGED/MODIFIED/MISSING/REAPPEARED behavior; unavailable roots must not create false MISSING evidence. |
+| W2-004 | PLANNED | Design and implement robust DELETED confirmation policy; MISSING alone must never imply DELETED. |
+| W2-005 | DONE | Implement staged quick fingerprint and streamed SHA-256 strategy against FileObservation identity. |
+| W2-006 | PLANNED | Implement move/rename candidate detection without premature identity assertion. |
+| W2-007 | READY | Complete interruption/resume behavior; unavailable-root failure handling is already implemented and tested. |
 | W2-008 | PLANNED | Implement versioned FilenameParser and PathContextAnalyzer that emit provenance-preserving FieldCandidate values. |
 | W2-009 | PLANNED | Add configurable parsing rules/fixtures for author-title, series/volume, track/disc, year and language conventions. |
-| W2-010 | READY | Implement generic ToolProvider runtime: discovery/version detection, bounded CLI/container execution, timeout/cancellation, stdout/stderr/artifact capture, safe work directories and read-only media policy. |
-| W2-011 | PLANNED | Add ToolProvider runtime tests for missing tool, version change, timeout, non-zero exit, malformed output, read-only safety and selective re-analysis. |
+| W2-010 | DONE | Implement generic ToolProvider runtime with version detection, bounded local/container execution, timeout/cancellation, stdout/stderr artifacts, privacy-safe input identity, isolated work areas and read-only input policy. |
+| W2-011 | READY | Complete ToolProvider runtime tests for malformed structured output, version changes and selective re-analysis; missing tool, timeout, non-zero exit, artifact persistence, privacy and container hardening are already tested. |
+| W2-012 | NEXT | Run the documented local Windows/Docker smoke test for persistent `/data`, read-only media mounts and four incremental scan states before continuing W2. |
 
 ## W3 — E-book Analysis / Tool Orchestration
 

@@ -47,6 +47,7 @@ from foliotone.core import (
 )
 from foliotone.persistence import create_sqlite_engine, migrate, repository
 from foliotone.persistence.schema import ALL_TABLES
+from foliotone.persistence.w2_schema import file_scan_events, tool_artifacts
 from foliotone.tooling import ToolExecution, ToolResult
 
 NOW = datetime(2026, 8, 8, 20, 0, tzinfo=UTC)
@@ -73,12 +74,16 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
     migrate(database)
     engine = create_sqlite_engine(database)
     table_names = set(inspect(engine).get_table_names())
-    expected = {table.name for table in ALL_TABLES} | {"alembic_version"}
+    expected = {table.name for table in ALL_TABLES} | {
+        "alembic_version",
+        file_scan_events.name,
+        tool_artifacts.name,
+    }
     assert table_names == expected
 
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0001_initial"
+    assert revision == "0002_incremental_index"
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:

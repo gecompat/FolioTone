@@ -2,6 +2,22 @@
 
 This file is the primary continuation contract for AI coding agents and human contributors. Repository state must be sufficient to continue the project without access to previous chat history.
 
+## 0. Binding documentation governance
+
+Before creating or substantially revising documentation prose, read and follow:
+
+- `docs/quality/DOCUMENTATION_STYLE.md`;
+- `docs/quality/LANGUAGE_AND_TERMINOLOGY.md`;
+- `docs/reference/GLOSSARY.md` for canonical domain terminology.
+
+The canonical explanatory project documentation is generally German. Established technical terms, public literals, code identifiers, CLI commands, provider/tool IDs, schema names and other technical contracts remain in their canonical form when translation would reduce precision.
+
+A technical change does not authorize an unrelated editorial rewrite. Documentation changes stay scoped to the subject being changed unless the user explicitly requests a broader review.
+
+The bilingual license notice at the beginning of the root `README.md` is protected content. Before every root README edit, read the current block from the target branch. Preserve its wording, headings, lists, links, separators, emphasis, punctuation and blank lines exactly unless the user explicitly asks to change the license block itself.
+
+`LICENSE.md` is a legal special case: according to its own terms, the English version is the legally binding master version.
+
 ## 1. Read before changing anything
 
 Read these files in order:
@@ -10,12 +26,15 @@ Read these files in order:
 2. `docs/planning/HANDOVER.md`
 3. `docs/planning/IMPLEMENTATION_PLAN.md`
 4. `docs/planning/BACKLOG.md`
-5. `docs/architecture/OVERVIEW.md`
-6. `docs/architecture/DOMAIN_MODEL.md`
-7. `docs/architecture/AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`
-8. `docs/reference/EXTERNAL_TOOLS.md` when work touches media analysis/tool orchestration
-9. `docs/reference/EXTERNAL_DATA_SOURCES.md` when work touches external knowledge/providers
-10. relevant files under `docs/architecture/` and `docs/decisions/`
+5. `docs/quality/DOCUMENTATION_STYLE.md` when documentation prose is touched
+6. `docs/quality/LANGUAGE_AND_TERMINOLOGY.md` when documentation prose or terminology is touched
+7. `docs/reference/GLOSSARY.md` when domain terminology is touched
+8. `docs/architecture/OVERVIEW.md`
+9. `docs/architecture/DOMAIN_MODEL.md`
+10. `docs/architecture/AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`
+11. `docs/reference/EXTERNAL_TOOLS.md` when work touches media analysis/tool orchestration
+12. `docs/reference/EXTERNAL_DATA_SOURCES.md` when work touches external knowledge/providers
+13. relevant files under `docs/architecture/` and `docs/decisions/`
 
 If repository code and documentation disagree, treat the discrepancy as a defect. Determine the actual state, then update code and documentation together.
 
@@ -98,7 +117,9 @@ A backlog item is done only when:
 - derived data has enough version/provenance information to explain when it becomes stale;
 - provider/tool-specific behavior remains behind adapters/contracts where applicable;
 - ToolProvider-derived evidence records enough tool/adapter/parser version context to be reproducible or selectively invalidated;
-- external write-capable tool operations remain inaccessible through W9.
+- external write-capable tool operations remain inaccessible through W9;
+- changed documentation follows `docs/quality/DOCUMENTATION_STYLE.md` and `docs/quality/LANGUAGE_AND_TERMINOLOGY.md`;
+- the protected root README license block remains byte-for-byte equivalent to the task-start target-branch version unless the user explicitly requested its modification.
 
 ## 6. Git discipline
 
