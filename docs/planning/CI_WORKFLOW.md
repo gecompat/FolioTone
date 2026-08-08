@@ -1,16 +1,16 @@
-# CI Workflow Installation
+# CI Workflow Contract
 
 ## Status
 
-The intended GitHub Actions workflow could not be written to `.github/workflows/ci.yml` during the repository migration because the current ChatGPT GitHub connector blocked that workflow-path write for security-status reasons.
+The GitHub Actions workflow is installed at `.github/workflows/ci.yml`.
 
-This document preserves the exact intended workflow so another authorized GitHub client/agent can install it without reconstructing prior chat context.
+This document preserves the intended workflow contract and the known predecessor failure so future agents can verify CI configuration without reconstructing prior chat context.
 
 ## Target path
 
 `.github/workflows/ci.yml`
 
-## Intended content
+## Expected content
 
 ```yaml
 name: CI
@@ -47,14 +47,12 @@ The predecessor repository's PR CI installed the Python package successfully but
 
 The FolioTone `src/foliotone/cli/main.py` status output is already line-wrapped, so do not reintroduce the old line.
 
-## Completion rule
+## Verification rule
 
-After installing the workflow:
-
-1. run/observe the GitHub Actions workflow;
+1. run/observe the FolioTone GitHub Actions workflow;
 2. verify Ruff, Mypy and Pytest results;
 3. run the Docker bootstrap if CI does not cover it;
 4. update `PROJECT_STATUS.md` with actual results;
-5. mark `W0-009` and then `W0-006` complete only when reality supports it.
+5. mark `W0-006` complete only when reality supports it.
 
 Do not claim FolioTone CI passed based on the predecessor run.
