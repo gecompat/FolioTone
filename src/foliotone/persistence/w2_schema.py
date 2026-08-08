@@ -1,6 +1,6 @@
 """W2 schema extensions for incremental scan bookkeeping."""
 
-from sqlalchemy import Column, ForeignKey, Index, String, Table, Text
+from sqlalchemy import Column, ForeignKey, Index, Table, Text
 
 from foliotone.persistence.schema import DATETIME, ENUM, ID, metadata
 
