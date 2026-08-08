@@ -11,7 +11,7 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W0-003 | DONE | Add Docker/Compose baseline with persistent `/data` and read-only media mounts. |
 | W0-004 | DONE | Add AI/contributor handover contract and authoritative project status. |
 | W0-005 | DONE | Add Python packaging, quality-tool configuration, and bootstrap CLI/tests. |
-| W0-006 | NEXT | Verify the W0 bootstrap via CI/local run and correct any foundation defects before W1. |
+| W0-006 | NEXT | FolioTone CI (install/Ruff/Mypy/Pytest) passed; verify Docker build/status bootstrap and record the result before W1. |
 | W0-007 | DECISION | Select a project license before encouraging third-party reuse/distribution. |
 | W0-008 | DONE | Extend architecture with Authority/Entity Resolution, provenance, external enrichment, MusicWork/ReleaseGroup, multidimensional classification, source registry, and W10 safety gate. |
 | W0-009 | DONE | Install the GitHub Actions workflow at `.github/workflows/ci.yml`; workflow verification is covered by W0-006. |
