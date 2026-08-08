@@ -8,7 +8,7 @@ The repository is in **W0 – Project Foundation**. The project structure, archi
 
 Production file indexing, media analyzers, authority resolution, external provider adapters, matching, review and consolidation planning are **not implemented yet**.
 
-The immediate next task is W0 bootstrap verification (`W0-006`). After that, implementation starts with **W1 – Core + Persistence** using the expanded provider-independent domain model. See [Project Status](docs/planning/PROJECT_STATUS.md) and [Implementation Plan](docs/planning/IMPLEMENTATION_PLAN.md).
+The immediate next task is installing the documented GitHub Actions workflow (`W0-009`), followed by W0 bootstrap verification (`W0-006`). After that, implementation starts with **W1 – Core + Persistence** using the expanded provider-independent domain model. See [Project Status](docs/planning/PROJECT_STATUS.md) and [Implementation Plan](docs/planning/IMPLEMENTATION_PLAN.md).
 
 ## Core principles
 
@@ -110,6 +110,7 @@ See [External Data Sources](docs/reference/EXTERNAL_DATA_SOURCES.md).
 - [`docs/planning/BACKLOG.md`](docs/planning/BACKLOG.md) — actionable work items.
 - [`docs/planning/PROJECT_STATUS.md`](docs/planning/PROJECT_STATUS.md) — authoritative current state and next action.
 - [`docs/planning/HANDOVER.md`](docs/planning/HANDOVER.md) — compact continuation guide.
+- [`docs/planning/CI_WORKFLOW.md`](docs/planning/CI_WORKFLOW.md) — exact pending GitHub Actions workflow and verification instructions.
 
 ## Python package boundaries
 
