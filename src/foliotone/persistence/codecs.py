@@ -68,7 +68,7 @@ class Codec[T]:
                 row[field.name] = _encode_scalar(field_value)
         return row
 
-    def decode(self, row: Mapping[str, Any]) -> T:
+    def decode(self, row: Mapping[Any, Any]) -> T:
         """Rebuild a supported immutable domain record from one SQL row."""
         hints = get_type_hints(self.model_type)
         values: dict[str, object] = {}
