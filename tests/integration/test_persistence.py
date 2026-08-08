@@ -80,10 +80,66 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
         tool_artifacts.name,
     }
     assert table_names == expected
+    file_columns = {column["name"] for column in inspect(engine).get_columns("file_records")}
+    assert {"missing_since_at", "consecutive_missing_scans"} <= file_columns
 
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0002_incremental_index"
+    assert revision == "0003_deletion_confirmation"
+
+
+def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) -> None:
+    path = tmp_path / "legacy.db"
+    migrate(path, "0002_incremental_index")
+    engine = create_sqlite_engine(path)
+    root_id = "00000000-0000-0000-0000-000000000001"
+    file_id = "00000000-0000-0000-0000-000000000002"
+    timestamp = NOW.isoformat()
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO scan_roots (id, name, media_type, enabled) "
+                "VALUES (:id, :name, :media_type, :enabled)"
+            ),
+            {"id": root_id, "name": "legacy", "media_type": "EBOOK", "enabled": True},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO file_records "
+                "(id, scan_root_id, relative_path, size_bytes, modified_at, media_type, "
+                "presence_state, first_seen_at, last_seen_at) "
+                "VALUES (:id, :root, :path, :size, :modified, :media_type, :presence, "
+                ":first_seen, :last_seen)"
+            ),
+            {
+                "id": file_id,
+                "root": root_id,
+                "path": "legacy.epub",
+                "size": 1,
+                "modified": timestamp,
+                "media_type": "EBOOK",
+                "presence": "MISSING",
+                "first_seen": timestamp,
+                "last_seen": timestamp,
+            },
+        )
+    engine.dispose()
+
+    migrate(path)
+    upgraded = create_sqlite_engine(path)
+    with upgraded.connect() as connection:
+        row = connection.execute(
+            text(
+                "SELECT missing_since_at, consecutive_missing_scans "
+                "FROM file_records WHERE id = :id"
+            ),
+            {"id": file_id},
+        ).mappings().one()
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+
+    assert row["missing_since_at"] is None
+    assert row["consecutive_missing_scans"] == 0
+    assert revision == "0003_deletion_confirmation"
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:
