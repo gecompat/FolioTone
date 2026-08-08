@@ -1,5 +1,6 @@
 """Filesystem indexing, hashing, and incremental scan support."""
 
+from foliotone.index.deletion import DeletionConfirmationPolicy
 from foliotone.index.discovery import DiscoveredFile, ScanRootBinding, discover_files
 from foliotone.index.hashing import (
     FingerprintWriter,
@@ -14,6 +15,7 @@ from foliotone.index.store import BatchOutcome, SQLiteIndexStore
 
 __all__ = [
     "BatchOutcome",
+    "DeletionConfirmationPolicy",
     "DiscoveredFile",
     "FingerprintWriter",
     "HashMode",
