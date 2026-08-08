@@ -20,8 +20,8 @@ from foliotone.index import (
     FingerprintWriter,
     HashMode,
     IncrementalScanner,
-    SQLiteIndexStore,
     ScanRootBinding,
+    SQLiteIndexStore,
 )
 from foliotone.persistence import create_sqlite_engine, migrate, repository
 
