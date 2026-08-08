@@ -39,8 +39,7 @@ from foliotone.core import (
     ValueAssertion,
     Work,
 )
-from foliotone.persistence import schema
-from foliotone.persistence import w2_schema
+from foliotone.persistence import schema, w2_schema
 from foliotone.persistence._mapping import (
     datetime_to_db,
     provenance_from_row,
@@ -48,6 +47,7 @@ from foliotone.persistence._mapping import (
     required_datetime_from_db,
 )
 from foliotone.tooling import ToolExecution, ToolResult
+from foliotone.tooling.artifacts import ToolArtifact
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,6 +147,7 @@ _MODEL_TABLES: dict[type[Any], Table] = {
     ReleaseRecording: schema.release_recordings,
     ToolExecution: schema.tool_executions,
     ToolResult: schema.tool_results,
+    ToolArtifact: w2_schema.tool_artifacts,
     ClassificationAssertion: schema.classification_assertions,
     Fingerprint: schema.fingerprints,
     Relation: schema.relations,
