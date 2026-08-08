@@ -12,7 +12,27 @@ FolioTone starts as an analysis system. Source collections are treated as eviden
 - no metadata writer exists for source media;
 - no Calibre write adapter exists;
 - external enrichment does not write back to source media;
+- external ToolProviders may use only analysis-safe operations against source media;
 - W9 consolidation plans are data records only and cannot execute.
+
+## External tool safety
+
+A third-party tool can expose dangerous operations even when FolioTone itself contains no write command. Tool integration therefore inherits the same W0-W9 safety gate.
+
+Rules:
+
+- prefer read-only media mounts for external tool containers/jobs;
+- prefer status/report/scan/probe/preview operations;
+- do not invoke delete, move, rename, retag, metadata-write or other source-mutating commands;
+- do not assume a tool is safe merely because it is popular or trusted;
+- record the tool version and operation used for material evidence;
+- treat external tool output as evidence, not automatic destructive authority;
+- isolate temporary work/output from source media where conversion or extraction requires writable storage;
+- validate paths/mounts before launching a ToolProvider job;
+- never pass credentials through command arguments when a safer secret/config mechanism exists;
+- do not expose tool web interfaces to untrusted networks by default.
+
+Examples: beets, SongKong, calibre and Picard all have workflows capable of changing media/library state; these write-capable functions remain unauthorized through W9.
 
 ## External lookup privacy
 
@@ -41,14 +61,15 @@ A future executable consolidation engine must not be enabled merely by adding a 
 7. clear partial-failure semantics;
 8. tests on temporary synthetic filesystems;
 9. a design for recovery/rollback where feasible;
-10. no implicit deletion based on one signal, one provider result, one AI/web inference or one score.
+10. no implicit deletion based on one signal, one tool/provider result, one AI/web inference or one score;
+11. separate authorization rules for FolioTone-native operations and write-capable ToolProvider operations.
 
 ## Persistence is writable; media is not
 
-`/data` is intentionally writable so scans, hashes, normalized metadata, authority/provider cache, decisions, and future plans can be persisted. `/media/...` is read-only in the default compose file.
+`/data` is intentionally writable so scans, hashes, normalized metadata, tool execution records, authority/provider cache, decisions, and future plans can be persisted. `/media/...` is read-only in the default compose file.
 
 ## Private data
 
-Runtime state may itself contain sensitive metadata about a private collection. `/data` is therefore excluded from Git. Logs should avoid dumping full extracted text, unnecessary absolute paths, raw external queries, or credentials.
+Runtime state may itself contain sensitive metadata about a private collection. `/data` is therefore excluded from Git. Logs should avoid dumping full extracted text, unnecessary absolute paths, raw external queries, tool command lines containing sensitive values, or credentials.
 
-Imported/local provider datasets must also stay out of Git unless a future explicit decision establishes that a specific redistributable dataset belongs in the repository.
+Imported/local provider datasets and external tool reports derived from a private collection must also stay out of Git unless a future explicit decision establishes that a specific redistributable artifact belongs in the repository.

@@ -2,35 +2,63 @@
 
 ## Purpose
 
-FolioTone is designed to analyze large e-book and music collections, identify real-world entities, enrich uncertain metadata from controlled external knowledge sources, classify content, identify relations/duplicate candidates using multiple evidence sources, support human review, and later produce controlled consolidation plans.
+FolioTone is designed to analyze large e-book and music collections by **orchestrating mature specialist tools and external knowledge sources**, then reconciling their outputs through a common provenance/evidence model.
 
-The architecture separates physical files, raw observations, normalized/derived metadata, authority identities, canonical domain entities, external assertions, matching evidence, review decisions, and future filesystem actions.
+It identifies real-world entities, enriches uncertain metadata, classifies content, detects duplicate/related media, supports human review, measures library health, and later produces controlled consolidation plans.
+
+The architecture separates physical files, raw observations, tool executions, normalized/derived metadata, authority identities, canonical domain entities, external assertions, matching evidence, review decisions, and future filesystem actions.
+
+## Architectural principle: orchestration first
+
+Before implementing substantial media-specific functionality, evaluate whether a maintained external tool already provides a suitable implementation through a documented CLI, API, service or container interface.
+
+FolioTone should not reproduce calibre, FFmpeg, Chromaprint, beets, SongKong or Picard merely to obtain capabilities they already provide well. It should instead normalize their outputs into a durable common model and combine independent evidence.
+
+Tool-specific commands and schemas terminate at adapter boundaries. FolioTone remains responsible for provenance, reconciliation, canonical decisions, cross-tool matching, review and safety.
+
+See `docs/decisions/ADR-0010-tool-provider-orchestration.md` and `docs/reference/EXTERNAL_TOOLS.md`.
 
 ## Components
 
 ### Core
 
-Owns domain concepts and interfaces that must not depend on specific file formats, Calibre, external provider schemas, Docker, CLI frameworks, or a concrete database implementation.
+Owns domain concepts and interfaces that must not depend on specific file formats, Calibre, beets, SongKong, Picard, FFmpeg, external provider schemas, Docker, CLI frameworks, or a concrete database implementation.
 
 ### Persistence
 
-Initially implements SQLite-backed storage for core/index/authority/enrichment/matching/review state. Callers should depend on persistence contracts rather than SQLite details.
+Initially implements SQLite-backed storage for core/index/tooling/authority/enrichment/matching/review state. Callers should depend on persistence contracts rather than SQLite details.
 
 ### Index
 
-Discovers files, records observations, detects incremental changes, and calculates generic hashes/fingerprints. It does not decide that two works or recordings are equivalent.
+Discovers files, records observations, detects incremental changes, and calculates generic hashes/fingerprints that are appropriate to own natively. It does not decide that two works or recordings are equivalent.
 
 ### Filename / Path Context
 
 Parses filenames and directory context into provenance-preserving field candidates. It may infer likely author/artist/title/series/track/year/language tokens but does not set canonical values directly.
 
-### E-Book Analyzer
+### Tool Orchestration
 
-Extracts metadata and content features from EPUB, PDF, MOBI/AZW-family formats in staged priority order. Format-specific code stays here.
+Runs external specialist tools behind adapter-neutral `ToolProvider` contracts.
 
-### Music Analyzer
+Responsibilities include:
 
-Extracts tags and technical audio properties, then later audio-stream/acoustic fingerprints. It does not own authority-resolution or matching policy.
+- tool discovery/capability and version detection;
+- safe bounded CLI/container/service invocation;
+- timeout/cancellation/error handling;
+- structured stdout/report/artifact import;
+- recording tool/adapter/parser versions and execution status;
+- mapping tool-specific output into FolioTone observations/evidence;
+- ensuring source-media read-only safety through W9.
+
+Tool execution is not domain truth. Multiple tools can support or contradict the same claim.
+
+### E-Book Analysis
+
+Coordinates e-book-specific observations and fingerprints. Mature calibre CLI capabilities should be evaluated first for metadata/library/format operations. FolioTone-native parsers are added only when external tools do not satisfy the required semantics, reproducibility, performance or licensing constraints.
+
+### Music Analysis
+
+Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.
 
 ### Authority / Entity Resolution
 
@@ -46,19 +74,19 @@ Provider use is mode-controlled (`OFFLINE`, `LOCAL_DATASETS`, `ONLINE_STRUCTURED
 
 ### Classification
 
-Stores multidimensional typed facets with provenance instead of a single flat genre field. Provider classifications can coexist until canonical/local classification rules decide what to expose.
+Stores multidimensional typed facets with provenance instead of a single flat genre field. Provider/tool classifications can coexist until canonical/local classification rules decide what to expose.
 
 ### Matching
 
 Generates plausible candidates using blocking/indexes, derives features, scores evidence, classifies relations, and records explanations and version information.
 
-Matching consumes resolved identities as evidence together with hashes, embedded metadata, content/audio fingerprints, release/edition structure and other signals.
+Matching consumes resolved identities and tool/provider observations as evidence together with hashes, embedded metadata, content/audio fingerprints, release/edition structure and other signals.
 
 ### Review
 
-Queues uncertain entity-resolution and matching cases and persists human decisions. A decision should prevent identical cases from being repeatedly presented without a reason such as changed evidence, resolver version or matcher version.
+Queues uncertain entity-resolution and matching cases and persists human decisions. A decision should prevent identical cases from being repeatedly presented without a reason such as changed evidence, tool/resolver version or matcher version.
 
-Review can create durable local knowledge such as confirmed aliases or rejected external candidates.
+Review can create durable local knowledge such as confirmed aliases or rejected external/tool candidates.
 
 ### Consolidation
 
@@ -66,11 +94,11 @@ W9 only plans possible actions. No executable source-media mutation exists befor
 
 ### Adapters
 
-Integrate external systems. Calibre is read-only initially and must not leak its database schema into the core domain model. External authority/music/book providers follow the same adapter boundary.
+Integrate concrete external systems and tools. Calibre, beets, SongKong, Picard, FFmpeg, Chromaprint and external authority/music/book providers must not leak their schemas/commands into the core domain model.
 
 ## Dependency rule
 
-Domain logic is inward-facing. Concrete storage, file formats, CLI, Calibre, external provider APIs and web research adapt to core contracts rather than defining them.
+Domain logic is inward-facing. Concrete storage, file formats, CLI, external tools, external provider APIs and web research adapt to core contracts rather than defining them.
 
 Allowed high-level dependency direction:
 
@@ -78,11 +106,12 @@ Allowed high-level dependency direction:
 cli -> application/core interfaces
 index -> core + persistence interfaces
 filename/path parsing -> core candidate contracts
-analyzers -> core observation contracts
+tooling -> core tool/evidence contracts + adapter interfaces
+analyzers -> core observation contracts + tooling interfaces
 authority/resolution -> core + observations + provider interfaces
-enrichment providers -> core provider contracts
-classification -> core + resolved/external assertions
-matching -> core + analyzer/index/resolution outputs
+external knowledge providers -> core provider contracts
+classification -> core + resolved/external/tool assertions
+matching -> core + analyzer/index/resolution/tool outputs
 review -> core + resolution/matching + persistence interfaces
 consolidation -> core + reviewed/planned decisions
 persistence -> core persistence contracts
@@ -95,7 +124,8 @@ ScanRoot
   -> ScanRun / FileObservation
   -> File identity + generic fingerprints
   -> filename/path candidates
-  -> media analyzer observations
+  -> specialist ToolExecutions / native analyzers
+  -> raw tool/analyzer observations
   -> normalized/derived assertions
   -> authority/entity-resolution candidates
   -> optional local/external enrichment
@@ -107,6 +137,12 @@ ScanRoot
   -> persisted decision/local knowledge
   -> future non-executable ConsolidationPlan
 ```
+
+## Tool execution provenance
+
+A material tool-derived result must be traceable to the execution that produced it. Persistence must be able to represent at least tool identity/version, adapter/parser version, operation/profile, execution time/status, relevant configuration version/digest where practical, and output/artifact references.
+
+This enables selective re-analysis when a tool or adapter changes and prevents opaque statements such as "SongKong says so" or "calibre returned this" from becoming unreviewable facts.
 
 ## Important identity levels
 
@@ -133,19 +169,23 @@ The collection may contain hundreds of thousands of files and multiple terabytes
 - scans must be incremental;
 - hashes must be streamed;
 - expensive work must be cached/versioned;
+- expensive external tool jobs must be incremental and resumable where possible;
+- repeated tool analysis should be skipped when input identity + relevant tool/config versions are unchanged;
 - local authority indexes should avoid repeated internet requests;
 - bulk provider datasets should be considered when officially supported/recommended for large-scale access;
 - candidate generation must reduce pair comparisons before scoring;
 - missing storage must not be confused with deletion;
-- analysis must be resumable and observable;
-- external provider outages must not make ordinary rescans impossible.
+- analysis must be observable;
+- external tool/provider outages must not corrupt existing results.
 
-## Privacy assumptions
+## Safety assumptions
 
 - source media stays read-only through W9;
 - runtime databases/caches remain outside Git;
-- absolute local paths are not sent to external providers;
+- external tool containers should receive read-only media mounts for analysis whenever possible;
+- write/delete/move/rename/retag commands from external tools are prohibited through W9;
+- absolute local paths are not sent to online providers;
 - provider requests use the minimum structured information needed;
 - generic web research is a separately controlled fallback, not an implicit side effect of scanning.
 
-See `AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`, `SAFETY.md` and `docs/reference/EXTERNAL_DATA_SOURCES.md`.
+See `AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`, `SAFETY.md`, `docs/reference/EXTERNAL_DATA_SOURCES.md` and `docs/reference/EXTERNAL_TOOLS.md`.

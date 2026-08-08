@@ -1,14 +1,32 @@
 # FolioTone
 
-FolioTone is a planned analysis platform for large e-book and music collections. It will index files incrementally, extract media-specific metadata and fingerprints, resolve inconsistent author/artist/work identities, enrich uncertain metadata through controlled external knowledge sources, classify content, generate duplicate/relation candidates, explain decisions, queue uncertain cases for human review, and later prepare controlled consolidation plans.
+FolioTone is an **orchestration and reconciliation platform for large e-book and music collections**. Instead of reimplementing mature media tooling, it connects proven specialist tools and metadata services, normalizes their results into provenance-preserving evidence, resolves real-world identities, detects duplicates and quality/completeness issues, supports human review, and later produces safe consolidation plans.
 
 ## Current state
 
-The repository is in **W0 – Project Foundation**. The project structure, architecture, safety/privacy rules, development roadmap, AI handover contract, Docker baseline, Python packaging, bootstrap tests, and expanded Authority/Enrichment design are present.
+The repository is in **W0 – Project Foundation**. The project structure, architecture, safety/privacy rules, development roadmap, AI handover contract, Docker baseline, Python packaging, bootstrap tests, Authority/Enrichment design, and ToolProvider strategy are documented.
 
-Production file indexing, media analyzers, authority resolution, external provider adapters, matching, review and consolidation planning are **not implemented yet**.
+Production file indexing, media analyzers/tool adapters, authority resolution, external provider adapters, matching, review and consolidation planning are **not implemented yet**.
 
-The immediate next task is W0 bootstrap verification (`W0-006`). After that, implementation starts with **W1 – Core + Persistence** using the expanded provider-independent domain model. See [Project Status](docs/planning/PROJECT_STATUS.md) and [Implementation Plan](docs/planning/IMPLEMENTATION_PLAN.md).
+The immediate next task is W0 bootstrap verification (`W0-006`). After that, implementation starts with **W1 – Core + Persistence** using the provider- and tool-independent domain model. See [Project Status](docs/planning/PROJECT_STATUS.md) and [Implementation Plan](docs/planning/IMPLEMENTATION_PLAN.md).
+
+## Positioning: orchestrate specialists, do not reinvent them
+
+FolioTone should first evaluate mature tools before implementing format-specific functionality itself.
+
+Examples of high-value ToolProvider candidates:
+
+- calibre CLI / Content Server for e-book metadata and library access;
+- FFmpeg / `ffprobe` for technical audio/media observations;
+- Chromaprint / `fpcalc` for acoustic fingerprints;
+- beets for music metadata, duplicate and completeness analysis;
+- SongKong for automated music analysis/status/preview evidence;
+- MusicBrainz Picard as an optional specialist/validator;
+- a local MusicBrainz mirror later when collection scale justifies the infrastructure.
+
+These tools remain **replaceable specialists**. Their outputs become observations and evidence. FolioTone owns provenance, cross-tool reconciliation, entity resolution, canonical decisions, matching, review knowledge and safety.
+
+See [External Analysis Tools](docs/reference/EXTERNAL_TOOLS.md) and [ADR-0010](docs/decisions/ADR-0010-tool-provider-orchestration.md).
 
 ## Core principles
 
@@ -18,6 +36,9 @@ The immediate next task is W0 bootstrap verification (`W0-006`). After that, imp
 - Media collections are mounted **read-only** under `/media`.
 - FolioTone is analysis-only until an explicitly separate, later consolidation execution phase.
 - SQLite is the initial persistence engine, behind a persistence boundary so it can be replaced later.
+- Prefer orchestration of maintained specialist tools over unnecessary native reimplementation.
+- Tool-specific commands/schemas remain behind `ToolProvider`/adapter boundaries.
+- External tool results are Evidence, not unquestioned truth.
 - Calibre is an external read-only library/metadata source; FolioTone does not depend on Calibre.
 - E-book and music analyzers share core/index infrastructure but remain media-specific.
 - Filename/path parsing emits candidates; it does not silently rewrite metadata.
@@ -28,35 +49,43 @@ The immediate next task is W0 bootstrap verification (`W0-006`). After that, imp
 - Classification is multidimensional rather than a single genre string.
 - External enrichment is provider-based, cached, privacy-bounded and optional for ordinary local scans.
 - Duplicate decisions must be evidence-based, explainable, versioned, and reviewable.
-- No destructive file operation may be inferred from one score/provider/AI/web result.
+- No destructive file operation may be inferred from one tool, score, provider, AI or web result.
 
 ## Target architecture
 
 ```text
-                 local/bulk/online external knowledge
-                             |
-                             v
-                    Enrichment Providers
-                             |
-Filesystem -> Index -> Parsing -> Analyzers
-                             |
-                             v
-                  Authority / Entity Resolution
-                             |
-                             v
-                      Classification
-                             |
-                             v
-                      Matching Engine
-                             |
-                             v
-                           Review
-                             |
-                             v
-                Consolidation Planning (W9)
-                             |
-                             v
-              [future gated execution: W10]
+                      Specialist tools
+       calibre / ffprobe / fpcalc / beets / SongKong / Picard
+                              |
+                              v
+                         Tool Providers
+                              |
+Filesystem -> Index -> Parsing -> Media analysis/orchestration
+                              |
+                              +----------------------+
+                              |                      |
+                              v                      v
+                   local/bulk/online          Tool evidence
+                   knowledge providers              |
+                              |                      |
+                              +----------+-----------+
+                                         v
+                              Authority / Entity Resolution
+                                         |
+                                         v
+                                  Classification
+                                         |
+                                         v
+                                  Matching Engine
+                                         |
+                                         v
+                                       Review
+                                         |
+                                         v
+                            Consolidation Planning (W9)
+                                         |
+                                         v
+                          [future gated execution: W10]
 ```
 
 Shared domain/persistence contracts sit underneath these components.
@@ -96,6 +125,19 @@ Absolute local paths must never be sent to providers. Provider data becomes prov
 
 See [External Data Sources](docs/reference/EXTERNAL_DATA_SOURCES.md).
 
+## External tool strategy
+
+Preferred integration modes are documented CLI/API/service/container interfaces with machine-readable outputs where possible.
+
+Through W9:
+
+- source media remains read-only;
+- FolioTone uses report/status/scan/probe/preview modes;
+- external delete/move/rename/retag operations are prohibited just like FolioTone-native writes;
+- tool identity, version, adapter/parser version and execution context must remain traceable.
+
+A commercial or optional tool must not silently become a hard requirement for the essential local pipeline.
+
 ## Repository guide
 
 - [`AGENTS.md`](AGENTS.md) — mandatory working contract for AI agents and contributors.
@@ -104,8 +146,10 @@ See [External Data Sources](docs/reference/EXTERNAL_DATA_SOURCES.md).
 - [`docs/architecture/AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`](docs/architecture/AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md) — authority resolution, external enrichment, provenance and classification design.
 - [`docs/architecture/INDEXING_AND_MATCHING.md`](docs/architecture/INDEXING_AND_MATCHING.md) — incremental indexing, entity resolution inputs and explainable matching design.
 - [`docs/architecture/SAFETY.md`](docs/architecture/SAFETY.md) — non-destructive and external-lookup privacy rules.
-- [`docs/reference/EXTERNAL_DATA_SOURCES.md`](docs/reference/EXTERNAL_DATA_SOURCES.md) — candidate provider/source registry.
-- [`docs/decisions/`](docs/decisions/) — accepted Architecture Decision Records.
+- [`docs/reference/EXTERNAL_DATA_SOURCES.md`](docs/reference/EXTERNAL_DATA_SOURCES.md) — candidate knowledge-provider/source registry.
+- [`docs/reference/EXTERNAL_TOOLS.md`](docs/reference/EXTERNAL_TOOLS.md) — candidate specialist tools and integration/safety rules.
+- [`docs/decisions/ADR-0010-tool-provider-orchestration.md`](docs/decisions/ADR-0010-tool-provider-orchestration.md) — orchestration-first architecture decision.
+- [`docs/decisions/`](docs/decisions/) — all accepted Architecture Decision Records.
 - [`docs/planning/IMPLEMENTATION_PLAN.md`](docs/planning/IMPLEMENTATION_PLAN.md) — W0–W10 development sequence and acceptance criteria.
 - [`docs/planning/BACKLOG.md`](docs/planning/BACKLOG.md) — actionable work items.
 - [`docs/planning/PROJECT_STATUS.md`](docs/planning/PROJECT_STATUS.md) — authoritative current state and next action.
@@ -125,6 +169,7 @@ foliotone/
 ├── analyzers/
 │   ├── ebook/
 │   └── music/
+├── tooling/
 ├── authority/
 ├── enrichment/
 ├── classification/
@@ -164,7 +209,7 @@ The sample compose configuration uses project-local placeholder directories. Rea
 
 ## Safety status
 
-The current code has **no scan, move, rename, delete, metadata-write, provider-write, Calibre-write, or consolidation execution command**. The Docker media mounts are read-only. This is intentional.
+The current code has **no scan, move, rename, delete, metadata-write, provider-write, Calibre-write, external-tool-write, or consolidation execution command**. The Docker media mounts are read-only. This is intentional.
 
 W9 may eventually create non-executable plans. Write-capable consolidation remains blocked until W10 and a future accepted ADR.
 
