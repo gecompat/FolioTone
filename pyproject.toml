@@ -8,7 +8,10 @@ version = "0.1.0"
 description = "Orchestrate specialist tools to reconcile, analyze, and deduplicate e-book and music collections."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+  "alembic>=1.18,<2",
+  "SQLAlchemy>=2.0,<2.1",
+]
 
 [project.optional-dependencies]
 dev = [
