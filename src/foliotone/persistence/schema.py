@@ -50,6 +50,8 @@ file_records = Table(
     Column("presence_state", ENUM, nullable=False),
     Column("first_seen_at", DATETIME, nullable=False),
     Column("last_seen_at", DATETIME, nullable=False),
+    Column("missing_since_at", DATETIME),
+    Column("consecutive_missing_scans", Integer, nullable=False, default=0),
     UniqueConstraint("scan_root_id", "relative_path", name="uq_file_root_path"),
 )
 
