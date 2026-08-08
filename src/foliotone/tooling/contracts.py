@@ -27,7 +27,11 @@ class ToolProviderDescriptor:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "provider_id", require_non_empty(self.provider_id, "provider_id"))
-        object.__setattr__(self, "display_name", require_non_empty(self.display_name, "display_name"))
+        object.__setattr__(
+            self,
+            "display_name",
+            require_non_empty(self.display_name, "display_name"),
+        )
         object.__setattr__(
             self,
             "adapter_version",
