@@ -4,134 +4,129 @@ Last updated: 2026-08-08
 
 ## Current wave
 
-**W1 — Core + Persistence**
+**W2 — Incremental Index + Filename/Path Context + Tool Runtime**
 
-W0 is complete. FolioTone now has a verified Python/Docker bootstrap plus the first concrete provider- and tool-independent core implementation.
+W0 and W1 are complete. FolioTone now has a verified Docker/Python foundation, provider/tool-independent immutable core domain, SQLite persistence with versioned migrations, and read-only ToolProvider provenance contracts.
 
-The orchestration-first rule remains authoritative: specialist tools produce versioned evidence through replaceable ToolProvider contracts; FolioTone owns provenance, reconciliation, identity, review, and safety.
+The orchestration-first rule remains authoritative: specialist tools produce versioned evidence through replaceable ToolProvider integrations; FolioTone owns provenance, reconciliation, identity, review, and safety.
+
+## W1 completion summary
+
+### Core/domain
+
+Implemented:
+
+- opaque UUID-backed `EntityId`;
+- ScanRoot / ScanRun / FileRecord / FileObservation;
+- Provenance / ValueAssertion;
+- Agent / AgentName / ExternalIdentifier / Contribution;
+- Work / Edition / Series / SeriesMembership;
+- MusicWork / MusicWorkRelation / CatalogDesignation;
+- Recording / ReleaseGroup / Release / ReleaseRecording;
+- ClassificationAssertion / Fingerprint / Relation / Evidence;
+- ToolProviderDescriptor / ToolExecution / ToolResult.
+
+See `docs/planning/W1_CORE_IMPLEMENTATION.md` and ADR-0011.
+
+### Persistence
+
+Implemented:
+
+- SQLAlchemy Core schema behind provider-independent repository contracts;
+- SQLite initial persistence engine;
+- Alembic migration environment and explicit immutable `0001_initial` schema snapshot;
+- generic `Repository[T]` protocol and `SQLiteRepository[T]` implementation;
+- explicit generic domain/row codecs using FolioTone dataclass type information;
+- UUID string, UTC ISO-8601 datetime and stable enum-value serialization;
+- SQLite foreign-key enforcement for application connections;
+- idempotent `migrate(..., "head")` behavior;
+- packaged Alembic resources verified inside the built Docker image.
+
+See `docs/architecture/PERSISTENCE.md` and ADR-0012.
 
 ## Verification state
 
-GitHub Actions run `31279709278` on PR #3 verified the current core slice and the W0 Docker acceptance criteria:
+GitHub Actions run `31280522927` verified the completed W1 persistence implementation before the final documentation-only closure changes:
 
 ```text
-Install                      PASS
-Ruff                         PASS
-Mypy                         PASS
-Pytest                       PASS
-Prepare Docker placeholders  PASS
-Docker build                 PASS
-Docker bootstrap/status      PASS
+Install                       PASS
+Ruff                          PASS
+Mypy                          PASS
+Pytest                        PASS
+Prepare Docker placeholders   PASS
+Docker build                  PASS
+Docker migration smoke test   PASS
+Docker bootstrap/status       PASS
 ```
 
-The first CI attempt on this branch failed only on Ruff formatting (`E501` and `datetime.UTC` modernization). Those three style findings were corrected before the successful run above.
+Persistence integration tests cover:
 
-`W0-006` is therefore complete.
+- migration from an empty database to `0001_initial`;
+- repeated `upgrade head` without replaying V1;
+- current table set and Alembic revision;
+- full synthetic W1 graph round-trip across all registered model groups;
+- ID-based update of immutable records;
+- SQLite foreign-key enforcement;
+- unique scan-root-relative file paths;
+- deterministic repository listing.
 
-## Implemented in the current W1 core slice
+During development the tests found an actual SQLAlchemy 2.x/Alembic transaction issue: enabling the SQLite foreign-key PRAGMA opened an implicit transaction before Alembic's migration transaction, allowing the Alembic version row to roll back while DDL survived. The migration environment now explicitly commits the PRAGMA transaction before Alembic begins its migration transaction. The idempotence test prevents recurrence.
 
-### Internal identity and validation
+No real collection data is used by the test suite.
 
-- opaque UUID-backed `EntityId` for FolioTone-owned identity;
-- external IDs remain separate namespaced records;
-- immutable/slotted dataclasses for core entities;
-- timezone-aware datetime validation;
-- bounded confidence values;
-- safe scan-root-relative path normalization;
-- ADR-0011 records the concrete identity/core-model decisions.
+## Current persistence decisions
 
-### Physical/index core
+- SQLAlchemy **Core**, not ORM, so domain dataclasses remain database-independent;
+- Alembic for versioned migrations;
+- SQLite initially;
+- current dependency bounds: `SQLAlchemy>=2.0,<2.1`, `alembic>=1.18,<2`;
+- migration files are immutable after merge;
+- polymorphic `(target_kind, target_id)` references remain domain/service-validated rather than pretending to be single-table foreign keys;
+- speculative performance indexes are deferred until W2/W5/W6 query patterns exist.
 
-- `ScanRoot`;
-- `ScanRun`;
-- `FileRecord`;
-- `FileObservation`;
-- media/presence/scan-state enums.
+## W2 immediate target
 
-Absolute host paths remain configuration concerns rather than durable domain identity.
+Start with `W2-001`: configured scan roots and scan-run lifecycle using the W1 persistence layer.
 
-### Provenance and authority
+The first W2 vertical slice should establish:
 
-- `Provenance`;
-- `ValueAssertion` with `OBSERVED`, `DERIVED`, `EXTERNAL`, `CANONICAL`, `USER_CONFIRMED` states;
-- `Agent` / `AgentName` / `AgentType`;
-- `ExternalIdentifier`;
-- `Contribution` / typed role strings.
+```text
+configured ScanRoot
+        ↓
+start ScanRun
+        ↓
+filesystem discovery
+        ↓
+FileRecord + FileObservation persistence
+        ↓
+complete/interrupted ScanRun
+```
 
-### E-book identity
+Then add incremental state comparison, streamed hashing and the generic ToolProvider execution runtime before concrete calibre/ffprobe/fpcalc/beets/SongKong/Picard adapters.
 
-- `Work`;
-- `Edition`;
-- `Series`;
-- `SeriesMembership` with explicit Work/Edition level.
+## Not implemented yet
 
-### Music identity
-
-- `MusicWork`;
-- `MusicWorkRelation`;
-- `CatalogDesignation`;
-- `Recording`;
-- `ReleaseGroup`;
-- `Release`;
-- `ReleaseRecording`.
-
-### Classification and matching evidence
-
-- `ClassificationAssertion`;
-- `Fingerprint` with algorithm/version and optional ToolExecution link;
-- `Relation`;
-- `Evidence`;
-- relation and review/match status enums.
-
-### ToolProvider contracts
-
-- `ToolProviderDescriptor`;
-- `ToolExecution`;
-- `ToolResult`;
-- read-only `ToolCapability` vocabulary;
-- explicit tool version + adapter version + input/config identities;
-- terminal execution-state validation;
-- write-capable ToolProviders rejected by the W1 contract through W9.
-
-See `docs/planning/W1_CORE_IMPLEMENTATION.md`.
-
-## Still not implemented
-
-W1 is **not** complete yet. The next persistence slice is still required:
-
-- SQLite migration mechanism (`W1-007`);
-- persistence contracts/repositories (`W1-008`);
-- migration, round-trip, constraint, provenance, and failure-mode tests (`W1-009`);
-- final W1 documentation/status closure (`W1-011`).
-
-Later waves remain unimplemented:
-
-- generic ToolProvider execution runtime;
-- incremental filesystem scanner/hash pipeline;
-- filename/path parsing;
+- filesystem discovery/index execution;
+- incremental NEW/UNCHANGED/MODIFIED/MISSING/DELETED logic;
+- hashing pipeline;
+- move/rename detection;
+- filename/path parser;
+- generic ToolProvider process/container runtime;
 - calibre/ffprobe/fpcalc/beets/SongKong/Picard adapters;
 - e-book content analysis;
 - authority/entity resolution engine;
-- external knowledge providers;
+- external knowledge-provider adapters/cache/imports;
 - classification engine;
 - matching engine;
 - review system;
 - Calibre library reconciliation;
 - consolidation planning/execution.
 
-## Next implementation sequence
-
-1. `W1-007` — select and implement the SQLite migration mechanism and record the decision in an ADR.
-2. `W1-008` — implement provider-independent persistence contracts and SQLite repositories.
-3. `W1-009` — add migration/round-trip/constraint/failure tests using temporary databases.
-4. `W1-011` — synchronize schema/domain documentation and close W1.
-5. Start W2 with incremental indexing plus the generic ToolProvider execution runtime.
-
 ## Open decisions
 
 - Project license (`W0-007`) remains open but does not block internal development.
-- SQLite migration approach is the immediate W1 decision.
 - Exact process/container ToolProvider runtime belongs to W2.
+- DELETED confirmation semantics belong to W2-004.
 - Concrete e-book/music tool compositions belong to W3/W4 after current license/maintenance/security review.
 - External knowledge-provider adapters belong to W5 after current terms/API/bulk/cache review.
 - Matching thresholds belong to W6 calibration.

@@ -28,5 +28,9 @@ jobs:
         run: mkdir -p data media/ebooks media/music
       - name: Docker build
         run: docker compose build
+      - name: Docker migration smoke test
+        run: >-
+          docker compose run --rm --entrypoint python foliotone
+          -c "from foliotone.persistence import migrate; migrate('/tmp/foliotone-ci.db')"
       - name: Docker bootstrap
         run: docker compose run --rm foliotone status

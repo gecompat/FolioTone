@@ -27,26 +27,26 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W1-004 | DONE | Implement Work, Edition, Series, SeriesMembership. |
 | W1-005 | DONE | Implement MusicWork, MusicWorkRelation, CatalogDesignation, Recording, ReleaseGroup, Release, ReleaseRecording. |
 | W1-006 | DONE | Implement ClassificationAssertion, Fingerprint, Relation, Evidence, match/review status and version metadata. |
-| W1-007 | NEXT | Choose and implement SQLite migration mechanism; document choice in an ADR. |
-| W1-008 | READY | Implement persistence contracts and SQLite repositories without leaking SQLite/provider/tool schemas into domain logic. |
-| W1-009 | READY | Add round-trip, migration, constraint, provenance, relationship, and failure-mode tests. |
+| W1-007 | DONE | Select SQLAlchemy Core + Alembic and implement SQLite migrations; record ADR-0012. |
+| W1-008 | DONE | Implement provider-independent Repository contracts, explicit codecs and SQLite repositories without leaking SQLAlchemy into domain logic. |
+| W1-009 | DONE | Add empty-db migration, idempotent head upgrade, full W1 graph round-trip, update, foreign-key, uniqueness and deterministic-listing tests. |
 | W1-010 | DONE | Implement adapter-neutral ToolProviderDescriptor, ToolExecution, and ToolResult provenance contracts with stale-version inputs. |
-| W1-011 | READY | Update schema/domain documentation and project status from actual persistence implementation; close W1. |
+| W1-011 | DONE | Document persistence architecture, synchronize status/backlog/README/Handover, and close W1 after full CI + Docker migration verification. |
 
 ## W2 — Incremental Index + Filename/Path Context + Tool Runtime
 
 | ID | Status | Item |
 |---|---|---|
-| W2-001 | PLANNED | Implement configured scan roots and scan-run lifecycle. |
-| W2-002 | PLANNED | Implement filesystem discovery and relative-path observations. |
-| W2-003 | PLANNED | Implement incremental NEW/UNCHANGED/MODIFIED/MISSING behavior. |
+| W2-001 | NEXT | Implement configured scan roots and scan-run lifecycle using the W1 persistence layer. |
+| W2-002 | READY | Implement filesystem discovery and relative-path observations. |
+| W2-003 | READY | Implement incremental NEW/UNCHANGED/MODIFIED/MISSING behavior. |
 | W2-004 | PLANNED | Design robust DELETED confirmation policy. |
-| W2-005 | PLANNED | Implement streamed SHA-256 and quick fingerprint strategy. |
+| W2-005 | READY | Implement streamed SHA-256 and quick fingerprint strategy. |
 | W2-006 | PLANNED | Implement move/rename candidate detection. |
 | W2-007 | PLANNED | Add interruption/resume and unavailable-root tests. |
 | W2-008 | PLANNED | Implement versioned FilenameParser and PathContextAnalyzer that emit provenance-preserving FieldCandidate values. |
 | W2-009 | PLANNED | Add configurable parsing rules/fixtures for author-title, series/volume, track/disc, year and language conventions. |
-| W2-010 | PLANNED | Implement generic ToolProvider runtime: discovery/version detection, bounded CLI/container execution, timeout/cancellation, stdout/stderr/artifact capture, safe work directories and read-only media policy. |
+| W2-010 | READY | Implement generic ToolProvider runtime: discovery/version detection, bounded CLI/container execution, timeout/cancellation, stdout/stderr/artifact capture, safe work directories and read-only media policy. |
 | W2-011 | PLANNED | Add ToolProvider runtime tests for missing tool, version change, timeout, non-zero exit, malformed output, read-only safety and selective re-analysis. |
 
 ## W3 — E-book Analysis / Tool Orchestration
