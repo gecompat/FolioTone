@@ -197,7 +197,10 @@ def _reconcile_file(
 
     if current.presence_state is not PresenceState.PRESENT:
         state = FileChangeState.REAPPEARED
-    elif current.size_bytes != discovered.size_bytes or current.modified_at != discovered.modified_at:
+    elif (
+        current.size_bytes != discovered.size_bytes
+        or current.modified_at != discovered.modified_at
+    ):
         state = FileChangeState.MODIFIED
     else:
         state = FileChangeState.UNCHANGED
