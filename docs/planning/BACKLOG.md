@@ -41,9 +41,9 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W2-001 | DONE | Implement persistent logical scan roots, stable name resolution and scan-run lifecycle using the W1 persistence layer. |
 | W2-002 | DONE | Implement streaming filesystem discovery and relative-path observations without a collection-wide in-memory path list. |
 | W2-003 | DONE | Implement incremental NEW/UNCHANGED/MODIFIED/MISSING/REAPPEARED behavior; unavailable roots must not create false MISSING evidence. |
-| W2-004 | NEXT | Design and implement robust DELETED confirmation policy; MISSING alone must never imply DELETED. |
+| W2-004 | DONE | Implement opt-in DELETED confirmation requiring consecutive successful MISSING scans plus minimum elapsed absence; failed/interrupted scans do not advance confirmation. |
 | W2-005 | DONE | Implement staged quick fingerprint and streamed SHA-256 strategy against FileObservation identity. |
-| W2-006 | PLANNED | Implement move/rename candidate detection without premature identity assertion. |
+| W2-006 | NEXT | Implement move/rename candidate detection without premature identity assertion. |
 | W2-007 | READY | Complete interruption/resume behavior; unavailable-root failure handling is already implemented and tested. |
 | W2-008 | PLANNED | Implement versioned FilenameParser and PathContextAnalyzer that emit provenance-preserving FieldCandidate values. |
 | W2-009 | PLANNED | Add configurable parsing rules/fixtures for author-title, series/volume, track/disc, year and language conventions. |
