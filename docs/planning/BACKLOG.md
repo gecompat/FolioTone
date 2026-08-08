@@ -10,10 +10,11 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W0-002 | DONE | Record accepted architecture decisions for Python, persistence, analysis-first, Calibre adapter, explainable matching. |
 | W0-003 | DONE | Add Docker/Compose baseline with persistent `/data` and read-only media mounts. |
 | W0-004 | DONE | Add AI/contributor handover contract and authoritative project status. |
-| W0-005 | DONE | Add Python packaging, quality-tool configuration, bootstrap CLI/tests, and CI workflow. |
-| W0-006 | NEXT | Verify the W0 bootstrap via CI/local run and correct any foundation defects before W1. |
+| W0-005 | DONE | Add Python packaging, quality-tool configuration, and bootstrap CLI/tests. |
+| W0-006 | READY | Verify the W0 bootstrap via CI/local run and correct any foundation defects before W1. |
 | W0-007 | DECISION | Select a project license before encouraging third-party reuse/distribution. |
 | W0-008 | DONE | Extend architecture with Authority/Entity Resolution, provenance, external enrichment, MusicWork/ReleaseGroup, multidimensional classification, source registry, and W10 safety gate. |
+| W0-009 | NEXT | Install the documented GitHub Actions workflow at `.github/workflows/ci.yml`, then execute it; see `CI_WORKFLOW.md`. |
 
 ## W1 — Core + Persistence
 
