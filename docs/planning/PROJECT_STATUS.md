@@ -10,7 +10,7 @@ The full planning/foundation state has been migrated to the new FolioTone reposi
 
 Foundation content includes Authority/Entity Resolution, provenance, external enrichment, classical-aware music modeling and multidimensional classification.
 
-The immediate next actions are to install/verify the GitHub Actions workflow and complete `W0-006` bootstrap verification before starting W1.
+The GitHub Actions workflow is installed. The immediate next action is `W0-006`: execute/inspect FolioTone bootstrap verification and fix any remaining foundation defect before starting W1.
 
 ## Implemented/documented foundation
 
@@ -21,6 +21,7 @@ The immediate next actions are to install/verify the GitHub Actions workflow and
 - persistent writable `/data` mount and read-only e-book/music media mounts in Compose;
 - `FOLIOTONE_*` host-path environment-variable convention;
 - Git ignore rules for runtime/private data;
+- GitHub Actions quality workflow for install, Ruff, Mypy and Pytest;
 - architecture overview, domain model, indexing/matching design, and safety invariants;
 - Authority/Entity Resolution architecture separated from duplicate matching;
 - provenance/value states: `OBSERVED`, `DERIVED`, `EXTERNAL`, `CANONICAL`, `USER_CONFIRMED`;
@@ -39,9 +40,9 @@ The immediate next actions are to install/verify the GitHub Actions workflow and
 
 The predecessor PR's GitHub Actions run reached package installation successfully and then failed at Ruff with `E501` because one bootstrap status line exceeded the configured 100-character line length. The FolioTone CLI has been reformatted so that specific defect is not carried forward.
 
-The current ChatGPT GitHub connector blocked the direct write of `.github/workflows/ci.yml` for security-status reasons. The intended workflow is preserved in `docs/planning/CI_WORKFLOW.md`; it still needs to be installed at the GitHub Actions path and executed before W0 verification can be considered complete.
+The FolioTone workflow is now present at `.github/workflows/ci.yml` and targets `src/foliotone`. `docs/planning/CI_WORKFLOW.md` preserves the workflow contract and the predecessor failure context.
 
-Do not claim CI, Mypy or Pytest passed in FolioTone until an actual FolioTone run exists.
+Do not claim FolioTone CI, Mypy or Pytest passed until an actual FolioTone run exists.
 
 ## Not implemented
 
@@ -65,7 +66,7 @@ No production media functionality exists yet:
 
 ## Verification state
 
-W0 bootstrap verification remains outstanding.
+W0 bootstrap verification remains outstanding until an actual FolioTone CI and/or clean local/container result is recorded.
 
 Required verification commands:
 
@@ -82,16 +83,15 @@ Record actual results here before marking `W0-006` done.
 
 ## Next implementation sequence
 
-1. `W0-009` — install the documented CI workflow at `.github/workflows/ci.yml` and confirm it targets `src/foliotone`.
-2. `W0-006` — verify/fix bootstrap and record actual results.
-3. `W1-001` — design concrete entity/value-object boundaries and internal ID strategy for the expanded model.
-4. `W1-002` — physical/index core models.
-5. `W1-003` — Agent/AgentName/ExternalIdentifier/Contribution and provenance assertion model.
-6. `W1-004`/`W1-005` — e-book and music entity models, including Series, MusicWork and ReleaseGroup.
-7. `W1-006` — Classification/Fingerprint/Relation/Evidence/version concepts.
-8. `W1-007` — select/document SQLite migration mechanism.
-9. `W1-008`/`W1-009` — persistence implementation and tests.
-10. `W1-010` — synchronize documentation/status and close W1.
+1. `W0-006` — verify/fix bootstrap and record actual results.
+2. `W1-001` — design concrete entity/value-object boundaries and internal ID strategy for the expanded model.
+3. `W1-002` — physical/index core models.
+4. `W1-003` — Agent/AgentName/ExternalIdentifier/Contribution and provenance assertion model.
+5. `W1-004`/`W1-005` — e-book and music entity models, including Series, MusicWork and ReleaseGroup.
+6. `W1-006` — Classification/Fingerprint/Relation/Evidence/version concepts.
+7. `W1-007` — select/document SQLite migration mechanism.
+8. `W1-008`/`W1-009` — persistence implementation and tests.
+9. `W1-010` — synchronize documentation/status and close W1.
 
 Do not start W5 external provider implementation before the W1 provenance/provider-independent core contracts exist.
 
