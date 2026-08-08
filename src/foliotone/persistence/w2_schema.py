@@ -27,6 +27,7 @@ tool_artifacts = Table(
     Column("sha256", Text, nullable=False),
 )
 
+Index("uq_scan_roots_name", metadata.tables["scan_roots"].c.name, unique=True)
 Index(
     "ix_file_scan_events_run_state",
     file_scan_events.c.scan_run_id,
