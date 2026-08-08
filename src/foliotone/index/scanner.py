@@ -10,9 +10,17 @@ from itertools import islice
 
 from foliotone.core import FileChangeState, ScanRoot, ScanRun, ScanRunStatus
 from foliotone.index.discovery import DiscoveredFile, ScanRootBinding, discover_files
+from foliotone.index.hashing import FingerprintWriter, HashMode
 from foliotone.index.store import SQLiteIndexStore
 
 Clock = Callable[[], datetime]
+_HASH_STATES = frozenset(
+    {
+        FileChangeState.NEW,
+        FileChangeState.MODIFIED,
+        FileChangeState.REAPPEARED,
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,12 +47,18 @@ class IncrementalScanner:
         store: SQLiteIndexStore,
         *,
         batch_size: int = 256,
+        hash_mode: HashMode = HashMode.QUICK,
+        fingerprint_writer: FingerprintWriter | None = None,
         clock: Clock | None = None,
     ) -> None:
         if batch_size <= 0 or batch_size > 500:
             raise ValueError("batch_size must be between 1 and 500")
+        if hash_mode is not HashMode.NONE and fingerprint_writer is None:
+            raise ValueError("hashing requires a FingerprintWriter")
         self._store = store
         self._batch_size = batch_size
+        self._hash_mode = hash_mode
+        self._fingerprints = fingerprint_writer
         self._clock = clock or _utc_now
 
     def scan(self, root: ScanRoot, binding: ScanRootBinding) -> ScanSummary:
@@ -58,6 +72,7 @@ class IncrementalScanner:
             for batch in _batches(iterator, self._batch_size):
                 outcome = self._store.process_batch(root, run, batch, self._clock())
                 counts.update(event.change_state for event in outcome.events)
+                self._hash_changed(batch, outcome.observations, outcome.events)
 
             missing = self._store.mark_missing(root, run, self._clock())
             counts.update(event.change_state for event in missing)
@@ -70,6 +85,31 @@ class IncrementalScanner:
             raise
 
         return ScanSummary(run=run, counts=dict(counts))
+
+    def _hash_changed(
+        self,
+        discovered: tuple[DiscoveredFile, ...],
+        observations: tuple[object, ...],
+        events: tuple[object, ...],
+    ) -> None:
+        if self._hash_mode is HashMode.NONE or self._fingerprints is None:
+            return
+        from foliotone.core import FileObservation, FileScanEvent
+
+        typed_observations = tuple(
+            value for value in observations if isinstance(value, FileObservation)
+        )
+        typed_events = tuple(value for value in events if isinstance(value, FileScanEvent))
+        if len(typed_observations) != len(discovered) or len(typed_events) != len(discovered):
+            raise RuntimeError("index batch outcome is not aligned with discovery batch")
+        for item, observation, event in zip(discovered, typed_observations, typed_events, strict=True):
+            if event.change_state in _HASH_STATES:
+                self._fingerprints.calculate_and_save(
+                    observation,
+                    item.physical_path,
+                    self._hash_mode,
+                    self._clock(),
+                )
 
 
 def _batches(iterator: Iterator[DiscoveredFile], size: int) -> Iterator[tuple[DiscoveredFile, ...]]:
