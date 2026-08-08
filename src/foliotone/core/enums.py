@@ -32,6 +32,7 @@ class FileChangeState(StrEnum):
     NEW = "NEW"
     UNCHANGED = "UNCHANGED"
     MODIFIED = "MODIFIED"
+    REAPPEARED = "REAPPEARED"
     MISSING = "MISSING"
     MOVED = "MOVED"
     RENAMED = "RENAMED"
