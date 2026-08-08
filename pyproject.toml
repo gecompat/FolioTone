@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "foliotone"
 version = "0.1.0"
-description = "Analyze, identify, enrich, deduplicate, and later consolidate e-book and music collections."
+description = "Orchestrate specialist tools to reconcile, analyze, and deduplicate e-book and music collections."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
