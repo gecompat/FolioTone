@@ -9,7 +9,9 @@ W1 needs durable SQLite persistence and a migration mechanism that can evolve sa
 
 FolioTone should not build a custom migration framework when mature, maintained Python tooling already exists. At the same time, the provider-independent immutable domain dataclasses must not become SQLAlchemy ORM entities or inherit database concerns.
 
-As of 2026-08-08, SQLAlchemy 2.0.x is the current stable 2.0 series and Alembic 1.18.x is the current migration tool in the SQLAlchemy ecosystem. Alembic explicitly supports SQLite's restricted ALTER behavior through batch migrations.
+SQLAlchemy 2.0 and Alembic provide the required Python 3.12-compatible engine/schema and migration functionality. Alembic explicitly supports SQLite's restricted ALTER behavior through batch migrations. Exact compatible minor releases float within the guarded dependency ranges and are verified by CI rather than being described as permanently "latest" in this ADR.
+
+The initial persistence CI resolved SQLAlchemy 2.0.51 and Alembic 1.19.1 successfully.
 
 ## Decision
 
@@ -27,16 +29,17 @@ Version policy for the initial implementation:
 - `SQLAlchemy>=2.0,<2.1`;
 - `alembic>=1.18,<2`.
 
-A future upgrade across those guarded major/minor boundaries requires CI validation and may update this ADR or add a successor ADR.
+A future upgrade across those guarded boundaries requires CI validation and may update this ADR or add a successor ADR.
 
 ## Migration rules
 
 - migrations are immutable once merged;
 - the initial migration contains an explicit schema snapshot rather than calling current metadata dynamically;
-- SQLite foreign keys are enabled for every connection;
+- SQLite foreign keys are enabled for every application connection;
+- the Alembic environment enables foreign keys without leaving an implicit SQLAlchemy transaction open before the migration transaction begins;
 - future SQLite schema changes use Alembic-compatible batch operations where needed;
 - migrations run programmatically before repositories are opened for normal use;
-- migration tests must build a database from an empty file and assert it reaches the current head.
+- migration tests build a database from an empty file, assert it reaches the current head, and verify re-running `upgrade head` is idempotent.
 
 ## Persistence representation
 
