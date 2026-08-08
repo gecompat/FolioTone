@@ -12,7 +12,9 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the top-level CLI parser."""
     parser = argparse.ArgumentParser(
         prog="foliotone",
-        description="Analyze e-book and music collections without modifying source media.",
+        description=(
+            "Orchestrate specialist tools to analyze and reconcile e-book and music collections."
+        ),
     )
     parser.add_argument("--version", action="version", version=__version__)
     subparsers = parser.add_subparsers(dest="command")
@@ -27,11 +29,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "status":
         print(
-            "FolioTone W0 foundation: architecture scaffold created; "
-            "bootstrap verification pending."
+            "FolioTone W0 foundation: orchestration-first architecture documented; "
+            "Docker verification pending."
         )
         print("Next implementation wave after verification: W1 core and persistence.")
-        print("Source-media mutation commands are not implemented.")
+        print("Source-media and external-tool mutation commands are not implemented.")
         return 0
 
     parser.print_help()
