@@ -14,6 +14,7 @@ from foliotone.core import (
     FileObservation,
     FileRecord,
     FileScanEvent,
+    MediaType,
     PresenceState,
     ScanRoot,
     ScanRun,
@@ -40,6 +41,30 @@ class SQLiteIndexStore:
 
     def save_root(self, root: ScanRoot) -> None:
         repository(self._engine, ScanRoot).save(root)
+
+    def get_or_create_root(self, name: str, media_type: MediaType) -> ScanRoot:
+        """Resolve one stable logical root by name or create it once."""
+        normalized_name = name.strip()
+        if not normalized_name:
+            raise ValueError("scan root name must not be empty")
+
+        codec = codec_for(ScanRoot)
+        with self._engine.connect() as connection:
+            row = connection.execute(
+                select(schema.scan_roots).where(schema.scan_roots.c.name == normalized_name)
+            ).mappings().one_or_none()
+        if row is not None:
+            root = codec.decode(row)
+            if root.media_type is not media_type:
+                raise ValueError(
+                    f"scan root {normalized_name!r} already exists with media type "
+                    f"{root.media_type.value}"
+                )
+            return root
+
+        root = ScanRoot(id=EntityId.new(), name=normalized_name, media_type=media_type)
+        self.save_root(root)
+        return root
 
     def start_scan(self, root: ScanRoot, started_at: datetime) -> ScanRun:
         self.save_root(root)
