@@ -2,7 +2,7 @@
 
 This document defines the conceptual model for W1. Exact Python/SQL representations are intentionally deferred to W1 implementation and should be captured in an ADR if they introduce material trade-offs.
 
-The model deliberately separates physical files, observed metadata, authority identities, canonical entities, relations and review decisions.
+The model deliberately separates physical files, observed metadata, tool executions, authority identities, canonical entities, relations and review decisions.
 
 ## Physical/index layer
 
@@ -41,9 +41,9 @@ A generic assertion concept should be able to retain:
 - value;
 - state;
 - source/provenance;
-- extractor/parser/provider/rule version;
+- extractor/parser/provider/tool/rule version;
 - confidence where applicable;
-- observation/fetch timestamp where relevant;
+- observation/fetch/execution timestamp where relevant;
 - explanation/supporting evidence.
 
 Planned value states:
@@ -55,6 +55,53 @@ Planned value states:
 - `USER_CONFIRMED`
 
 The exact class/table decomposition is a W1 implementation decision, but these distinctions are mandatory.
+
+## Tool execution / specialist evidence layer
+
+External specialist tools are execution sources, not domain authorities.
+
+### ToolProviderDescriptor
+
+Conceptual metadata describing an installed/available specialist integration. It should be able to represent:
+
+- logical provider/tool name;
+- integration kind such as CLI, service, container job or local library;
+- discovered tool version;
+- FolioTone adapter version;
+- capabilities exposed to FolioTone;
+- availability/health state;
+- whether a capability is analysis-only or potentially mutating.
+
+Concrete command lines, container image schemas and provider-specific configuration remain adapter concerns.
+
+### ToolExecution
+
+Represents one bounded execution/query of an external tool that produced observations, candidates or artifacts.
+
+Expected provenance includes:
+
+- stable internal execution ID;
+- tool/provider identity and tool version;
+- adapter/parser version;
+- operation/profile name;
+- relevant configuration/profile version or digest where practical;
+- started/completed timestamps;
+- status/exit code/error classification;
+- FolioTone input references using internal IDs/relative paths instead of unnecessary private host paths;
+- produced observation/assertion/artifact references;
+- timeout/cancellation/retry metadata where relevant.
+
+The exact persistence decomposition is a W1 decision. The requirement is that a downstream Evidence item can explain which tool execution produced it and whether it becomes stale after tool/adapter/config changes.
+
+### ToolArtifact / ToolResultReference
+
+Represents a report, structured output, temporary normalized result or other artifact that is useful beyond the process boundary.
+
+Large/transient raw output should not automatically be stored forever. Persistence should retain only what is needed for reproducibility, evidence and debugging, subject to privacy/storage policy.
+
+### Safety state
+
+A ToolProvider may expose mutating operations, but FolioTone must distinguish capability from authorization. Through W9 only analysis-safe operations may execute against source media.
 
 ## Authority/contributor layer
 
@@ -205,19 +252,19 @@ Music:
 - instrumentation/ensemble type;
 - language/context.
 
-Different provider classifications may coexist. `Classical` as a broad music domain is distinct from the `Classical period` as an era.
+Different provider/tool classifications may coexist. `Classical` as a broad music domain is distinct from the `Classical period` as an era.
 
 ## Entity-resolution layer
 
 ### FieldCandidate
 
-Represents a parsed/derived candidate value from filename, path context, metadata or another local inference source. It does not directly overwrite canonical metadata.
+Represents a parsed/derived candidate value from filename, path context, metadata, external tool output or another inference source. It does not directly overwrite canonical metadata.
 
 ### EntityResolutionCandidate
 
 Represents a proposed mapping between an observed/derived value and an Agent/Work/Edition/MusicWork/Recording/ReleaseGroup/Release or external authority entity.
 
-Expected properties include candidate entity, score/confidence, source/provider, explanation and resolution-rule/provider version.
+Expected properties include candidate entity, score/confidence, source/provider/tool, explanation and resolution-rule/provider/tool-adapter version.
 
 ### AuthorityCache / ExternalProviderState
 
@@ -272,20 +319,21 @@ Each match must record reasons rather than only a scalar score. Expected propert
 - evidence type;
 - observed values or normalized comparison result where safe;
 - direction/weight or qualitative strength;
-- algorithm/rule/provider version;
+- source assertion / ToolExecution / provider reference;
+- algorithm/rule/provider/tool/adapter version;
 - explanation suitable for review.
 
-Resolved authority identities are evidence inputs to matching; they do not replace file/content evidence.
+Resolved authority identities and specialist tool results are evidence inputs to matching; they do not replace independent file/content evidence.
 
 ### Fingerprint
 
-A fingerprint is versioned by kind/algorithm. Planned levels include full file SHA-256, fast/partial file fingerprint, normalized e-book text/content fingerprint, audio-stream fingerprint, later acoustic fingerprint and later cover/image perceptual fingerprint.
+A fingerprint is versioned by kind/algorithm. Planned levels include full file SHA-256, fast/partial file fingerprint, normalized e-book text/content fingerprint, audio-stream fingerprint, acoustic fingerprint (for example via Chromaprint), and later cover/image perceptual fingerprint.
 
 ## Review layer
 
-A ReviewDecision records the chosen relation/rejection/resolution decision, system-level actor type, timestamp, evidence snapshot/reference and relevant matcher/resolver/rule version. Do not require private human identity merely to persist a review decision.
+A ReviewDecision records the chosen relation/rejection/resolution decision, system-level actor type, timestamp, evidence snapshot/reference and relevant matcher/resolver/rule/tool versions. Do not require private human identity merely to persist a review decision.
 
-Review may also create durable local authority knowledge such as a confirmed alias-to-Agent mapping or rejected external candidate.
+Review may also create durable local authority knowledge such as a confirmed alias-to-Agent mapping or rejected external/tool candidate.
 
 ## Consolidation layer
 
@@ -297,4 +345,6 @@ W9 introduces `ConsolidationPlan` only. Plans describe candidate actions and pre
 - `ADR-0007-music-work-and-release-group.md`
 - `ADR-0008-multidimensional-classification.md`
 - `ADR-0009-external-enrichment-and-privacy.md`
+- `ADR-0010-tool-provider-orchestration.md`
 - `AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`
+- `../reference/EXTERNAL_TOOLS.md`
