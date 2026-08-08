@@ -2,39 +2,63 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-PROTECTED_README_PREFIX = """# FolioTone
-
----
----
-# ⚠️ READ BEFORE USE
-
-## License notice
-
-**NOTICE: This software is NOT Open Source. Use is governed by a custom Community & Attribution License.**
-
-1. **NO RESALE:** Selling or charging for access to this software is strictly prohibited.
-2. **ATTRIBUTION REQUIRED:** You must preserve the copyright notice for **gecompat - Gerhard Pisch**.
-3. **NO LIABILITY:** Use this software at your own risk. The author is **NOT liable** for any damages, data loss, or business interruptions.
-
-Full legal terms can be found in the [LICENSE.md](./LICENSE.md) file.
-
----
-## Lizenzhinweis
-
-**NOTIZ: FolioTone ist keine Open-Source-Software. Die Nutzung richtet sich nach der projektspezifischen Community & Attribution License.**
-
-1. **NO RESALE:** Der Verkauf der Software und das Entgelt für den Zugang zur Software sind untersagt.
-2. **ATTRIBUTION REQUIRED:** Der Copyright-Hinweis für **gecompat – Gerhard Pisch** muss erhalten bleiben.
-3. **NO LIABILITY:** Die Nutzung erfolgt auf eigenes Risiko; der Autor **haftet nicht** für Schäden, Datenverlust oder Betriebsunterbrechungen.
-
-Maßgeblich ist der vollständige Wortlaut in [LICENSE.md](./LICENSE.md).
-
-# ⚠️ READ BEFORE USE
-
----
----
-
-"""
+PROTECTED_README_PREFIX = "\n".join(
+    (
+        "# FolioTone",
+        "",
+        "---",
+        "---",
+        "# ⚠️ READ BEFORE USE",
+        "",
+        "## License notice",
+        "",
+        (
+            "**NOTICE: This software is NOT Open Source. Use is governed by a custom "
+            "Community & Attribution License.**"
+        ),
+        "",
+        "1. **NO RESALE:** Selling or charging for access to this software is strictly prohibited.",
+        (
+            "2. **ATTRIBUTION REQUIRED:** You must preserve the copyright notice for "
+            "**gecompat - Gerhard Pisch**."
+        ),
+        (
+            "3. **NO LIABILITY:** Use this software at your own risk. The author is "
+            "**NOT liable** for any damages, data loss, or business interruptions."
+        ),
+        "",
+        "Full legal terms can be found in the [LICENSE.md](./LICENSE.md) file.",
+        "",
+        "---",
+        "## Lizenzhinweis",
+        "",
+        (
+            "**NOTIZ: FolioTone ist keine Open-Source-Software. Die Nutzung richtet sich nach der "
+            "projektspezifischen Community & Attribution License.**"
+        ),
+        "",
+        (
+            "1. **NO RESALE:** Der Verkauf der Software und das Entgelt für den Zugang zur Software "
+            "sind untersagt."
+        ),
+        (
+            "2. **ATTRIBUTION REQUIRED:** Der Copyright-Hinweis für **gecompat – Gerhard Pisch** "
+            "muss erhalten bleiben."
+        ),
+        (
+            "3. **NO LIABILITY:** Die Nutzung erfolgt auf eigenes Risiko; der Autor **haftet nicht** "
+            "für Schäden, Datenverlust oder Betriebsunterbrechungen."
+        ),
+        "",
+        "Maßgeblich ist der vollständige Wortlaut in [LICENSE.md](./LICENSE.md).",
+        "",
+        "# ⚠️ READ BEFORE USE",
+        "",
+        "---",
+        "---",
+        "",
+    )
+) + "\n"
 
 REQUIRED_GOVERNANCE_PATHS = (
     "docs/quality/DOCUMENTATION_STYLE.md",
