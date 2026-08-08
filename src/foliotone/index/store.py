@@ -20,6 +20,7 @@ from foliotone.core import (
     ScanRun,
     ScanRunStatus,
 )
+from foliotone.index.deletion import DeletionConfirmationPolicy
 from foliotone.index.discovery import DiscoveredFile
 from foliotone.persistence import repository, schema, w2_schema
 from foliotone.persistence.codecs import codec_for
@@ -151,8 +152,9 @@ class SQLiteIndexStore:
         root: ScanRoot,
         run: ScanRun,
         recorded_at: datetime,
+        deletion_policy: DeletionConfirmationPolicy | None = None,
     ) -> tuple[FileScanEvent, ...]:
-        """Mark known files not observed in a successful scan as MISSING."""
+        """Record successful absence and optionally confirm sufficiently persistent deletion."""
         observation_exists = exists(
             select(schema.file_observations.c.id).where(
                 schema.file_observations.c.file_id == schema.file_records.c.id,
@@ -172,13 +174,41 @@ class SQLiteIndexStore:
             events: list[FileScanEvent] = []
             for row in rows:
                 current = codec.decode(row)
-                if current.presence_state is not PresenceState.MISSING:
-                    _upsert(connection, replace(current, presence_state=PresenceState.MISSING))
+                if (
+                    current.presence_state is PresenceState.MISSING
+                    and current.missing_since_at is not None
+                ):
+                    missing_since_at = current.missing_since_at
+                    consecutive_missing_scans = current.consecutive_missing_scans + 1
+                else:
+                    missing_since_at = recorded_at
+                    consecutive_missing_scans = 1
+
+                confirmed_deleted = deletion_policy is not None and deletion_policy.confirms(
+                    consecutive_missing_scans=consecutive_missing_scans,
+                    missing_since_at=missing_since_at,
+                    evaluated_at=recorded_at,
+                )
+                presence_state = (
+                    PresenceState.DELETED if confirmed_deleted else PresenceState.MISSING
+                )
+                change_state = (
+                    FileChangeState.DELETED if confirmed_deleted else FileChangeState.MISSING
+                )
+                _upsert(
+                    connection,
+                    replace(
+                        current,
+                        presence_state=presence_state,
+                        missing_since_at=missing_since_at,
+                        consecutive_missing_scans=consecutive_missing_scans,
+                    ),
+                )
                 event = FileScanEvent(
                     id=EntityId.new(),
                     file_id=current.id,
                     scan_run_id=run.id,
-                    change_state=FileChangeState.MISSING,
+                    change_state=change_state,
                     recorded_at=recorded_at,
                     previous_relative_path=current.relative_path,
                 )
@@ -237,6 +267,8 @@ def _reconcile_file(
             modified_at=discovered.modified_at,
             presence_state=PresenceState.PRESENT,
             last_seen_at=observed_at,
+            missing_since_at=None,
+            consecutive_missing_scans=0,
         ),
         state,
     )
