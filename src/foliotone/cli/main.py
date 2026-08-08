@@ -28,8 +28,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "status":
-        print("FolioTone W1: core domain and ToolProvider contracts implemented.")
-        print("Next implementation slice: SQLite migrations and persistence repositories.")
+        print("FolioTone W2: W1 core and SQLite persistence are implemented.")
+        print("Next implementation slice: incremental scan-root and file indexing lifecycle.")
         print("Source-media and external-tool mutation commands are not implemented.")
         return 0
 
