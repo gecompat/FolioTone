@@ -6,6 +6,7 @@ Created: 2026-08-08
 """
 
 from collections.abc import Sequence
+from typing import Any
 
 import sqlalchemy as sa
 from alembic import op
@@ -20,7 +21,7 @@ ENUM = sa.String(48)
 DATETIME = sa.String(40)
 
 
-def _provenance_columns() -> tuple[sa.Column[object], ...]:
+def _provenance_columns() -> tuple[sa.Column[Any], ...]:
     return (
         sa.Column("source_kind", sa.Text(), nullable=False),
         sa.Column("source_name", sa.Text(), nullable=False),
