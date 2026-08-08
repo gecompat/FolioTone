@@ -20,9 +20,8 @@ from foliotone.core import (
     ScanRunStatus,
 )
 from foliotone.index.discovery import DiscoveredFile
-from foliotone.persistence import repository
+from foliotone.persistence import repository, schema, w2_schema
 from foliotone.persistence.codecs import codec_for
-from foliotone.persistence import schema, w2_schema
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,10 +87,7 @@ class SQLiteIndexStore:
                 )
             ).mappings()
             file_codec = codec_for(FileRecord)
-            existing = {
-                row["relative_path"]: file_codec.decode(row)
-                for row in existing_rows
-            }
+            existing = {row["relative_path"]: file_codec.decode(row) for row in existing_rows}
 
             observations: list[FileObservation] = []
             events: list[FileScanEvent] = []
@@ -201,10 +197,7 @@ def _reconcile_file(
 
     if current.presence_state is not PresenceState.PRESENT:
         state = FileChangeState.REAPPEARED
-    elif (
-        current.size_bytes != discovered.size_bytes
-        or current.modified_at != discovered.modified_at
-    ):
+    elif current.size_bytes != discovered.size_bytes or current.modified_at != discovered.modified_at:
         state = FileChangeState.MODIFIED
     else:
         state = FileChangeState.UNCHANGED
