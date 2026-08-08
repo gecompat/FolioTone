@@ -6,7 +6,6 @@ import pytest
 from sqlalchemy import Engine
 
 from foliotone.core import (
-    EntityId,
     FileChangeState,
     FileRecord,
     Fingerprint,
@@ -43,15 +42,31 @@ def index_environment(tmp_path: Path) -> IndexEnvironment:
     media.mkdir()
     migrate(database)
     engine = create_sqlite_engine(database)
-    root = ScanRoot(id=EntityId.new(), name="test", media_type=MediaType.EBOOK)
+    store = SQLiteIndexStore(engine)
+    root = store.get_or_create_root("test", MediaType.EBOOK)
     scanner = IncrementalScanner(
-        SQLiteIndexStore(engine),
+        store,
         batch_size=2,
         hash_mode=HashMode.QUICK,
         fingerprint_writer=FingerprintWriter(engine),
         clock=lambda: NOW,
     )
     return IndexEnvironment(engine, root, media, scanner)
+
+
+def test_logical_scan_root_is_reused_by_name(index_environment: IndexEnvironment) -> None:
+    store = SQLiteIndexStore(index_environment.engine)
+    resolved = store.get_or_create_root("test", MediaType.EBOOK)
+    assert resolved == index_environment.root
+    assert len(repository(index_environment.engine, ScanRoot).list_all()) == 1
+
+
+def test_logical_scan_root_rejects_media_type_change(
+    index_environment: IndexEnvironment,
+) -> None:
+    store = SQLiteIndexStore(index_environment.engine)
+    with pytest.raises(ValueError, match="already exists with media type EBOOK"):
+        store.get_or_create_root("test", MediaType.MUSIC)
 
 
 def test_incremental_scan_tracks_new_unchanged_modified_missing_and_reappeared(
