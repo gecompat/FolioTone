@@ -1,108 +1,123 @@
-# Handover / Continuation Guide
+# Handover / Fortsetzungsleitfaden
 
-## One-minute orientation
+## Orientierung
 
-FolioTone is an orchestration and reconciliation platform for large e-book and music collections. It combines filesystem evidence, mature specialist tools, metadata services, authority resolution, classification and content/audio fingerprints into one provenance-preserving evidence model.
+FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
-It is intentionally non-destructive during W0–W9.
+W0 und W1 sind abgeschlossen. Der erste W2-Slice für Incremental Index, Hashing und generische read-only ToolProvider Runtime ist implementiert und in GitHub Actions vollständig verifiziert.
 
-Current repository state: **W0 and W1 are complete. W2 incremental indexing and generic ToolProvider execution are next.**
+**Der nächste Schritt ist der lokale Windows-/Docker-Smoke-Test gemäß `docs/quality/LOCAL_SMOKE_TEST.md`.** Erst danach werden die verbleibenden W2-Funktionen weiterentwickelt.
 
-## Do this next
+## Vor Änderungen lesen
 
-1. Read `AGENTS.md`.
-2. Read `PROJECT_STATUS.md` and confirm it still matches repository reality.
-3. Read `docs/architecture/PERSISTENCE.md`, `W1_CORE_IMPLEMENTATION.md`, ADR-0011 and ADR-0012 before changing core/persistence contracts.
-4. Start `W2-001`: implement configured ScanRoot and ScanRun lifecycle using the existing repositories/migrations.
-5. Continue with filesystem discovery (`W2-002`) and incremental NEW/UNCHANGED/MODIFIED/MISSING behavior (`W2-003`).
-6. Add streamed hashing (`W2-005`) without loading large media files into memory.
-7. Implement the generic ToolProvider process/container runtime (`W2-010`) before concrete calibre/ffprobe/fpcalc/beets/SongKong/Picard adapters.
-8. Keep `BACKLOG.md` and `PROJECT_STATUS.md` synchronized after each coherent vertical slice.
+1. `AGENTS.md`.
+2. `docs/planning/PROJECT_STATUS.md`.
+3. `docs/planning/BACKLOG.md`.
+4. `docs/quality/DOCUMENTATION_STYLE.md` und `docs/quality/LANGUAGE_AND_TERMINOLOGY.md`, wenn Dokumentation berührt wird.
+5. `docs/reference/GLOSSARY.md`, wenn fachliche Terminologie berührt wird.
+6. Relevante Dateien unter `docs/architecture/` und `docs/decisions/`.
+7. `docs/reference/EXTERNAL_TOOLS.md`, bevor ein konkreter externer ToolProvider implementiert wird.
 
-## Verified W1 baseline
+## Verifizierter aktueller Stand
 
-The completed W1 implementation has passed:
+Der aktuelle W2-Slice hat in GitHub Actions bestanden:
 
 ```text
 Install
 Ruff
 Mypy
-Pytest
+Pytest (44 Tests)
 Docker build
 Docker migration smoke test
+Docker persistent data write test
+Docker incremental scan smoke test
 Docker bootstrap/status
 ```
 
-The persistence suite builds SQLite from an empty file, reaches Alembic head, repeats `upgrade head`, round-trips the complete synthetic W1 graph, and verifies foreign-key/uniqueness behavior.
+Der Docker Incremental Scan Smoke Test verwendet dieselbe persistente SQLite-Datenbank über vier getrennte Containerläufe und bestätigt:
 
-## Implemented W1 core and persistence
+```text
+NEW: 2
+UNCHANGED: 2
+MODIFIED: 1 / MISSING: 1
+UNCHANGED: 1 / REAPPEARED: 1
+```
 
-Provider/tool-independent immutable models exist for:
+## W2 aktuell implementiert
 
-- ScanRoot / ScanRun / FileRecord / FileObservation;
-- Provenance / ValueAssertion;
-- Agent / AgentName / ExternalIdentifier / Contribution;
-- Work / Edition / Series / SeriesMembership;
-- MusicWork / MusicWorkRelation / CatalogDesignation;
-- Recording / ReleaseGroup / Release / ReleaseRecording;
-- ClassificationAssertion / Fingerprint / Relation / Evidence;
-- ToolProviderDescriptor / ToolExecution / ToolResult.
+### Index
 
-Persistence includes:
+- stabile logische `ScanRoot`-Identität über einen eindeutigen Namen;
+- `ScanRun`-Lifecycle;
+- streaming Filesystem Discovery;
+- `FileObservation` und `FileScanEvent`;
+- NEW, UNCHANGED, MODIFIED, MISSING und REAPPEARED;
+- unavailable-root Schutz gegen falsches MISSING;
+- read-only `foliotone scan` CLI;
+- begrenzte Batch-Verarbeitung.
 
-- SQLAlchemy Core schema;
-- Alembic `0001_initial` migration;
-- Repository protocol + SQLiteRepository;
-- generic dataclass/row codecs;
-- UUID -> canonical text serialization;
-- timezone-aware datetime -> UTC ISO-8601 serialization;
-- SQLite foreign-key enforcement;
-- Docker-packaged migration verification.
+### Hashing
 
-Internal identity uses opaque UUID-backed `EntityId`; external catalog/provider IDs remain separate evidence.
+- NONE, QUICK und FULL;
+- Quick Fingerprint mit begrenztem Datei-I/O;
+- vollständiges SHA-256 als Streaming-Hash;
+- Fingerprints gegen konkrete `FileObservation`;
+- kein unnötiges Rehashing unveränderter Dateien.
 
-## Important persistence invariant learned during W1
+### ToolProvider Runtime
 
-Do not execute SQL on an Alembic connection before `context.begin_transaction()` without understanding SQLAlchemy 2.x autobegin behavior.
+- lokale Ausführung ohne Shell;
+- Version Detection;
+- Timeout/Cancellation;
+- FAILED-Erfassung bei fehlendem Tool und Non-zero Exit;
+- stdout/stderr als `ToolArtifact` mit SHA-256;
+- Privacy-Schutz für persistierte Input-Identitäten;
+- gehärtete Containerargumente mit read-only Input-Mounts, deaktiviertem Netzwerk als Default und isoliertem Work-Verzeichnis.
 
-The W1 tests found that `PRAGMA foreign_keys=ON` started an implicit transaction. If not ended before Alembic's migration transaction, SQLite DDL could survive while the Alembic version row rolled back. The environment now commits that small PRAGMA transaction first, and the idempotent migration test protects this behavior.
+### Persistence
 
-## Product description
+Alembic `0002_incremental_index` ergänzt den W1-Stand. Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
-> FolioTone is an orchestration and reconciliation platform for large e-book and music collections. It connects proven specialist tools and metadata services, normalizes their results into provenance-preserving evidence, resolves identities, detects duplicates and quality/completeness issues, supports review, and produces safe consolidation plans.
+## Lokale Verifikation
 
-## Non-negotiable constraints
+Der Benutzer führt den lokalen Test auf Windows/Docker Desktop aus. Der genaue Ablauf steht in `docs/quality/LOCAL_SMOKE_TEST.md`.
 
-- Python 3.12+; Docker/Linux primary runtime.
-- Host-persistent `/data`; source media mounted read-only.
-- Analysis only through W9; write-capable FolioTone/tool actions blocked until W10.
-- Orchestration first: evaluate mature specialist tools before native reimplementation.
-- Tool/provider-specific schemas and commands terminate at adapter boundaries.
-- External specialist outputs are evidence, not canonical truth.
-- Absolute host paths remain configuration concerns, not durable domain identity.
-- Observed/derived/external/canonical/user-confirmed values keep provenance.
-- Tool-derived values keep ToolExecution/tool/adapter version provenance.
-- Authors/artists/composers are Agent identities plus role relationships.
-- Book Work/Edition and music MusicWork/Recording/ReleaseGroup/Release are distinct identity levels.
-- Classification is multidimensional and provenance-preserving.
-- Candidate generation precedes expensive matching; decisions stay explainable/versioned.
-- Migration files are immutable after merge; schema changes get new revisions.
+Für den Test werden ausschließlich synthetische Dateien in den von Git ignorierten Runtime-Verzeichnissen verwendet. Es werden keine realen E-Books oder Musikdateien benötigt.
 
-## External tools and knowledge
+Nach erfolgreicher lokaler Verifikation wird `W2-012` auf DONE gesetzt.
 
-Read `docs/reference/EXTERNAL_TOOLS.md` before implementing media-specific capabilities and `docs/reference/EXTERNAL_DATA_SOURCES.md` before implementing knowledge-provider adapters.
+## Danach weiterarbeiten
 
-Candidate tools/providers are not automatically dependencies. Re-check current maintenance, license, API/CLI/container interfaces, output formats and security behavior before implementing an adapter.
+Nach dem lokalen Smoke-Test ist die nächste sinnvolle Reihenfolge:
 
-## What not to assume
+1. `W2-004` — `DELETED`-Bestätigung definieren; MISSING darf nicht automatisch DELETED bedeuten.
+2. `W2-006` — Move-/Rename-Kandidaten erkennen.
+3. `W2-007` — Interrupt/Resume vervollständigen.
+4. `W2-008` — `FilenameParser` und `PathContextAnalyzer`.
+5. `W2-009` — Parsing-Regeln und synthetische Fixtures.
+6. `W2-011` — verbleibende ToolRuntime-Tests für malformed output, Version Changes und selective re-analysis.
 
-- The W1 database schema is a foundation, not the final optimized query schema.
-- W2/W5/W6 may add indexes or service-level integrity rules through new migrations once real access patterns exist.
-- Generic ToolProvider process/container execution is not implemented yet.
-- Concrete media tools are still candidates; commercial tools remain optional.
-- Matching/entity-resolution thresholds are not calibrated yet.
-- OCR, perceptual cover hashing, quality ranking and consolidation execution are later work.
+Erst danach beginnt W3 mit der konkreten E-Book-Toolauswahl und dem ersten calibre Vertical Slice.
 
-## Handover quality rule
+## Verbindliche Sicherheitsgrenzen
 
-At the end of a substantial work session, update `PROJECT_STATUS.md` and `BACKLOG.md` so the next agent can continue without previous chat history. Never claim verification that was not actually executed.
+- `/data` ist persistent read-write.
+- Source Media unter `/media` bleibt read-only.
+- Keine Source-Media-Delete-/Move-/Rename-/Retag-Operation durch W0 bis W9.
+- Keine automatische Calibre-Modifikation.
+- Keine write-capable externe Tooloperation.
+- `MISSING` ist keine Löschbestätigung.
+- Externe Tool-/Provider-Ergebnisse sind Evidence, nicht kanonische Wahrheit.
+- Absolute private Pfade werden nicht als persistierte Tool-Input-Identität gespeichert.
+- W10 bleibt bis zu einer späteren expliziten ADR blockiert.
+
+## Dokumentations- und Lizenzregeln
+
+- Die kanonische erklärende Dokumentation ist grundsätzlich deutsch; etablierte technische Begriffe bleiben in kanonischer Form.
+- `docs/reference/GLOSSARY.md` ist für fachliche Kernbegriffe maßgeblich.
+- Der zweisprachige Lizenzblock am Anfang der Root-README ist geschützt und darf nur auf ausdrücklichen Benutzerauftrag geändert werden.
+- `LICENSE.md` bestimmt, dass die englische Lizenzfassung rechtlich maßgeblich ist.
+
+## Handover-Qualitätsregel
+
+Am Ende einer substanziellen Arbeit müssen `PROJECT_STATUS.md` und `BACKLOG.md` den realen Repositoryzustand wiedergeben. Tests dürfen nur als bestanden dokumentiert werden, wenn sie tatsächlich ausgeführt wurden. Ein zukünftiges KI-System darf zur Fortsetzung nicht auf den bisherigen Chat angewiesen sein.
