@@ -13,7 +13,7 @@ Current repository state: **W0 foundation migrated and architecture expanded; bo
 1. Read `AGENTS.md`.
 2. Read `PROJECT_STATUS.md` and confirm it still matches repository reality.
 3. Read `AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md` and ADR-0006 through ADR-0009 before changing the W1 model.
-4. Ensure the documented CI workflow is installed at `.github/workflows/ci.yml`; the current ChatGPT GitHub connector blocked that single workflow-path write during migration.
+4. Inspect the FolioTone GitHub Actions workflow at `.github/workflows/ci.yml` and its latest run.
 5. Run/inspect W0 verification (`ruff`, `mypy`, `pytest`, Docker bootstrap). Mark `W0-006` done only after actual verification.
 6. Start W1 with `W1-001`: turn the expanded conceptual model in `DOMAIN_MODEL.md` into concrete Python model/contracts without introducing SQLite, Calibre, Open Library, MusicBrainz or other provider schemas into the domain layer.
 7. Keep `BACKLOG.md` and `PROJECT_STATUS.md` synchronized in every coherent implementation change.
