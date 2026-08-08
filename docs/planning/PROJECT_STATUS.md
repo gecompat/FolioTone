@@ -77,7 +77,9 @@ Mypy     PASS
 Pytest   PASS
 ```
 
-The current tool-orchestration documentation/package-boundary change must also pass CI before merge.
+The orchestration-first/ToolProvider change was verified on PR #2 head `98a1d195a4e3534e9754d1da415184e958f58c09` by GitHub Actions run `31278525051`; Install, Ruff, Mypy and Pytest all passed.
+
+A final documentation-only status commit still requires the normal PR-head CI check before merge; do not infer its result from the prior head.
 
 Still unverified in FolioTone:
 
