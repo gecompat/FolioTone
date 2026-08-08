@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -26,7 +26,7 @@ from foliotone.core import (
     ValueState,
 )
 
-NOW = datetime(2026, 8, 8, 20, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 8, 8, 20, 0, tzinfo=UTC)
 
 
 def provenance() -> Provenance:
