@@ -41,6 +41,12 @@ def upgrade() -> None:
         sa.Column("sha256", sa.Text(), nullable=False),
     )
     op.create_index(
+        "uq_scan_roots_name",
+        "scan_roots",
+        ["name"],
+        unique=True,
+    )
+    op.create_index(
         "ix_file_scan_events_run_state",
         "file_scan_events",
         ["scan_run_id", "change_state"],
@@ -61,5 +67,6 @@ def downgrade() -> None:
     op.drop_index("ix_tool_artifacts_execution", table_name="tool_artifacts")
     op.drop_index("ix_file_observations_run_file", table_name="file_observations")
     op.drop_index("ix_file_scan_events_run_state", table_name="file_scan_events")
+    op.drop_index("uq_scan_roots_name", table_name="scan_roots")
     op.drop_table("tool_artifacts")
     op.drop_table("file_scan_events")
