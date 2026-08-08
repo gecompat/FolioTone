@@ -38,16 +38,16 @@ PROTECTED_README_PREFIX = "\n".join(
         ),
         "",
         (
-            "1. **NO RESALE:** Der Verkauf der Software und das Entgelt für den Zugang zur Software "
-            "sind untersagt."
+            "1. **NO RESALE:** Der Verkauf der Software und das Entgelt für den Zugang zur "
+            "Software sind untersagt."
         ),
         (
             "2. **ATTRIBUTION REQUIRED:** Der Copyright-Hinweis für **gecompat – Gerhard Pisch** "
             "muss erhalten bleiben."
         ),
         (
-            "3. **NO LIABILITY:** Die Nutzung erfolgt auf eigenes Risiko; der Autor **haftet nicht** "
-            "für Schäden, Datenverlust oder Betriebsunterbrechungen."
+            "3. **NO LIABILITY:** Die Nutzung erfolgt auf eigenes Risiko; der Autor "
+            "**haftet nicht** für Schäden, Datenverlust oder Betriebsunterbrechungen."
         ),
         "",
         "Maßgeblich ist der vollständige Wortlaut in [LICENSE.md](./LICENSE.md).",
