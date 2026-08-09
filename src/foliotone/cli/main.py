@@ -4,17 +4,19 @@ from __future__ import annotations
 
 import argparse
 import os
+from collections import Counter
 from collections.abc import Sequence
 from datetime import timedelta
 from pathlib import Path
 
 from foliotone import __version__
-from foliotone.core import FileChangeState, MediaType
+from foliotone.core import FileChangeState, MediaType, RelocationCandidateKind
 from foliotone.index import (
     DeletionConfirmationPolicy,
     FingerprintWriter,
     HashMode,
     IncrementalScanner,
+    RelocationCandidateDetector,
     ScanRootBinding,
     SQLiteIndexStore,
 )
@@ -162,12 +164,16 @@ def _run_scan(
     root = store.get_or_create_root(args.name, media_type)
     hash_mode = _HASH_MODES[args.hash_mode]
     fingerprint_writer = None if hash_mode is HashMode.NONE else FingerprintWriter(engine)
+    relocation_detector = (
+        None if hash_mode is HashMode.NONE else RelocationCandidateDetector(engine)
+    )
     scanner = IncrementalScanner(
         store,
         batch_size=args.batch_size,
         hash_mode=hash_mode,
         fingerprint_writer=fingerprint_writer,
         deletion_policy=deletion_policy,
+        relocation_detector=relocation_detector,
     )
     suffixes = None if args.suffix is None else frozenset(args.suffix)
     summary = scanner.scan(root, ScanRootBinding(args.path, include_suffixes=suffixes))
@@ -180,6 +186,13 @@ def _run_scan(
         count = summary.counts.get(state, 0)
         if count:
             print(f"{state.value}: {count}")
+    if summary.relocation_candidates:
+        print(f"Relocation candidates: {len(summary.relocation_candidates)}")
+        candidate_counts = Counter(candidate.kind for candidate in summary.relocation_candidates)
+        for kind in RelocationCandidateKind:
+            count = candidate_counts.get(kind, 0)
+            if count:
+                print(f"{kind.value}_CANDIDATE: {count}")
     return 0
 
 
