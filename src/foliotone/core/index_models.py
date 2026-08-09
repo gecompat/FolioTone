@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from foliotone.core._validation import require_aware_datetime, require_non_empty, require_relative_path
+from foliotone.core._validation import (
+    require_aware_datetime,
+    require_non_empty,
+    require_relative_path,
+)
 from foliotone.core.enums import MediaType, PresenceState, ScanRunStatus
 from foliotone.core.ids import EntityId
 
