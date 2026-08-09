@@ -6,7 +6,7 @@ Stand: 2026-08-09
 
 **W2 — Incremental Index + Filename/Path Context + Tool Runtime**
 
-W0 und W1 sind abgeschlossen. Der grundlegende W2-Index-/ToolRuntime-Slice wurde in GitHub Actions und zusätzlich lokal unter Windows/Docker Desktop geprüft. `W2-004` ergänzt diesen Stand um eine konservative, standardmäßig deaktivierte `DELETED`-Bestätigung. Als nächster W2-Punkt folgt `W2-006`, die Erkennung von Move-/Rename-Kandidaten ohne vorschnelle Identitätsfestlegung.
+W0 und W1 sind abgeschlossen. Der grundlegende W2-Index-/ToolRuntime-Slice wurde in GitHub Actions und zusätzlich lokal unter Windows/Docker Desktop geprüft. `W2-004` ergänzt eine konservative, standardmäßig deaktivierte `DELETED`-Bestätigung. `W2-006` ergänzt persistente Move-/Rename-Kandidaten, ohne `FileRecord`-Identitäten zusammenzuführen. Als nächster W2-Punkt folgt `W2-007`, die Vervollständigung des Interrupt/Resume-Verhaltens.
 
 ## Implementierter W2-Slice
 
@@ -22,9 +22,10 @@ Implementiert sind:
 - Schutz vor falschem `MISSING`, wenn ein `ScanRoot` nicht verfügbar ist;
 - `MISSING` bleibt ausdrücklich von `DELETED` getrennt;
 - begrenzte Batch-Verarbeitung mit maximal 500 Dateien je Batch;
-- read-only Scan-CLI `foliotone scan` für kontrollierte Smoke-Tests.
+- read-only Scan-CLI `foliotone scan` für kontrollierte Smoke-Tests;
+- persistente `FileRelocationCandidate`-Records für konservative Move-/Rename-Kandidaten.
 
-`MOVED` und `RENAMED` sind bereits als Vokabular vorgesehen, werden aber noch nicht automatisch festgestellt.
+`MOVED` und `RENAMED` bleiben als `FileChangeState`-Vokabular reserviert. W2-006 emittiert diese Werte nicht als bestätigte Scan-Zustände, sondern speichert getrennte Relocation-Kandidaten.
 
 ### `DELETED`-Bestätigung
 
@@ -38,6 +39,27 @@ Die Policy besitzt bei expliziter Konstruktion die Defaultwerte drei erfolgreich
 `FileRecord.missing_since_at` und `FileRecord.consecutive_missing_scans` halten den aktuellen Abwesenheitszustand persistent. Failed oder interrupted Scans erhöhen die Serie nicht. Nach bestätigtem `DELETED` wird bei fortbestehender Abwesenheit nicht in jedem Scan erneut ein `DELETED`-Event erzeugt. Taucht derselbe relative Pfad später wieder auf, entsteht `REAPPEARED`, der Zustand wird auf `PRESENT` zurückgesetzt und die Abwesenheitsserie gelöscht.
 
 `DELETED` ist ausschließlich eine Indexklassifikation. Die Funktion löscht, verschiebt, benennt oder verändert keine Source-Media-Datei. ADR-0013 dokumentiert diese Entscheidung verbindlich.
+
+### Move-/Rename-Kandidaten
+
+`W2-006` implementiert `FileRelocationCandidate` als zusätzliche, nicht kanonische Evidence. Ein Kandidat entsteht nur zwischen zwei weiterhin getrennten `FileRecord`-Datensätzen desselben `ScanRoot`, wenn im selben erfolgreichen Scan:
+
+- die Source erstmals `MISSING` wird (`consecutive_missing_scans == 1`);
+- das Target `NEW` ist;
+- die letzte prior Source-Observation und die aktuelle Target-Observation denselben unterstützten versionierten File-Fingerprint besitzen;
+- der jeweilige Fingerprint-Block genau eine Source und genau ein Target enthält.
+
+Unterstützt werden zunächst `QUICK_FILE` und `FILE_SHA256`. Wenn beide dasselbe eindeutige Paar stützen, wird `FILE_SHA256` als stärkere technische Evidence im Kandidaten referenziert. Der Kandidat verweist auf die konkreten Source-/Target-`Fingerprint`-IDs sowie Algorithmus und Version.
+
+One-to-many-, many-to-one- und many-to-many-Blöcke werden nicht automatisch aufgelöst. Ebenso werden ältere `MISSING`-Records nicht rückwirkend mit später auftauchenden Dateien verknüpft. Das verhindert willkürliche Zuordnungen bei echten identischen Kopien.
+
+`RelocationCandidateKind` beschreibt nur die Pfadform:
+
+- `RENAMED`: gleicher Parent-Pfad, anderer Dateiname;
+- `MOVED`: anderer Parent-Pfad, gleicher Dateiname;
+- `MOVED_AND_RENAMED`: Parent-Pfad und Dateiname verändert.
+
+Source bleibt `MISSING`, Target bleibt `NEW`; es findet weder ein Identity Merge noch eine Source-Media-Operation statt. ADR-0014 dokumentiert diese Entscheidung verbindlich.
 
 ### Hashing
 
@@ -68,7 +90,7 @@ Konkrete calibre-, ffprobe-, fpcalc-, beets-, SongKong- oder Picard-Adapter sind
 
 ### Persistence
 
-Die W1-Persistence wurde bisher über zwei zusätzliche Alembic-Revisionen erweitert. Bereits gemergte Migrationen werden nicht rückwirkend verändert.
+Die W1-Persistence wurde bisher über drei zusätzliche Alembic-Revisionen erweitert. Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 `0002_incremental_index` ergänzt insbesondere:
 
@@ -82,27 +104,25 @@ Die W1-Persistence wurde bisher über zwei zusätzliche Alembic-Revisionen erwei
 - `missing_since_at`;
 - `consecutive_missing_scans`.
 
+`0004_relocation_candidates` ergänzt:
+
+- `file_relocation_candidates`;
+- eindeutige Source-/Target-Paare pro `ScanRun`;
+- Indizes für Run- und Source-/Target-Abfragen.
+
 Beim Upgrade einer bestehenden `0002`-Datenbank wird keine historische Abwesenheitsdauer oder Bestätigungsserie erfunden. Bestehende Datensätze beginnen konservativ mit `missing_since_at = NULL` und `consecutive_missing_scans = 0`; erst nachfolgende erfolgreiche Scans bauen neue Bestätigungsevidenz auf.
 
 ## Lizenz und Dokumentations-Governance
 
-Die zuvor offene Lizenzentscheidung ist abgeschlossen:
+Die Lizenz- und Dokumentationsentscheidungen bleiben unverändert:
 
 - `LICENSE.md` verwendet die vom Benutzer vorgegebene Custom Community & Attribution License nach dem Vorbild von `SQL_Server_Analyze`;
 - FolioTone ist ausdrücklich **nicht Open Source**;
 - die englische Lizenzfassung ist entsprechend `LICENSE.md` rechtlich maßgeblich;
-- der zweisprachige Lizenzblock am Anfang der Root-README ist geschützter Inhalt.
-
-Aus `SQL_Server_Analyze` wurde das Governance-Muster für Dokumentation adaptiert:
-
-- `docs/quality/DOCUMENTATION_STYLE.md` ist die verbindliche Schreibstilrichtlinie;
-- `docs/quality/LANGUAGE_AND_TERMINOLOGY.md` definiert Deutsch als kanonische erklärende Dokumentationssprache und schützt technische Literale;
+- der zweisprachige Lizenzblock am Anfang der Root-README ist geschützter Inhalt;
+- `docs/quality/DOCUMENTATION_STYLE.md` und `docs/quality/LANGUAGE_AND_TERMINOLOGY.md` sind verbindlich;
 - `docs/reference/GLOSSARY.md` ist die kanonische Terminologiequelle;
-- `docs/README.md` bietet eine aufgabenorientierte Dokumentationsnavigation;
-- `.github/copilot-instructions.md` verweist auf dieselben Regeln;
-- `tests/static/test_documentation_contracts.py` prüft konservativ bekannte Regressionen, insbesondere den geschützten README-Lizenzblock und alte Projektnamen.
-
-Die automatische Prüfung ersetzt kein fachliches oder sprachliches Review.
+- `tests/static/test_documentation_contracts.py` prüft konservativ bekannte Dokumentationsregressionen.
 
 ## Verifikation
 
@@ -123,15 +143,6 @@ Docker incremental scan smoke test   PASS
 Docker bootstrap/status              PASS
 ```
 
-Der Docker Incremental Scan Smoke Test führt vier getrennte Containerläufe gegen dieselbe persistente SQLite-Datenbank aus und bestätigt:
-
-```text
-1. NEW: 2
-2. UNCHANGED: 2
-3. MODIFIED: 1 / MISSING: 1
-4. UNCHANGED: 1 / REAPPEARED: 1
-```
-
 ### `W2-004` — automatisierte Verifikation
 
 Der Implementierungs-Head `556055eb7848f3f682f0bd2363ba2dc98fceb7e5` von PR #7 wurde in GitHub Actions Run `31285157432` erfolgreich geprüft:
@@ -149,14 +160,24 @@ Docker incremental scan smoke test   PASS
 Docker bootstrap/status              PASS
 ```
 
-Die neuen Tests bestätigen insbesondere:
+### `W2-006` — automatisierte Verifikation
 
-- `DELETED`-Bestätigung ist ohne Policy deaktiviert;
-- die Scananzahl allein reicht vor Ablauf der Mindestdauer nicht aus;
-- ein Failed/unavailable Scan erhöht die Abwesenheitsserie nicht;
-- nach Bestätigung wird fortdauernde Abwesenheit nicht wiederholt als neues `DELETED`-Event ausgegeben;
-- ein späteres Wiederauftauchen führt zu `REAPPEARED` und setzt die Serie zurück;
-- Migration von `0002` nach `0003` rekonstruiert keine historische Löschbestätigung aus alten `MISSING`-Zuständen.
+Der Implementierungs-Head `c946dd336593b68ed281c530ab40117562d17831` von PR #8 wurde in GitHub Actions Run `31285662119` erfolgreich geprüft:
+
+```text
+Install                              PASS
+Ruff                                 PASS
+Mypy                                 PASS (52 source files)
+Pytest                               PASS (52 Tests)
+Prepare Docker mount placeholders    PASS
+Docker build                         PASS
+Docker migration smoke test          PASS
+Docker persistent data write test    PASS
+Docker incremental scan smoke test   PASS
+Docker bootstrap/status              PASS
+```
+
+Die neuen Integrationstests bestätigen Rename-, Move- und kombinierte Move-/Rename-Kandidaten, die Unterdrückung mehrdeutiger identischer Fingerprint-Blöcke sowie die Bevorzugung von `FILE_SHA256` gegenüber `QUICK_FILE` für dasselbe eindeutige Paar.
 
 ### Lokale Windows-/Docker-Verifikation
 
@@ -175,7 +196,7 @@ Die neuen Tests bestätigen insbesondere:
 - ein nicht vorhandener Scan-Pfad beendet den Scan mit Fehler und Non-zero Exit;
 - der unmittelbar folgende gültige Scan meldete wieder `UNCHANGED: 2` und erzeugte damit keine falsche `MISSING`-Evidenz.
 
-Die lokale Verifikation bestätigt den grundlegenden W2-Vertrag für den geprüften Windows-/Docker-Desktop-Pfad. Die später implementierte opt-in `DELETED`-Bestätigung wurde dort nicht mit künstlich verkürzten Zeitgrenzen nachgestellt; sie ist durch die automatisierten Integrationstests abgedeckt.
+Die lokale Verifikation bestätigt den grundlegenden W2-Vertrag für den geprüften Windows-/Docker-Desktop-Pfad. Die später implementierten `DELETED`- und Relocation-Funktionen sind durch automatisierte Integrationstests abgedeckt und wurden in diesem lokalen Test nicht separat nachgestellt.
 
 Die Source-Media-Verzeichnisse bleiben im Compose-Vertrag read-only. `/data` ist als persistenter Runtime-Bereich explizit read-write eingebunden.
 
@@ -183,17 +204,16 @@ Die Source-Media-Verzeichnisse bleiben im Compose-Vertrag read-only. `/data` ist
 
 Als nächste fachliche W2-Arbeiten bleiben:
 
-1. `W2-006` — Move-/Rename-Kandidaten erkennen, ohne vorschnell Identität zu behaupten;
-2. `W2-007` — Interrupt/Resume-Verhalten vervollständigen; der unavailable-root Fall ist bereits implementiert und lokal bestätigt;
-3. `W2-008` — versionierten `FilenameParser` und `PathContextAnalyzer` implementieren;
-4. `W2-009` — Parsing-Regeln und Fixtures für Autor/Titel, Serie/Band, Track/Disc, Jahr und Sprache ergänzen;
-5. `W2-011` — ToolProvider-Runtime um noch fehlende Tests für malformed structured output, Version Change und selective re-analysis erweitern.
+1. `W2-007` — Interrupt/Resume-Verhalten vervollständigen; der unavailable-root Fall ist bereits implementiert und lokal bestätigt;
+2. `W2-008` — versionierten `FilenameParser` und `PathContextAnalyzer` implementieren;
+3. `W2-009` — Parsing-Regeln und Fixtures für Autor/Titel, Serie/Band, Track/Disc, Jahr und Sprache ergänzen;
+4. `W2-011` — ToolProvider-Runtime um noch fehlende Tests für malformed structured output, Version Change und selective re-analysis erweitern.
 
 ## Nicht implementiert
 
 Noch nicht vorhanden sind unter anderem:
 
-- Move-/Rename-Kandidatenerkennung;
+- explizite Scan-Resume-Lineage und Resume-CLI;
 - Filename-/Path-Parsing;
 - konkrete E-Book- und Music-ToolProvider;
 - calibre Library Reconciliation;
@@ -208,4 +228,4 @@ Noch nicht vorhanden sind unter anderem:
 
 W10 bleibt ausdrücklich blockiert. Es gibt keine FolioTone-native oder externe Tool-Operation zum Löschen, Verschieben, Umbenennen oder Retaggen von Source Media.
 
-W9 darf später ausschließlich nicht ausführbare `ConsolidationPlan`-Einträge erzeugen.
+`FileRelocationCandidate` ist ausschließlich Analyse-Evidence. W9 darf später ausschließlich nicht ausführbare `ConsolidationPlan`-Einträge erzeugen.
