@@ -6,7 +6,7 @@ Stand: 2026-08-09
 
 **W2 — Incremental Index + Filename/Path Context + Tool Runtime**
 
-W0 und W1 sind abgeschlossen. Der grundlegende W2-Index-/ToolRuntime-Slice wurde in GitHub Actions und zusätzlich lokal unter Windows/Docker Desktop geprüft. `W2-004` ergänzt eine konservative, standardmäßig deaktivierte `DELETED`-Bestätigung. `W2-006` ergänzt persistente Move-/Rename-Kandidaten, ohne `FileRecord`-Identitäten zusammenzuführen. `W2-007` ergänzt eine explizite Resume-Lineage für unterbrochene Scans. `W2-008` ist lokal implementiert; die vollständige Qualitätsprüfung steht noch aus, weil die lokale Testumgebung ihre Dev-Abhängigkeiten nicht aus dem Paketindex beziehen konnte.
+W0 und W1 sind abgeschlossen. Der grundlegende W2-Index-/ToolRuntime-Slice wurde in GitHub Actions und zusätzlich lokal unter Windows/Docker Desktop geprüft. `W2-004` ergänzt eine konservative, standardmäßig deaktivierte `DELETED`-Bestätigung. `W2-006` ergänzt persistente Move-/Rename-Kandidaten, ohne `FileRecord`-Identitäten zusammenzuführen. `W2-007` ergänzt eine explizite Resume-Lineage für unterbrochene Scans. `W2-008` wurde unter Windows vollständig geprüft. `W2-009` ergänzt konfigurierte, versionierte Parsing-Profile; dessen vollständige Quality Gates stehen nach dem Push noch aus.
 
 ## Implementierter W2-Slice
 
@@ -176,9 +176,8 @@ Die später implementierten `DELETED`-, Relocation- und Resume-Funktionen sind d
 
 Als nächste fachliche W2-Arbeiten bleiben:
 
-1. `W2-008` — vollständige CI-Qualitätsprüfung abwarten und den Status bei Erfolg auf `DONE` setzen;
-2. `W2-009` — Parsing-Regeln und Fixtures für Autor/Titel, Serie/Band, Track/Disc, Jahr und Sprache ergänzen;
-3. `W2-011` — ToolProvider-Runtime um noch fehlende Tests für malformed structured output, Version Change und selective re-analysis erweitern.
+1. `W2-009` — vollständige Quality Gates im Pull Request prüfen und bei Erfolg auf `DONE` setzen;
+2. `W2-011` — ToolProvider-Runtime um noch fehlende Tests für malformed structured output, Version Change und selective re-analysis erweitern.
 
 ## Nicht implementiert
 
