@@ -11,6 +11,7 @@ from itertools import islice
 from foliotone.core import (
     FileChangeState,
     FileObservation,
+    FileRelocationCandidate,
     FileScanEvent,
     ScanRoot,
     ScanRun,
@@ -19,6 +20,7 @@ from foliotone.core import (
 from foliotone.index.deletion import DeletionConfirmationPolicy
 from foliotone.index.discovery import DiscoveredFile, ScanRootBinding, discover_files
 from foliotone.index.hashing import FingerprintWriter, HashMode
+from foliotone.index.relocation import RelocationCandidateDetector
 from foliotone.index.store import SQLiteIndexStore
 
 Clock = Callable[[], datetime]
@@ -33,10 +35,11 @@ _HASH_STATES = frozenset(
 
 @dataclass(frozen=True, slots=True)
 class ScanSummary:
-    """Counts produced by one completed incremental scan."""
+    """Counts and conservative relocation candidates from one completed scan."""
 
     run: ScanRun
     counts: dict[FileChangeState, int]
+    relocation_candidates: tuple[FileRelocationCandidate, ...] = ()
 
     @property
     def observed_files(self) -> int:
@@ -58,6 +61,7 @@ class IncrementalScanner:
         hash_mode: HashMode = HashMode.QUICK,
         fingerprint_writer: FingerprintWriter | None = None,
         deletion_policy: DeletionConfirmationPolicy | None = None,
+        relocation_detector: RelocationCandidateDetector | None = None,
         clock: Clock | None = None,
     ) -> None:
         if batch_size <= 0 or batch_size > 500:
@@ -69,6 +73,7 @@ class IncrementalScanner:
         self._hash_mode = hash_mode
         self._fingerprints = fingerprint_writer
         self._deletion_policy = deletion_policy
+        self._relocation_detector = relocation_detector
         self._clock = clock or _utc_now
 
     def scan(self, root: ScanRoot, binding: ScanRootBinding) -> ScanSummary:
@@ -76,6 +81,7 @@ class IncrementalScanner:
         started_at = self._clock()
         run = self._store.start_scan(root, started_at)
         counts: Counter[FileChangeState] = Counter()
+        relocation_candidates: tuple[FileRelocationCandidate, ...] = ()
 
         try:
             iterator = discover_files(binding)
@@ -91,6 +97,8 @@ class IncrementalScanner:
                 deletion_policy=self._deletion_policy,
             )
             counts.update(event.change_state for event in missing)
+            if self._relocation_detector is not None:
+                relocation_candidates = self._relocation_detector.detect(run, self._clock())
             run = self._store.finish_scan(run, ScanRunStatus.COMPLETED, self._clock())
         except KeyboardInterrupt:
             self._store.finish_scan(run, ScanRunStatus.INTERRUPTED, self._clock())
@@ -99,7 +107,11 @@ class IncrementalScanner:
             self._store.finish_scan(run, ScanRunStatus.FAILED, self._clock())
             raise
 
-        return ScanSummary(run=run, counts=dict(counts))
+        return ScanSummary(
+            run=run,
+            counts=dict(counts),
+            relocation_candidates=relocation_candidates,
+        )
 
     def _hash_changed(
         self,
