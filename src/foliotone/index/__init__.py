@@ -10,6 +10,7 @@ from foliotone.index.hashing import (
     quick_file_fingerprint,
     stream_sha256,
 )
+from foliotone.index.relocation import RelocationCandidateDetector
 from foliotone.index.scanner import IncrementalScanner, ScanSummary
 from foliotone.index.store import BatchOutcome, SQLiteIndexStore
 
@@ -21,6 +22,7 @@ __all__ = [
     "HashMode",
     "HashValues",
     "IncrementalScanner",
+    "RelocationCandidateDetector",
     "SQLiteIndexStore",
     "ScanRootBinding",
     "ScanSummary",
