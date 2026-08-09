@@ -47,7 +47,11 @@ from foliotone.core import (
 )
 from foliotone.persistence import create_sqlite_engine, migrate, repository
 from foliotone.persistence.schema import ALL_TABLES
-from foliotone.persistence.w2_schema import file_scan_events, tool_artifacts
+from foliotone.persistence.w2_schema import (
+    file_relocation_candidates,
+    file_scan_events,
+    tool_artifacts,
+)
 from foliotone.tooling import ToolExecution, ToolResult
 
 NOW = datetime(2026, 8, 8, 20, 0, tzinfo=UTC)
@@ -77,6 +81,7 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
     expected = {table.name for table in ALL_TABLES} | {
         "alembic_version",
         file_scan_events.name,
+        file_relocation_candidates.name,
         tool_artifacts.name,
     }
     assert table_names == expected
@@ -85,7 +90,7 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
 
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0003_deletion_confirmation"
+    assert revision == "0004_relocation_candidates"
 
 
 def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) -> None:
@@ -139,7 +144,7 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0003_deletion_confirmation"
+    assert revision == "0004_relocation_candidates"
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:

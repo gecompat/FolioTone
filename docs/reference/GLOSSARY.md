@@ -18,6 +18,7 @@ Dieses Glossar definiert die kanonischen fachlichen Kernbegriffe des Projekts. E
 | `FileRecord` | Aktueller FolioTone-Datensatz für eine physische Datei innerhalb eines `ScanRoot`. | MediaObject |
 | `FileObservation` | Tatsächlich beobachteter Dateizustand in einem konkreten `ScanRun`. | FileSnapshot ohne definierten Vertrag |
 | `FileScanEvent` | Klassifizierte Veränderung oder Abwesenheitsinformation eines Files in einem `ScanRun`. | FileStatusChange als paralleler technischer Vertrag |
+| `FileRelocationCandidate` | Evidenzbehafteter Kandidat, dass ein erstmals `MISSING` gewordener und ein im selben Scan `NEW` beobachteter `FileRecord` einen Move-/Rename-Zusammenhang haben könnten. Die beiden File-Identitäten bleiben getrennt. | MoveRecord, RenameResult, bestätigte File-Identität |
 | `ScanRoot` | Logische Quelle einer Sammlung. Der tatsächliche Hostpfad bleibt Runtime-Konfiguration. | LibraryPath als persistierte Identität |
 | `ScanRun` | Eine nachvollziehbare Ausführung eines Scans für einen `ScanRoot`. | ScanSession, ScanJob ohne definierten Vertrag |
 | `Provenance` | Nachweis, woher eine Beobachtung, Aussage oder Ableitung stammt und in welchem Kontext sie entstanden ist. | SourceInfo als unstrukturierter Ersatz |
@@ -44,6 +45,8 @@ Dieses Glossar definiert die kanonischen fachlichen Kernbegriffe des Projekts. E
 `MusicWork`, `Recording`, `ReleaseGroup`, `Release` und `FileRecord` sind ebenfalls unterschiedliche Ebenen. Ein identisches `MusicWork` bedeutet nicht automatisch dieselbe Aufnahme oder Veröffentlichung.
 
 `Entity Resolution` und `Matching` sind getrennte Aufgaben. Die Frage, ob „Asimov, I.“ dieselbe Person wie „Isaac Asimov“ bezeichnet, ist eine Entity-Resolution-Frage. Die Frage, ob zwei EPUB-Dateien dieselbe Edition repräsentieren, gehört zum Matching.
+
+Ein `FileRelocationCandidate` ist ebenfalls kein Matching-Ergebnis und keine bestätigte File-Identität. Auch identische vollständige Datei-Hashes können zwei getrennte Kopien beschreiben.
 
 `Evidence` beschreibt nachvollziehbare Unterstützung für eine Aussage. Eine einzelne Evidenzquelle darf insbesondere bei destruktiven Folgeschritten nicht als alleiniger Beweis behandelt werden.
 

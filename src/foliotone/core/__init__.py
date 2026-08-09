@@ -30,6 +30,7 @@ from foliotone.core.music_models import (
     ReleaseGroup,
     ReleaseRecording,
 )
+from foliotone.core.relocation_models import FileRelocationCandidate, RelocationCandidateKind
 from foliotone.core.scan_events import FileScanEvent
 
 __all__ = [
@@ -48,6 +49,7 @@ __all__ = [
     "FileChangeState",
     "FileObservation",
     "FileRecord",
+    "FileRelocationCandidate",
     "FileScanEvent",
     "Fingerprint",
     "MatchStatus",
@@ -63,6 +65,7 @@ __all__ = [
     "Release",
     "ReleaseGroup",
     "ReleaseRecording",
+    "RelocationCandidateKind",
     "ScanRoot",
     "ScanRun",
     "ScanRunStatus",

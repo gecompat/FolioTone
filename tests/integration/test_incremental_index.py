@@ -8,9 +8,11 @@ from sqlalchemy import Engine
 from foliotone.core import (
     FileChangeState,
     FileRecord,
+    FileRelocationCandidate,
     Fingerprint,
     MediaType,
     PresenceState,
+    RelocationCandidateKind,
     ScanRoot,
     ScanRun,
     ScanRunStatus,
@@ -20,6 +22,7 @@ from foliotone.index import (
     FingerprintWriter,
     HashMode,
     IncrementalScanner,
+    RelocationCandidateDetector,
     ScanRootBinding,
     SQLiteIndexStore,
 )
@@ -50,6 +53,7 @@ def index_environment(tmp_path: Path) -> IndexEnvironment:
         batch_size=2,
         hash_mode=HashMode.QUICK,
         fingerprint_writer=FingerprintWriter(engine),
+        relocation_detector=RelocationCandidateDetector(engine),
         clock=lambda: NOW,
     )
     return IndexEnvironment(engine, root, media, scanner)
@@ -243,6 +247,122 @@ def test_failed_scan_does_not_advance_deletion_confirmation(tmp_path: Path) -> N
     current[0] = NOW + timedelta(hours=4)
     third_valid_absence = scanner.scan(root, binding)
     assert third_valid_absence.counts == {FileChangeState.DELETED: 1}
+
+
+def test_rename_candidate_preserves_distinct_file_records(
+    index_environment: IndexEnvironment,
+) -> None:
+    engine = index_environment.engine
+    root = index_environment.root
+    media = index_environment.media
+    scanner = index_environment.scanner
+    original = media / "A.epub"
+    renamed = media / "B.epub"
+    original.write_bytes(b"alpha")
+    binding = ScanRootBinding(media)
+    scanner.scan(root, binding)
+
+    original.rename(renamed)
+    summary = scanner.scan(root, binding)
+
+    assert summary.counts == {
+        FileChangeState.NEW: 1,
+        FileChangeState.MISSING: 1,
+    }
+    assert len(summary.relocation_candidates) == 1
+    candidate = summary.relocation_candidates[0]
+    assert candidate.kind is RelocationCandidateKind.RENAMED
+    assert candidate.source_relative_path == "A.epub"
+    assert candidate.target_relative_path == "B.epub"
+    assert candidate.fingerprint_kind == "QUICK_FILE"
+    assert candidate.source_file_id != candidate.target_file_id
+    assert repository(engine, FileRelocationCandidate).list_all() == [candidate]
+
+
+def test_move_and_move_rename_candidate_shapes(
+    index_environment: IndexEnvironment,
+) -> None:
+    root = index_environment.root
+    media = index_environment.media
+    scanner = index_environment.scanner
+    source_dir = media / "old"
+    source_dir.mkdir()
+    original = source_dir / "A.epub"
+    original.write_bytes(b"alpha")
+    binding = ScanRootBinding(media)
+    scanner.scan(root, binding)
+
+    move_dir = media / "moved"
+    move_dir.mkdir()
+    moved = move_dir / "A.epub"
+    original.rename(moved)
+    moved_summary = scanner.scan(root, binding)
+    assert moved_summary.relocation_candidates[0].kind is RelocationCandidateKind.MOVED
+
+    final_dir = media / "final"
+    final_dir.mkdir()
+    moved_and_renamed = final_dir / "B.epub"
+    moved.rename(moved_and_renamed)
+    final_summary = scanner.scan(root, binding)
+    assert len(final_summary.relocation_candidates) == 1
+    assert (
+        final_summary.relocation_candidates[0].kind
+        is RelocationCandidateKind.MOVED_AND_RENAMED
+    )
+
+
+def test_ambiguous_duplicate_fingerprint_does_not_create_relocation_candidate(
+    index_environment: IndexEnvironment,
+) -> None:
+    engine = index_environment.engine
+    root = index_environment.root
+    media = index_environment.media
+    scanner = index_environment.scanner
+    first = media / "A.epub"
+    second = media / "B.epub"
+    first.write_bytes(b"same")
+    second.write_bytes(b"same")
+    binding = ScanRootBinding(media)
+    scanner.scan(root, binding)
+
+    first.unlink()
+    second.unlink()
+    (media / "C.epub").write_bytes(b"same")
+    summary = scanner.scan(root, binding)
+
+    assert summary.counts == {
+        FileChangeState.NEW: 1,
+        FileChangeState.MISSING: 2,
+    }
+    assert summary.relocation_candidates == ()
+    assert repository(engine, FileRelocationCandidate).list_all() == []
+
+
+def test_full_hash_is_preferred_as_relocation_evidence(tmp_path: Path) -> None:
+    database = tmp_path / "foliotone.db"
+    media = tmp_path / "media"
+    media.mkdir()
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    store = SQLiteIndexStore(engine)
+    root = store.get_or_create_root("test", MediaType.EBOOK)
+    scanner = IncrementalScanner(
+        store,
+        hash_mode=HashMode.FULL,
+        fingerprint_writer=FingerprintWriter(engine),
+        relocation_detector=RelocationCandidateDetector(engine),
+        clock=lambda: NOW,
+    )
+    original = media / "A.epub"
+    original.write_bytes(b"alpha")
+    binding = ScanRootBinding(media)
+    scanner.scan(root, binding)
+
+    original.rename(media / "B.epub")
+    summary = scanner.scan(root, binding)
+
+    assert len(summary.relocation_candidates) == 1
+    assert summary.relocation_candidates[0].fingerprint_kind == "FILE_SHA256"
 
 
 def test_unavailable_root_fails_run_without_marking_known_files_missing(
