@@ -53,6 +53,10 @@ tool_artifacts = Table(
 
 Index("uq_scan_roots_name", metadata.tables["scan_roots"].c.name, unique=True)
 Index(
+    "ix_scan_runs_resumed_from_run_id",
+    metadata.tables["scan_runs"].c.resumed_from_run_id,
+)
+Index(
     "ix_file_scan_events_run_state",
     file_scan_events.c.scan_run_id,
     file_scan_events.c.change_state,
