@@ -5,11 +5,13 @@ from __future__ import annotations
 import argparse
 import os
 from collections.abc import Sequence
+from datetime import timedelta
 from pathlib import Path
 
 from foliotone import __version__
 from foliotone.core import FileChangeState, MediaType
 from foliotone.index import (
+    DeletionConfirmationPolicy,
     FingerprintWriter,
     HashMode,
     IncrementalScanner,
@@ -79,6 +81,24 @@ def build_parser() -> argparse.ArgumentParser:
         default=256,
         help="Maximum discovery batch size; must be between 1 and 500.",
     )
+    scan.add_argument(
+        "--confirm-deleted-after-missing-scans",
+        type=int,
+        default=None,
+        help=(
+            "Opt in to DELETED confirmation after at least this many consecutive successful "
+            "MISSING scans; minimum 2. Disabled when omitted."
+        ),
+    )
+    scan.add_argument(
+        "--confirm-deleted-after-hours",
+        type=float,
+        default=None,
+        help=(
+            "Minimum elapsed MISSING age before DELETED confirmation. Requires "
+            "--confirm-deleted-after-missing-scans; defaults to 24 hours when enabled."
+        ),
+    )
     return parser
 
 
@@ -97,13 +117,43 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "scan":
-        return _run_scan(args)
+        deletion_policy = _deletion_policy(parser, args)
+        return _run_scan(args, deletion_policy)
 
     parser.print_help()
     return 0
 
 
-def _run_scan(args: argparse.Namespace) -> int:
+def _deletion_policy(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> DeletionConfirmationPolicy | None:
+    missing_scans = args.confirm_deleted_after_missing_scans
+    missing_hours = args.confirm_deleted_after_hours
+    if missing_scans is None:
+        if missing_hours is not None:
+            parser.error(
+                "--confirm-deleted-after-hours requires "
+                "--confirm-deleted-after-missing-scans"
+            )
+        return None
+
+    hours = 24.0 if missing_hours is None else missing_hours
+    if hours <= 0:
+        parser.error("--confirm-deleted-after-hours must be greater than zero")
+    try:
+        return DeletionConfirmationPolicy(
+            min_consecutive_missing_scans=missing_scans,
+            min_missing_age=timedelta(hours=hours),
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
+
+
+def _run_scan(
+    args: argparse.Namespace,
+    deletion_policy: DeletionConfirmationPolicy | None,
+) -> int:
     database: Path = args.database
     migrate(database)
     engine = create_sqlite_engine(database)
@@ -117,6 +167,7 @@ def _run_scan(args: argparse.Namespace) -> int:
         batch_size=args.batch_size,
         hash_mode=hash_mode,
         fingerprint_writer=fingerprint_writer,
+        deletion_policy=deletion_policy,
     )
     suffixes = None if args.suffix is None else frozenset(args.suffix)
     summary = scanner.scan(root, ScanRootBinding(args.path, include_suffixes=suffixes))
