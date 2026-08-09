@@ -172,9 +172,8 @@ class RelocationCandidateDetector:
             )
             .where(
                 absent_event.c.scan_run_id == str(run.id),
-                absent_event.c.change_state.in_(
-                    (FileChangeState.MISSING.value, FileChangeState.DELETED.value)
-                ),
+                absent_event.c.change_state == FileChangeState.MISSING.value,
+                source_record.c.consecutive_missing_scans == 1,
                 source_record.c.scan_root_id == str(run.scan_root_id),
                 target_record.c.scan_root_id == str(run.scan_root_id),
             )
