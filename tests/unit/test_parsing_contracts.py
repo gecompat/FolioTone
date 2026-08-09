@@ -2,7 +2,13 @@ from datetime import UTC, datetime
 
 import pytest
 
-from foliotone.parsing import FilenameParser, PathContextAnalyzer
+from foliotone.parsing import (
+    FilenameParser,
+    FilenameParsingProfile,
+    FilenameParsingRule,
+    PathContextAnalyzer,
+    RuleBasedFilenameParser,
+)
 
 NOW = datetime(2026, 8, 9, tzinfo=UTC)
 
@@ -64,3 +70,100 @@ def test_parsers_require_an_aware_observation_timestamp():
 
     with pytest.raises(ValueError, match="observed_at must be timezone-aware"):
         FilenameParser("1").parse("Title.epub", observed_at=naive_now)
+
+
+def test_rule_based_parser_emits_versioned_candidates_from_a_configured_rule():
+    parser = RuleBasedFilenameParser(
+        FilenameParsingProfile(
+            version="collection-a/1",
+            rules=(
+                FilenameParsingRule(
+                    name="book",
+                    pattern=(
+                        r"(?P<author>.+?) - (?P<series>.+?) #(?P<volume>\d+) - "
+                        r"(?P<title>.+?) \((?P<year>\d{4})\) \[(?P<language>[a-z]{2})\]"
+                    ),
+                    confidence=0.7,
+                ),
+            ),
+        )
+    )
+
+    candidates = parser.parse(
+        "Ursula Le Guin - Earthsea #03 - The Farthest Shore (1972) [en].epub",
+        observed_at=NOW,
+    )
+
+    assert [(item.field_name, item.value) for item in candidates] == [
+        ("author", "Ursula Le Guin"),
+        ("series", "Earthsea"),
+        ("volume", "03"),
+        ("title", "The Farthest Shore"),
+        ("year", "1972"),
+        ("language", "en"),
+    ]
+    assert all(item.provenance.source_version == "collection-a/1" for item in candidates)
+    assert all(item.confidence == 0.7 for item in candidates)
+
+
+def test_rule_based_parser_supports_track_and_optional_disc_conventions():
+    parser = RuleBasedFilenameParser(
+        FilenameParsingProfile(
+            version="music/1",
+            rules=(
+                FilenameParsingRule(
+                    name="track",
+                    pattern=r"(?:D(?P<disc>\d+) )?(?P<track>\d+) - (?P<title>.+)",
+                ),
+            ),
+        )
+    )
+
+    candidates = parser.parse("D2 07 - Allegro.flac", observed_at=NOW)
+
+    assert [(item.field_name, item.value) for item in candidates] == [
+        ("disc", "2"),
+        ("track", "07"),
+        ("title", "Allegro"),
+    ]
+
+
+def test_rule_based_parser_uses_the_first_matching_rule_and_returns_no_guess():
+    parser = RuleBasedFilenameParser(
+        FilenameParsingProfile(
+            version="1",
+            rules=(
+                FilenameParsingRule(
+                    name="specific",
+                    pattern=r"(?P<title>.+) \[(?P<language>[a-z]{2})\]",
+                ),
+                FilenameParsingRule(name="fallback", pattern=r"(?P<title>.+)"),
+            ),
+        )
+    )
+
+    candidates = parser.parse("Title [de].epub", observed_at=NOW)
+
+    assert [(item.field_name, item.value) for item in candidates] == [
+        ("title", "Title"),
+        ("language", "de"),
+    ]
+    no_match_parser = RuleBasedFilenameParser(
+        FilenameParsingProfile(
+            version="1",
+            rules=(FilenameParsingRule(name="language", pattern=r"(?P<title>.+) \[[a-z]{2}\]"),),
+        )
+    )
+    assert no_match_parser.parse("Untitled.epub", observed_at=NOW) == ()
+
+
+@pytest.mark.parametrize("pattern", (r"(?P<title>", r".+"))
+def test_rule_requires_a_valid_named_capture_pattern(pattern: str):
+    with pytest.raises(ValueError):
+        FilenameParsingRule(name="invalid", pattern=pattern)
+
+
+def test_profile_requires_unique_rule_names():
+    rule = FilenameParsingRule(name="duplicate", pattern=r"(?P<title>.+)")
+    with pytest.raises(ValueError, match="rule names must be unique"):
+        FilenameParsingProfile(version="1", rules=(rule, rule))

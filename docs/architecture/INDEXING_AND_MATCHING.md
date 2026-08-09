@@ -65,7 +65,7 @@ Rules:
 - support collection-specific conventions without hard-wiring them into domain models;
 - do not send absolute paths to external providers.
 
-The W2 base implementation deliberately extracts only a filename stem as a low-confidence `title` candidate and the direct parent of a safe scan-root-relative path as a low-confidence `path_context` candidate. Both candidate types retain parser version and `Provenance`. It does not infer author, artist, series, volume, track, disc, year or language; those configurable conventions remain a separate parsing-rule slice.
+Die W2-Basisimplementierung extrahiert weiterhin nur einen Dateinamenstamm als niedrig gewichteten `title`-Kandidaten und den direkten Parent eines sicheren scan-root-relativen Pfads als `path_context`-Kandidaten. Zusätzlich kann `RuleBasedFilenameParser` ein versioniertes `FilenameParsingProfile` mit geordneten `FilenameParsingRule`-Regex-Regeln anwenden. Jede benannte Capture Group wird als abgeleiteter `FieldCandidate` mit Regelname, Profilversion und Confidence ausgegeben. Die erste passende Regel bestimmt die Kandidaten; ohne Treffer werden keine Werte geraten. Die Tests zeigen Konventionen für Autor/Titel, Serie/Band, Track/Disc, Jahr und Sprache. Ein Profil bleibt sammlungsspezifische Konfiguration und setzt keine kanonischen Metadaten.
 
 ## Entity resolution before duplicate matching
 

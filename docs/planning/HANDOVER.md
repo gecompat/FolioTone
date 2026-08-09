@@ -6,7 +6,7 @@ FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Boo
 
 W0 und W1 sind abgeschlossen. Der grundlegende W2-Slice für Incremental Index, Hashing und generische read-only ToolProvider Runtime ist implementiert, in GitHub Actions vollständig verifiziert und zusätzlich lokal unter Windows/Docker Desktop geprüft. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
 
-`W2-008` ist lokal implementiert: `FilenameParser` und `PathContextAnalyzer` erzeugen ausschließlich Provenance-behaftete `FieldCandidate`-Werte und setzen keine kanonischen Metadaten. Der nächste Schritt ist die vollständige CI-Qualitätsprüfung; erst bei Erfolg wird der Backlog-Status auf `DONE` gesetzt.
+`W2-008` ist vollständig validiert: `FilenameParser` und `PathContextAnalyzer` erzeugen ausschließlich Provenance-behaftete `FieldCandidate`-Werte und setzen keine kanonischen Metadaten. `W2-009` implementiert darauf aufbauend konfigurierbare, versionierte Regex-Profile. Die vollständige Quality-Gate-Prüfung von W2-009 steht noch aus.
 
 ## Vor Änderungen lesen
 
@@ -113,9 +113,8 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W2-008` — GitHub-Actions-Qualitätsprüfung prüfen und bei Erfolg auf `DONE` setzen.
-2. `W2-009` — Parsing-Regeln und synthetische Fixtures.
-3. `W2-011` — verbleibende ToolRuntime-Tests für malformed output, Version Changes und selective re-analysis.
+1. `W2-009` — Quality Gates des Pull Requests prüfen und bei Erfolg auf `DONE` setzen.
+2. `W2-011` — verbleibende ToolRuntime-Tests für malformed output, Version Changes und selective re-analysis.
 
 Erst danach beginnt W3 mit der konkreten E-Book-Toolauswahl und dem ersten calibre Vertical Slice.
 
