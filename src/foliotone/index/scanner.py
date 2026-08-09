@@ -76,10 +76,16 @@ class IncrementalScanner:
         self._relocation_detector = relocation_detector
         self._clock = clock or _utc_now
 
-    def scan(self, root: ScanRoot, binding: ScanRootBinding) -> ScanSummary:
-        """Run one incremental scan; absence is classified only after successful discovery."""
+    def scan(
+        self,
+        root: ScanRoot,
+        binding: ScanRootBinding,
+        *,
+        resume_from: ScanRun | None = None,
+    ) -> ScanSummary:
+        """Run or resume one incremental scan with a distinct auditable ScanRun."""
         started_at = self._clock()
-        run = self._store.start_scan(root, started_at)
+        run = self._store.start_scan(root, started_at, resume_from=resume_from)
         counts: Counter[FileChangeState] = Counter()
         relocation_candidates: tuple[FileRelocationCandidate, ...] = ()
 
