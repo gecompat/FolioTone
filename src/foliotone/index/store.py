@@ -67,16 +67,44 @@ class SQLiteIndexStore:
         self.save_root(root)
         return root
 
-    def start_scan(self, root: ScanRoot, started_at: datetime) -> ScanRun:
+    def get_resumable_run(self, root: ScanRoot, run_id: EntityId) -> ScanRun:
+        """Resolve a persisted interrupted run that belongs to the requested root."""
+        run = repository(self._engine, ScanRun).get(run_id)
+        if run is None:
+            raise ValueError(f"resume ScanRun {run_id} does not exist")
+        self._validate_resume_source(root, run)
+        return run
+
+    def start_scan(
+        self,
+        root: ScanRoot,
+        started_at: datetime,
+        *,
+        resume_from: ScanRun | None = None,
+    ) -> ScanRun:
         self.save_root(root)
+        if resume_from is not None:
+            persisted = repository(self._engine, ScanRun).get(resume_from.id)
+            if persisted is None:
+                raise ValueError(f"resume ScanRun {resume_from.id} does not exist")
+            self._validate_resume_source(root, persisted)
+            resume_from = persisted
         run = ScanRun(
             id=EntityId.new(),
             scan_root_id=root.id,
             started_at=started_at,
             status=ScanRunStatus.RUNNING,
+            resumed_from_run_id=None if resume_from is None else resume_from.id,
         )
         repository(self._engine, ScanRun).save(run)
         return run
+
+    @staticmethod
+    def _validate_resume_source(root: ScanRoot, run: ScanRun) -> None:
+        if run.scan_root_id != root.id:
+            raise ValueError("resume ScanRun belongs to a different ScanRoot")
+        if run.status is not ScanRunStatus.INTERRUPTED:
+            raise ValueError("only an INTERRUPTED ScanRun can be resumed")
 
     def finish_scan(
         self,
