@@ -36,6 +36,7 @@ scan_runs = Table(
     Column("started_at", DATETIME, nullable=False),
     Column("status", ENUM, nullable=False),
     Column("completed_at", DATETIME),
+    Column("resumed_from_run_id", ID, ForeignKey("scan_runs.id")),
 )
 
 file_records = Table(
@@ -153,8 +154,7 @@ works = Table(
 editions = Table(
     "editions",
     metadata,
-    Column("id", ID, primary_key=True),
-    Column("work_id", ID, ForeignKey("works.id"), nullable=False),
+    Column("id", ID, ForeignKey("works.id"), nullable=False),
     Column("canonical_title", Text),
     Column("language", String(32)),
 )
