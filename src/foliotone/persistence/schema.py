@@ -154,7 +154,8 @@ works = Table(
 editions = Table(
     "editions",
     metadata,
-    Column("id", ID, ForeignKey("works.id"), nullable=False),
+    Column("id", ID, primary_key=True),
+    Column("work_id", ID, ForeignKey("works.id"), nullable=False),
     Column("canonical_title", Text),
     Column("language", String(32)),
 )
