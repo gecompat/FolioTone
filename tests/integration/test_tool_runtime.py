@@ -60,6 +60,9 @@ def test_local_tool_success_captures_version_stdout_and_artifacts(tmp_path: Path
     for artifact in outcome.artifacts:
         assert not Path(artifact.relative_path).is_absolute()
         assert len(artifact.sha256) == 64
+    assert (tmp_path / "artifacts" / outcome.artifacts[0].relative_path).read_bytes() == (
+        b"hello from tool\r\n" if sys.platform == "win32" else b"hello from tool\n"
+    )
 
 
 def test_nonzero_exit_is_persisted_as_failed(tmp_path: Path) -> None:

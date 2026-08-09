@@ -404,10 +404,12 @@ def _detect_version(executable: str, args: tuple[str, ...]) -> str | None:
 
 
 def _read_preview(path: Path, limit: int) -> str:
+    """Return a bounded, display-safe text preview without altering its artifact."""
     if not path.exists():
         return ""
     with path.open("rb") as stream:
-        return stream.read(limit).decode(errors="replace")
+        preview = stream.read(limit).decode(errors="replace")
+    return preview.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def _sha256_file(path: Path) -> str:
