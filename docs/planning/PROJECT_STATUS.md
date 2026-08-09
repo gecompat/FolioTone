@@ -6,7 +6,7 @@ Stand: 2026-08-09
 
 **W2 — Incremental Index + Filename/Path Context + Tool Runtime**
 
-W0 und W1 sind abgeschlossen. Der grundlegende W2-Index-/ToolRuntime-Slice wurde in GitHub Actions und zusätzlich lokal unter Windows/Docker Desktop geprüft. `W2-004` ergänzt eine konservative, standardmäßig deaktivierte `DELETED`-Bestätigung. `W2-006` ergänzt persistente Move-/Rename-Kandidaten, ohne `FileRecord`-Identitäten zusammenzuführen. `W2-007` ergänzt eine explizite Resume-Lineage für unterbrochene Scans. Als nächster W2-Punkt folgt `W2-008`, der versionierte `FilenameParser` und `PathContextAnalyzer`.
+W0 und W1 sind abgeschlossen. Der grundlegende W2-Index-/ToolRuntime-Slice wurde in GitHub Actions und zusätzlich lokal unter Windows/Docker Desktop geprüft. `W2-004` ergänzt eine konservative, standardmäßig deaktivierte `DELETED`-Bestätigung. `W2-006` ergänzt persistente Move-/Rename-Kandidaten, ohne `FileRecord`-Identitäten zusammenzuführen. `W2-007` ergänzt eine explizite Resume-Lineage für unterbrochene Scans. `W2-008` ist lokal implementiert; die vollständige Qualitätsprüfung steht noch aus, weil die lokale Testumgebung ihre Dev-Abhängigkeiten nicht aus dem Paketindex beziehen konnte.
 
 ## Implementierter W2-Slice
 
@@ -80,6 +80,14 @@ Implementiert sind:
 - Fingerprints werden gegen die konkrete `FileObservation` gespeichert;
 - unveränderte Dateien werden nicht unnötig erneut gehasht;
 - NEW, MODIFIED und REAPPEARED können neu fingerprinted werden.
+
+### Filename- und Path-Context-Kandidaten
+
+`W2-008` implementiert einen bewusst kleinen, versionierten Basisvertrag für abgeleitete `FieldCandidate`-Werte. Die Komponenten setzen keine kanonischen Metadaten und interpretieren noch keine sammlungsspezifischen Namenskonventionen; diese Regeln gehören zu `W2-009`.
+
+- `FilenameParser` akzeptiert genau einen Dateinamen ohne Pfadseparatoren und erzeugt aus dessen Stem einen `title`-Kandidaten mit `source_location = filename.stem` und Confidence `0.2`.
+- `PathContextAnalyzer` akzeptiert ausschließlich sichere, `ScanRoot`-relative Pfade, normalisiert Windows- und POSIX-Separatoren und erzeugt aus dem direkten Parent einen `path_context`-Kandidaten mit `source_location = path.parent` und Confidence `0.1`.
+- Jeder Kandidat enthält `Provenance` mit `source_kind = derived`, Komponentenname, Beobachtungszeitpunkt und expliziter Parser-Version. Absolute oder Traversal-Pfade werden abgewiesen; absolute Hostpfade werden dadurch nicht als Kandidateninhalt oder Source Location weitergegeben.
 
 ### Generische ToolProvider Runtime
 
@@ -158,11 +166,17 @@ Empirisch bestätigt wurden Docker-Build und Bootstrap, persistentes beschreibba
 
 Die später implementierten `DELETED`-, Relocation- und Resume-Funktionen sind durch automatisierte Integrationstests abgedeckt und wurden in diesem lokalen Plattformtest nicht separat nachgestellt.
 
+### `W2-008` — lokale Vorprüfung
+
+**Empirisch:** Am 2026-08-09 wurden `src` und `tests` mit Python 3.12.13 bytecode-kompiliert. Ein synthetischer, äquivalenter Verhaltenslauf bestätigte Kandidatenerzeugung, Parser-Version und `Provenance`, POSIX-/Windows-Pfadnormalisierung, die Ablehnung leerer/ungültiger Werte sowie die Ablehnung absoluter und Traversal-Pfade.
+
+**Nicht ausgeführt:** `ruff check .`, `mypy src/foliotone` und `pytest` konnten lokal nicht gestartet werden, weil `pytest`, `ruff` und `mypy` nicht installiert sind und der Paketbezug aus dem lokalen Paketindex abgebrochen wurde. Die vollständige CI-Qualitätsprüfung ist nach dem Push in GitHub Actions zu prüfen.
+
 ## Noch offen in W2
 
 Als nächste fachliche W2-Arbeiten bleiben:
 
-1. `W2-008` — versionierten `FilenameParser` und `PathContextAnalyzer` implementieren;
+1. `W2-008` — vollständige CI-Qualitätsprüfung abwarten und den Status bei Erfolg auf `DONE` setzen;
 2. `W2-009` — Parsing-Regeln und Fixtures für Autor/Titel, Serie/Band, Track/Disc, Jahr und Sprache ergänzen;
 3. `W2-011` — ToolProvider-Runtime um noch fehlende Tests für malformed structured output, Version Change und selective re-analysis erweitern.
 
@@ -170,7 +184,6 @@ Als nächste fachliche W2-Arbeiten bleiben:
 
 Noch nicht vorhanden sind unter anderem:
 
-- Filename-/Path-Parsing;
 - konkrete E-Book- und Music-ToolProvider;
 - calibre Library Reconciliation;
 - Entity Resolution Engine;
