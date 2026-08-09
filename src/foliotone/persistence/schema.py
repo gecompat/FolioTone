@@ -36,6 +36,7 @@ scan_runs = Table(
     Column("started_at", DATETIME, nullable=False),
     Column("status", ENUM, nullable=False),
     Column("completed_at", DATETIME),
+    Column("resumed_from_run_id", ID, ForeignKey("scan_runs.id")),
 )
 
 file_records = Table(

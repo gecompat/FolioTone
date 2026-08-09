@@ -10,7 +10,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from foliotone import __version__
-from foliotone.core import FileChangeState, MediaType, RelocationCandidateKind
+from foliotone.core import EntityId, FileChangeState, MediaType, RelocationCandidateKind
 from foliotone.index import (
     DeletionConfirmationPolicy,
     FingerprintWriter,
@@ -82,6 +82,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=256,
         help="Maximum discovery batch size; must be between 1 and 500.",
+    )
+    scan.add_argument(
+        "--resume-run",
+        type=EntityId.parse,
+        default=None,
+        help="Resume from a persisted INTERRUPTED ScanRun ID for the same logical ScanRoot.",
     )
     scan.add_argument(
         "--confirm-deleted-after-missing-scans",
@@ -162,6 +168,9 @@ def _run_scan(
     store = SQLiteIndexStore(engine)
     media_type = _MEDIA_TYPES[args.media_type]
     root = store.get_or_create_root(args.name, media_type)
+    resume_from = (
+        None if args.resume_run is None else store.get_resumable_run(root, args.resume_run)
+    )
     hash_mode = _HASH_MODES[args.hash_mode]
     fingerprint_writer = None if hash_mode is HashMode.NONE else FingerprintWriter(engine)
     relocation_detector = (
@@ -176,10 +185,16 @@ def _run_scan(
         relocation_detector=relocation_detector,
     )
     suffixes = None if args.suffix is None else frozenset(args.suffix)
-    summary = scanner.scan(root, ScanRootBinding(args.path, include_suffixes=suffixes))
+    summary = scanner.scan(
+        root,
+        ScanRootBinding(args.path, include_suffixes=suffixes),
+        resume_from=resume_from,
+    )
 
     print(f"ScanRoot: {root.name}")
     print(f"ScanRun: {summary.run.id}")
+    if summary.run.resumed_from_run_id is not None:
+        print(f"Resumed from: {summary.run.resumed_from_run_id}")
     print(f"Status: {summary.run.status.value}")
     print(f"Observed files: {summary.observed_files}")
     for state in FileChangeState:

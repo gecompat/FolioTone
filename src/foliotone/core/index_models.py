@@ -36,6 +36,7 @@ class ScanRun:
     started_at: datetime
     status: ScanRunStatus
     completed_at: datetime | None = None
+    resumed_from_run_id: EntityId | None = None
 
     def __post_init__(self) -> None:
         require_aware_datetime(self.started_at, "started_at")
@@ -47,6 +48,8 @@ class ScanRun:
             raise ValueError("a running scan cannot have completed_at")
         if self.status is not ScanRunStatus.RUNNING and self.completed_at is None:
             raise ValueError("a finished scan requires completed_at")
+        if self.resumed_from_run_id == self.id:
+            raise ValueError("a ScanRun cannot resume itself")
 
 
 @dataclass(frozen=True, slots=True)

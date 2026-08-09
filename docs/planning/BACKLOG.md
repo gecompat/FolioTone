@@ -44,8 +44,8 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W2-004 | DONE | Implement opt-in DELETED confirmation requiring consecutive successful MISSING scans plus minimum elapsed absence; failed/interrupted scans do not advance confirmation. |
 | W2-005 | DONE | Implement staged quick fingerprint and streamed SHA-256 strategy against FileObservation identity. |
 | W2-006 | DONE | Implement conservative FileRelocationCandidate detection for NEW + first-time MISSING pairs in the same scan using unambiguous versioned fingerprint blocks without merging FileRecord identity. |
-| W2-007 | NEXT | Complete interruption/resume behavior; unavailable-root failure handling is already implemented and tested. |
-| W2-008 | PLANNED | Implement versioned FilenameParser and PathContextAnalyzer that emit provenance-preserving FieldCandidate values. |
+| W2-007 | DONE | Implement auditable resume lineage: only a persisted INTERRUPTED run of the same ScanRoot may be resumed; resume creates a new ScanRun and reuses already persisted incremental work without re-hashing unchanged files. |
+| W2-008 | NEXT | Implement versioned FilenameParser and PathContextAnalyzer that emit provenance-preserving FieldCandidate values. |
 | W2-009 | PLANNED | Add configurable parsing rules/fixtures for author-title, series/volume, track/disc, year and language conventions. |
 | W2-010 | DONE | Implement generic ToolProvider runtime with version detection, bounded local/container execution, timeout/cancellation, stdout/stderr artifacts, privacy-safe input identity, isolated work areas and read-only input policy. |
 | W2-011 | READY | Complete ToolProvider runtime tests for malformed structured output, version changes and selective re-analysis; missing tool, timeout, non-zero exit, artifact persistence, privacy and container hardening are already tested. |
