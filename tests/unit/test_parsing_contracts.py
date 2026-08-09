@@ -133,7 +133,10 @@ def test_rule_based_parser_uses_the_first_matching_rule_and_returns_no_guess():
         FilenameParsingProfile(
             version="1",
             rules=(
-                FilenameParsingRule(name="specific", pattern=r"(?P<title>.+) \[(?P<language>[a-z]{2})\]"),
+                FilenameParsingRule(
+                    name="specific",
+                    pattern=r"(?P<title>.+) \[(?P<language>[a-z]{2})\]",
+                ),
                 FilenameParsingRule(name="fallback", pattern=r"(?P<title>.+)"),
             ),
         )

@@ -1,10 +1,10 @@
 """Versioned, provenance-preserving filename and path candidates."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import PurePosixPath
-import re
 
 from foliotone.core._validation import (
     require_confidence,
