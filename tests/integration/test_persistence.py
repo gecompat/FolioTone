@@ -77,7 +77,8 @@ def database(tmp_path: Path) -> Path:
 def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> None:
     migrate(database)
     engine = create_sqlite_engine(database)
-    table_names = set(inspect(engine).get_table_names())
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
     expected = {table.name for table in ALL_TABLES} | {
         "alembic_version",
         file_scan_events.name,
@@ -85,12 +86,14 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
         tool_artifacts.name,
     }
     assert table_names == expected
-    file_columns = {column["name"] for column in inspect(engine).get_columns("file_records")}
+    file_columns = {column["name"] for column in inspector.get_columns("file_records")}
     assert {"missing_since_at", "consecutive_missing_scans"} <= file_columns
+    scan_columns = {column["name"] for column in inspector.get_columns("scan_runs")}
+    assert "resumed_from_run_id" in scan_columns
 
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0004_relocation_candidates"
+    assert revision == "0005_scan_resume_lineage"
 
 
 def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) -> None:
@@ -144,7 +147,7 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0004_relocation_candidates"
+    assert revision == "0005_scan_resume_lineage"
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:
