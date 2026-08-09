@@ -4,7 +4,7 @@
 
 A full initial scan may be expensive; subsequent scans must avoid unnecessary I/O and hashing.
 
-Planned observation states:
+Implemented or reserved observation states include:
 
 - `NEW`
 - `UNCHANGED`
@@ -13,10 +13,13 @@ Planned observation states:
 - `RENAMED`
 - `MISSING`
 - `DELETED`
+- `REAPPEARED`
 
-`MISSING` and `DELETED` are deliberately distinct. Deletion requires enough evidence that the scan root was successfully observed and the file is truly absent according to the future deletion policy.
+`MISSING` and `DELETED` are deliberately distinct. `DELETED` confirmation is opt-in and follows ADR-0013; it is an index classification and never a filesystem delete operation.
 
-## Planned hash/fingerprint stages
+`MOVED` and `RENAMED` remain reserved `FileChangeState` vocabulary. W2-006 does not emit them as confirmed scan states. It persists separate `FileRelocationCandidate` records instead, because a path change plus matching content evidence does not prove that a physical move or rename occurred.
+
+## Hash/fingerprint stages
 
 1. cheap filesystem observations such as size and timestamps;
 2. quick/partial fingerprint when useful;
@@ -24,11 +27,31 @@ Planned observation states:
 4. media-specific fingerprint from the relevant analyzer;
 5. later perceptual/acoustic/image fingerprints where useful.
 
-Hash/fingerprint values must be stored with algorithm and version where the representation can evolve.
+Hash/fingerprint values are stored with algorithm and version where the representation can evolve.
 
-## Move/rename detection
+## Move/rename candidate detection
 
-Path is not file identity. The implementation should use combinations of prior observations, size, hashes, and platform-available file identity cautiously. Platform-specific identifiers must not become the only durable identity.
+Path is not file identity. W2 therefore treats possible relocation as a candidate-generation problem rather than rewriting `FileRecord` identity.
+
+A `FileRelocationCandidate` can be generated when all of the following apply:
+
+- Source and Target belong to the same `ScanRoot`;
+- Source becomes `MISSING` for the first time in the current successful scan;
+- Target is `NEW` in that same scan;
+- Source's latest prior `FileObservation` and Target's current `FileObservation` share a supported versioned file fingerprint;
+- the relevant fingerprint block contains exactly one Source and one Target.
+
+The initial blocking evidence is `FILE_SHA256` or `QUICK_FILE`. If both identify the same unambiguous pair, `FILE_SHA256` is retained as the stronger technical evidence. Identical full SHA-256 still means identical file bytes, not proof that one path was moved to the other; identical copies are possible.
+
+Older `MISSING` records are not retrospectively linked to files that appear in later scans. One-to-many, many-to-one and many-to-many fingerprint blocks remain unresolved. This protects against arbitrary choices when a collection contains exact duplicate copies.
+
+The path shape is classified as:
+
+- `RENAMED` when only the filename changes within the same parent path;
+- `MOVED` when the parent path changes while the filename remains the same;
+- `MOVED_AND_RENAMED` when both change.
+
+These are `RelocationCandidateKind` values, not confirmed filesystem-history statements. Source remains a separate `MISSING` `FileRecord`, Target remains a separate `NEW` `FileRecord`, and no source-media operation occurs. See ADR-0014.
 
 ## Filename/path candidate generation
 
