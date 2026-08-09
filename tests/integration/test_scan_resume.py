@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from sqlalchemy import inspect
+from sqlalchemy import Engine, inspect
 
 import foliotone.index.scanner as scanner_module
 from foliotone.core import (
@@ -29,7 +29,7 @@ from foliotone.persistence import create_sqlite_engine, migrate, repository
 NOW = datetime(2026, 8, 9, 1, 0, tzinfo=UTC)
 
 
-def _environment(tmp_path: Path) -> tuple[object, SQLiteIndexStore, ScanRoot, Path]:
+def _environment(tmp_path: Path) -> tuple[Engine, SQLiteIndexStore, ScanRoot, Path]:
     database = tmp_path / "foliotone.db"
     media = tmp_path / "media"
     media.mkdir()
