@@ -65,6 +65,8 @@ Rules:
 - support collection-specific conventions without hard-wiring them into domain models;
 - do not send absolute paths to external providers.
 
+The W2 base implementation deliberately extracts only a filename stem as a low-confidence `title` candidate and the direct parent of a safe scan-root-relative path as a low-confidence `path_context` candidate. Both candidate types retain parser version and `Provenance`. It does not infer author, artist, series, volume, track, disc, year or language; those configurable conventions remain a separate parsing-rule slice.
+
 ## Entity resolution before duplicate matching
 
 Entity resolution determines what observed values probably refer to. Duplicate matching determines what relationship exists between files/entities.

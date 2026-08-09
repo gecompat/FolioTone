@@ -6,7 +6,7 @@ FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Boo
 
 W0 und W1 sind abgeschlossen. Der grundlegende W2-Slice für Incremental Index, Hashing und generische read-only ToolProvider Runtime ist implementiert, in GitHub Actions vollständig verifiziert und zusätzlich lokal unter Windows/Docker Desktop geprüft. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
 
-**Der nächste Schritt ist `W2-008`: versionierten `FilenameParser` und `PathContextAnalyzer` implementieren.** Die Parser dürfen nur Provenance-behaftete Kandidaten erzeugen und keine kanonischen Metadaten direkt setzen.
+`W2-008` ist lokal implementiert: `FilenameParser` und `PathContextAnalyzer` erzeugen ausschließlich Provenance-behaftete `FieldCandidate`-Werte und setzen keine kanonischen Metadaten. Der nächste Schritt ist die vollständige CI-Qualitätsprüfung; erst bei Erfolg wird der Backlog-Status auf `DONE` gesetzt.
 
 ## Vor Änderungen lesen
 
@@ -86,6 +86,10 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
 - Fingerprints gegen konkrete `FileObservation`;
 - kein unnötiges Rehashing unveränderter Dateien, auch nicht bei Resume bereits verarbeiteter unveränderter Files.
 
+### Filename- und Path-Context-Kandidaten
+
+`FilenameParser` erzeugt aus einem Dateinamen ohne Pfadseparatoren einen niedrig gewichteten `title`-Kandidaten. `PathContextAnalyzer` verarbeitet nur sichere relative Pfade und erzeugt aus dem direkten Parent einen niedrig gewichteten `path_context`-Kandidaten. Beide Komponenten speichern die Parser-Version, den Komponentenname und den beobachteten Zeitpunkt in `Provenance`; sie geben keine absoluten Hostpfade aus. Konfigurierbare Konventionen für Autor, Titel, Serie, Band, Track, Disc, Jahr und Sprache sind weiterhin `W2-009`.
+
 ### ToolProvider Runtime
 
 - lokale Ausführung ohne Shell;
@@ -109,7 +113,7 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W2-008` — `FilenameParser` und `PathContextAnalyzer`.
+1. `W2-008` — GitHub-Actions-Qualitätsprüfung prüfen und bei Erfolg auf `DONE` setzen.
 2. `W2-009` — Parsing-Regeln und synthetische Fixtures.
 3. `W2-011` — verbleibende ToolRuntime-Tests für malformed output, Version Changes und selective re-analysis.
 
