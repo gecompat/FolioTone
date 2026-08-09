@@ -1,9 +1,9 @@
 # Lokaler W2-Smoke-Test
 
-**Status:** vorgesehen für manuelle Verifikation auf einem lokalen Docker-System  
+**Status:** am 2026-08-09 lokal unter Windows/Docker Desktop erfolgreich ausgeführt  
 **Scope:** read-only Incremental Index und Docker-Bootstrap
 
-Dieser Test verwendet ausschließlich synthetische Dateien unter dem lokalen, von Git ignorierten Verzeichnis `media/ebooks`. Es werden keine realen E-Books benötigt. Der Test prüft den aktuellen W2-Slice, nicht die späteren calibre-, Matching- oder Entity-Resolution-Funktionen.
+Dieser Test verwendet ausschließlich synthetische Dateien unter dem lokalen, von Git ignorierten Verzeichnis `media/ebooks`. Es werden keine realen E-Books benötigt. Der Test prüft den grundlegenden W2-Scanpfad, nicht die späteren calibre-, Matching- oder Entity-Resolution-Funktionen.
 
 ## Voraussetzungen
 
@@ -93,7 +93,7 @@ MODIFIED: 1
 MISSING: 1
 ```
 
-`MISSING` bedeutet zu diesem Zeitpunkt ausdrücklich nicht `DELETED`. Eine dauerhafte Löschbestätigung ist ein eigener späterer W2-Vertrag.
+`MISSING` bedeutet ausdrücklich nicht automatisch `DELETED`. Dieser Basistest aktiviert die optionale `DELETED`-Bestätigung bewusst nicht. Ohne explizite Policy-Konfiguration bleibt auch wiederholt beobachtete Abwesenheit `MISSING`.
 
 ## 7. Datei wieder erscheinen lassen
 
@@ -122,6 +122,21 @@ docker compose run --rm --entrypoint sh foliotone -lc "echo x >> /media/ebooks/A
 
 Erwartung: Der Befehl endet mit einem Read-only-Fehler. Der Inhalt von `A.epub` darf sich dadurch nicht verändern.
 
+## Optionale `DELETED`-Bestätigung
+
+Seit `W2-004` kann `foliotone scan` eine konservative `DELETED`-Bestätigung ausdrücklich aktivieren. Die CLI verwendet dafür:
+
+```text
+--confirm-deleted-after-missing-scans <N>
+--confirm-deleted-after-hours <H>
+```
+
+Die zweite Option ist optional und verwendet bei aktivierter Bestätigung standardmäßig 24 Stunden. Die Mindestanzahl erfolgreicher aufeinanderfolgender `MISSING`-Scans ist 2. Beide Bedingungen, Anzahl und verstrichene Zeit, müssen erfüllt sein. Failed oder interrupted Scans erhöhen die Bestätigungsserie nicht.
+
+Diese Policy wird automatisiert in den Integrationstests geprüft. Sie wird im grundlegenden lokalen Smoke-Test nicht künstlich durch verkürzte Zeitfenster nachgestellt, weil dessen Zweck die plattformspezifische Docker-/Mount-Verifikation ist.
+
+`DELETED` bezeichnet ausschließlich einen bestätigten Indexzustand. FolioTone löscht dadurch keine Datei; Source Media bleibt durch W9 read-only.
+
 ## 9. Ergebnis melden
 
 Für die Rückmeldung genügen:
@@ -136,9 +151,9 @@ Keine realen Medienpfade, privaten Dateinamen oder Sammlungsinhalte müssen für
 
 ## Nicht Bestandteil dieses Tests
 
-Noch nicht geprüft werden:
+Noch nicht lokal geprüft werden:
 
-- `DELETED`-Bestätigung;
+- die opt-in `DELETED`-Bestätigung; sie ist automatisiert durch Integrationstests abgedeckt;
 - Move-/Rename-Erkennung;
 - Filename-/Path-Parsing;
 - calibre, ffprobe, Chromaprint, beets, SongKong oder Picard;
