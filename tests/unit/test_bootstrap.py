@@ -20,5 +20,6 @@ def test_status_command_is_non_destructive_bootstrap(
         "The initial product surface is CLI-only.",
         "A read-only scan CLI is available for controlled smoke tests.",
         "Read-only calibre metadata extraction is available through ebook-metadata.",
+        "Read-only EPUB text fingerprints are available through ebook-text.",
         "Source-media and external-tool mutation commands are not implemented.",
     ]

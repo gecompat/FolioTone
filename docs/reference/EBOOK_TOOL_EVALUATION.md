@@ -2,16 +2,17 @@
 
 Stand: 2026-08-14
 
-Diese Bewertung schließt `W3-001` ab. Sie betrachtet nur dokumentierte,
-automatisierbare und bis einschließlich W9 nicht mutierende Analysepfade. Die
-Versionsangaben sind ein zeitgebundener Snapshot und müssen vor einem späteren
-Upgrade oder einer neuen Integration erneut geprüft werden.
+Diese Bewertung schloss `W3-001` ab und dokumentiert zusätzlich die in
+`W3-002` und `W3-003` implementierten calibre-Verträge. Sie betrachtet nur
+dokumentierte, automatisierbare und bis einschließlich W9 nicht mutierende
+Analysepfade. Die Versionsangaben sind ein zeitgebundener Snapshot und müssen
+vor einem späteren Upgrade oder einer neuen Integration erneut geprüft werden.
 
 ## Entscheidungsmatrix
 
 | Werkzeug | geprüfter Stand | Lizenz | geeignete FolioTone-Rolle | Entscheidung |
 |---|---:|---|---|---|
-| calibre | 9.13.0 | GPL-3.0 | Metadaten aus EPUB, PDF, MOBI, AZW/AZW3 und weiteren Formaten; spätere optionale Library-Abfragen | `ebook-meta` für `W3-002` wiederverwenden; `calibredb` vorerst zurückstellen |
+| calibre | 9.13.0 | GPL-3.0 | Metadaten aus mehreren Formaten; EPUB-Textextraktion; spätere optionale Library-Abfragen | `ebook-meta` für `W3-002` und `ebook-convert` für `W3-003` wiederverwenden; `calibredb` vorerst zurückstellen |
 | EPUBCheck | 5.3.0 | BSD-3-Clause | EPUB-2-/EPUB-3-Konformität und strukturelle Fehler mit JSON-Report | für `W3-008` vormerken; nicht für Metadaten- oder Textextraktion verwenden |
 | Poppler | 26.08.0 | GPL-2.0-or-later in den geprüften Frontend-Quellen; vor Redistribution komponentengenau prüfen | PDF-Metadaten, Seitenzahl und Text über `pdfinfo`/`pdftotext` | bevorzugter Kandidat für `W3-004`; noch kein Adapter in diesem Slice |
 | qpdf | 12.4.0 | Apache-2.0 | PDF-Struktur, Integrität und maschinenlesbare JSON-v2-Repräsentation | optional ergänzend für strukturelle Evidence; nicht für Textextraktion |
@@ -51,6 +52,55 @@ Offizielle Referenzen:
 - https://manual.calibre-ebook.com/generated/en/ebook-meta.html
 - https://manual.calibre-ebook.com/generated/en/cli-index.html
 - https://github.com/kovidgoyal/calibre
+
+### EPUB-Text und FolioTone-Fingerprint
+
+`W3-003` verwendet die dokumentierte `ebook-convert`-Schnittstelle, weil
+calibre EPUB-Spine, Markup und Zeichencodierung bereits formatgerecht in eine
+TXT-Repräsentation überführt. FolioTone implementiert deshalb keinen parallelen
+EPUB-Parser. Der Adapter akzeptiert ausschließlich eine zuvor persistierte,
+unveränderte EPUB-`FileObservation` und besitzt diese feste Befehlsform:
+
+```text
+ebook-convert <runtime-source-file> content.txt
+  --txt-output-formatting=plain
+  --txt-output-encoding=utf-8
+  --newline=unix
+  --max-line-length=0
+```
+
+Aufrufende Komponenten können keine zusätzlichen Konvertierungs- oder
+Schreiboptionen übergeben. Die Ausgabe wird als privates `CALIBRE_TEXT`-
+`ToolArtifact` mit maximal 64 MiB, Größe und SHA-256 übernommen. Der Rohtext
+wird weder als `ToolResult` noch über die CLI ausgegeben. Er bleibt im
+konfigurierten Runtime-Artefaktbereich außerhalb des Repositorys.
+
+calibre liefert keinen FolioTone-kompatiblen Inhalts-Fingerprint. Diese Lücke
+schließt FolioTone nach der Artefakt-Integritätsprüfung mit einer eigenen,
+versionierten Ableitung:
+
+1. strikt als UTF-8 decodieren und einen optionalen führenden BOM entfernen;
+2. Unicode-Normalisierung `NFKC` anwenden;
+3. alle Unicode-Whitespace-Folgen auf genau ein Leerzeichen reduzieren und
+   äußeren Whitespace entfernen;
+4. SHA-256 über die UTF-8-Repräsentation des normalisierten Textes berechnen.
+
+Der `Fingerprint` besitzt den Kind-Wert `EBOOK_NORMALIZED_TEXT`, verweist auf
+die konkrete `FileObservation` und `ToolExecution` und speichert als
+`algorithm_version` das Profil
+`unicode-nfkc-whitespace-v1+ucd-<Unicode-Datenversion>`. Ein Wechsel der
+Unicode-Datenversion, des Adapterprofils oder der calibre-Version macht die
+Ableitung über die vorhandenen Reanalyse-Verträge selektiv veraltet.
+
+`ToolResult` speichert `text_status = TEXT_EXTRACTED` oder `NO_TEXT` sowie
+`normalized_character_count`. Bei `NO_TEXT` entsteht bewusst kein Fingerprint.
+Der Fingerprint beschreibt nur den durch calibre extrahierbaren Plaintext in
+der von calibre bestimmten Lesereihenfolge. Layout, CSS, Bilder, Linkziele,
+OCR und nicht extrahierbarer Bildtext gehören nicht zu diesem Vertrag.
+
+Offizielle Referenz:
+
+- https://manual.calibre-ebook.com/generated/en/ebook-convert.html
 
 ### Verbindliche Sicherheitsuntergrenze
 
@@ -163,7 +213,7 @@ Offizielle Referenzen:
 - https://qpdf.readthedocs.io/en/latest/json.html
 - https://github.com/qpdf/qpdf/blob/main/LICENSE.txt
 
-## Verifizierter `W3-002`-Slice
+## Verifizierte `W3-002`-/`W3-003`-Slices
 
 Am 2026-08-14 wurde calibre 9.13.0 als separates administratives Abbild außerhalb
 des Repositorys installiert. Das offizielle MSI hatte den erwarteten
@@ -177,3 +227,14 @@ EPUB. `foliotone scan` erzeugte eine `FileObservation`; danach lieferte
 `CALIBRE_OPF`-Artefakt und sechs persistierte rohe Metadatenbeobachtungen. Das
 ephemere Work-Verzeichnis war nach dem Lauf leer. Es wurden keine echten Medien
 und keine Calibre-Library verwendet.
+
+Der anschließende `W3-003`-Smoke-Test verwendete ebenfalls ausschließlich
+dieses synthetische EPUB und calibre 9.13.0. `foliotone ebook-text` erzeugte
+eine erfolgreiche `ToolExecution`, ein 49 Byte großes `CALIBRE_TEXT`-Artefakt,
+`TEXT_EXTRACTED`, 43 normalisierte Zeichen und einen
+`EBOOK_NORMALIZED_TEXT`-Fingerprint. Das ephemere Work-Verzeichnis war nach
+Abschluss leer. Repository-Ruff, Mypy für 59 Source-Dateien und 115 Pytest-
+Tests waren erfolgreich. Der W3-003-Implementierungscommit
+`dc2cd09ffbc07098e0c296bea231532c4f38051b` bestand GitHub Actions Run
+`31809375485` für PR #13 einschließlich der Docker-, Migrations-, Scan- und
+Bootstrap-Schritte.
