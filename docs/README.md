@@ -22,6 +22,7 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 ## Externe Werkzeuge und Wissensquellen
 
 - [External Analysis Tools](reference/EXTERNAL_TOOLS.md) führt mögliche `ToolProvider` wie calibre, ffprobe, Chromaprint, beets, SongKong und Picard auf.
+- [Bewertung der E-Book-Toolchain](reference/EBOOK_TOOL_EVALUATION.md) hält den zeitgebundenen W3-Toolentscheid, die Calibre-Sicherheitsuntergrenze und die ersten EPUB-/PDF-Rollen fest.
 - [External Data Sources](reference/EXTERNAL_DATA_SOURCES.md) dokumentiert Kandidaten für strukturierte Wissensquellen wie Open Library, GND, Wikidata, MusicBrainz und AcoustID.
 - [Glossar](reference/GLOSSARY.md) definiert die kanonischen fachlichen Kernbegriffe von FolioTone.
 

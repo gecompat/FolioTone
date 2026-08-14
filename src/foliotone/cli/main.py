@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from collections import Counter
 from collections.abc import Sequence
@@ -10,7 +11,15 @@ from datetime import timedelta
 from pathlib import Path
 
 from foliotone import __version__
-from foliotone.core import EntityId, FileChangeState, MediaType, RelocationCandidateKind
+from foliotone.adapters.calibre import CalibreMetadataAnalyzer, CalibreMetadataError
+from foliotone.core import (
+    EntityId,
+    FileChangeState,
+    FileObservation,
+    MediaType,
+    RelocationCandidateKind,
+    ToolExecutionStatus,
+)
 from foliotone.index import (
     DeletionConfirmationPolicy,
     FingerprintWriter,
@@ -20,7 +29,8 @@ from foliotone.index import (
     ScanRootBinding,
     SQLiteIndexStore,
 )
-from foliotone.persistence import create_sqlite_engine, migrate
+from foliotone.persistence import create_sqlite_engine, migrate, repository
+from foliotone.tooling.runtime import ToolRuntime
 
 _MEDIA_TYPES = {
     "ebook": MediaType.EBOOK,
@@ -107,6 +117,48 @@ def build_parser() -> argparse.ArgumentParser:
             "--confirm-deleted-after-missing-scans; defaults to 24 hours when enabled."
         ),
     )
+
+    ebook_metadata = subparsers.add_parser(
+        "ebook-metadata",
+        help="Extract raw e-book metadata read-only with calibre ebook-meta.",
+    )
+    ebook_metadata.add_argument(
+        "--root",
+        required=True,
+        type=Path,
+        help="Runtime source root containing the already recorded file observation.",
+    )
+    ebook_metadata.add_argument(
+        "--observation-id",
+        required=True,
+        type=EntityId.parse,
+        help="Persisted FileObservation ID to analyze.",
+    )
+    ebook_metadata.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="SQLite database path; defaults to /data/foliotone.db.",
+    )
+    ebook_metadata.add_argument(
+        "--artifact-root",
+        type=Path,
+        default=Path(
+            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
+        ),
+        help="Durable tool-artifact root; defaults to /data/tool-artifacts.",
+    )
+    ebook_metadata.add_argument(
+        "--work-root",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_TOOL_WORK_ROOT", "/tmp/foliotone-tools")),
+        help="Ephemeral isolated tool-work root; defaults to /tmp/foliotone-tools.",
+    )
+    ebook_metadata.add_argument(
+        "--ebook-meta-executable",
+        default=os.environ.get("FOLIOTONE_EBOOK_META", "ebook-meta"),
+        help="ebook-meta executable or absolute executable path.",
+    )
     return parser
 
 
@@ -116,15 +168,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "status":
-        print("FolioTone W2 foundation is complete; W3 e-book analysis is next.")
+        print("FolioTone W2 foundation is complete; W3 e-book analysis is in progress.")
         print("The initial product surface is CLI-only.")
         print("A read-only scan CLI is available for controlled smoke tests.")
+        print("Read-only calibre metadata extraction is available through ebook-metadata.")
         print("Source-media and external-tool mutation commands are not implemented.")
         return 0
 
     if args.command == "scan":
         deletion_policy = _deletion_policy(parser, args)
         return _run_scan(args, deletion_policy)
+
+    if args.command == "ebook-metadata":
+        return _run_ebook_metadata(args)
 
     parser.print_help()
     return 0
@@ -207,6 +263,43 @@ def _run_scan(
             if count:
                 print(f"{kind.value}_CANDIDATE: {count}")
     return 0
+
+
+def _run_ebook_metadata(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    observation = repository(engine, FileObservation).get(args.observation_id)
+    if observation is None:
+        print("Metadata analysis failed: FileObservation does not exist.")
+        return 2
+
+    runtime = ToolRuntime(
+        engine,
+        args.artifact_root,
+        work_root=args.work_root,
+    )
+    try:
+        analyzer = CalibreMetadataAnalyzer(
+            engine,
+            runtime,
+            executable=args.ebook_meta_executable,
+        )
+        outcome = analyzer.analyze(args.root, observation)
+    except (CalibreMetadataError, ValueError) as error:
+        print(f"Metadata analysis failed: {error}")
+        return 1
+
+    execution = outcome.run.execution
+    print(f"ToolExecution: {execution.id}")
+    print(f"Status: {execution.status.value}")
+    print(f"Tool version: {json.dumps(execution.tool_version, ensure_ascii=False)}")
+    if execution.error_summary is not None:
+        print(f"Error: {json.dumps(execution.error_summary, ensure_ascii=False)}")
+    print(f"Metadata observations: {len(outcome.results)}")
+    for result in outcome.results:
+        print(f"{result.key}: {json.dumps(result.value, ensure_ascii=False)}")
+    return 0 if execution.status is ToolExecutionStatus.SUCCEEDED else 1
 
 
 if __name__ == "__main__":

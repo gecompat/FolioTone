@@ -8,7 +8,10 @@ W0 bis W2 sind abgeschlossen. Der W2-Slice umfasst Incremental Index, Hashing, F
 
 `W2-008` und `W2-009` sind vollständig validiert: Basisparser und konfigurierbare, versionierte Regex-Profile erzeugen ausschließlich Provenance-behaftete `FieldCandidate`-Werte und setzen keine kanonischen Metadaten. `W2-011` ergänzt begrenzte, strikte JSON-Auswertung aus `ToolArtifact`-Dateien und konservative Reanalyse-Entscheidungen. Der Docker-Build-Kontext ist auf die tatsächlich paketierten Anwendungsdateien beschränkt.
 
-Die anfängliche Produktoberfläche ist gemäß Benutzerentscheidung und ADR-0016 ausschließlich die CLI. W3 beginnt mit der aktuellen Bewertung der E-Book-Toolchain.
+Die anfängliche Produktoberfläche ist gemäß Benutzerentscheidung und ADR-0016
+ausschließlich die CLI. `W3-001` und `W3-002` sind abgeschlossen: Die aktuelle
+E-Book-Toolchain ist bewertet, und der erste read-only calibre-Metadaten-Slice
+ist implementiert. `W3-003` ist als Nächstes vorgesehen.
 
 ## Vor Änderungen lesen
 
@@ -19,6 +22,7 @@ Die anfängliche Produktoberfläche ist gemäß Benutzerentscheidung und ADR-001
 5. `docs/reference/GLOSSARY.md`, wenn fachliche Terminologie berührt wird.
 6. Relevante Dateien unter `docs/architecture/` und `docs/decisions/`.
 7. `docs/reference/EXTERNAL_TOOLS.md`, bevor ein konkreter externer ToolProvider implementiert wird.
+8. `docs/reference/EBOOK_TOOL_EVALUATION.md` für die verbindlichen W3-Entscheidungen und die calibre-Sicherheitsuntergrenze.
 
 ## Verifizierter aktueller Stand
 
@@ -64,6 +68,28 @@ Die Abschlussprüfung bestätigt zusätzlich:
 - Reanalyse bei Tool-, Adapter-, Input- oder Konfigurationsänderung;
 - keine Wiederverwendung ohne explizite Konfigurationsidentität;
 - allowlist-basierten Docker-Build-Kontext ohne lokale Runtime-, Medien-, Secret-, Test- oder Git-Daten.
+
+### W3-001/W3-002
+
+Der Snapshot vom 2026-08-14 wählt calibre 9.13.0 für dateibezogene Metadaten,
+EPUBCheck 5.3.0 für spätere EPUB-Konformität, Poppler 26.08.0 als bevorzugten
+PDF-Metadaten-/Text-Kandidaten und qpdf 12.4.0 als optionale strukturelle
+PDF-Evidence. Details und Lizenzen stehen in
+`docs/reference/EBOOK_TOOL_EVALUATION.md`.
+
+`foliotone ebook-metadata` analysiert eine persistierte `FileObservation` über
+die unveränderliche Befehlsform `ebook-meta FILE --to-opf metadata.opf`.
+Unbekannte calibre-Versionen sowie Versionen kleiner als 9.10.0 werden wegen
+`GHSA-2j4m-2q7x-2c47` vor dem Dateiöffnen abgelehnt. Calibre-Konfiguration ist
+ephemer; das maximal 4 MiB große OPF wird als integritätsgeprüftes
+`CALIBRE_OPF`-Artefakt gespeichert. Ausgewählte Felder werden als rohe
+`ToolResult`-Evidence gegen die konkrete Observation persistiert.
+
+Ein lokaler End-to-End-Smoke-Test mit einem ausschließlich synthetischen EPUB
+und einer separat geprüften calibre-9.13-Installation war erfolgreich. Die
+vollständigen lokalen Quality Gates bestanden mit Ruff, Mypy für 57
+Source-Dateien und 107 Pytest-Tests. Der Remote-CI-Stand ist im Projektstatus zu
+ergänzen, sobald diese Arbeitswelle veröffentlicht ist.
 
 ## W2 aktuell implementiert
 
@@ -115,6 +141,21 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
 - konservative Reanalyse anhand erfolgreicher früherer Ausführung und exakter Provider-, Capability-, Input-, Tool-, Adapter- und Konfigurationsidentität;
 - Privacy-Schutz für persistierte Input-Identitäten;
 - gehärtete Containerargumente mit read-only Input-Mounts, deaktiviertem Netzwerk als Default und isoliertem Work-Verzeichnis.
+- deklarierte, größenbegrenzte Workspace-Ausgaben, die vor dem ephemeren Cleanup
+  als `ToolArtifact` mit SHA-256 übernommen werden;
+- Adapter-Version-Policies, die unsichere Versionen vor der Source-Analyse
+  auditierbar ablehnen können.
+
+### calibre-Metadaten
+
+- `CalibreMetadataAnalyzer` und CLI `foliotone ebook-metadata`;
+- feste read-only `ebook-meta FILE --to-opf`-Argumentform ohne Setter;
+- Sicherheitsuntergrenze calibre 9.10.0 vor dem Öffnen der Eingabe;
+- ephemere `CALIBRE_CONFIG_DIRECTORY` für Versionsabfrage und Analyse;
+- begrenztes, integritätsgeprüftes OPF-Artefakt;
+- rohe Titel-, Creator-, Identifier-, Sprach-, Verlags-, Datums-, Subject- und
+  Series-Beobachtungen mit `ToolExecution`-Link;
+- kein `calibredb` bis zu einem konkreten read-only Library-Reconciliation-Vertrag.
 
 ### Persistence
 
@@ -129,8 +170,14 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-001` — aktuelle calibre-CLI- und EPUB-/PDF-Toolbewertung anhand offizieller Dokumentation, Wartungsstatus, Lizenz, Automation, Ausgabeformaten und read-only Sicherheitsverhalten;
-2. `W3-002` — erster read-only calibre-Vertical-Slice für `ebook-meta` und gegebenenfalls read-oriented `calibredb`-Abfragen.
+1. `W3-003` — EPUB-Inhalts-/Textextraktion und normalisierter Text-Fingerprint
+   nur für die von der ausgewählten Toolchain nicht ausreichend gelieferte
+   Fähigkeit;
+2. `W3-004` — PDF-Metadaten, Seitenzahl, Text und expliziter No-Text-Zustand mit
+   Poppler; qpdf nur ergänzend bei strukturellem Mehrwert;
+3. `W3-005` — MOBI/AZW/AZW3-Beobachtungen zunächst über calibre;
+4. `W3-006` — detailliertere Feld-/Rollenabbildung als Provenance-erhaltende
+   Beobachtungen und Kandidaten.
 
 Die Produktoberfläche bleibt dabei ausschließlich die CLI. Externe Tool-Ergebnisse werden weiterhin als Evidence behandelt und nicht direkt zu kanonischen Metadaten.
 

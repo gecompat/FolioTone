@@ -12,6 +12,7 @@ from foliotone.tooling.runtime import (
     LocalCommand,
     ReadOnlyMount,
     ToolRuntime,
+    WorkspaceOutput,
     build_docker_argv,
 )
 
@@ -247,3 +248,121 @@ def test_missing_structured_stdout_is_reported_without_inventing_an_artifact(
 
     assert outcome.execution.status is ToolExecutionStatus.FAILED
     assert outcome.artifacts == ()
+
+
+def test_required_workspace_output_is_bounded_persisted_and_work_is_removed(
+    tmp_path: Path,
+) -> None:
+    tool_runtime = runtime(tmp_path)
+    outcome = tool_runtime.execute_local(
+        descriptor(),
+        LocalCommand(
+            executable=sys.executable,
+            args=(
+                "-c",
+                "from pathlib import Path; Path('metadata.opf').write_bytes(b'<package/>')",
+            ),
+            capability=ToolCapability.STATUS_REPORT,
+            outputs=(WorkspaceOutput("TEST_OPF", "metadata.opf", max_bytes=1024),),
+        ),
+        input_identity="synthetic:workspace-output",
+    )
+
+    assert outcome.execution.status is ToolExecutionStatus.SUCCEEDED
+    output = next(
+        artifact for artifact in outcome.artifacts if artifact.artifact_type == "TEST_OPF"
+    )
+    assert tool_runtime.read_artifact_bytes(output, max_bytes=1024) == b"<package/>"
+    assert list((tmp_path / "work").iterdir()) == []
+
+
+def test_missing_required_workspace_output_fails_an_otherwise_successful_process(
+    tmp_path: Path,
+) -> None:
+    outcome = runtime(tmp_path).execute_local(
+        descriptor(),
+        LocalCommand(
+            executable=sys.executable,
+            args=("-c", "print('no declared output')"),
+            capability=ToolCapability.STATUS_REPORT,
+            outputs=(WorkspaceOutput("TEST_OPF", "metadata.opf"),),
+        ),
+        input_identity="synthetic:missing-workspace-output",
+    )
+
+    assert outcome.execution.status is ToolExecutionStatus.FAILED
+    assert outcome.execution.exit_code == 0
+    assert outcome.execution.error_summary is not None
+    assert "required workspace output" in outcome.execution.error_summary
+    assert {artifact.artifact_type for artifact in outcome.artifacts} == {"STDOUT", "STDERR"}
+
+
+def test_oversized_workspace_output_is_not_persisted(tmp_path: Path) -> None:
+    outcome = runtime(tmp_path).execute_local(
+        descriptor(),
+        LocalCommand(
+            executable=sys.executable,
+            args=(
+                "-c",
+                "from pathlib import Path; Path('metadata.opf').write_bytes(b'x' * 9)",
+            ),
+            capability=ToolCapability.STATUS_REPORT,
+            outputs=(WorkspaceOutput("TEST_OPF", "metadata.opf", max_bytes=8),),
+        ),
+        input_identity="synthetic:oversized-workspace-output",
+    )
+
+    assert outcome.execution.status is ToolExecutionStatus.FAILED
+    assert "TEST_OPF" not in {artifact.artifact_type for artifact in outcome.artifacts}
+
+
+def test_workspace_environment_is_private_and_removed_after_execution(tmp_path: Path) -> None:
+    tool_runtime = runtime(tmp_path)
+    outcome = tool_runtime.execute_local(
+        descriptor(),
+        LocalCommand(
+            executable=sys.executable,
+            args=(
+                "-c",
+                "import os; from pathlib import Path; "
+                "p=Path(os.environ['TEST_CONFIG']); "
+                "Path('result.txt').write_text(str(p.is_dir() and p.parent == Path.cwd()))",
+            ),
+            capability=ToolCapability.STATUS_REPORT,
+            workspace_environment={"TEST_CONFIG": "private-config"},
+            outputs=(WorkspaceOutput("TEST_RESULT", "result.txt"),),
+        ),
+        input_identity="synthetic:workspace-environment",
+    )
+
+    result = next(
+        artifact for artifact in outcome.artifacts if artifact.artifact_type == "TEST_RESULT"
+    )
+    assert tool_runtime.read_artifact_bytes(result) == b"True"
+    assert list((tmp_path / "work").iterdir()) == []
+
+
+def test_version_policy_blocks_the_target_command_before_it_runs(tmp_path: Path) -> None:
+    marker = tmp_path / "must-not-exist"
+    outcome = runtime(tmp_path).execute_local(
+        descriptor(),
+        LocalCommand(
+            executable=sys.executable,
+            args=("-c", f"from pathlib import Path; Path({str(marker)!r}).touch()"),
+            capability=ToolCapability.STATUS_REPORT,
+            version_policy=lambda _version: "blocked by test version policy",
+        ),
+        input_identity="synthetic:blocked-version",
+    )
+
+    assert outcome.execution.status is ToolExecutionStatus.FAILED
+    assert outcome.execution.error_summary == "blocked by test version policy"
+    assert outcome.artifacts == ()
+    assert not marker.exists()
+    assert list((tmp_path / "work").iterdir()) == []
+
+
+@pytest.mark.parametrize("relative_path", ("../escape", "C:/absolute", "/absolute"))
+def test_workspace_output_rejects_unsafe_paths(relative_path: str) -> None:
+    with pytest.raises(ValueError, match="safe relative path"):
+        WorkspaceOutput("TEST", relative_path)

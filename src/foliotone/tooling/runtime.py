@@ -26,6 +26,32 @@ from foliotone.tooling.structured import (
 )
 
 Clock = Callable[[], datetime]
+VersionPolicy = Callable[[str], str | None]
+
+
+@dataclass(frozen=True, slots=True)
+class WorkspaceOutput:
+    """Bounded file an adapter expects a tool to create in its private workspace."""
+
+    artifact_type: str
+    relative_path: str
+    required: bool = True
+    max_bytes: int = DEFAULT_MAX_STRUCTURED_OUTPUT_BYTES
+
+    def __post_init__(self) -> None:
+        artifact_type = self.artifact_type.strip()
+        if not artifact_type:
+            raise ValueError("artifact_type must not be empty")
+        if artifact_type in {"STDOUT", "STDERR"}:
+            raise ValueError("workspace artifact_type must not be STDOUT or STDERR")
+        object.__setattr__(self, "artifact_type", artifact_type)
+        object.__setattr__(
+            self,
+            "relative_path",
+            _validate_workspace_relative_path(self.relative_path),
+        )
+        if self.max_bytes <= 0:
+            raise ValueError("max_bytes must be positive")
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,12 +64,23 @@ class LocalCommand:
     version_args: tuple[str, ...] = ("--version",)
     timeout_seconds: float = 60.0
     environment: Mapping[str, str] | None = None
+    workspace_environment: Mapping[str, str] | None = None
+    outputs: tuple[WorkspaceOutput, ...] = ()
+    version_policy: VersionPolicy | None = None
 
     def __post_init__(self) -> None:
         if not self.executable.strip():
             raise ValueError("executable must not be empty")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
+        if self.workspace_environment:
+            for variable, relative_path in self.workspace_environment.items():
+                if not variable.strip():
+                    raise ValueError("workspace environment variable must not be empty")
+                _validate_workspace_relative_path(relative_path)
+        artifact_types = [output.artifact_type for output in self.outputs]
+        if len(artifact_types) != len(set(artifact_types)):
+            raise ValueError("workspace output artifact types must be unique")
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,12 +105,16 @@ class ContainerCommand:
     mounts: tuple[ReadOnlyMount, ...] = ()
     timeout_seconds: float = 120.0
     network_enabled: bool = False
+    outputs: tuple[WorkspaceOutput, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.image.strip():
             raise ValueError("image must not be empty")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
+        artifact_types = [output.artifact_type for output in self.outputs]
+        if len(artifact_types) != len(set(artifact_types)):
+            raise ValueError("workspace output artifact types must be unique")
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,23 +173,33 @@ class ToolRuntime:
         max_bytes: int = DEFAULT_MAX_STRUCTURED_OUTPUT_BYTES,
     ) -> JsonValue:
         """Load and integrity-check a persisted ToolArtifact as bounded strict JSON."""
+        data = self.read_artifact_bytes(artifact, max_bytes=max_bytes)
+        return parse_json_output(data, max_bytes=max_bytes)
+
+    def read_artifact_bytes(
+        self,
+        artifact: ToolArtifact,
+        *,
+        max_bytes: int = DEFAULT_MAX_STRUCTURED_OUTPUT_BYTES,
+    ) -> bytes:
+        """Load one persisted artifact with path, size, and digest verification."""
         if max_bytes <= 0:
             raise ValueError("max_bytes must be positive")
         if artifact.size_bytes > max_bytes:
-            raise StructuredOutputError("structured output exceeds the configured size limit")
+            raise StructuredOutputError("tool artifact exceeds the configured size limit")
 
         artifact_root = self._artifact_root.resolve()
         artifact_path = (artifact_root / artifact.relative_path).resolve()
         if not artifact_path.is_relative_to(artifact_root):
-            raise StructuredOutputError("structured output artifact escapes the artifact root")
+            raise StructuredOutputError("tool artifact escapes the artifact root")
         try:
             with artifact_path.open("rb") as stream:
                 data = stream.read(max_bytes + 1)
         except OSError as error:
-            raise StructuredOutputError("structured output artifact is unavailable") from error
+            raise StructuredOutputError("tool artifact is unavailable") from error
         if len(data) != artifact.size_bytes or hashlib.sha256(data).hexdigest() != artifact.sha256:
-            raise StructuredOutputError("structured output artifact failed its integrity check")
-        return parse_json_output(data, max_bytes=max_bytes)
+            raise StructuredOutputError("tool artifact failed its integrity check")
+        return data
 
     def execute_local(
         self,
@@ -171,7 +222,32 @@ class ToolRuntime:
                 f"executable not found: {command.executable}",
             )
 
-        version = _detect_version(executable, command.version_args)
+        environment = os.environ.copy()
+        if command.environment:
+            environment.update(command.environment)
+        if command.workspace_environment:
+            version_workspace = Path(
+                tempfile.mkdtemp(prefix="version-", dir=self._work_root)
+            ).resolve()
+            try:
+                version_environment = _apply_workspace_environment(
+                    environment,
+                    command.workspace_environment,
+                    version_workspace,
+                )
+                version = _detect_version(
+                    executable,
+                    command.version_args,
+                    environment=version_environment,
+                )
+            finally:
+                shutil.rmtree(version_workspace, ignore_errors=True)
+        else:
+            version = _detect_version(
+                executable,
+                command.version_args,
+                environment=environment,
+            )
         if version is None:
             return self._failed_without_process(
                 descriptor,
@@ -181,10 +257,18 @@ class ToolRuntime:
                 "unknown",
                 f"could not determine tool version: {command.executable}",
             )
+        if command.version_policy is not None:
+            policy_error = command.version_policy(version)
+            if policy_error is not None:
+                return self._failed_without_process(
+                    descriptor,
+                    command.capability,
+                    input_identity,
+                    config_identity,
+                    version,
+                    policy_error,
+                )
 
-        environment = os.environ.copy()
-        if command.environment:
-            environment.update(command.environment)
         return self._execute_process(
             descriptor,
             command.capability,
@@ -194,6 +278,8 @@ class ToolRuntime:
             (executable, *command.args),
             command.timeout_seconds,
             environment,
+            workspace_environment=command.workspace_environment,
+            outputs=command.outputs,
         )
 
     def execute_container(
@@ -220,18 +306,22 @@ class ToolRuntime:
         workspace = self._work_root / str(execution_id)
         workspace.mkdir(parents=True, exist_ok=True)
         argv = build_docker_argv(docker, command, workspace)
-        return self._execute_process(
-            descriptor,
-            command.capability,
-            input_identity,
-            config_identity,
-            command.image,
-            argv,
-            command.timeout_seconds,
-            os.environ.copy(),
-            execution_id=execution_id,
-            workspace=workspace,
-        )
+        try:
+            return self._execute_process(
+                descriptor,
+                command.capability,
+                input_identity,
+                config_identity,
+                command.image,
+                argv,
+                command.timeout_seconds,
+                os.environ.copy(),
+                execution_id=execution_id,
+                workspace=workspace,
+                outputs=command.outputs,
+            )
+        finally:
+            shutil.rmtree(workspace, ignore_errors=True)
 
     def _validate_request(
         self,
@@ -261,11 +351,19 @@ class ToolRuntime:
         *,
         execution_id: EntityId | None = None,
         workspace: Path | None = None,
+        workspace_environment: Mapping[str, str] | None = None,
+        outputs: tuple[WorkspaceOutput, ...] = (),
     ) -> ToolRunOutcome:
         execution_id = execution_id or EntityId.new()
         created_workspace = workspace is None
         if workspace is None:
             workspace = Path(tempfile.mkdtemp(prefix=f"{execution_id}-", dir=self._work_root))
+        workspace = workspace.resolve()
+        process_environment = _apply_workspace_environment(
+            environment,
+            workspace_environment,
+            workspace,
+        )
 
         artifact_dir = self._artifact_root / str(execution_id)
         artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -286,65 +384,84 @@ class ToolRuntime:
         self._execution_repo.save(running)
 
         terminal: ToolExecution
+        captured_outputs: tuple[tuple[str, Path], ...] = ()
         try:
-            with stdout_path.open("wb") as stdout, stderr_path.open("wb") as stderr:
-                process = subprocess.Popen(
-                    argv,
-                    cwd=workspace,
-                    env=dict(environment),
-                    stdin=subprocess.DEVNULL,
-                    stdout=stdout,
-                    stderr=stderr,
-                    shell=False,
+            try:
+                with stdout_path.open("wb") as stdout, stderr_path.open("wb") as stderr:
+                    process = subprocess.Popen(
+                        argv,
+                        cwd=workspace,
+                        env=process_environment,
+                        stdin=subprocess.DEVNULL,
+                        stdout=stdout,
+                        stderr=stderr,
+                        shell=False,
+                    )
+                    try:
+                        exit_code = process.wait(timeout=timeout_seconds)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                        terminal = replace(
+                            running,
+                            finished_at=self._clock(),
+                            status=ToolExecutionStatus.CANCELLED,
+                            error_summary=f"timeout after {timeout_seconds:g} seconds",
+                        )
+                    except KeyboardInterrupt:
+                        process.kill()
+                        process.wait()
+                        cancelled = replace(
+                            running,
+                            finished_at=self._clock(),
+                            status=ToolExecutionStatus.CANCELLED,
+                            error_summary="cancelled by caller",
+                        )
+                        self._execution_repo.save(cancelled)
+                        self._persist_artifacts(execution_id, stdout_path, stderr_path)
+                        raise
+                    else:
+                        terminal = replace(
+                            running,
+                            finished_at=self._clock(),
+                            status=(
+                                ToolExecutionStatus.SUCCEEDED
+                                if exit_code == 0
+                                else ToolExecutionStatus.FAILED
+                            ),
+                            exit_code=exit_code,
+                            error_summary=None if exit_code == 0 else f"exit code {exit_code}",
+                        )
+            except OSError as exc:
+                terminal = replace(
+                    running,
+                    finished_at=self._clock(),
+                    status=ToolExecutionStatus.FAILED,
+                    error_summary=f"process error: {exc}",
                 )
-                try:
-                    exit_code = process.wait(timeout=timeout_seconds)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait()
-                    terminal = replace(
-                        running,
-                        finished_at=self._clock(),
-                        status=ToolExecutionStatus.CANCELLED,
-                        error_summary=f"timeout after {timeout_seconds:g} seconds",
-                    )
-                except KeyboardInterrupt:
-                    process.kill()
-                    process.wait()
-                    cancelled = replace(
-                        running,
-                        finished_at=self._clock(),
-                        status=ToolExecutionStatus.CANCELLED,
-                        error_summary="cancelled by caller",
-                    )
-                    self._execution_repo.save(cancelled)
-                    self._persist_artifacts(execution_id, stdout_path, stderr_path)
-                    raise
-                else:
-                    terminal = replace(
-                        running,
-                        finished_at=self._clock(),
-                        status=(
-                            ToolExecutionStatus.SUCCEEDED
-                            if exit_code == 0
-                            else ToolExecutionStatus.FAILED
-                        ),
-                        exit_code=exit_code,
-                        error_summary=None if exit_code == 0 else f"exit code {exit_code}",
-                    )
-        except OSError as exc:
-            terminal = replace(
-                running,
-                finished_at=self._clock(),
-                status=ToolExecutionStatus.FAILED,
-                error_summary=f"process error: {exc}",
+
+            captured_outputs, output_error = self._capture_workspace_outputs(
+                execution_id,
+                workspace,
+                outputs,
             )
+            if output_error is not None and terminal.status is ToolExecutionStatus.SUCCEEDED:
+                terminal = replace(
+                    terminal,
+                    status=ToolExecutionStatus.FAILED,
+                    error_summary=output_error,
+                )
         finally:
             if created_workspace:
                 shutil.rmtree(workspace, ignore_errors=True)
 
         self._execution_repo.save(terminal)
-        artifacts = self._persist_artifacts(execution_id, stdout_path, stderr_path)
+        artifacts = self._persist_artifacts(
+            execution_id,
+            stdout_path,
+            stderr_path,
+            captured_outputs,
+        )
         return ToolRunOutcome(
             execution=terminal,
             artifacts=artifacts,
@@ -357,9 +474,11 @@ class ToolRuntime:
         execution_id: EntityId,
         stdout_path: Path,
         stderr_path: Path,
+        extra_paths: tuple[tuple[str, Path], ...] = (),
     ) -> tuple[ToolArtifact, ...]:
         artifacts: list[ToolArtifact] = []
-        for artifact_type, path in (("STDOUT", stdout_path), ("STDERR", stderr_path)):
+        paths = (("STDOUT", stdout_path), ("STDERR", stderr_path), *extra_paths)
+        for artifact_type, path in paths:
             if not path.exists():
                 continue
             relative = path.relative_to(self._artifact_root).as_posix()
@@ -374,6 +493,61 @@ class ToolRuntime:
             self._artifact_repo.save(artifact)
             artifacts.append(artifact)
         return tuple(artifacts)
+
+    def _capture_workspace_outputs(
+        self,
+        execution_id: EntityId,
+        workspace: Path,
+        outputs: tuple[WorkspaceOutput, ...],
+    ) -> tuple[tuple[tuple[str, Path], ...], str | None]:
+        captured: list[tuple[str, Path]] = []
+        output_dir = self._artifact_root / str(execution_id) / "outputs"
+        workspace_root = workspace.resolve()
+        for index, output in enumerate(outputs):
+            source = workspace_root / output.relative_path
+            try:
+                resolved_source = source.resolve(strict=True)
+                safe = (
+                    resolved_source.is_relative_to(workspace_root)
+                    and not source.is_symlink()
+                    and resolved_source.is_file()
+                )
+            except (OSError, RuntimeError):
+                safe = False
+                resolved_source = source
+            if not safe:
+                if output.required:
+                    return tuple(captured), (
+                        f"required workspace output unavailable: {output.relative_path}"
+                    )
+                continue
+
+            suffix = Path(output.relative_path).suffix[:16]
+            target = output_dir / f"{index:03d}{suffix}"
+            try:
+                output_dir.mkdir(parents=True, exist_ok=True)
+                with (
+                    resolved_source.open("rb") as source_stream,
+                    target.open("wb") as target_stream,
+                ):
+                    copied = 0
+                    while chunk := source_stream.read(1024 * 1024):
+                        copied += len(chunk)
+                        if copied > output.max_bytes:
+                            raise ValueError("workspace output exceeds its configured size limit")
+                        target_stream.write(chunk)
+            except (OSError, ValueError):
+                try:
+                    target.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                if output.required:
+                    return tuple(captured), (
+                        f"required workspace output invalid: {output.relative_path}"
+                    )
+                continue
+            captured.append((output.artifact_type, target))
+        return tuple(captured), None
 
     def _failed_without_process(
         self,
@@ -432,7 +606,12 @@ def build_docker_argv(
     return tuple(argv)
 
 
-def _detect_version(executable: str, args: tuple[str, ...]) -> str | None:
+def _detect_version(
+    executable: str,
+    args: tuple[str, ...],
+    *,
+    environment: Mapping[str, str],
+) -> str | None:
     try:
         result = subprocess.run(
             (executable, *args),
@@ -441,6 +620,7 @@ def _detect_version(executable: str, args: tuple[str, ...]) -> str | None:
             check=False,
             timeout=10,
             shell=False,
+            env=dict(environment),
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -469,6 +649,37 @@ def _sha256_file(path: Path) -> str:
 
 def _looks_like_absolute_path(value: str) -> bool:
     return Path(value).is_absolute() or PureWindowsPath(value).is_absolute()
+
+
+def _apply_workspace_environment(
+    environment: Mapping[str, str],
+    workspace_environment: Mapping[str, str] | None,
+    workspace: Path,
+) -> dict[str, str]:
+    process_environment = dict(environment)
+    if workspace_environment is None:
+        return process_environment
+    for variable, relative_path in workspace_environment.items():
+        normalized = _validate_workspace_relative_path(relative_path)
+        directory = (workspace / normalized).resolve()
+        if not directory.is_relative_to(workspace):
+            raise ValueError("workspace environment directory escapes the workspace")
+        directory.mkdir(parents=True, exist_ok=True)
+        process_environment[variable] = str(directory)
+    return process_environment
+
+
+def _validate_workspace_relative_path(value: str) -> str:
+    normalized = value.strip().replace("\\", "/")
+    posix_path = PurePosixPath(normalized)
+    if (
+        not normalized
+        or posix_path.is_absolute()
+        or PureWindowsPath(normalized).is_absolute()
+        or any(part in {"", ".", ".."} for part in posix_path.parts)
+    ):
+        raise ValueError("workspace path must be a safe relative path")
+    return posix_path.as_posix()
 
 
 def _utc_now() -> datetime:

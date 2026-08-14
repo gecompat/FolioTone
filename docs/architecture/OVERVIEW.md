@@ -51,6 +51,8 @@ Responsibilities include:
 - timeout/cancellation/error handling;
 - structured stdout/report/artifact import;
 - bounded, strictly validated JSON loading from persisted `ToolArtifact` files;
+- bounded declared workspace-output capture with path, size and SHA-256 validation before ephemeral work is removed;
+- adapter-owned version policies that can reject unsafe tool versions before Source Media is opened;
 - recording tool/adapter/parser versions and execution status;
 - conservative re-analysis decisions based on a prior successful `ToolExecution` and exact provider, capability, input, tool, adapter and configuration identity;
 - mapping tool-specific output into FolioTone observations/evidence;
@@ -61,6 +63,15 @@ Tool execution is not domain truth. Multiple tools can support or contradict the
 ### E-Book Analysis
 
 Coordinates e-book-specific observations and fingerprints. Mature calibre CLI capabilities should be evaluated first for metadata/library/format operations. FolioTone-native parsers are added only when external tools do not satisfy the required semantics, reproducibility, performance or licensing constraints.
+
+The first W3 vertical slice invokes only
+`ebook-meta FILE --to-opf metadata.opf`. It records the exact tool/adapter/config
+identity, rejects calibre versions below 9.10.0 or unrecognized versions before
+analysis, isolates calibre configuration, persists a bounded OPF artifact and
+maps selected raw fields to `ToolResult` records attached to the concrete
+`FileObservation`. The CLI does not expose calibre setter options, and no result
+becomes canonical metadata automatically. `calibredb` remains deferred until a
+read-only Library-Reconciliation contract is needed.
 
 ### Music Analysis
 

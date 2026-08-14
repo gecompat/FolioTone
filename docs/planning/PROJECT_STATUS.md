@@ -4,11 +4,14 @@ Stand: 2026-08-14
 
 ## Aktuelle Welle
 
-**W2 abgeschlossen — nächster Schritt W3: E-Book Analysis / Tool Orchestration**
+**W3 aktiv — Toolbewertung und erster calibre-Metadaten-Slice abgeschlossen**
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
-Die anfängliche Produktoberfläche bleibt auf ausdrückliche Benutzerentscheidung ausschließlich die CLI. ADR-0016 dokumentiert diese Grenze. W3 beginnt mit `W3-001`, der aktuellen Bewertung der calibre CLI und ergänzender EPUB-/PDF-Werkzeuge.
+Die anfängliche Produktoberfläche bleibt auf ausdrückliche Benutzerentscheidung
+ausschließlich die CLI. ADR-0016 dokumentiert diese Grenze. `W3-001` bewertet
+calibre, EPUBCheck, Poppler und qpdf; `W3-002` implementiert die erste feste,
+read-only `ebook-meta`-Befehlsform. `W3-003` ist der nächste Backlog-Eintrag.
 
 ## Implementierter W2-Slice
 
@@ -110,7 +113,9 @@ Implementiert sind:
 - gehärtete Docker-Argumente für ToolProvider mit read-only Container-Dateisystem, `cap-drop=ALL`, `no-new-privileges` und standardmäßig deaktiviertem Netzwerk;
 - ausschließlich read-only Input-Mounts und separatem beschreibbarem Work-Verzeichnis.
 
-Konkrete calibre-, ffprobe-, fpcalc-, beets-, SongKong- oder Picard-Adapter sind noch nicht implementiert.
+Der W3-Slice ergänzt deklarierte, begrenzte Workspace-Ausgaben und eine
+Adapter-Version-Policy vor dem Öffnen von Source Media. Konkrete ffprobe-,
+fpcalc-, beets-, SongKong- oder Picard-Adapter sind noch nicht implementiert.
 
 ### Persistence
 
@@ -125,6 +130,50 @@ Die W1-Persistence wurde bisher über vier zusätzliche Alembic-Revisionen erwei
 `0005_scan_resume_lineage` ergänzt `scan_runs.resumed_from_run_id` als nullable selbstreferenzierende Foreign-Key-Lineage sowie einen Query-Index.
 
 Beim Upgrade einer bestehenden `0002`-Datenbank wird keine historische Abwesenheitsdauer oder Bestätigungsserie erfunden. Bestehende Datensätze beginnen konservativ mit `missing_since_at = NULL` und `consecutive_missing_scans = 0`; erst nachfolgende erfolgreiche Scans bauen neue Bestätigungsevidenz auf.
+
+## Implementierter W3-Slice
+
+### Aktuelle E-Book-Toolbewertung
+
+`W3-001` ist mit einem Snapshot vom 2026-08-14 abgeschlossen:
+
+- calibre 9.13.0 wird für dateibezogene Metadaten wiederverwendet;
+- EPUBCheck 5.3.0 ist für spätere EPUB-Konformitäts-Evidence ausgewählt;
+- Poppler 26.08.0 ist der bevorzugte Kandidat für spätere PDF-Metadaten-,
+  Seiten- und Textanalyse;
+- qpdf 12.4.0 bleibt eine optionale zweite Quelle für PDF-Struktur und
+  Integrität, nicht für Textextraktion;
+- MuPDF und native Formatparser werden erst bei einem nachgewiesenen Gap erneut
+  bewertet.
+
+Die verbindliche Begründung einschließlich Lizenz- und Distributionsgrenzen
+steht in `docs/reference/EBOOK_TOOL_EVALUATION.md`.
+
+### calibre `ebook-meta`
+
+`W3-002` implementiert `CalibreMetadataAnalyzer` und den CLI-Befehl
+`foliotone ebook-metadata`. Der Adapter besitzt nur die feste Befehlsform
+`ebook-meta FILE --to-opf metadata.opf`; Calibre-Setter und frei übergebbare
+Zusatzargumente sind nicht verfügbar.
+
+Vor dem Öffnen der Source-Datei wird die calibre-Version geprüft. Unbekannte
+Versionen und Versionen kleiner als 9.10.0 werden wegen
+`GHSA-2j4m-2q7x-2c47`/`CVE-2026-53511` als auditierbare `FAILED`-Ausführung
+abgelehnt. Versionsabfrage und Analyse verwenden ein ephemeres
+`CALIBRE_CONFIG_DIRECTORY`.
+
+Die generische Runtime übernimmt deklarierte Workspace-Ausgaben vor dem
+Cleanup, begrenzt ihre Größe und persistiert Pfad, Größe und SHA-256 als
+`ToolArtifact`. Der calibre-Adapter akzeptiert genau ein maximal 4 MiB großes
+`CALIBRE_OPF`-Artefakt, prüft dessen Integrität, verweigert XML-Dokumenttyp- und
+Entity-Deklarationen und speichert ausgewählte rohe OPF-Felder als `ToolResult`
+gegen die konkrete `FileObservation`. Diese Werte bleiben Evidence und werden
+nicht kanonisiert.
+
+`calibredb` ist bewusst zurückgestellt. Die dokumentierten read-oriented
+Subcommands `list --for-machine` und `show_metadata --as-opf` stehen neben
+zahlreichen mutierenden Befehlen. Eine spätere Integration benötigt daher eine
+enge Read-Command-Allowlist und einen konkreten Library-Reconciliation-Vertrag.
 
 ## Lizenz und Dokumentations-Governance
 
@@ -179,15 +228,40 @@ Die später implementierten `DELETED`-, Relocation- und Resume-Funktionen sind d
 
 Der Linux-Container wurde über Docker Engine 29.7.2 und Docker Compose 5.4.0 in WSL2 gebaut. Container-Bootstrap und Alembic-Head-Migration waren erfolgreich. Der allowlist-basierte Docker-Build-Kontext enthält ausschließlich `Dockerfile`, `pyproject.toml`, `README.md` und `src/`; lokale Runtime-, Medien-, Secret-, Test- und Git-Daten werden nicht übertragen.
 
-## W2-Abschluss und nächster Schritt
+### W3-001/W3-002 lokale Verifikation
 
-In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` ist `NEXT`: Vor der Implementierung eines konkreten E-Book-Adapters werden aktuelle offizielle Dokumentation, Wartungsstatus, Lizenz, Automationsschnittstelle, Ausgabeformate und read-only Sicherheitsverhalten der calibre CLI sowie geeigneter EPUB-/PDF-Werkzeuge geprüft.
+**Empirisch:** Am 2026-08-14 wurde das offizielle calibre-9.13.0-MSI nach
+SHA-256- und Authenticode-Prüfung als separates administratives Abbild unter
+`C:\rep\cache\FolioTone` bereitgestellt. `ebook-meta.exe --version` meldete
+calibre 9.13. Der MSI-Export endete mit Status 0; Codex wurde weder beendet noch
+neu gestartet.
+
+Ein End-to-End-Lauf mit ausschließlich einem synthetischen EPUB unter
+`C:\rep\tmp\FolioTone` bestätigte:
+
+- erfolgreicher `foliotone scan` und eine konkrete `FileObservation`;
+- erfolgreiche `foliotone ebook-metadata`-Ausführung;
+- ein persistiertes, integritätsgeprüftes `CALIBRE_OPF`-Artefakt;
+- sechs persistierte rohe Metadatenbeobachtungen;
+- leeres ephemeres Tool-Work-Verzeichnis nach Abschluss;
+- keine echte Medien- oder Calibre-Library als Testeingabe.
+
+Die vollständigen lokalen Quality Gates des W3-Slice waren erfolgreich:
+`ruff check`, Mypy für 57 Source-Dateien und 107 Pytest-Tests. Der Remote-CI-Lauf
+wird nach Veröffentlichung dieses konsistenten Stands ergänzt.
+
+## W3-Stand und nächster Schritt
+
+In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` und `W3-002` sind
+abgeschlossen. `W3-003` ist `NEXT`: EPUB-Inhalt und normalisierter
+Text-Fingerprint werden nur für Fähigkeiten implementiert, die die ausgewählte
+Toolchain nicht angemessen bereitstellt.
 
 ## Nicht implementiert
 
 Noch nicht vorhanden sind unter anderem:
 
-- konkrete E-Book- und Music-ToolProvider;
+- EPUB-Inhalts-/Text-Fingerprint sowie weitere E-Book- und alle Music-ToolProvider;
 - calibre Library Reconciliation;
 - Entity Resolution Engine;
 - externe Knowledge Provider und Provider Cache;

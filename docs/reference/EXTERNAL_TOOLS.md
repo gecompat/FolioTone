@@ -31,6 +31,8 @@ Through W9, source media remains read-only. Tool write/delete/move/retag capabil
 
 Priority: **very high**
 
+Evaluated snapshot: **9.13.0 on 2026-08-14; first adapter implemented**
+
 Candidate roles:
 
 - e-book metadata extraction through calibre CLI tools;
@@ -41,7 +43,8 @@ Candidate roles:
 
 Preferred integration:
 
-- `CLI`: `ebook-meta`, `calibredb`, and other documented calibre CLI tools;
+- `CLI`: the implemented immutable `ebook-meta FILE --to-opf metadata.opf` shape;
+- `CLI`: a future explicit read-command allowlist for `calibredb`, not arbitrary subcommands;
 - `SERVICE`: calibre Content Server where useful, using documented interfaces rather than reverse-engineered web UI calls;
 - `CONTAINER_JOB`: optional external calibre container.
 
@@ -49,11 +52,21 @@ Important boundary:
 
 `calibredb` can modify a calibre library. FolioTone must initially use only read-oriented operations and must not make Calibre the canonical FolioTone database.
 
+`ebook-meta` is also a read/write executable. The implemented adapter exposes no
+setter arguments, isolates `CALIBRE_CONFIG_DIRECTORY`, persists a bounded OPF
+artifact and rejects unknown versions or calibre versions below 9.10.0 before
+opening Source Media. This minimum follows `GHSA-2j4m-2q7x-2c47` /
+`CVE-2026-53511`; versions through 9.9.0 are affected.
+
+The binding evaluation, license notes and reuse/defer decisions are documented
+in [E-Book-Toolchain-Bewertung](EBOOK_TOOL_EVALUATION.md).
+
 Official references:
 
 - https://manual.calibre-ebook.com/en/generated/en/cli-index.html
 - https://manual.calibre-ebook.com/en/generated/en/calibredb.html
 - https://manual.calibre-ebook.com/server.html
+- https://github.com/kovidgoyal/calibre/security/advisories/GHSA-2j4m-2q7x-2c47
 
 Container candidate:
 
@@ -236,8 +249,10 @@ These may provide useful specialist functions but need a dedicated current revie
 - MediaInfo — technical media metadata;
 - ExifTool — broad metadata extraction;
 - ebook-convert / ebook-polish sub-workflows within calibre;
-- EPUBCheck — EPUB conformance/structural validation;
-- qpdf / MuPDF / Poppler tools — PDF structural/text analysis;
+- EPUBCheck 5.3.0 — selected for a later EPUB conformance/structural validation adapter;
+- Poppler 26.08.0 — selected candidate for later PDF metadata/page/text analysis;
+- qpdf 12.4.0 — optional later PDF structural/integrity evidence; it does not extract text;
+- MuPDF — deferred until a concrete gap remains after Poppler/qpdf evaluation;
 - additional audio integrity/checksum tools;
 - Cover Art Archive or image-processing tools for cover evidence;
 - additional Dockerized specialist tools when they provide a documented, reproducible, non-destructive interface.

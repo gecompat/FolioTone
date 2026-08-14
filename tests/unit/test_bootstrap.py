@@ -16,8 +16,9 @@ def test_status_command_is_non_destructive_bootstrap(
     assert result == 0
     captured = capsys.readouterr()
     assert captured.out.splitlines() == [
-        "FolioTone W2 foundation is complete; W3 e-book analysis is next.",
+        "FolioTone W2 foundation is complete; W3 e-book analysis is in progress.",
         "The initial product surface is CLI-only.",
         "A read-only scan CLI is available for controlled smoke tests.",
+        "Read-only calibre metadata extraction is available through ebook-metadata.",
         "Source-media and external-tool mutation commands are not implemented.",
     ]
