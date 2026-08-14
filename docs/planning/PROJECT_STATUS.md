@@ -247,8 +247,12 @@ Ein End-to-End-Lauf mit ausschließlich einem synthetischen EPUB unter
 - keine echte Medien- oder Calibre-Library als Testeingabe.
 
 Die vollständigen lokalen Quality Gates des W3-Slice waren erfolgreich:
-`ruff check`, Mypy für 57 Source-Dateien und 107 Pytest-Tests. Der Remote-CI-Lauf
-wird nach Veröffentlichung dieses konsistenten Stands ergänzt.
+`ruff check`, Mypy für 57 Source-Dateien und 107 Pytest-Tests.
+
+**Remote:** Der Implementierungscommit
+`1a02dc146919db7294b7b88ad6d9f6a7a6e60e04` bestand GitHub Actions Run
+`31794835407`. Erfolgreich waren Install, Ruff, Mypy, Pytest, Docker-Build,
+Migration, persistentes `/data`, Incremental-Scan-Smoke und Bootstrap.
 
 ## W3-Stand und nächster Schritt
 

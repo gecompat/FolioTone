@@ -88,8 +88,9 @@ ephemer; das maximal 4 MiB große OPF wird als integritätsgeprüftes
 Ein lokaler End-to-End-Smoke-Test mit einem ausschließlich synthetischen EPUB
 und einer separat geprüften calibre-9.13-Installation war erfolgreich. Die
 vollständigen lokalen Quality Gates bestanden mit Ruff, Mypy für 57
-Source-Dateien und 107 Pytest-Tests. Der Remote-CI-Stand ist im Projektstatus zu
-ergänzen, sobald diese Arbeitswelle veröffentlicht ist.
+Source-Dateien und 107 Pytest-Tests. Der Implementierungscommit
+`1a02dc146919db7294b7b88ad6d9f6a7a6e60e04` bestand GitHub Actions Run
+`31794835407` einschließlich aller Docker-Smoke-Schritte.
 
 ## W2 aktuell implementiert
 
