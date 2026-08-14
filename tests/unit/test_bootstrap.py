@@ -21,5 +21,6 @@ def test_status_command_is_non_destructive_bootstrap(
         "A read-only scan CLI is available for controlled smoke tests.",
         "Read-only calibre metadata extraction is available through ebook-metadata.",
         "Read-only EPUB text fingerprints are available through ebook-text.",
+        "Read-only PDF metadata and text analysis is available through pdf-analyze.",
         "Source-media and external-tool mutation commands are not implemented.",
     ]

@@ -4,7 +4,7 @@ Stand: 2026-08-14
 
 ## Aktuelle Welle
 
-**W3 aktiv — calibre-Metadaten und EPUB-Text-Fingerprint abgeschlossen**
+**W3 aktiv — calibre EPUB und Poppler PDF abgeschlossen; MOBI/AZW/AZW3 als Nächstes**
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
@@ -13,7 +13,8 @@ ausschließlich die CLI. ADR-0016 dokumentiert diese Grenze. `W3-001` bewertet
 calibre, EPUBCheck, Poppler und qpdf; `W3-002` implementiert die erste feste,
 read-only `ebook-meta`-Befehlsform. `W3-003` ergänzt feste EPUB-
 Textextraktion und einen FolioTone-eigenen normalisierten Text-Fingerprint.
-`W3-004` ist der nächste Backlog-Eintrag.
+`W3-004` ergänzt feste Poppler-PDF-Metadaten-, Seiten- und Textpfade mit
+explizitem `NO_TEXT`. `W3-005` ist der nächste Backlog-Eintrag.
 
 ## Implementierter W2-Slice
 
@@ -141,8 +142,7 @@ Beim Upgrade einer bestehenden `0002`-Datenbank wird keine historische Abwesenhe
 
 - calibre 9.13.0 wird für dateibezogene Metadaten wiederverwendet;
 - EPUBCheck 5.3.0 ist für spätere EPUB-Konformitäts-Evidence ausgewählt;
-- Poppler 26.08.0 ist der bevorzugte Kandidat für spätere PDF-Metadaten-,
-  Seiten- und Textanalyse;
+- Poppler 26.07.0 ist für PDF-Metadaten-, Seiten- und Textanalyse implementiert;
 - qpdf 12.4.0 bleibt eine optionale zweite Quelle für PDF-Struktur und
   Integrität, nicht für Textextraktion;
 - MuPDF und native Formatparser werden erst bei einem nachgewiesenen Gap erneut
@@ -199,6 +199,30 @@ Unicode `NFKC`, reduziert Unicode-Whitespace-Folgen und bildet SHA-256. Der
 sowie die normalisierte Zeichenzahl. Für `NO_TEXT` entsteht kein Fingerprint.
 Der neue `ToolCapability`-Wert lautet `EXTRACT_TEXT`.
 
+### Poppler PDF-Metadaten, Seitenzahl und Text
+
+`W3-004` implementiert `PopplerPdfAnalyzer` und den CLI-Befehl
+`foliotone pdf-analyze`. Der Adapter akzeptiert ausschließlich eine
+unveränderte PDF-`FileObservation`. `pdfinfo` und `pdftotext` besitzen feste
+Argumentformen, separate `ToolExecution`-Records und getrennte Capabilities.
+Unbekannte Poppler-Versionen und Versionen kleiner als 26.07.0 werden vor dem
+Öffnen der Source-Datei abgelehnt.
+
+Die UTF-8-Ausgabe von `pdfinfo` wird auf 1 MiB begrenzt und nur über eine
+Feld-Allowlist importiert. Seitenzahl, gemeldete Dateigröße, PDF-Version und
+ausgewählte technische Metadaten bleiben rohe Evidence; die Dateigröße wird
+gegen die konkrete Observation geprüft. `pdftotext` schreibt ausschließlich
+`content.txt` in den privaten Workspace. Maximal 64 MiB werden als
+integritätsgeprüftes `POPPLER_TEXT`-Artefakt übernommen.
+
+PDF und EPUB verwenden danach denselben FolioTone-eigenen, versionierten
+`NFKC`-/Whitespace-Normalisierer und `EBOOK_NORMALIZED_TEXT`-Fingerprint.
+Erfolgreich extrahierter leerer Text ist `NO_TEXT` und erzeugt keinen
+Fingerprint; Poppler-Fehler bleiben dagegen fehlgeschlagene Toolausführungen.
+Die CLI gibt keinen Rohtext aus. OCR, Passwortargumente, frei übergebbare
+Poppler-Optionen und schreibende PDF-Operationen sind nicht exponiert. qpdf
+bleibt bis zu einem konkreten strukturellen Evidence-Gap zurückgestellt.
+
 ## Lizenz und Dokumentations-Governance
 
 Die Lizenz- und Dokumentationsentscheidungen bleiben unverändert:
@@ -252,7 +276,7 @@ Die später implementierten `DELETED`-, Relocation- und Resume-Funktionen sind d
 
 Der Linux-Container wurde über Docker Engine 29.7.2 und Docker Compose 5.4.0 in WSL2 gebaut. Container-Bootstrap und Alembic-Head-Migration waren erfolgreich. Der allowlist-basierte Docker-Build-Kontext enthält ausschließlich `Dockerfile`, `pyproject.toml`, `README.md` und `src/`; lokale Runtime-, Medien-, Secret-, Test- und Git-Daten werden nicht übertragen.
 
-### W3-001 bis W3-003 lokale Verifikation
+### W3-001 bis W3-004 lokale Verifikation
 
 **Empirisch:** Am 2026-08-14 wurde das offizielle calibre-9.13.0-MSI nach
 SHA-256- und Authenticode-Prüfung als separates administratives Abbild unter
@@ -293,18 +317,32 @@ erfolgreich. Der W3-003-Implementierungscommit
 Docker-Build, Migration, persistentes `/data`, Incremental-Scan-Smoke und
 Bootstrap.
 
+**Empirisch für W3-004:** Poppler 26.07.0 wurde außerhalb des Repositorys unter
+`C:\rep\cache\FolioTone` verifiziert. Ein End-to-End-Lauf unter
+`C:\rep\tmp\FolioTone` verwendete ausschließlich ein synthetisches Text-PDF
+und ein synthetisches leeres PDF. Beide erzeugten erfolgreiche, getrennte
+`pdfinfo`-/`pdftotext`-Ausführungen, jeweils 20 Metadatenbeobachtungen und
+`page_count = 1`. Das Text-PDF lieferte `TEXT_EXTRACTED`, 45 normalisierte
+Zeichen und einen `EBOOK_NORMALIZED_TEXT`-Fingerprint. Das leere PDF lieferte
+`NO_TEXT`, null normalisierte Zeichen und keinen Fingerprint. Die gezielten 18
+Poppler-Unit-Tests waren erfolgreich; die ephemeren Work-Verzeichnisse waren
+nach Abschluss leer.
+
+Der vollständige W3-004-Stand bestand anschließend lokal `ruff check .`, Mypy
+für 63 Source-Dateien und alle 133 Pytest-Tests in 6 Minuten 35 Sekunden.
+
 ## W3-Stand und nächster Schritt
 
-In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` bis `W3-003` sind
-abgeschlossen. `W3-004` ist `NEXT`: PDF-Metadaten, Seitenzahl, Text und ein
-expliziter No-Text-Zustand werden mit Poppler als bevorzugtem Kandidaten
-implementiert; qpdf bleibt optionale strukturelle Evidence.
+In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` bis `W3-004` sind
+abgeschlossen. `W3-005` ist `NEXT`: MOBI/AZW/AZW3-Beobachtungen werden zunächst
+über calibre oder ein anderes gepflegtes Werkzeug unterstützt, bevor
+formatspezifischer Code entsteht.
 
 ## Nicht implementiert
 
 Noch nicht vorhanden sind unter anderem:
 
-- PDF-, MOBI/AZW/AZW3- sowie weitere E-Book- und alle Music-ToolProvider;
+- MOBI/AZW/AZW3- sowie weitere E-Book- und alle Music-ToolProvider;
 - calibre Library Reconciliation;
 - Entity Resolution Engine;
 - externe Knowledge Provider und Provider Cache;

@@ -3,7 +3,7 @@
 Stand: 2026-08-14
 
 Diese Bewertung schloss `W3-001` ab und dokumentiert zusätzlich die in
-`W3-002` und `W3-003` implementierten calibre-Verträge. Sie betrachtet nur
+`W3-002` bis `W3-004` implementierten calibre- und Poppler-Verträge. Sie betrachtet nur
 dokumentierte, automatisierbare und bis einschließlich W9 nicht mutierende
 Analysepfade. Die Versionsangaben sind ein zeitgebundener Snapshot und müssen
 vor einem späteren Upgrade oder einer neuen Integration erneut geprüft werden.
@@ -14,7 +14,7 @@ vor einem späteren Upgrade oder einer neuen Integration erneut geprüft werden.
 |---|---:|---|---|---|
 | calibre | 9.13.0 | GPL-3.0 | Metadaten aus mehreren Formaten; EPUB-Textextraktion; spätere optionale Library-Abfragen | `ebook-meta` für `W3-002` und `ebook-convert` für `W3-003` wiederverwenden; `calibredb` vorerst zurückstellen |
 | EPUBCheck | 5.3.0 | BSD-3-Clause | EPUB-2-/EPUB-3-Konformität und strukturelle Fehler mit JSON-Report | für `W3-008` vormerken; nicht für Metadaten- oder Textextraktion verwenden |
-| Poppler | 26.08.0 | GPL-2.0-or-later in den geprüften Frontend-Quellen; vor Redistribution komponentengenau prüfen | PDF-Metadaten, Seitenzahl und Text über `pdfinfo`/`pdftotext` | bevorzugter Kandidat für `W3-004`; noch kein Adapter in diesem Slice |
+| Poppler | 26.07.0 | GPL-2.0-or-later in den geprüften Frontend-Quellen; vor Redistribution komponentengenau prüfen | PDF-Metadaten, Seitenzahl und Text über `pdfinfo`/`pdftotext` | für `W3-004` als zwei feste CLI-Adapterpfade implementiert |
 | qpdf | 12.4.0 | Apache-2.0 | PDF-Struktur, Integrität und maschinenlesbare JSON-v2-Repräsentation | optional ergänzend für strukturelle Evidence; nicht für Textextraktion |
 
 MuPDF und FolioTone-native EPUB-/PDF-Parser werden zunächst nicht ausgewählt.
@@ -176,23 +176,48 @@ Offizielle Referenzen:
 
 ## Poppler
 
-Poppler 26.08.0 ist der aktuelle stabile Upstream-Stand. Für `W3-004` sind vor
-allem die etablierten CLI-Utilities relevant:
+Poppler 26.07.0 ist der am 2026-08-14 aktuelle stabile Upstream-Stand und die
+verbindliche Untergrenze des `W3-004`-Adapters. Poppler 26.05 führte die für den
+festen Textpfad verwendete Option `pdftotext -remove-hyphens` ein. Poppler
+26.07 härtete außerdem die `pdfinfo`-Ausgabe gegen Terminal-Escape-Injection
+und Zeilenspoofing. Unbekannte und ältere Versionen werden deshalb vor dem
+Öffnen der Source-Datei auditierbar abgelehnt.
 
-- `pdfinfo` für technische Metadaten und Seitenzahl;
-- `pdftotext` für begrenzte Textextraktion und die explizite Erkennung eines
-  PDFs ohne extrahierbaren Text.
+Der Adapter exponiert ausschließlich diese festen Befehlsformen:
 
-Die Werkzeuge werden nicht in `W3-002` benötigt. Vor Implementierung sind ihre
-konkreten Exitcodes, Zeichencodierung, Ausgabegrenzen und das Verhalten bei
-verschlüsselten oder beschädigten PDFs mit synthetischen Fixtures festzulegen.
-Vor einer gebündelten Distribution ist die Lizenzlage der tatsächlich
-ausgelieferten Poppler-Komponenten und Abhängigkeiten nochmals zu prüfen.
+```text
+pdfinfo -enc UTF-8 -isodates <runtime-source-file>
+pdftotext -enc UTF-8 -eol unix -nopgbrk -remove-hyphens all
+  <runtime-source-file> content.txt
+```
+
+Beide Befehle erhalten eigene `ToolExecution`-Records und unveränderliche
+Provider-/Capability-/Adapter-/Konfigurationsidentitäten. `pdfinfo` liefert
+technische Metadaten und Seitenzahl. Seine UTF-8-Ausgabe wird mit einer
+1-MiB-Grenze und einer Feld-Allowlist geparst; doppelte oder ungültige Felder
+werden abgewiesen. Die gemeldete Dateigröße muss zur unveränderten
+`FileObservation` passen. `pdftotext` schreibt ausschließlich in den privaten
+Workspace; FolioTone übernimmt maximal 64 MiB als integritätsgeprüftes
+`POPPLER_TEXT`-Artefakt.
+
+Nach erfolgreicher Extraktion verwendet PDF denselben FolioTone-eigenen
+`NFKC`-/Whitespace-Normalisierer und denselben versionierten
+`EBOOK_NORMALIZED_TEXT`-Fingerprint wie EPUB. Leerer normalisierter Output ist
+`NO_TEXT` und erzeugt keinen Fingerprint. Fehlerhafte, beschädigte,
+verschlüsselte oder nicht lesbare PDFs werden dagegen nicht als `NO_TEXT`
+umgedeutet. Die dokumentierten Exitcodes 0, 1, 2, 3 und 99 bleiben in der
+jeweiligen `ToolExecution` nachvollziehbar.
+
+Nicht Teil des Vertrags sind OCR, Passwortargumente, caller-kontrollierte
+Poppler-Optionen oder schreibende PDF-Operationen. Poppler-Binaries werden
+nicht in diesem Repository ausgeliefert. Vor einer späteren gebündelten
+Distribution sind GPL-2.0-or-later-Pflichten der tatsächlich ausgelieferten
+Komponenten und ihrer Abhängigkeiten separat zu prüfen.
 
 Offizielle Referenzen:
 
 - https://poppler.freedesktop.org/
-- https://poppler.freedesktop.org/api/cpp/poppler-global_8h_source.html
+- https://gitlab.freedesktop.org/poppler/poppler/-/blob/poppler-26.07.0/NEWS
 
 ## qpdf
 
@@ -202,8 +227,9 @@ Dokumentation stellt zugleich klar, dass qpdf keine Textextraktion und keine
 inhaltliche Dokumentstruktur liefert.
 
 qpdf ist daher ein optionaler zweiter Provider für PDF-Struktur-/Integritäts-
-Evidence. Poppler bleibt der bevorzugte Kandidat für Seiten-/Textanalyse. Falls
-qpdf später integriert wird, darf der Adapter nur reine Inspektionsoptionen
+Evidence. `W3-004` zeigte für Metadaten, Seitenzahl und Text keinen strukturellen
+Gap, der eine zusätzliche qpdf-Integration rechtfertigt. Falls qpdf später
+integriert wird, darf der Adapter nur reine Inspektionsoptionen
 freigeben; JSON-Input-/Update- und Output-Rewrite-Pfade bleiben durch W9
 verboten.
 
@@ -213,7 +239,7 @@ Offizielle Referenzen:
 - https://qpdf.readthedocs.io/en/latest/json.html
 - https://github.com/qpdf/qpdf/blob/main/LICENSE.txt
 
-## Verifizierte `W3-002`-/`W3-003`-Slices
+## Verifizierte `W3-002`- bis `W3-004`-Slices
 
 Am 2026-08-14 wurde calibre 9.13.0 als separates administratives Abbild außerhalb
 des Repositorys installiert. Das offizielle MSI hatte den erwarteten
@@ -238,3 +264,18 @@ Tests waren erfolgreich. Der W3-003-Implementierungscommit
 `dc2cd09ffbc07098e0c296bea231532c4f38051b` bestand GitHub Actions Run
 `31809375485` für PR #13 einschließlich der Docker-, Migrations-, Scan- und
 Bootstrap-Schritte.
+
+Für `W3-004` wurde Poppler 26.07.0 als separates administratives Abbild unter
+`C:\rep\cache\FolioTone` installiert; die Versionsabfragen für `pdfinfo` und
+`pdftotext` meldeten jeweils 26.07.0. Ein lokaler End-to-End-Smoke-Test unter
+`C:\rep\tmp\FolioTone` verwendete ausschließlich zwei synthetische PDFs. Das
+Text-PDF erzeugte erfolgreiche `pdfinfo`-/`pdftotext`-Ausführungen, 20
+Metadatenbeobachtungen, `page_count = 1`, `TEXT_EXTRACTED`, 45 normalisierte
+Zeichen und einen `EBOOK_NORMALIZED_TEXT`-Fingerprint. Das leere PDF erzeugte
+ebenfalls zwei erfolgreiche Ausführungen, 20 Metadatenbeobachtungen,
+`page_count = 1`, `NO_TEXT`, null normalisierte Zeichen und keinen Fingerprint.
+Die ephemeren Work-Verzeichnisse waren nach Abschluss leer; es wurden keine
+echten Medien verwendet.
+
+Der vollständige W3-004-Stand bestand anschließend lokal `ruff check .`, Mypy
+für 63 Source-Dateien und alle 133 Pytest-Tests.

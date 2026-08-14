@@ -17,6 +17,7 @@ from foliotone.adapters.calibre import (
     CalibreTextAnalyzer,
     CalibreTextError,
 )
+from foliotone.adapters.poppler import PopplerPdfAnalyzer, PopplerPdfError
 from foliotone.core import (
     EntityId,
     FileChangeState,
@@ -206,6 +207,53 @@ def build_parser() -> argparse.ArgumentParser:
         default=os.environ.get("FOLIOTONE_EBOOK_CONVERT", "ebook-convert"),
         help="ebook-convert executable or absolute executable path.",
     )
+
+    pdf_analyze = subparsers.add_parser(
+        "pdf-analyze",
+        help="Analyze PDF metadata, page count, and text read-only with Poppler.",
+    )
+    pdf_analyze.add_argument(
+        "--root",
+        required=True,
+        type=Path,
+        help="Runtime source root containing the already recorded PDF observation.",
+    )
+    pdf_analyze.add_argument(
+        "--observation-id",
+        required=True,
+        type=EntityId.parse,
+        help="Persisted PDF FileObservation ID to analyze.",
+    )
+    pdf_analyze.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="SQLite database path; defaults to /data/foliotone.db.",
+    )
+    pdf_analyze.add_argument(
+        "--artifact-root",
+        type=Path,
+        default=Path(
+            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
+        ),
+        help="Durable private tool-artifact root; defaults to /data/tool-artifacts.",
+    )
+    pdf_analyze.add_argument(
+        "--work-root",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_TOOL_WORK_ROOT", "/tmp/foliotone-tools")),
+        help="Ephemeral isolated tool-work root; defaults to /tmp/foliotone-tools.",
+    )
+    pdf_analyze.add_argument(
+        "--pdfinfo-executable",
+        default=os.environ.get("FOLIOTONE_PDFINFO", "pdfinfo"),
+        help="pdfinfo executable or absolute executable path.",
+    )
+    pdf_analyze.add_argument(
+        "--pdftotext-executable",
+        default=os.environ.get("FOLIOTONE_PDFTOTEXT", "pdftotext"),
+        help="pdftotext executable or absolute executable path.",
+    )
     return parser
 
 
@@ -220,6 +268,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("A read-only scan CLI is available for controlled smoke tests.")
         print("Read-only calibre metadata extraction is available through ebook-metadata.")
         print("Read-only EPUB text fingerprints are available through ebook-text.")
+        print("Read-only PDF metadata and text analysis is available through pdf-analyze.")
         print("Source-media and external-tool mutation commands are not implemented.")
         return 0
 
@@ -232,6 +281,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-text":
         return _run_ebook_text(args)
+
+    if args.command == "pdf-analyze":
+        return _run_pdf_analyze(args)
 
     parser.print_help()
     return 0
@@ -389,6 +441,61 @@ def _run_ebook_text(args: argparse.Namespace) -> int:
     if outcome.fingerprint is not None:
         print(f"Normalized text fingerprint: {outcome.fingerprint.value}")
     return 0 if execution.status is ToolExecutionStatus.SUCCEEDED else 1
+
+
+def _run_pdf_analyze(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    observation = repository(engine, FileObservation).get(args.observation_id)
+    if observation is None:
+        print("PDF analysis failed: FileObservation does not exist.")
+        return 2
+
+    runtime = ToolRuntime(
+        engine,
+        args.artifact_root,
+        work_root=args.work_root,
+    )
+    try:
+        analyzer = PopplerPdfAnalyzer(
+            engine,
+            runtime,
+            pdfinfo_executable=args.pdfinfo_executable,
+            pdftotext_executable=args.pdftotext_executable,
+        )
+        outcome = analyzer.analyze(args.root, observation)
+    except (PopplerPdfError, ValueError) as error:
+        print(f"PDF analysis failed: {error}")
+        return 1
+
+    for label, run in (("pdfinfo", outcome.info_run), ("pdftotext", outcome.text_run)):
+        execution = run.execution
+        print(f"{label} ToolExecution: {execution.id}")
+        print(f"{label} status: {execution.status.value}")
+        print(
+            f"{label} version: "
+            f"{json.dumps(execution.tool_version, ensure_ascii=False)}"
+        )
+        if execution.error_summary is not None:
+            print(
+                f"{label} error: "
+                f"{json.dumps(execution.error_summary, ensure_ascii=False)}"
+            )
+
+    print(f"PDF metadata observations: {len(outcome.metadata_results)}")
+    for result in outcome.metadata_results:
+        print(f"{result.key}: {json.dumps(result.value, ensure_ascii=False)}")
+    for result in outcome.text_results:
+        print(f"{result.key}: {result.value}")
+    if outcome.fingerprint is not None:
+        print(f"Normalized text fingerprint: {outcome.fingerprint.value}")
+
+    succeeded = (
+        outcome.info_run.execution.status is ToolExecutionStatus.SUCCEEDED
+        and outcome.text_run.execution.status is ToolExecutionStatus.SUCCEEDED
+    )
+    return 0 if succeeded else 1
 
 
 if __name__ == "__main__":

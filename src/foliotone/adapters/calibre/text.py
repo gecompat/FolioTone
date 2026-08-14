@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
-import hashlib
-import unicodedata
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from sqlalchemy import Engine
 
+from foliotone.analyzers.ebook import (
+    DEFAULT_MAX_EBOOK_TEXT_BYTES,
+    TEXT_NORMALIZATION_PROFILE,
+    EbookTextError,
+    build_normalized_text_fingerprint,
+)
+from foliotone.analyzers.ebook import TEXT_FINGERPRINT_KIND as TEXT_FINGERPRINT_KIND
+from foliotone.analyzers.ebook import NormalizedEbookText as NormalizedEbookText
+from foliotone.analyzers.ebook import normalize_ebook_text as normalize_shared_ebook_text
 from foliotone.core import (
     EntityId,
     EntityKind,
@@ -36,32 +43,15 @@ CALIBRE_TEXT_PROVIDER = ToolProviderDescriptor(
     capabilities=frozenset({ToolCapability.EXTRACT_TEXT}),
 )
 CALIBRE_TEXT_ARTIFACT = "CALIBRE_TEXT"
-TEXT_FINGERPRINT_KIND = "EBOOK_NORMALIZED_TEXT"
-TEXT_NORMALIZATION_PROFILE = (
-    f"unicode-nfkc-whitespace-v1+ucd-{unicodedata.unidata_version}"
-)
 CALIBRE_TEXT_CONFIG_IDENTITY = (
     "ebook-convert:txt:plain:utf-8:unix:max-line-length-0:"
     f"{TEXT_NORMALIZATION_PROFILE}"
 )
-MAX_TEXT_BYTES = 64 * 1024 * 1024
+MAX_TEXT_BYTES = DEFAULT_MAX_EBOOK_TEXT_BYTES
 
 
 class CalibreTextError(RuntimeError):
     """A safe, user-facing calibre text-analysis failure."""
-
-
-@dataclass(frozen=True, slots=True)
-class NormalizedEbookText:
-    """Bounded normalized text plus its deterministic SHA-256."""
-
-    text: str
-    sha256: str
-
-    @property
-    def character_count(self) -> int:
-        """Return the number of Unicode code points after normalization."""
-        return len(self.text)
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,32 +175,19 @@ class CalibreTextAnalyzer:
         observation: FileObservation,
         normalized: NormalizedEbookText,
     ) -> Fingerprint | None:
-        if not normalized.text:
-            return None
-        finished_at = run.execution.finished_at
-        if finished_at is None:
-            raise CalibreTextError("successful calibre execution has no completion time")
-        return Fingerprint(
-            id=EntityId.new(),
-            target_kind=EntityKind.FILE_OBSERVATION,
-            target_id=observation.id,
-            kind=TEXT_FINGERPRINT_KIND,
-            algorithm="sha256",
-            algorithm_version=TEXT_NORMALIZATION_PROFILE,
-            value=normalized.sha256,
-            created_at=finished_at,
-            tool_execution_id=run.execution.id,
-        )
+        try:
+            return build_normalized_text_fingerprint(
+                normalized,
+                observation,
+                run.execution,
+            )
+        except EbookTextError as error:
+            raise CalibreTextError(str(error)) from error
 
 
 def normalize_ebook_text(data: bytes) -> NormalizedEbookText:
-    """Decode bounded UTF-8, apply NFKC, and collapse Unicode whitespace."""
-    if len(data) > MAX_TEXT_BYTES:
-        raise CalibreTextError("calibre text exceeds the configured size limit")
+    """Apply the shared text contract behind calibre's public error boundary."""
     try:
-        text = data.decode("utf-8-sig")
-    except UnicodeDecodeError as error:
-        raise CalibreTextError("calibre text is not valid UTF-8") from error
-    normalized = " ".join(unicodedata.normalize("NFKC", text).split())
-    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-    return NormalizedEbookText(text=normalized, sha256=digest)
+        return normalize_shared_ebook_text(data, max_bytes=MAX_TEXT_BYTES)
+    except EbookTextError as error:
+        raise CalibreTextError(str(error)) from error
