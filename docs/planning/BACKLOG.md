@@ -57,8 +57,8 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 |---|---|---|
 | W3-001 | DONE | Evaluate calibre 9.13.0, EPUBCheck 5.3.0, Poppler 26.08.0 and qpdf 12.4.0 before native parsers; document roles, deferrals, licenses and the calibre 9.10.0 security floor. |
 | W3-002 | DONE | Implement the first read-only calibre ToolProvider vertical slice: fixed `ebook-meta FILE --to-opf` command shape, pre-input version policy, isolated config, bounded OPF artifact, raw `ToolResult` persistence and CLI; defer `calibredb` until a Library-Reconciliation contract exists. |
-| W3-003 | NEXT | Implement EPUB content/text extraction and normalized text fingerprint only for capabilities not adequately supplied by the selected tool chain. |
-| W3-004 | PLANNED | Implement PDF metadata/page/text analysis using the best tool/library combination; explicitly represent no-text PDFs. |
+| W3-003 | DONE | Reuse a fixed read-only calibre `ebook-convert` EPUB-to-TXT command; persist a bounded private artifact, explicit text status and versioned FolioTone `EBOOK_NORMALIZED_TEXT` SHA-256. |
+| W3-004 | NEXT | Implement PDF metadata/page/text analysis using the best tool/library combination; explicitly represent no-text PDFs. |
 | W3-005 | PLANNED | Support MOBI/AZW/AZW3 observations through calibre or another maintained tool before writing format-specific code. |
 | W3-006 | PLANNED | Extract ISBN, contributors, language, publisher, series and other fields as observations/candidates with ToolExecution/provenance links. |
 | W3-007 | PLANNED | Add synthetic/public fixtures covering identical file, changed metadata, same edition, different edition/translation and tool disagreement. |

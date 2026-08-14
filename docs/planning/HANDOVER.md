@@ -11,7 +11,9 @@ W0 bis W2 sind abgeschlossen. Der W2-Slice umfasst Incremental Index, Hashing, F
 Die anfängliche Produktoberfläche ist gemäß Benutzerentscheidung und ADR-0016
 ausschließlich die CLI. `W3-001` und `W3-002` sind abgeschlossen: Die aktuelle
 E-Book-Toolchain ist bewertet, und der erste read-only calibre-Metadaten-Slice
-ist implementiert. `W3-003` ist als Nächstes vorgesehen.
+ist implementiert. `W3-003` ergänzt einen festen read-only calibre-EPUB-
+Textpfad und einen FolioTone-eigenen normalisierten Fingerprint. `W3-004` ist
+als Nächstes vorgesehen.
 
 ## Vor Änderungen lesen
 
@@ -69,7 +71,7 @@ Die Abschlussprüfung bestätigt zusätzlich:
 - keine Wiederverwendung ohne explizite Konfigurationsidentität;
 - allowlist-basierten Docker-Build-Kontext ohne lokale Runtime-, Medien-, Secret-, Test- oder Git-Daten.
 
-### W3-001/W3-002
+### W3-001 bis W3-003
 
 Der Snapshot vom 2026-08-14 wählt calibre 9.13.0 für dateibezogene Metadaten,
 EPUBCheck 5.3.0 für spätere EPUB-Konformität, Poppler 26.08.0 als bevorzugten
@@ -91,6 +93,22 @@ vollständigen lokalen Quality Gates bestanden mit Ruff, Mypy für 57
 Source-Dateien und 107 Pytest-Tests. Der Implementierungscommit
 `1a02dc146919db7294b7b88ad6d9f6a7a6e60e04` bestand GitHub Actions Run
 `31794835407` einschließlich aller Docker-Smoke-Schritte.
+
+`foliotone ebook-text` akzeptiert ausschließlich eine unveränderte EPUB-
+`FileObservation`. Der Adapter ruft `ebook-convert` mit einer festen
+Plaintext-/UTF-8-/Unix-Befehlsform auf und übernimmt maximal 64 MiB als privates
+`CALIBRE_TEXT`-Artefakt. FolioTone normalisiert mit Unicode `NFKC`, reduziert
+Whitespace und speichert SHA-256 als `EBOOK_NORMALIZED_TEXT`-`Fingerprint` mit
+`ToolExecution`-Link und versioniertem Unicode-Datenprofil. `TEXT_EXTRACTED`
+und `NO_TEXT` sind explizite `ToolResult`-Werte; `NO_TEXT` erzeugt keinen
+Fingerprint. Rohtext erscheint nicht in der CLI-Ausgabe.
+
+Ein lokaler End-to-End-Smoke-Test mit calibre 9.13.0 und ausschließlich dem
+synthetischen EPUB bestätigte `TEXT_EXTRACTED`, 43 normalisierte Zeichen, ein
+49 Byte großes Text-Artefakt, einen 64-stelligen Fingerprint und ein leeres
+ephemeres Work-Verzeichnis. Repository-Ruff, Mypy für 59 Source-Dateien und 115
+Pytest-Tests waren erfolgreich. GitHub Actions für W3-003 ist bis zur
+Branch-Veröffentlichung noch nicht verifiziert.
 
 ## W2 aktuell implementiert
 
@@ -158,6 +176,20 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
   Series-Beobachtungen mit `ToolExecution`-Link;
 - kein `calibredb` bis zu einem konkreten read-only Library-Reconciliation-Vertrag.
 
+### calibre-EPUB-Text
+
+- `CalibreTextAnalyzer` und CLI `foliotone ebook-text`;
+- ausschließlich EPUB und eine feste `ebook-convert FILE content.txt`-
+  Befehlsform ohne frei übergebbare Optionen;
+- `ToolCapability.EXTRACT_TEXT` sowie Sicherheitsuntergrenze calibre 9.10.0;
+- UTF-8-Plaintext, Unix-Zeilenenden und deaktivierte Zeilenaufteilung;
+- maximal 64 MiB großes privates, integritätsgeprüftes `CALIBRE_TEXT`-Artefakt;
+- FolioTone-eigene versionierte `NFKC`-/Whitespace-Normalisierung und SHA-256;
+- `EBOOK_NORMALIZED_TEXT` gegen konkrete `FileObservation` und `ToolExecution`;
+- explizite Zustände `TEXT_EXTRACTED` und `NO_TEXT`, ohne Fingerprint bei
+  fehlendem Text;
+- keine Ausgabe des extrahierten Rohtexts über die CLI.
+
 ### Persistence
 
 - Alembic `0002_incremental_index` ergänzt Scan-Events, Tool-Artefakte und W2-Indizes;
@@ -171,13 +203,10 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-003` — EPUB-Inhalts-/Textextraktion und normalisierter Text-Fingerprint
-   nur für die von der ausgewählten Toolchain nicht ausreichend gelieferte
-   Fähigkeit;
-2. `W3-004` — PDF-Metadaten, Seitenzahl, Text und expliziter No-Text-Zustand mit
+1. `W3-004` — PDF-Metadaten, Seitenzahl, Text und expliziter No-Text-Zustand mit
    Poppler; qpdf nur ergänzend bei strukturellem Mehrwert;
-3. `W3-005` — MOBI/AZW/AZW3-Beobachtungen zunächst über calibre;
-4. `W3-006` — detailliertere Feld-/Rollenabbildung als Provenance-erhaltende
+2. `W3-005` — MOBI/AZW/AZW3-Beobachtungen zunächst über calibre;
+3. `W3-006` — detailliertere Feld-/Rollenabbildung als Provenance-erhaltende
    Beobachtungen und Kandidaten.
 
 Die Produktoberfläche bleibt dabei ausschließlich die CLI. Externe Tool-Ergebnisse werden weiterhin als Evidence behandelt und nicht direkt zu kanonischen Metadaten.

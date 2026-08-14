@@ -31,11 +31,12 @@ Through W9, source media remains read-only. Tool write/delete/move/retag capabil
 
 Priority: **very high**
 
-Evaluated snapshot: **9.13.0 on 2026-08-14; first adapter implemented**
+Evaluated snapshot: **9.13.0 on 2026-08-14; metadata and EPUB-text adapters implemented**
 
 Candidate roles:
 
 - e-book metadata extraction through calibre CLI tools;
+- deterministic plain-text extraction from EPUB for FolioTone-owned fingerprints;
 - calibre library inventory/query through `calibredb`;
 - optional remote library access through a calibre Content Server used by `calibredb`;
 - format inspection/conversion support for analysis workflows;
@@ -44,6 +45,8 @@ Candidate roles:
 Preferred integration:
 
 - `CLI`: the implemented immutable `ebook-meta FILE --to-opf metadata.opf` shape;
+- `CLI`: the implemented immutable `ebook-convert FILE content.txt` shape with
+  fixed UTF-8, Unix-newline, plain-text and no-line-wrap options;
 - `CLI`: a future explicit read-command allowlist for `calibredb`, not arbitrary subcommands;
 - `SERVICE`: calibre Content Server where useful, using documented interfaces rather than reverse-engineered web UI calls;
 - `CONTAINER_JOB`: optional external calibre container.
@@ -58,12 +61,20 @@ artifact and rejects unknown versions or calibre versions below 9.10.0 before
 opening Source Media. This minimum follows `GHSA-2j4m-2q7x-2c47` /
 `CVE-2026-53511`; versions through 9.9.0 are affected.
 
+The EPUB-text adapter applies the same version floor and isolated configuration
+to `ebook-convert`. It accepts EPUB only, writes exclusively into the private
+tool workspace, captures at most 64 MiB as `CALIBRE_TEXT`, and exposes no
+caller-controlled conversion options. FolioTone then computes the versioned
+`EBOOK_NORMALIZED_TEXT` SHA-256; calibre remains the replaceable extractor, not
+the fingerprint or domain model.
+
 The binding evaluation, license notes and reuse/defer decisions are documented
 in [E-Book-Toolchain-Bewertung](EBOOK_TOOL_EVALUATION.md).
 
 Official references:
 
 - https://manual.calibre-ebook.com/en/generated/en/cli-index.html
+- https://manual.calibre-ebook.com/generated/en/ebook-convert.html
 - https://manual.calibre-ebook.com/en/generated/en/calibredb.html
 - https://manual.calibre-ebook.com/server.html
 - https://github.com/kovidgoyal/calibre/security/advisories/GHSA-2j4m-2q7x-2c47
@@ -248,7 +259,7 @@ These may provide useful specialist functions but need a dedicated current revie
 
 - MediaInfo — technical media metadata;
 - ExifTool — broad metadata extraction;
-- ebook-convert / ebook-polish sub-workflows within calibre;
+- ebook-polish sub-workflows within calibre;
 - EPUBCheck 5.3.0 — selected for a later EPUB conformance/structural validation adapter;
 - Poppler 26.08.0 — selected candidate for later PDF metadata/page/text analysis;
 - qpdf 12.4.0 — optional later PDF structural/integrity evidence; it does not extract text;

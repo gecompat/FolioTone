@@ -5,8 +5,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from sqlalchemy import Engine
 
@@ -27,6 +26,8 @@ from foliotone.tooling.runtime import (
 )
 from foliotone.tooling.structured import StructuredOutputError
 
+from .common import CalibreAdapterError, calibre_version_policy, validated_observed_file
+
 CALIBRE_PROVIDER = ToolProviderDescriptor(
     provider_id="calibre",
     display_name="calibre ebook-meta",
@@ -35,15 +36,9 @@ CALIBRE_PROVIDER = ToolProviderDescriptor(
 )
 CALIBRE_OPF_ARTIFACT = "CALIBRE_OPF"
 CALIBRE_CONFIG_IDENTITY = "ebook-meta:to-opf:parser-v1"
-MINIMUM_SAFE_CALIBRE_VERSION = (9, 10, 0)
 MAX_OPF_BYTES = 4 * 1024 * 1024
 MAX_RESULT_COUNT = 256
 MAX_RESULT_VALUE_CHARS = 4096
-
-_VERSION_PATTERN = re.compile(
-    r"\bcalibre\s+(?P<major>\d+)\.(?P<minor>\d+)(?:\.(?P<patch>\d+))?",
-    re.IGNORECASE,
-)
 _SAFE_KEY_PART = re.compile(r"[^a-z0-9._-]+")
 
 
@@ -81,7 +76,10 @@ class CalibreMetadataAnalyzer:
         observation: FileObservation,
     ) -> CalibreMetadataOutcome:
         """Extract metadata without exposing calibre's write-capable CLI options."""
-        source_file = _validated_observed_file(source_root, observation)
+        try:
+            source_file = validated_observed_file(source_root, observation)
+        except CalibreAdapterError as error:
+            raise CalibreMetadataError(str(error)) from error
         run = self._runtime.execute_local(
             CALIBRE_PROVIDER,
             LocalCommand(
@@ -128,21 +126,6 @@ class CalibreMetadataAnalyzer:
         for result in results:
             self._result_repo.save(result)
         return CalibreMetadataOutcome(run=run, results=results)
-
-
-def calibre_version_policy(version_text: str) -> str | None:
-    """Reject unknown or vulnerable calibre versions before opening source media."""
-    match = _VERSION_PATTERN.search(version_text)
-    if match is None:
-        return "calibre version is unrecognized; source analysis was not started"
-    version = (
-        int(match.group("major")),
-        int(match.group("minor")),
-        int(match.group("patch") or 0),
-    )
-    if version < MINIMUM_SAFE_CALIBRE_VERSION:
-        return "calibre 9.10.0 or newer is required; source analysis was not started"
-    return None
 
 
 def parse_calibre_opf(
@@ -221,32 +204,6 @@ def parse_calibre_opf(
         )
         for key, value in values
     )
-
-
-def _validated_observed_file(source_root: Path, observation: FileObservation) -> Path:
-    try:
-        root = source_root.resolve(strict=True)
-    except OSError as error:
-        raise CalibreMetadataError("source root is unavailable") from error
-    if not root.is_dir():
-        raise CalibreMetadataError("source root is not a directory")
-
-    relative = Path(*PurePosixPath(observation.relative_path).parts)
-    source = root / relative
-    try:
-        if source.is_symlink():
-            raise CalibreMetadataError("symbolic-link source files are not analyzed")
-        resolved = source.resolve(strict=True)
-        if not resolved.is_relative_to(root) or not resolved.is_file():
-            raise CalibreMetadataError("observed source file is unavailable")
-        stat = resolved.stat()
-    except OSError as error:
-        raise CalibreMetadataError("observed source file is unavailable") from error
-
-    modified_at = datetime.fromtimestamp(stat.st_mtime, tz=UTC)
-    if stat.st_size != observation.size_bytes or modified_at != observation.modified_at:
-        raise CalibreMetadataError("source file changed after its recorded observation")
-    return resolved
 
 
 def _local_name(tag: object) -> str:

@@ -4,14 +4,16 @@ Stand: 2026-08-14
 
 ## Aktuelle Welle
 
-**W3 aktiv — Toolbewertung und erster calibre-Metadaten-Slice abgeschlossen**
+**W3 aktiv — calibre-Metadaten und EPUB-Text-Fingerprint abgeschlossen**
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
 Die anfängliche Produktoberfläche bleibt auf ausdrückliche Benutzerentscheidung
 ausschließlich die CLI. ADR-0016 dokumentiert diese Grenze. `W3-001` bewertet
 calibre, EPUBCheck, Poppler und qpdf; `W3-002` implementiert die erste feste,
-read-only `ebook-meta`-Befehlsform. `W3-003` ist der nächste Backlog-Eintrag.
+read-only `ebook-meta`-Befehlsform. `W3-003` ergänzt feste EPUB-
+Textextraktion und einen FolioTone-eigenen normalisierten Text-Fingerprint.
+`W3-004` ist der nächste Backlog-Eintrag.
 
 ## Implementierter W2-Slice
 
@@ -175,6 +177,28 @@ Subcommands `list --for-machine` und `show_metadata --as-opf` stehen neben
 zahlreichen mutierenden Befehlen. Eine spätere Integration benötigt daher eine
 enge Read-Command-Allowlist und einen konkreten Library-Reconciliation-Vertrag.
 
+### calibre EPUB-Text und normalisierter Fingerprint
+
+`W3-003` implementiert `CalibreTextAnalyzer` und den CLI-Befehl
+`foliotone ebook-text`. Der Adapter akzeptiert ausschließlich EPUB und besitzt
+eine unveränderliche `ebook-convert FILE content.txt`-Befehlsform mit
+`plain`-Ausgabe, UTF-8, Unix-Zeilenenden und deaktivierter Zeilenaufteilung.
+Aufrufende Komponenten können keine calibre-Konvertierungsoptionen ergänzen.
+
+Die Sicherheitsuntergrenze calibre 9.10.0, das ephemere
+`CALIBRE_CONFIG_DIRECTORY` und `CALIBRE_ALLOW_PYTHON_TEMPLATES=0` gelten auch
+für diesen Adapter. Die Ausgabe wird vor dem Workspace-Cleanup als privates,
+maximal 64 MiB großes `CALIBRE_TEXT`-Artefakt mit Größe und SHA-256 übernommen.
+Der Rohtext wird nicht über die CLI ausgegeben.
+
+Nach UTF-8- und Artifact-Integritätsprüfung normalisiert FolioTone den Text mit
+Unicode `NFKC`, reduziert Unicode-Whitespace-Folgen und bildet SHA-256. Der
+`Fingerprint` besitzt `kind = EBOOK_NORMALIZED_TEXT`, verweist auf die konkrete
+`FileObservation` und `ToolExecution` und führt die Unicode-Datenversion im
+`algorithm_version`-Profil. `ToolResult` hält `TEXT_EXTRACTED` oder `NO_TEXT`
+sowie die normalisierte Zeichenzahl. Für `NO_TEXT` entsteht kein Fingerprint.
+Der neue `ToolCapability`-Wert lautet `EXTRACT_TEXT`.
+
 ## Lizenz und Dokumentations-Governance
 
 Die Lizenz- und Dokumentationsentscheidungen bleiben unverändert:
@@ -228,7 +252,7 @@ Die später implementierten `DELETED`-, Relocation- und Resume-Funktionen sind d
 
 Der Linux-Container wurde über Docker Engine 29.7.2 und Docker Compose 5.4.0 in WSL2 gebaut. Container-Bootstrap und Alembic-Head-Migration waren erfolgreich. Der allowlist-basierte Docker-Build-Kontext enthält ausschließlich `Dockerfile`, `pyproject.toml`, `README.md` und `src/`; lokale Runtime-, Medien-, Secret-, Test- und Git-Daten werden nicht übertragen.
 
-### W3-001/W3-002 lokale Verifikation
+### W3-001 bis W3-003 lokale Verifikation
 
 **Empirisch:** Am 2026-08-14 wurde das offizielle calibre-9.13.0-MSI nach
 SHA-256- und Authenticode-Prüfung als separates administratives Abbild unter
@@ -254,18 +278,30 @@ Die vollständigen lokalen Quality Gates des W3-Slice waren erfolgreich:
 `31794835407`. Erfolgreich waren Install, Ruff, Mypy, Pytest, Docker-Build,
 Migration, persistentes `/data`, Incremental-Scan-Smoke und Bootstrap.
 
+**Empirisch für W3-003:** Ein weiterer End-to-End-Lauf mit demselben
+ausschließlich synthetischen EPUB und calibre 9.13.0 bestätigte eine erfolgreiche
+`ebook-text`-`ToolExecution`, ein 49 Byte großes `CALIBRE_TEXT`-Artefakt,
+`TEXT_EXTRACTED`, 43 normalisierte Zeichen, einen
+`EBOOK_NORMALIZED_TEXT`-Fingerprint und ein nach Abschluss leeres ephemeres
+Work-Verzeichnis.
+
+Repository-Ruff, Mypy für 59 Source-Dateien und 115 Pytest-Tests waren lokal
+erfolgreich. Die gezielten 42 calibre-/Runtime-/CLI-Tests waren ebenfalls
+erfolgreich. Die GitHub-Actions-Prüfung für W3-003 steht bis zur Veröffentlichung
+des Branches noch aus.
+
 ## W3-Stand und nächster Schritt
 
-In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` und `W3-002` sind
-abgeschlossen. `W3-003` ist `NEXT`: EPUB-Inhalt und normalisierter
-Text-Fingerprint werden nur für Fähigkeiten implementiert, die die ausgewählte
-Toolchain nicht angemessen bereitstellt.
+In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` bis `W3-003` sind
+abgeschlossen. `W3-004` ist `NEXT`: PDF-Metadaten, Seitenzahl, Text und ein
+expliziter No-Text-Zustand werden mit Poppler als bevorzugtem Kandidaten
+implementiert; qpdf bleibt optionale strukturelle Evidence.
 
 ## Nicht implementiert
 
 Noch nicht vorhanden sind unter anderem:
 
-- EPUB-Inhalts-/Text-Fingerprint sowie weitere E-Book- und alle Music-ToolProvider;
+- PDF-, MOBI/AZW/AZW3- sowie weitere E-Book- und alle Music-ToolProvider;
 - calibre Library Reconciliation;
 - Entity Resolution Engine;
 - externe Knowledge Provider und Provider Cache;

@@ -73,6 +73,15 @@ maps selected raw fields to `ToolResult` records attached to the concrete
 becomes canonical metadata automatically. `calibredb` remains deferred until a
 read-only Library-Reconciliation contract is needed.
 
+The second W3 vertical slice invokes only a fixed `ebook-convert FILE
+content.txt` command with plain UTF-8 output, Unix newlines and disabled line
+wrapping. A bounded private text artifact preserves the raw extraction;
+FolioTone applies versioned Unicode `NFKC` plus whitespace normalization and
+stores an `EBOOK_NORMALIZED_TEXT` SHA-256 against the exact `FileObservation`
+and `ToolExecution`. Empty normalized output is represented as `NO_TEXT` and
+does not create a fingerprint. Extracted text is not emitted through the CLI or
+promoted to canonical metadata.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.
