@@ -18,6 +18,12 @@ from foliotone.core import EntityId, ToolCapability, ToolExecutionStatus
 from foliotone.persistence import repository
 from foliotone.tooling.artifacts import ToolArtifact
 from foliotone.tooling.contracts import ToolExecution, ToolProviderDescriptor
+from foliotone.tooling.structured import (
+    DEFAULT_MAX_STRUCTURED_OUTPUT_BYTES,
+    JsonValue,
+    StructuredOutputError,
+    parse_json_output,
+)
 
 Clock = Callable[[], datetime]
 
@@ -102,6 +108,47 @@ class ToolRuntime:
         self._clock = clock or _utc_now
         self._artifact_root.mkdir(parents=True, exist_ok=True)
         self._work_root.mkdir(parents=True, exist_ok=True)
+
+    def read_json_stdout(
+        self,
+        outcome: ToolRunOutcome,
+        *,
+        max_bytes: int = DEFAULT_MAX_STRUCTURED_OUTPUT_BYTES,
+    ) -> JsonValue:
+        """Load one execution's persisted stdout artifact as bounded strict JSON."""
+        stdout_artifacts = tuple(
+            artifact for artifact in outcome.artifacts if artifact.artifact_type == "STDOUT"
+        )
+        if len(stdout_artifacts) != 1:
+            raise StructuredOutputError(
+                "structured stdout requires exactly one persisted STDOUT artifact"
+            )
+        return self.read_json_artifact(stdout_artifacts[0], max_bytes=max_bytes)
+
+    def read_json_artifact(
+        self,
+        artifact: ToolArtifact,
+        *,
+        max_bytes: int = DEFAULT_MAX_STRUCTURED_OUTPUT_BYTES,
+    ) -> JsonValue:
+        """Load and integrity-check a persisted ToolArtifact as bounded strict JSON."""
+        if max_bytes <= 0:
+            raise ValueError("max_bytes must be positive")
+        if artifact.size_bytes > max_bytes:
+            raise StructuredOutputError("structured output exceeds the configured size limit")
+
+        artifact_root = self._artifact_root.resolve()
+        artifact_path = (artifact_root / artifact.relative_path).resolve()
+        if not artifact_path.is_relative_to(artifact_root):
+            raise StructuredOutputError("structured output artifact escapes the artifact root")
+        try:
+            with artifact_path.open("rb") as stream:
+                data = stream.read(max_bytes + 1)
+        except OSError as error:
+            raise StructuredOutputError("structured output artifact is unavailable") from error
+        if len(data) != artifact.size_bytes or hashlib.sha256(data).hexdigest() != artifact.sha256:
+            raise StructuredOutputError("structured output artifact failed its integrity check")
+        return parse_json_output(data, max_bytes=max_bytes)
 
     def execute_local(
         self,

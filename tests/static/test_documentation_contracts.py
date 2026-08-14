@@ -68,6 +68,15 @@ REQUIRED_GOVERNANCE_PATHS = (
     ".github/copilot-instructions.md",
 )
 
+DOCKER_CONTEXT_ALLOWLIST = (
+    "**",
+    "!Dockerfile",
+    "!pyproject.toml",
+    "!README.md",
+    "!src/",
+    "!src/**",
+)
+
 
 def test_root_readme_protected_license_prefix_is_unchanged() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -104,3 +113,12 @@ def test_legacy_project_name_is_absent_from_public_markdown() -> None:
         if "MediaCurator" in path.read_text(encoding="utf-8"):
             offenders.append(relative)
     assert offenders == []
+
+
+def test_docker_build_context_is_restricted_to_packaged_application_inputs() -> None:
+    rules = tuple(
+        line
+        for line in (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+        if line and not line.startswith("#")
+    )
+    assert rules == DOCKER_CONTEXT_ALLOWLIST

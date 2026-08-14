@@ -4,9 +4,11 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
-W0 und W1 sind abgeschlossen. Der grundlegende W2-Slice für Incremental Index, Hashing und generische read-only ToolProvider Runtime ist implementiert, in GitHub Actions vollständig verifiziert und zusätzlich lokal unter Windows/Docker Desktop geprüft. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
+W0 bis W2 sind abgeschlossen. Der W2-Slice umfasst Incremental Index, Hashing, Filename-/Path-Kandidaten, konfigurierbare Parsing-Profile und eine generische read-only ToolProvider Runtime. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
 
-`W2-008` ist vollständig validiert: `FilenameParser` und `PathContextAnalyzer` erzeugen ausschließlich Provenance-behaftete `FieldCandidate`-Werte und setzen keine kanonischen Metadaten. `W2-009` implementiert darauf aufbauend konfigurierbare, versionierte Regex-Profile. Die vollständige Quality-Gate-Prüfung von W2-009 steht noch aus.
+`W2-008` und `W2-009` sind vollständig validiert: Basisparser und konfigurierbare, versionierte Regex-Profile erzeugen ausschließlich Provenance-behaftete `FieldCandidate`-Werte und setzen keine kanonischen Metadaten. `W2-011` ergänzt begrenzte, strikte JSON-Auswertung aus `ToolArtifact`-Dateien und konservative Reanalyse-Entscheidungen. Der Docker-Build-Kontext ist auf die tatsächlich paketierten Anwendungsdateien beschränkt.
+
+Die anfängliche Produktoberfläche ist gemäß Benutzerentscheidung und ADR-0016 ausschließlich die CLI. W3 beginnt mit der aktuellen Bewertung der E-Book-Toolchain.
 
 ## Vor Änderungen lesen
 
@@ -51,6 +53,18 @@ Die Resume-Tests bestätigen:
 
 Die später ergänzten `DELETED`-, Relocation- und Resume-Funktionen wurden in diesem lokalen Plattform-Smoke-Test nicht separat nachgestellt; sie sind automatisiert durch Integrationstests geprüft.
 
+### W2-Abschlussprüfung
+
+Am 2026-08-14 bestanden lokal `ruff check .`, `mypy src/foliotone` für 56 Source-Dateien und 86 Pytest-Tests mit Python 3.12.10. Der Linux-Container-Build über Docker Engine 29.7.2 und Docker Compose 5.4.0 in WSL2 sowie Container-Bootstrap und Alembic-Head-Migration waren erfolgreich.
+
+Die Abschlussprüfung bestätigt zusätzlich:
+
+- W2-009-Profile für Autor/Titel, Serie/Band, Track/Disc, Jahr und Sprache;
+- `StructuredOutputError` bei malformed, zu großer, fehlender oder integritätsverletzter JSON-Ausgabe, während die ursprüngliche `ToolExecution` auditierbar bleibt;
+- Reanalyse bei Tool-, Adapter-, Input- oder Konfigurationsänderung;
+- keine Wiederverwendung ohne explizite Konfigurationsidentität;
+- allowlist-basierten Docker-Build-Kontext ohne lokale Runtime-, Medien-, Secret-, Test- oder Git-Daten.
+
 ## W2 aktuell implementiert
 
 ### Index
@@ -88,7 +102,7 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
 
 ### Filename- und Path-Context-Kandidaten
 
-`FilenameParser` erzeugt aus einem Dateinamen ohne Pfadseparatoren einen niedrig gewichteten `title`-Kandidaten. `PathContextAnalyzer` verarbeitet nur sichere relative Pfade und erzeugt aus dem direkten Parent einen niedrig gewichteten `path_context`-Kandidaten. Beide Komponenten speichern die Parser-Version, den Komponentenname und den beobachteten Zeitpunkt in `Provenance`; sie geben keine absoluten Hostpfade aus. Konfigurierbare Konventionen für Autor, Titel, Serie, Band, Track, Disc, Jahr und Sprache sind weiterhin `W2-009`.
+`FilenameParser` erzeugt aus einem Dateinamen ohne Pfadseparatoren einen niedrig gewichteten `title`-Kandidaten. `PathContextAnalyzer` verarbeitet nur sichere relative Pfade und erzeugt aus dem direkten Parent einen niedrig gewichteten `path_context`-Kandidaten. Beide Komponenten speichern die Parser-Version, den Komponentenname und den beobachteten Zeitpunkt in `Provenance`; sie geben keine absoluten Hostpfade aus. `RuleBasedFilenameParser` wendet geordnete, versionierte Regex-Profile auf sammlungsspezifische Konventionen für Autor, Titel, Serie, Band, Track, Disc, Jahr und Sprache an.
 
 ### ToolProvider Runtime
 
@@ -97,6 +111,8 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
 - Timeout/Cancellation;
 - FAILED-Erfassung bei fehlendem Tool und Non-zero Exit;
 - stdout/stderr als `ToolArtifact` mit SHA-256;
+- begrenzte, strikte JSON-Auswertung aus persistiertem stdout-`ToolArtifact` mit Größen-/SHA-256-Integritätsprüfung;
+- konservative Reanalyse anhand erfolgreicher früherer Ausführung und exakter Provider-, Capability-, Input-, Tool-, Adapter- und Konfigurationsidentität;
 - Privacy-Schutz für persistierte Input-Identitäten;
 - gehärtete Containerargumente mit read-only Input-Mounts, deaktiviertem Netzwerk als Default und isoliertem Work-Verzeichnis.
 
@@ -113,10 +129,10 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W2-009` — Quality Gates des Pull Requests prüfen und bei Erfolg auf `DONE` setzen.
-2. `W2-011` — verbleibende ToolRuntime-Tests für malformed output, Version Changes und selective re-analysis.
+1. `W3-001` — aktuelle calibre-CLI- und EPUB-/PDF-Toolbewertung anhand offizieller Dokumentation, Wartungsstatus, Lizenz, Automation, Ausgabeformaten und read-only Sicherheitsverhalten;
+2. `W3-002` — erster read-only calibre-Vertical-Slice für `ebook-meta` und gegebenenfalls read-oriented `calibredb`-Abfragen.
 
-Erst danach beginnt W3 mit der konkreten E-Book-Toolauswahl und dem ersten calibre Vertical Slice.
+Die Produktoberfläche bleibt dabei ausschließlich die CLI. Externe Tool-Ergebnisse werden weiterhin als Evidence behandelt und nicht direkt zu kanonischen Metadaten.
 
 ## Verbindliche Sicherheitsgrenzen
 

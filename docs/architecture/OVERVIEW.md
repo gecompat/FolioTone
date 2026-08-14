@@ -18,6 +18,10 @@ Tool-specific commands and schemas terminate at adapter boundaries. FolioTone re
 
 See `docs/decisions/ADR-0010-tool-provider-orchestration.md` and `docs/reference/EXTERNAL_TOOLS.md`.
 
+## Current product surface
+
+Under ADR-0016, FolioTone initially exposes only a CLI. The CLI remains a thin adapter and does not own domain logic. A web API, desktop interface or dashboard is outside the active W3 scope. Any later product surface must reuse the application/core contracts and requires an explicit scope or architecture decision.
+
 ## Components
 
 ### Core
@@ -46,7 +50,9 @@ Responsibilities include:
 - safe bounded CLI/container/service invocation;
 - timeout/cancellation/error handling;
 - structured stdout/report/artifact import;
+- bounded, strictly validated JSON loading from persisted `ToolArtifact` files;
 - recording tool/adapter/parser versions and execution status;
+- conservative re-analysis decisions based on a prior successful `ToolExecution` and exact provider, capability, input, tool, adapter and configuration identity;
 - mapping tool-specific output into FolioTone observations/evidence;
 - ensuring source-media read-only safety through W9.
 

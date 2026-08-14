@@ -1,12 +1,14 @@
 # Projektstatus
 
-Stand: 2026-08-09
+Stand: 2026-08-14
 
 ## Aktuelle Welle
 
-**W2 — Incremental Index + Filename/Path Context + Tool Runtime**
+**W2 abgeschlossen — nächster Schritt W3: E-Book Analysis / Tool Orchestration**
 
-W0 und W1 sind abgeschlossen. Der grundlegende W2-Index-/ToolRuntime-Slice wurde in GitHub Actions und zusätzlich lokal unter Windows/Docker Desktop geprüft. `W2-004` ergänzt eine konservative, standardmäßig deaktivierte `DELETED`-Bestätigung. `W2-006` ergänzt persistente Move-/Rename-Kandidaten, ohne `FileRecord`-Identitäten zusammenzuführen. `W2-007` ergänzt eine explizite Resume-Lineage für unterbrochene Scans. `W2-008` wurde unter Windows vollständig geprüft. `W2-009` ergänzt konfigurierte, versionierte Parsing-Profile; dessen vollständige Quality Gates stehen nach dem Push noch aus.
+W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
+
+Die anfängliche Produktoberfläche bleibt auf ausdrückliche Benutzerentscheidung ausschließlich die CLI. ADR-0016 dokumentiert diese Grenze. W3 beginnt mit `W3-001`, der aktuellen Bewertung der calibre CLI und ergänzender EPUB-/PDF-Werkzeuge.
 
 ## Implementierter W2-Slice
 
@@ -89,6 +91,8 @@ Implementiert sind:
 - `PathContextAnalyzer` akzeptiert ausschließlich sichere, `ScanRoot`-relative Pfade, normalisiert Windows- und POSIX-Separatoren und erzeugt aus dem direkten Parent einen `path_context`-Kandidaten mit `source_location = path.parent` und Confidence `0.1`.
 - Jeder Kandidat enthält `Provenance` mit `source_kind = derived`, Komponentenname, Beobachtungszeitpunkt und expliziter Parser-Version. Absolute oder Traversal-Pfade werden abgewiesen; absolute Hostpfade werden dadurch nicht als Kandidateninhalt oder Source Location weitergegeben.
 
+`W2-009` ergänzt `FilenameParsingProfile`, geordnete `FilenameParsingRule`-Regex-Regeln und `RuleBasedFilenameParser`. Die erste vollständig passende Regel erzeugt Kandidaten aus benannten Capture Groups. Profilversion, Regelname, Confidence und Source Location bleiben erhalten; ohne Treffer wird kein Wert geraten. Synthetische Tests decken Autor/Titel, Serie/Band, Track/Disc, Jahr und Sprache ab.
+
 ### Generische ToolProvider Runtime
 
 Implementiert sind:
@@ -99,6 +103,9 @@ Implementiert sind:
 - auditierbare FAILED-Ausführung bei fehlendem Tool oder Non-zero Exit;
 - file-backed stdout/stderr mit `ToolArtifact`, Größe und SHA-256;
 - begrenzte stdout/stderr Previews;
+- begrenzte, strikt als UTF-8 JSON validierte Auswertung eines persistierten stdout-`ToolArtifact` einschließlich Size-/SHA-256-Integritätsprüfung;
+- `StructuredOutputError` bei fehlender, zu großer, veränderter oder malformed strukturierter Ausgabe, ohne eine erfolgreiche Prozessausführung rückwirkend umzudeuten;
+- konservative `requires_reanalysis`-Entscheidung: Wiederverwendung ist nur bei erfolgreicher vorheriger Ausführung und exakt gleicher Provider-, Capability-, Input-, Tool-, Adapter- und expliziter Konfigurationsidentität zulässig;
 - Ablehnung absoluter lokaler Pfade als persistierte `ToolExecution.input_identity`;
 - gehärtete Docker-Argumente für ToolProvider mit read-only Container-Dateisystem, `cap-drop=ALL`, `no-new-privileges` und standardmäßig deaktiviertem Netzwerk;
 - ausschließlich read-only Input-Mounts und separatem beschreibbarem Work-Verzeichnis.
@@ -166,18 +173,15 @@ Empirisch bestätigt wurden Docker-Build und Bootstrap, persistentes beschreibba
 
 Die später implementierten `DELETED`-, Relocation- und Resume-Funktionen sind durch automatisierte Integrationstests abgedeckt und wurden in diesem lokalen Plattformtest nicht separat nachgestellt.
 
-### `W2-008` — lokale Vorprüfung
+### W2-Abschlussprüfung
 
-**Empirisch:** Am 2026-08-09 wurden `src` und `tests` mit Python 3.12.13 bytecode-kompiliert. Ein synthetischer, äquivalenter Verhaltenslauf bestätigte Kandidatenerzeugung, Parser-Version und `Provenance`, POSIX-/Windows-Pfadnormalisierung, die Ablehnung leerer/ungültiger Werte sowie die Ablehnung absoluter und Traversal-Pfade.
+**Empirisch:** Am 2026-08-14 wurden die vollständigen lokalen Quality Gates mit Python 3.12.10 ausgeführt. `ruff check .`, `mypy src/foliotone` für 56 Source-Dateien und 86 Pytest-Tests waren erfolgreich. Die Tests decken insbesondere die W2-009-Parsing-Profile sowie die W2-011-Fälle malformed JSON, fehlende/zu große Ausgabe, Artifact-Integrität, fehlgeschlagene frühere Ausführungen und Reanalyse nach Tool-, Adapter-, Input- oder Konfigurationsänderung ab.
 
-**Nicht ausgeführt:** `ruff check .`, `mypy src/foliotone` und `pytest` konnten lokal nicht gestartet werden, weil `pytest`, `ruff` und `mypy` nicht installiert sind und der Paketbezug aus dem lokalen Paketindex abgebrochen wurde. Die vollständige CI-Qualitätsprüfung ist nach dem Push in GitHub Actions zu prüfen.
+Der Linux-Container wurde über Docker Engine 29.7.2 und Docker Compose 5.4.0 in WSL2 gebaut. Container-Bootstrap und Alembic-Head-Migration waren erfolgreich. Der allowlist-basierte Docker-Build-Kontext enthält ausschließlich `Dockerfile`, `pyproject.toml`, `README.md` und `src/`; lokale Runtime-, Medien-, Secret-, Test- und Git-Daten werden nicht übertragen.
 
-## Noch offen in W2
+## W2-Abschluss und nächster Schritt
 
-Als nächste fachliche W2-Arbeiten bleiben:
-
-1. `W2-009` — vollständige Quality Gates im Pull Request prüfen und bei Erfolg auf `DONE` setzen;
-2. `W2-011` — ToolProvider-Runtime um noch fehlende Tests für malformed structured output, Version Change und selective re-analysis erweitern.
+In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` ist `NEXT`: Vor der Implementierung eines konkreten E-Book-Adapters werden aktuelle offizielle Dokumentation, Wartungsstatus, Lizenz, Automationsschnittstelle, Ausgabeformate und read-only Sicherheitsverhalten der calibre CLI sowie geeigneter EPUB-/PDF-Werkzeuge geprüft.
 
 ## Nicht implementiert
 
@@ -191,6 +195,7 @@ Noch nicht vorhanden sind unter anderem:
 - Matching Engine;
 - Review System;
 - Consolidation Planning und Execution.
+- Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 
 ## Sicherheitsgrenze
 

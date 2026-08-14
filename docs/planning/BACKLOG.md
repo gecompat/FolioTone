@@ -45,17 +45,17 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W2-005 | DONE | Implement staged quick fingerprint and streamed SHA-256 strategy against FileObservation identity. |
 | W2-006 | DONE | Implement conservative FileRelocationCandidate detection for NEW + first-time MISSING pairs in the same scan using unambiguous versioned fingerprint blocks without merging FileRecord identity. |
 | W2-007 | DONE | Implement auditable resume lineage: only a persisted INTERRUPTED run of the same ScanRoot may be resumed; resume creates a new ScanRun and reuses already persisted incremental work without re-hashing unchanged files. |
-| W2-008 | DONE | Versioned `FilenameParser` and `PathContextAnalyzer` emit provenance-preserving `FieldCandidate` values. Full Windows validation completed with 68 passing tests, `ruff` and `mypy`. |
-| W2-009 | IMPLEMENTED | Add configurable, versioned regex parsing profiles/fixtures for author-title, series/volume, track/disc, year and language conventions. Local compilation and synthetic behavioral checks passed; full Quality Gates remain pending. |
+| W2-008 | DONE | Versioned `FilenameParser` and `PathContextAnalyzer` emit provenance-preserving `FieldCandidate` values; full local Quality Gates passed as part of W2 closure. |
+| W2-009 | DONE | Add configurable, versioned regex parsing profiles/fixtures for author-title, series/volume, track/disc, year and language conventions; full local Quality Gates passed. |
 | W2-010 | DONE | Implement generic ToolProvider runtime with version detection, bounded local/container execution, timeout/cancellation, stdout/stderr artifacts, privacy-safe input identity, isolated work areas and read-only input policy. |
-| W2-011 | READY | Complete ToolProvider runtime tests for malformed structured output, version changes and selective re-analysis; missing tool, timeout, non-zero exit, artifact persistence, privacy and container hardening are already tested. |
+| W2-011 | DONE | Add bounded strict-JSON Artifact loading plus conservative selective re-analysis decisions; cover malformed structured output and tool/adapter/input/config version changes while preserving auditable executions. |
 | W2-012 | DONE | Verify the documented local Windows/Docker smoke test with synthetic data: persistent `/data`, read-only media mounts, NEW/UNCHANGED/MODIFIED/MISSING/REAPPEARED behavior and unavailable-root protection. |
 
 ## W3 — E-book Analysis / Tool Orchestration
 
 | ID | Status | Item |
 |---|---|---|
-| W3-001 | PLANNED | Evaluate current calibre CLI plus specialist EPUB/PDF tools before selecting FolioTone-native parser libraries; document reuse/rejection decisions and licenses. |
+| W3-001 | NEXT | Evaluate current calibre CLI plus specialist EPUB/PDF tools before selecting FolioTone-native parser libraries; document reuse/rejection decisions and licenses. |
 | W3-002 | PLANNED | Implement first read-only calibre ToolProvider vertical slice for metadata extraction (`ebook-meta`) and, where useful, read-only library queries through `calibredb`. |
 | W3-003 | PLANNED | Implement EPUB content/text extraction and normalized text fingerprint only for capabilities not adequately supplied by the selected tool chain. |
 | W3-004 | PLANNED | Implement PDF metadata/page/text analysis using the best tool/library combination; explicitly represent no-text PDFs. |

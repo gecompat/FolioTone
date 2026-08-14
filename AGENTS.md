@@ -45,6 +45,7 @@ If repository code and documentation disagree, treat the discrepancy as a defect
 - Persistence: host-persistent data mounted at `/data`; SQLite initially.
 - Media roots: read-only mounts under `/media`.
 - Current product mode: analysis only.
+- Current product surface: CLI only; no web API, desktop UI or dashboard is in the active scope.
 - **Orchestration first:** before implementing substantial specialist media functionality, evaluate maintained tools with stable documented automation interfaces.
 - External specialist tools are replaceable `ToolProvider` integrations; their schemas/commands do not define the core model.
 - External tool results are provenance-preserving observations/evidence, never unquestioned canonical truth.

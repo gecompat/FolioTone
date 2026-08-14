@@ -2,6 +2,8 @@
 
 This file defines the planned development sequence. `PROJECT_STATUS.md` states where the project currently is.
 
+Under ADR-0016, the initial product surface remains CLI-only. W3 and the following early vertical slices do not add a web API, desktop interface or dashboard layer. The CLI stays a thin adapter to application/core contracts.
+
 ## W0 — Project Foundation
 
 Scope:

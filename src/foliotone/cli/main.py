@@ -116,10 +116,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "status":
-        print(
-            "FolioTone W2: incremental indexing and read-only ToolProvider runtime "
-            "are in progress."
-        )
+        print("FolioTone W2 foundation is complete; W3 e-book analysis is next.")
+        print("The initial product surface is CLI-only.")
         print("A read-only scan CLI is available for controlled smoke tests.")
         print("Source-media and external-tool mutation commands are not implemented.")
         return 0

@@ -6,7 +6,7 @@ import pytest
 
 from foliotone.core import ToolCapability, ToolExecutionStatus
 from foliotone.persistence import create_sqlite_engine, migrate, repository
-from foliotone.tooling import ToolArtifact, ToolProviderDescriptor
+from foliotone.tooling import StructuredOutputError, ToolArtifact, ToolProviderDescriptor
 from foliotone.tooling.runtime import (
     ContainerCommand,
     LocalCommand,
@@ -166,3 +166,84 @@ def test_tool_artifacts_round_trip_through_repository(tmp_path: Path) -> None:
     assert {artifact.id: artifact for artifact in stored} == {
         artifact.id: artifact for artifact in outcome.artifacts
     }
+
+
+def test_structured_stdout_is_loaded_from_the_integrity_checked_artifact(tmp_path: Path) -> None:
+    tool_runtime = runtime(tmp_path)
+    outcome = tool_runtime.execute_local(
+        descriptor(),
+        LocalCommand(
+            executable=sys.executable,
+            args=("-c", "import json; print(json.dumps({'duration': 12.5, 'streams': [1]}))"),
+            capability=ToolCapability.STATUS_REPORT,
+        ),
+        input_identity="synthetic:json",
+    )
+
+    assert tool_runtime.read_json_stdout(outcome) == {"duration": 12.5, "streams": [1]}
+
+
+def test_malformed_structured_stdout_preserves_the_auditable_execution(
+    tmp_path: Path,
+) -> None:
+    tool_runtime = runtime(tmp_path)
+    outcome = tool_runtime.execute_local(
+        descriptor(),
+        LocalCommand(
+            executable=sys.executable,
+            args=("-c", "print('{malformed-json')"),
+            capability=ToolCapability.STATUS_REPORT,
+        ),
+        input_identity="synthetic:malformed-json",
+    )
+
+    with pytest.raises(StructuredOutputError, match="valid UTF-8 JSON"):
+        tool_runtime.read_json_stdout(outcome)
+
+    assert outcome.execution.status is ToolExecutionStatus.SUCCEEDED
+    assert {artifact.artifact_type for artifact in outcome.artifacts} == {"STDOUT", "STDERR"}
+
+
+def test_structured_stdout_rejects_size_limit_and_artifact_integrity_changes(
+    tmp_path: Path,
+) -> None:
+    tool_runtime = runtime(tmp_path)
+    outcome = tool_runtime.execute_local(
+        descriptor(),
+        LocalCommand(
+            executable=sys.executable,
+            args=("-c", "print('{\"ok\": true}')"),
+            capability=ToolCapability.STATUS_REPORT,
+        ),
+        input_identity="synthetic:guarded-json",
+    )
+
+    with pytest.raises(StructuredOutputError, match="size limit"):
+        tool_runtime.read_json_stdout(outcome, max_bytes=1)
+
+    stdout = next(artifact for artifact in outcome.artifacts if artifact.artifact_type == "STDOUT")
+    artifact_path = tmp_path / "artifacts" / stdout.relative_path
+    artifact_path.write_bytes(b"x" * stdout.size_bytes)
+    with pytest.raises(StructuredOutputError, match="integrity check"):
+        tool_runtime.read_json_stdout(outcome)
+
+
+def test_missing_structured_stdout_is_reported_without_inventing_an_artifact(
+    tmp_path: Path,
+) -> None:
+    tool_runtime = runtime(tmp_path)
+    outcome = tool_runtime.execute_local(
+        descriptor(),
+        LocalCommand(
+            executable="foliotone-definitely-missing-structured-tool",
+            args=(),
+            capability=ToolCapability.STATUS_REPORT,
+        ),
+        input_identity="synthetic:missing-structured-tool",
+    )
+
+    with pytest.raises(StructuredOutputError, match="exactly one"):
+        tool_runtime.read_json_stdout(outcome)
+
+    assert outcome.execution.status is ToolExecutionStatus.FAILED
+    assert outcome.artifacts == ()

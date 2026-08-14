@@ -34,22 +34,25 @@ FolioTone ist eine **Orchestration- und Reconciliation-Plattform für große E-B
 
 ## Aktueller Stand
 
-FolioTone befindet sich in **W2 — Incremental Index + Filename/Path Context + Tool Runtime**.
+FolioTone hat **W2 — Incremental Index + Filename/Path Context + Tool Runtime** abgeschlossen. Die nächste Welle ist W3 mit der aktuellen Bewertung der E-Book-Toolchain und einem ersten read-only calibre-Vertical-Slice.
 
-W0 und W1 sind abgeschlossen. Der erste W2-Slice ist implementiert und in GitHub Actions verifiziert:
+W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 
 - persistente logische `ScanRoot`-Identitäten und `ScanRun`-Lifecycle;
 - streaming Filesystem Discovery;
-- NEW, UNCHANGED, MODIFIED, MISSING und REAPPEARED;
+- NEW, UNCHANGED, MODIFIED, MISSING, REAPPEARED und opt-in DELETED;
+- konservative `FileRelocationCandidate`-Evidence sowie auditable Resume-Lineage;
 - gestuftes Quick-/Full-SHA-256-Hashing;
-- Alembic `0002_incremental_index`;
+- Alembic-Migrationen für Incremental Index, Abwesenheitsstatus, Relocation-Kandidaten und Resume-Lineage;
+- versionierte Filename-/Path-Kandidaten und konfigurierbare Regex-Parsing-Profile;
 - generische read-only ToolProvider Runtime für lokale Prozesse und gehärtete Containerläufe;
-- `ToolArtifact`-Persistenz für stdout/stderr;
+- `ToolArtifact`-Persistenz für stdout/stderr, begrenzte JSON-Auswertung und konservative Reanalyse-Entscheidungen;
 - read-only `foliotone scan` CLI;
+- allowlist-basierter Docker-Build-Kontext ohne lokale `data/`- oder `media/`-Inhalte;
 - Custom Community & Attribution License;
 - verbindliche Dokumentations-, Sprach- und Terminologieregeln.
 
-Der nächste Schritt ist ein **lokaler Windows-/Docker-Smoke-Test**. Der Ablauf ist unter [Lokaler W2-Smoke-Test](docs/quality/LOCAL_SMOKE_TEST.md) dokumentiert. Danach werden die verbleibenden W2-Punkte wie `DELETED`-Bestätigung, Move/Rename-Erkennung und Filename/Path-Parsing fortgesetzt.
+Die anfängliche Produktoberfläche bleibt ausschließlich die CLI. Eine Web-API, Desktop-Oberfläche oder ein Dashboard gehört nicht zum aktuellen Scope. [ADR-0016](docs/decisions/ADR-0016-cli-first-product-surface.md) hält diese Entscheidung fest.
 
 Siehe außerdem [Projektstatus](docs/planning/PROJECT_STATUS.md), [Backlog](docs/planning/BACKLOG.md) und [Dokumentationsübersicht](docs/README.md).
 
@@ -74,6 +77,7 @@ Siehe [External Analysis Tools](docs/reference/EXTERNAL_TOOLS.md) und [ADR-0010]
 ## Kernprinzipien
 
 - Python 3.12+; Docker/Linux ist der primäre Runtime-Kontext.
+- Die anfängliche Produktoberfläche ist ausschließlich die CLI; die CLI bleibt ein dünner Adapter zu Anwendungs- und Core-Verträgen.
 - Runtime State liegt host-persistent unter `/data`.
 - Source Media wird read-only unter `/media` eingebunden.
 - SQLite ist die initiale Persistence Engine; SQLAlchemy Core und Alembic bleiben auf die Persistence-Schicht begrenzt.
@@ -130,8 +134,13 @@ Core identity
 
 Physical/index
   ScanRoot / ScanRun / FileRecord / FileObservation / FileScanEvent
-  NEW / UNCHANGED / MODIFIED / MISSING / REAPPEARED
+  NEW / UNCHANGED / MODIFIED / MISSING / REAPPEARED / opt-in DELETED
+  FileRelocationCandidate / ScanRun resume lineage
   Quick Fingerprint / streamed SHA-256
+
+Parsing
+  FilenameParser / PathContextAnalyzer / RuleBasedFilenameParser
+  versioned FilenameParsingProfile / FilenameParsingRule
 
 Evidence
   Provenance / ValueAssertion
@@ -140,11 +149,12 @@ Evidence
 Tool orchestration
   ToolProviderDescriptor / ToolExecution / ToolResult / ToolArtifact
   LocalCommand / ContainerCommand / ToolRuntime
+  bounded strict-JSON Artifact loading / conservative re-analysis decision
 
 Persistence
   Repository[T] / SQLiteRepository[T]
   SQLAlchemy Core
-  Alembic 0001_initial + 0002_incremental_index
+  Alembic 0001_initial through 0005_scan_resume_lineage
 ```
 
 ## Repository-Dokumentation

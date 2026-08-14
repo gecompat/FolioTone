@@ -3,7 +3,12 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from foliotone.core import EntityId, EntityKind, ToolCapability, ToolExecutionStatus
-from foliotone.tooling import ToolExecution, ToolProviderDescriptor, ToolResult
+from foliotone.tooling import (
+    ToolExecution,
+    ToolProviderDescriptor,
+    ToolResult,
+    requires_reanalysis,
+)
 
 START = datetime(2026, 8, 8, 20, 0, tzinfo=UTC)
 FINISH = START + timedelta(seconds=1)
@@ -89,3 +94,142 @@ def test_tool_result_confidence_is_bounded() -> None:
             value="synthetic",
             confidence=-0.1,
         )
+
+
+def test_exact_successful_tool_identity_can_reuse_prior_analysis() -> None:
+    provider = ToolProviderDescriptor(
+        provider_id="tool",
+        display_name="Tool",
+        adapter_version="adapter/1",
+        capabilities=frozenset({ToolCapability.STATUS_REPORT}),
+    )
+    previous = ToolExecution(
+        id=EntityId.new(),
+        provider_id="tool",
+        tool_version="tool/1",
+        adapter_version="adapter/1",
+        capability=ToolCapability.STATUS_REPORT,
+        input_identity="file-observation:1",
+        config_identity="status/default/1",
+        started_at=START,
+        finished_at=FINISH,
+        status=ToolExecutionStatus.SUCCEEDED,
+        exit_code=0,
+    )
+
+    assert not requires_reanalysis(
+        previous,
+        provider,
+        ToolCapability.STATUS_REPORT,
+        tool_version="tool/1",
+        input_identity="file-observation:1",
+        config_identity="status/default/1",
+    )
+
+
+@pytest.mark.parametrize(
+    ("adapter_version", "tool_version", "input_identity", "config_identity"),
+    (
+        ("adapter/2", "tool/1", "file-observation:1", "status/default/1"),
+        ("adapter/1", "tool/2", "file-observation:1", "status/default/1"),
+        ("adapter/1", "tool/1", "file-observation:2", "status/default/1"),
+        ("adapter/1", "tool/1", "file-observation:1", "status/default/2"),
+    ),
+)
+def test_tool_input_or_config_version_change_requires_reanalysis(
+    adapter_version: str,
+    tool_version: str,
+    input_identity: str,
+    config_identity: str,
+) -> None:
+    provider = ToolProviderDescriptor(
+        provider_id="tool",
+        display_name="Tool",
+        adapter_version=adapter_version,
+        capabilities=frozenset({ToolCapability.STATUS_REPORT}),
+    )
+    previous = ToolExecution(
+        id=EntityId.new(),
+        provider_id="tool",
+        tool_version="tool/1",
+        adapter_version="adapter/1",
+        capability=ToolCapability.STATUS_REPORT,
+        input_identity="file-observation:1",
+        config_identity="status/default/1",
+        started_at=START,
+        finished_at=FINISH,
+        status=ToolExecutionStatus.SUCCEEDED,
+        exit_code=0,
+    )
+
+    assert requires_reanalysis(
+        previous,
+        provider,
+        ToolCapability.STATUS_REPORT,
+        tool_version=tool_version,
+        input_identity=input_identity,
+        config_identity=config_identity,
+    )
+
+
+def test_missing_config_identity_never_reuses_prior_analysis() -> None:
+    provider = ToolProviderDescriptor(
+        provider_id="tool",
+        display_name="Tool",
+        adapter_version="adapter/1",
+        capabilities=frozenset({ToolCapability.STATUS_REPORT}),
+    )
+    previous = ToolExecution(
+        id=EntityId.new(),
+        provider_id="tool",
+        tool_version="tool/1",
+        adapter_version="adapter/1",
+        capability=ToolCapability.STATUS_REPORT,
+        input_identity="file-observation:1",
+        config_identity="status/default/1",
+        started_at=START,
+        finished_at=FINISH,
+        status=ToolExecutionStatus.SUCCEEDED,
+        exit_code=0,
+    )
+
+    assert requires_reanalysis(
+        previous,
+        provider,
+        ToolCapability.STATUS_REPORT,
+        tool_version="tool/1",
+        input_identity="file-observation:1",
+        config_identity=None,
+    )
+
+
+def test_failed_tool_execution_is_never_reused() -> None:
+    provider = ToolProviderDescriptor(
+        provider_id="tool",
+        display_name="Tool",
+        adapter_version="adapter/1",
+        capabilities=frozenset({ToolCapability.STATUS_REPORT}),
+    )
+    failed = ToolExecution(
+        id=EntityId.new(),
+        provider_id="tool",
+        tool_version="tool/1",
+        adapter_version="adapter/1",
+        capability=ToolCapability.STATUS_REPORT,
+        input_identity="file-observation:1",
+        config_identity="status/default/1",
+        started_at=START,
+        finished_at=FINISH,
+        status=ToolExecutionStatus.FAILED,
+        exit_code=3,
+        error_summary="synthetic failure",
+    )
+
+    assert requires_reanalysis(
+        failed,
+        provider,
+        ToolCapability.STATUS_REPORT,
+        tool_version="tool/1",
+        input_identity="file-observation:1",
+        config_identity="status/default/1",
+    )
