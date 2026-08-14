@@ -12,8 +12,9 @@ Die anfängliche Produktoberfläche ist gemäß Benutzerentscheidung und ADR-001
 ausschließlich die CLI. `W3-001` und `W3-002` sind abgeschlossen: Die aktuelle
 E-Book-Toolchain ist bewertet, und der erste read-only calibre-Metadaten-Slice
 ist implementiert. `W3-003` ergänzt einen festen read-only calibre-EPUB-
-Textpfad und einen FolioTone-eigenen normalisierten Fingerprint. `W3-004` ist
-als Nächstes vorgesehen.
+Textpfad und einen FolioTone-eigenen normalisierten Fingerprint. `W3-004`
+ergänzt feste Poppler-PDF-Metadaten-, Seiten- und Textpfade mit explizitem
+`NO_TEXT`. `W3-005` ist als Nächstes vorgesehen.
 
 ## Vor Änderungen lesen
 
@@ -71,11 +72,11 @@ Die Abschlussprüfung bestätigt zusätzlich:
 - keine Wiederverwendung ohne explizite Konfigurationsidentität;
 - allowlist-basierten Docker-Build-Kontext ohne lokale Runtime-, Medien-, Secret-, Test- oder Git-Daten.
 
-### W3-001 bis W3-003
+### W3-001 bis W3-004
 
 Der Snapshot vom 2026-08-14 wählt calibre 9.13.0 für dateibezogene Metadaten,
-EPUBCheck 5.3.0 für spätere EPUB-Konformität, Poppler 26.08.0 als bevorzugten
-PDF-Metadaten-/Text-Kandidaten und qpdf 12.4.0 als optionale strukturelle
+EPUBCheck 5.3.0 für spätere EPUB-Konformität, Poppler 26.07.0 für implementierte
+PDF-Metadaten-/Seiten-/Textanalyse und qpdf 12.4.0 als optionale strukturelle
 PDF-Evidence. Details und Lizenzen stehen in
 `docs/reference/EBOOK_TOOL_EVALUATION.md`.
 
@@ -110,6 +111,25 @@ ephemeres Work-Verzeichnis. Repository-Ruff, Mypy für 59 Source-Dateien und 115
 Pytest-Tests waren erfolgreich. Der Implementierungscommit
 `dc2cd09ffbc07098e0c296bea231532c4f38051b` bestand GitHub Actions Run
 `31809375485` für PR #13 einschließlich aller Docker-Smoke-Schritte.
+
+`foliotone pdf-analyze` akzeptiert ausschließlich eine unveränderte PDF-
+`FileObservation`. Der Adapter führt feste `pdfinfo`- und `pdftotext`-Befehle
+als zwei getrennte `ToolExecution`-Records aus, begrenzt und validiert die
+Metadatenausgabe und übernimmt maximal 64 MiB als privates `POPPLER_TEXT`-
+Artefakt. PDF verwendet denselben FolioTone-eigenen normalisierten
+`EBOOK_NORMALIZED_TEXT`-Fingerprint wie EPUB. Erfolgreiche leere Extraktion ist
+`NO_TEXT`; Fehler werden nicht in diesen Zustand umgedeutet. Poppler-Versionen
+unter 26.07.0 und unbekannte Versionen werden vor dem Dateiöffnen abgelehnt.
+
+Ein lokaler End-to-End-Smoke-Test mit Poppler 26.07.0 und ausschließlich zwei
+synthetischen PDFs bestätigte für beide je 20 Metadatenbeobachtungen und
+`page_count = 1`. Das Text-PDF lieferte `TEXT_EXTRACTED`, 45 normalisierte
+Zeichen und einen Fingerprint; das leere PDF lieferte `NO_TEXT`, null Zeichen
+und keinen Fingerprint. Die gezielten 18 Poppler-Unit-Tests bestanden, und die
+ephemeren Work-Verzeichnisse waren nach Abschluss leer.
+
+Der vollständige W3-004-Stand bestand lokal `ruff check .`, Mypy für 63
+Source-Dateien und alle 133 Pytest-Tests in 6 Minuten 35 Sekunden.
 
 ## W2 aktuell implementiert
 
@@ -191,6 +211,22 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
   fehlendem Text;
 - keine Ausgabe des extrahierten Rohtexts über die CLI.
 
+### Poppler-PDF
+
+- `PopplerPdfAnalyzer` und CLI `foliotone pdf-analyze`;
+- ausschließlich PDF sowie feste `pdfinfo`-/`pdftotext`-Argumentformen;
+- separate `ToolExecution`-Records für technische Metadaten und Text;
+- Sicherheitsuntergrenze Poppler 26.07.0 vor dem Öffnen der Eingabe;
+- maximal 1 MiB allowlist-geparste `pdfinfo`-Ausgabe und validierte Dateigröße;
+- maximal 64 MiB großes privates, integritätsgeprüftes `POPPLER_TEXT`-Artefakt;
+- gemeinsamer versionierter `NFKC`-/Whitespace-Normalisierer und
+  `EBOOK_NORMALIZED_TEXT`-Fingerprint;
+- explizites `NO_TEXT` nur nach erfolgreicher leerer Extraktion;
+- kein Rohtext, OCR, Passwortargument, frei übergebbares Poppler-Argument oder
+  PDF-Schreibpfad über die CLI;
+- qpdf bis zu einem konkreten Bedarf an zusätzlicher Struktur-Evidence
+  zurückgestellt.
+
 ### Persistence
 
 - Alembic `0002_incremental_index` ergänzt Scan-Events, Tool-Artefakte und W2-Indizes;
@@ -204,11 +240,11 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-004` — PDF-Metadaten, Seitenzahl, Text und expliziter No-Text-Zustand mit
-   Poppler; qpdf nur ergänzend bei strukturellem Mehrwert;
-2. `W3-005` — MOBI/AZW/AZW3-Beobachtungen zunächst über calibre;
-3. `W3-006` — detailliertere Feld-/Rollenabbildung als Provenance-erhaltende
+1. `W3-005` — MOBI/AZW/AZW3-Beobachtungen zunächst über calibre;
+2. `W3-006` — detailliertere Feld-/Rollenabbildung als Provenance-erhaltende
    Beobachtungen und Kandidaten.
+3. `W3-007` — synthetische/öffentliche Vergleichs-Fixtures für Editionen,
+   Übersetzungen, Metadatenänderungen und Tool-Disagreement.
 
 Die Produktoberfläche bleibt dabei ausschließlich die CLI. Externe Tool-Ergebnisse werden weiterhin als Evidence behandelt und nicht direkt zu kanonischen Metadaten.
 

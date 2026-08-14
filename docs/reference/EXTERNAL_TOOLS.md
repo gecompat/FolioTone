@@ -88,6 +88,52 @@ Security note:
 
 The LinuxServer calibre image exposes a full GUI/terminal environment and its own documentation warns about privileged access implications. It should not automatically become part of FolioTone's default minimal runtime. Prefer a purpose-built CLI integration or an isolated optional profile where practical.
 
+### Poppler
+
+Priority: **very high**
+
+Evaluated snapshot: **26.07.0 on 2026-08-14; PDF metadata/page/text adapters implemented**
+
+Implemented roles:
+
+- technical PDF metadata and page count through `pdfinfo`;
+- bounded plain-text extraction through `pdftotext`;
+- explicit distinction between successful `TEXT_EXTRACTED` and successful
+  `NO_TEXT` results.
+
+Preferred integration:
+
+- `CLI`: `pdfinfo -enc UTF-8 -isodates FILE`;
+- `CLI`: `pdftotext -enc UTF-8 -eol unix -nopgbrk -remove-hyphens all FILE
+  content.txt`.
+
+Important boundary:
+
+The adapter accepts PDF only and exposes no caller-controlled Poppler options,
+password handling, OCR or write operations. `pdfinfo` and `pdftotext` are
+recorded as separate `ToolExecution` instances. Unknown versions and versions
+below 26.07.0 are rejected before Source Media is opened. Imported `pdfinfo`
+stdout is bounded to 1 MiB and parsed through a field allowlist; extracted text
+is bounded to 64 MiB and remains a private `POPPLER_TEXT` artifact. The CLI
+prints metadata, status, count and fingerprint, never raw extracted text.
+
+FolioTone applies its own shared, versioned Unicode `NFKC` and whitespace
+normalization after artifact verification. A successful empty extraction is
+`NO_TEXT` and creates no `EBOOK_NORMALIZED_TEXT` fingerprint. Non-zero Poppler
+exit codes, encrypted or damaged inputs remain failures and are not mislabeled
+as no-text PDFs.
+
+qpdf 12.4.0 remains deferred as optional structural/integrity evidence because
+the implemented W3-004 contract has no unresolved structural gap. Poppler is
+not bundled in this repository; redistribution requires a separate review of
+the GPL-2.0-or-later components and dependencies actually shipped.
+
+Official references:
+
+- https://poppler.freedesktop.org/
+- https://gitlab.freedesktop.org/poppler/poppler/-/blob/poppler-26.07.0/NEWS
+- https://packages.msys2.org/packages/mingw-w64-x86_64-poppler
+
 ## Music tools
 
 ### FFmpeg / ffprobe
@@ -261,7 +307,6 @@ These may provide useful specialist functions but need a dedicated current revie
 - ExifTool — broad metadata extraction;
 - ebook-polish sub-workflows within calibre;
 - EPUBCheck 5.3.0 — selected for a later EPUB conformance/structural validation adapter;
-- Poppler 26.08.0 — selected candidate for later PDF metadata/page/text analysis;
 - qpdf 12.4.0 — optional later PDF structural/integrity evidence; it does not extract text;
 - MuPDF — deferred until a concrete gap remains after Poppler/qpdf evaluation;
 - additional audio integrity/checksum tools;

@@ -72,8 +72,10 @@ A future executable consolidation engine must not be enabled merely by adding a 
 
 Runtime state may itself contain sensitive metadata about a private collection. `/data` is therefore excluded from Git. Logs should avoid dumping full extracted text, unnecessary absolute paths, raw external queries, tool command lines containing sensitive values, or credentials.
 
-Extracted e-book text is private runtime data. The W3 calibre text adapter
-stores it only as a bounded `ToolArtifact` under the configured artifact root;
-the CLI emits status, character count and fingerprint, but not the raw text.
+Extracted e-book text is private runtime data. The W3 calibre and Poppler text
+adapters store it only as bounded `ToolArtifact` data under the configured
+artifact root; the CLI emits status, character count and fingerprint, but not
+the raw text. Their fixed command allowlists expose no caller-controlled
+conversion options, PDF passwords, OCR or Source-Media write operations.
 
 Imported/local provider datasets and external tool reports derived from a private collection must also stay out of Git unless a future explicit decision establishes that a specific redistributable artifact belongs in the repository.

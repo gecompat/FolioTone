@@ -82,6 +82,14 @@ and `ToolExecution`. Empty normalized output is represented as `NO_TEXT` and
 does not create a fingerprint. Extracted text is not emitted through the CLI or
 promoted to canonical metadata.
 
+The third W3 vertical slice accepts only an unchanged PDF observation and runs
+fixed `pdfinfo` and `pdftotext` commands as separate `ToolExecution` records.
+Bounded, allowlisted `pdfinfo` output supplies technical metadata and page
+count; a private bounded `POPPLER_TEXT` artifact supplies the input to the same
+FolioTone-owned normalized-text fingerprint used for EPUB. Successful empty
+extraction is explicit `NO_TEXT`; tool failures are not converted into that
+state. The slice exposes no OCR, password, arbitrary-option or write path.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.
