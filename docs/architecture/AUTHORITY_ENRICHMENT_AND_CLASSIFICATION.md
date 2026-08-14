@@ -183,6 +183,18 @@ Planned concepts:
 
 A `FieldCandidate` should retain source location, parser version and confidence. Parsing rules should be configurable/versioned because collections use different conventions.
 
+## Tool-derived e-book metadata candidates
+
+The implemented `ebook-metadata-candidate/v1` contract projects bounded OPF 2
+and OPF 3 evidence into provider-neutral `ToolResult` records. Stable field
+paths keep related identifier namespace/value, contributor
+name/role/sort-name, and series name/position components together. Each result
+retains the exact tool execution, file observation, source location, profile
+and extraction confidence. Unknown role schemes remain source-role evidence;
+the projection does not infer an `Agent`, `Work`, `Edition`, `Series` or
+canonical field value. Those identity decisions remain responsibilities of the
+later authority and entity-resolution layers.
+
 ## E-book authority model extensions
 
 ### Work

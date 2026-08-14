@@ -19,7 +19,10 @@ def test_status_command_is_non_destructive_bootstrap(
         "FolioTone W2 foundation is complete; W3 e-book analysis is in progress.",
         "The initial product surface is CLI-only.",
         "A read-only scan CLI is available for controlled smoke tests.",
-        "Read-only calibre metadata extraction is available through ebook-metadata.",
+        (
+            "Read-only calibre metadata observations and versioned candidates are available "
+            "through ebook-metadata."
+        ),
         (
             "Read-only EPUB/MOBI/AZW/AZW3 text fingerprints are available through "
             "ebook-text."

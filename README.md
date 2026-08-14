@@ -34,7 +34,12 @@ FolioTone ist eine **Orchestration- und Reconciliation-Plattform für große E-B
 
 ## Aktueller Stand
 
-FolioTone hat **W2 — Incremental Index + Filename/Path Context + Tool Runtime** abgeschlossen. Die nächste Welle ist W3 mit der aktuellen Bewertung der E-Book-Toolchain und einem ersten read-only calibre-Vertical-Slice.
+FolioTone hat **W2 — Incremental Index + Filename/Path Context + Tool Runtime**
+abgeschlossen. In W3 sind die E-Book-Toolchain-Bewertung, feste read-only
+calibre-/Poppler-Analysepfade für EPUB, MOBI, AZW, AZW3 und PDF sowie die
+Provenance-erhaltende OPF2-/OPF3-Metadatenprojektion umgesetzt. `W3-007` mit
+vergleichbaren Edition-/Übersetzungs-/Disagreement-Fixtures ist der nächste
+Backlog-Eintrag.
 
 W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 
@@ -51,6 +56,17 @@ W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 - allowlist-basierter Docker-Build-Kontext ohne lokale `data/`- oder `media/`-Inhalte;
 - Custom Community & Attribution License;
 - verbindliche Dokumentations-, Sprach- und Terminologieregeln.
+
+Der aktive W3-Stand ergänzt ausschließlich über die CLI:
+
+- feste read-only calibre-Metadaten- und Textpfade für EPUB/MOBI/AZW/AZW3;
+- feste Poppler-PDF-Metadaten-, Seiten- und Textanalyse;
+- einen FolioTone-eigenen normalisierten E-Book-Textfingerprint;
+- rohe OPF-Beobachtungen und versionierte, gruppierte Kandidaten für ISBN und
+  andere Identifier, Contributors/Rollen/Sortiernamen, Sprache, Verlag,
+  Publikationsdatum, Serie und weitere Felder;
+- exakte Links jedes Metadatenkandidaten auf `ToolExecution` und
+  `FileObservation`, ohne automatische Kanonisierung oder Entity Resolution.
 
 Die anfängliche Produktoberfläche bleibt ausschließlich die CLI. Eine Web-API, Desktop-Oberfläche oder ein Dashboard gehört nicht zum aktuellen Scope. [ADR-0016](docs/decisions/ADR-0016-cli-first-product-surface.md) hält diese Entscheidung fest.
 

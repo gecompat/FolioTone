@@ -4,7 +4,7 @@ Stand: 2026-08-14
 
 ## Aktuelle Welle
 
-**W3 aktiv — calibre EPUB/MOBI/AZW/AZW3 und Poppler PDF abgeschlossen; Feld-/Rollenabbildung als Nächstes**
+**W3 aktiv — OPF2-/OPF3-Feld-/Rollenabbildung abgeschlossen; Vergleichs-Fixtures als Nächstes**
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
@@ -15,8 +15,10 @@ read-only `ebook-meta`-Befehlsform. `W3-003` ergänzt feste EPUB-
 Textextraktion und einen FolioTone-eigenen normalisierten Text-Fingerprint.
 `W3-004` ergänzt feste Poppler-PDF-Metadaten-, Seiten- und Textpfade mit
 explizitem `NO_TEXT`. `W3-005` erweitert den unveränderlichen calibre-
-Analysepfad ohne nativen Formatparser auf MOBI, AZW und AZW3. `W3-006` ist der
-nächste Backlog-Eintrag.
+Analysepfad ohne nativen Formatparser auf MOBI, AZW und AZW3. `W3-006` ergänzt
+rohe OPF2-/OPF3-Beobachtungen und provider-neutrale, gruppierte
+Metadatenkandidaten mit exakten `ToolExecution`-/`FileObservation`-Links.
+`W3-007` ist der nächste Backlog-Eintrag.
 
 ## Implementierter W2-Slice
 
@@ -175,6 +177,23 @@ Entity-Deklarationen und speichert ausgewählte rohe OPF-Felder als `ToolResult`
 gegen die konkrete `FileObservation`. Diese Werte bleiben Evidence und werden
 nicht kanonisiert.
 
+`W3-006` hebt den Metadatenadapter auf `ebook-meta-opf/2` und behält die rohen
+`calibre_metadata`-Ergebnisse bei. Der provider-neutrale Vertrag
+`ebook-metadata-candidate/v1` projiziert zusätzlich OPF-2-Attribute und
+OPF-3-Refinements in stabile Feldpfade. Gruppiert werden Identifier-
+Namespace/-Wert, Contributor-Name/-Quelle/-Rolle/-Sortiername sowie
+Serienname/-position. Direkte Kandidaten umfassen Titel, Sprache, Verlag,
+Publikationsdatum, Subject, Beschreibung, Rechte, Typ, Titelsortierung und
+calibre-Rating, soweit vorhanden.
+
+Explizite ISBN-Schemes, `urn:isbn` und die ONIX-Codelist-5-Werte 02/15 werden
+als ISBN-Namespace erkannt. Die unterstützten MARC-Relator-Codes decken Autor,
+Book Producer, Contributor, Editor, Illustrator, Narrator, Other und Translator
+ab. Unbekannte Rollen-Schemes bleiben rohe Source-Evidence und erzeugen keine
+geratene normalisierte Rolle. Jeder Kandidat verweist auf die exakte
+`ToolExecution` und `FileObservation`; der Adapter legt keine `Agent`-,
+`Work`-, `Edition`- oder `Series`-Entität an.
+
 `calibredb` ist bewusst zurückgestellt. Die dokumentierten read-oriented
 Subcommands `list --for-machine` und `show_metadata --as-opf` stehen neben
 zahlreichen mutierenden Befehlen. Eine spätere Integration benötigt daher eine
@@ -284,7 +303,7 @@ Die später implementierten `DELETED`-, Relocation- und Resume-Funktionen sind d
 
 Der Linux-Container wurde über Docker Engine 29.7.2 und Docker Compose 5.4.0 in WSL2 gebaut. Container-Bootstrap und Alembic-Head-Migration waren erfolgreich. Der allowlist-basierte Docker-Build-Kontext enthält ausschließlich `Dockerfile`, `pyproject.toml`, `README.md` und `src/`; lokale Runtime-, Medien-, Secret-, Test- und Git-Daten werden nicht übertragen.
 
-### W3-001 bis W3-005 lokale Verifikation
+### W3-001 bis W3-006 lokale Verifikation
 
 **Empirisch:** Am 2026-08-14 wurde das offizielle calibre-9.13.0-MSI nach
 SHA-256- und Authenticode-Prüfung als separates administratives Abbild unter
@@ -352,12 +371,29 @@ Source-Dateien waren erfolgreich.
 Der vollständige W3-005-Stand bestand anschließend lokal `ruff check .`, Mypy
 für 63 Source-Dateien und alle 142 Pytest-Tests in 8 Minuten 50 Sekunden.
 
+**Empirisch für W3-006:** Der gezielte OPF2-/OPF3-Testlauf bestand alle 26
+calibre-Metadaten-Tests. Er deckt gruppierte ISBN-/Identifier-, Contributor-,
+MARC-Rollen-, Sortier-, Sprach-, Verlags-, Datums-, Subject-, Beschreibungs-,
+Rechte-, Typ- und Series-Kandidaten sowie das bewusste Nicht-Mapping eines
+fremden Rollen-Schemes ab.
+
+Ein read-only End-to-End-Smoke-Test mit calibre 9.13 und einem ausschließlich
+synthetischen, DRM-freien MOBI erzeugte eine erfolgreiche `ToolExecution` unter
+`ebook-meta-opf/2`, elf rohe `calibre_metadata`-Beobachtungen und 21
+`ebook_metadata_candidate`-Ergebnisse. Alle Ergebnisse verwiesen auf genau
+diese Ausführung und `FileObservation`; `Agent`, `Work`, `Edition` und `Series`
+blieben leer. Das private OPF-Artefakt wurde übernommen, und das ephemere
+Work-Verzeichnis war nach Abschluss leer.
+
+Der vollständige W3-006-Stand bestand lokal `ruff check .`, Mypy für 64
+Source-Dateien und alle 152 Pytest-Tests in 8 Minuten 45 Sekunden.
+
 ## W3-Stand und nächster Schritt
 
-In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` bis `W3-005` sind
-abgeschlossen. `W3-006` ist `NEXT`: ISBN, Contributors, Sprache, Verlag, Serie
-und weitere Felder werden als Provenance-erhaltende Beobachtungen und
-Kandidaten detaillierter abgebildet.
+In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` bis `W3-006` sind
+abgeschlossen. `W3-007` ist `NEXT`: synthetische/öffentliche Fixtures sollen
+identische Dateien, geänderte Metadaten, dieselbe und unterschiedliche
+Editionen/Übersetzungen sowie Tool-Disagreement vergleichbar abbilden.
 
 ## Nicht implementiert
 

@@ -62,6 +62,16 @@ artifact and rejects unknown versions or calibre versions below 9.10.0 before
 opening Source Media. This minimum follows `GHSA-2j4m-2q7x-2c47` /
 `CVE-2026-53511`; versions through 9.9.0 are affected.
 
+Metadata adapter version `ebook-meta-opf/2` retains provider-shaped raw OPF
+observations and additionally projects OPF 2 attributes plus OPF 3 refinements
+under `ebook-metadata-candidate/v1`. Grouped candidates cover identifier
+namespace/value pairs including explicit ISBN schemes, contributor names,
+MARC relator roles and sort names, language, publisher, publication date,
+subject, description, rights, type, title sort, rating and series
+name/position. Every result links to the exact `ToolExecution` and
+`FileObservation`. Unknown role vocabularies are retained without a guessed
+normalized role, and the adapter creates no canonical entities.
+
 The text adapter applies the same version floor and isolated configuration to
 `ebook-convert`. Adapter version `ebook-convert-text/2` accepts exactly EPUB,
 MOBI, AZW and AZW3, writes exclusively into the private tool workspace,
@@ -83,6 +93,9 @@ Official references:
 - https://manual.calibre-ebook.com/drm.html
 - https://manual.calibre-ebook.com/en/generated/en/calibredb.html
 - https://manual.calibre-ebook.com/server.html
+- https://www.w3.org/TR/epub-33/
+- https://www.loc.gov/marc/relators/relacode.html
+- https://github.com/kovidgoyal/calibre/blob/master/src/calibre/ebooks/metadata/opf3.py
 - https://github.com/kovidgoyal/calibre/security/advisories/GHSA-2j4m-2q7x-2c47
 
 Container candidate:

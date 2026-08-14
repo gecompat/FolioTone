@@ -126,7 +126,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     ebook_metadata = subparsers.add_parser(
         "ebook-metadata",
-        help="Extract raw e-book metadata read-only with calibre ebook-meta.",
+        help="Extract raw e-book metadata and versioned candidates with calibre ebook-meta.",
     )
     ebook_metadata.add_argument(
         "--root",
@@ -269,7 +269,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("FolioTone W2 foundation is complete; W3 e-book analysis is in progress.")
         print("The initial product surface is CLI-only.")
         print("A read-only scan CLI is available for controlled smoke tests.")
-        print("Read-only calibre metadata extraction is available through ebook-metadata.")
+        print(
+            "Read-only calibre metadata observations and versioned candidates are available "
+            "through ebook-metadata."
+        )
         print(
             "Read-only EPUB/MOBI/AZW/AZW3 text fingerprints are available through "
             "ebook-text."
@@ -408,6 +411,9 @@ def _run_ebook_metadata(args: argparse.Namespace) -> int:
     print(f"Metadata observations: {len(outcome.results)}")
     for result in outcome.results:
         print(f"{result.key}: {json.dumps(result.value, ensure_ascii=False)}")
+    print(f"Metadata candidates: {len(outcome.candidates)}")
+    for candidate in outcome.candidates:
+        print(f"candidate {candidate.key}: {json.dumps(candidate.value, ensure_ascii=False)}")
     return 0 if execution.status is ToolExecutionStatus.SUCCEEDED else 1
 
 
