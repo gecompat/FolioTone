@@ -1,4 +1,4 @@
-"""Read-only calibre EPUB text extraction with a FolioTone-owned fingerprint."""
+"""Read-only calibre e-book text extraction with a FolioTone-owned fingerprint."""
 
 from __future__ import annotations
 
@@ -36,15 +36,19 @@ from foliotone.tooling.structured import StructuredOutputError
 
 from .common import CalibreAdapterError, calibre_version_policy, validated_observed_file
 
+CALIBRE_TEXT_FORMATS = ("EPUB", "MOBI", "AZW", "AZW3")
+CALIBRE_TEXT_SUFFIXES = frozenset(
+    f".{format_name.lower()}" for format_name in CALIBRE_TEXT_FORMATS
+)
 CALIBRE_TEXT_PROVIDER = ToolProviderDescriptor(
     provider_id="calibre",
     display_name="calibre ebook-convert text extraction",
-    adapter_version="ebook-convert-text/1",
+    adapter_version="ebook-convert-text/2",
     capabilities=frozenset({ToolCapability.EXTRACT_TEXT}),
 )
 CALIBRE_TEXT_ARTIFACT = "CALIBRE_TEXT"
 CALIBRE_TEXT_CONFIG_IDENTITY = (
-    "ebook-convert:txt:plain:utf-8:unix:max-line-length-0:"
+    "ebook-convert:epub-mobi-azw-azw3:txt:plain:utf-8:unix:max-line-length-0:"
     f"{TEXT_NORMALIZATION_PROFILE}"
 )
 MAX_TEXT_BYTES = DEFAULT_MAX_EBOOK_TEXT_BYTES
@@ -64,7 +68,7 @@ class CalibreTextOutcome:
 
 
 class CalibreTextAnalyzer:
-    """Extract plain EPUB text and persist a versioned normalized fingerprint."""
+    """Extract supported e-book text and persist a normalized fingerprint."""
 
     def __init__(
         self,
@@ -85,9 +89,12 @@ class CalibreTextAnalyzer:
         source_root: Path,
         observation: FileObservation,
     ) -> CalibreTextOutcome:
-        """Analyze one unchanged EPUB without exposing conversion options to callers."""
-        if PurePosixPath(observation.relative_path).suffix.lower() != ".epub":
-            raise CalibreTextError("calibre text analysis currently accepts only EPUB files")
+        """Analyze one unchanged e-book without exposing options to callers."""
+        suffix = PurePosixPath(observation.relative_path).suffix.lower()
+        if suffix not in CALIBRE_TEXT_SUFFIXES:
+            raise CalibreTextError(
+                "calibre text analysis accepts only EPUB, MOBI, AZW, or AZW3 files"
+            )
         try:
             source_file = validated_observed_file(source_root, observation)
         except CalibreAdapterError as error:

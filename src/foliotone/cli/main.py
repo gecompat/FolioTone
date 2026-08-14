@@ -168,19 +168,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     ebook_text = subparsers.add_parser(
         "ebook-text",
-        help="Extract EPUB text read-only and calculate a normalized SHA-256 fingerprint.",
+        help=(
+            "Extract EPUB/MOBI/AZW/AZW3 text read-only and calculate a normalized "
+            "SHA-256 fingerprint."
+        ),
     )
     ebook_text.add_argument(
         "--root",
         required=True,
         type=Path,
-        help="Runtime source root containing the already recorded EPUB observation.",
+        help="Runtime source root containing the recorded e-book observation.",
     )
     ebook_text.add_argument(
         "--observation-id",
         required=True,
         type=EntityId.parse,
-        help="Persisted EPUB FileObservation ID to analyze.",
+        help="Persisted EPUB/MOBI/AZW/AZW3 FileObservation ID to analyze.",
     )
     ebook_text.add_argument(
         "--database",
@@ -267,7 +270,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("The initial product surface is CLI-only.")
         print("A read-only scan CLI is available for controlled smoke tests.")
         print("Read-only calibre metadata extraction is available through ebook-metadata.")
-        print("Read-only EPUB text fingerprints are available through ebook-text.")
+        print(
+            "Read-only EPUB/MOBI/AZW/AZW3 text fingerprints are available through "
+            "ebook-text."
+        )
         print("Read-only PDF metadata and text analysis is available through pdf-analyze.")
         print("Source-media and external-tool mutation commands are not implemented.")
         return 0

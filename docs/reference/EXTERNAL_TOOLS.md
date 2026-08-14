@@ -31,12 +31,13 @@ Through W9, source media remains read-only. Tool write/delete/move/retag capabil
 
 Priority: **very high**
 
-Evaluated snapshot: **9.13.0 on 2026-08-14; metadata and EPUB-text adapters implemented**
+Evaluated snapshot: **9.13.0 on 2026-08-14; metadata and EPUB/MOBI/AZW/AZW3 text adapters implemented**
 
 Candidate roles:
 
 - e-book metadata extraction through calibre CLI tools;
-- deterministic plain-text extraction from EPUB for FolioTone-owned fingerprints;
+- deterministic plain-text extraction from EPUB, MOBI, AZW and AZW3 for
+  FolioTone-owned fingerprints;
 - calibre library inventory/query through `calibredb`;
 - optional remote library access through a calibre Content Server used by `calibredb`;
 - format inspection/conversion support for analysis workflows;
@@ -61,12 +62,15 @@ artifact and rejects unknown versions or calibre versions below 9.10.0 before
 opening Source Media. This minimum follows `GHSA-2j4m-2q7x-2c47` /
 `CVE-2026-53511`; versions through 9.9.0 are affected.
 
-The EPUB-text adapter applies the same version floor and isolated configuration
-to `ebook-convert`. It accepts EPUB only, writes exclusively into the private
-tool workspace, captures at most 64 MiB as `CALIBRE_TEXT`, and exposes no
-caller-controlled conversion options. FolioTone then computes the versioned
+The text adapter applies the same version floor and isolated configuration to
+`ebook-convert`. Adapter version `ebook-convert-text/2` accepts exactly EPUB,
+MOBI, AZW and AZW3, writes exclusively into the private tool workspace,
+captures at most 64 MiB as `CALIBRE_TEXT`, and exposes no caller-controlled
+conversion options. FolioTone then computes the versioned
 `EBOOK_NORMALIZED_TEXT` SHA-256; calibre remains the replaceable extractor, not
-the fingerprint or domain model.
+the fingerprint or domain model. DRM removal or bypass is not implemented.
+Protected, damaged or otherwise failed conversions remain failures and are not
+mislabeled as successful `NO_TEXT` results.
 
 The binding evaluation, license notes and reuse/defer decisions are documented
 in [E-Book-Toolchain-Bewertung](EBOOK_TOOL_EVALUATION.md).
@@ -74,7 +78,9 @@ in [E-Book-Toolchain-Bewertung](EBOOK_TOOL_EVALUATION.md).
 Official references:
 
 - https://manual.calibre-ebook.com/en/generated/en/cli-index.html
+- https://manual.calibre-ebook.com/generated/en/ebook-meta.html
 - https://manual.calibre-ebook.com/generated/en/ebook-convert.html
+- https://manual.calibre-ebook.com/drm.html
 - https://manual.calibre-ebook.com/en/generated/en/calibredb.html
 - https://manual.calibre-ebook.com/server.html
 - https://github.com/kovidgoyal/calibre/security/advisories/GHSA-2j4m-2q7x-2c47

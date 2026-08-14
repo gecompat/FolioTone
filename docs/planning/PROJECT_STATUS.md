@@ -4,7 +4,7 @@ Stand: 2026-08-14
 
 ## Aktuelle Welle
 
-**W3 aktiv — calibre EPUB und Poppler PDF abgeschlossen; MOBI/AZW/AZW3 als Nächstes**
+**W3 aktiv — calibre EPUB/MOBI/AZW/AZW3 und Poppler PDF abgeschlossen; Feld-/Rollenabbildung als Nächstes**
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
@@ -14,7 +14,9 @@ calibre, EPUBCheck, Poppler und qpdf; `W3-002` implementiert die erste feste,
 read-only `ebook-meta`-Befehlsform. `W3-003` ergänzt feste EPUB-
 Textextraktion und einen FolioTone-eigenen normalisierten Text-Fingerprint.
 `W3-004` ergänzt feste Poppler-PDF-Metadaten-, Seiten- und Textpfade mit
-explizitem `NO_TEXT`. `W3-005` ist der nächste Backlog-Eintrag.
+explizitem `NO_TEXT`. `W3-005` erweitert den unveränderlichen calibre-
+Analysepfad ohne nativen Formatparser auf MOBI, AZW und AZW3. `W3-006` ist der
+nächste Backlog-Eintrag.
 
 ## Implementierter W2-Slice
 
@@ -140,7 +142,8 @@ Beim Upgrade einer bestehenden `0002`-Datenbank wird keine historische Abwesenhe
 
 `W3-001` ist mit einem Snapshot vom 2026-08-14 abgeschlossen:
 
-- calibre 9.13.0 wird für dateibezogene Metadaten wiederverwendet;
+- calibre 9.13.0 wird für dateibezogene Metadaten sowie die
+  EPUB/MOBI/AZW/AZW3-Textextraktion wiederverwendet;
 - EPUBCheck 5.3.0 ist für spätere EPUB-Konformitäts-Evidence ausgewählt;
 - Poppler 26.07.0 ist für PDF-Metadaten-, Seiten- und Textanalyse implementiert;
 - qpdf 12.4.0 bleibt eine optionale zweite Quelle für PDF-Struktur und
@@ -177,19 +180,24 @@ Subcommands `list --for-machine` und `show_metadata --as-opf` stehen neben
 zahlreichen mutierenden Befehlen. Eine spätere Integration benötigt daher eine
 enge Read-Command-Allowlist und einen konkreten Library-Reconciliation-Vertrag.
 
-### calibre EPUB-Text und normalisierter Fingerprint
+### calibre EPUB/MOBI/AZW/AZW3-Text und normalisierter Fingerprint
 
 `W3-003` implementiert `CalibreTextAnalyzer` und den CLI-Befehl
-`foliotone ebook-text`. Der Adapter akzeptiert ausschließlich EPUB und besitzt
-eine unveränderliche `ebook-convert FILE content.txt`-Befehlsform mit
-`plain`-Ausgabe, UTF-8, Unix-Zeilenenden und deaktivierter Zeilenaufteilung.
-Aufrufende Komponenten können keine calibre-Konvertierungsoptionen ergänzen.
+`foliotone ebook-text` zunächst für EPUB. `W3-005` erweitert denselben Adapter
+auf die explizite Allowlist EPUB, MOBI, AZW und AZW3. Die unveränderliche
+`ebook-convert FILE content.txt`-Befehlsform verwendet `plain`-Ausgabe, UTF-8,
+Unix-Zeilenenden und deaktivierte Zeilenaufteilung. Aufrufende Komponenten
+können keine calibre-Konvertierungsoptionen ergänzen. KFX, AZW1, AZW4 und
+weitere Formate gehören nicht zu diesem Textvertrag.
 
 Die Sicherheitsuntergrenze calibre 9.10.0, das ephemere
 `CALIBRE_CONFIG_DIRECTORY` und `CALIBRE_ALLOW_PYTHON_TEMPLATES=0` gelten auch
 für diesen Adapter. Die Ausgabe wird vor dem Workspace-Cleanup als privates,
 maximal 64 MiB großes `CALIBRE_TEXT`-Artefakt mit Größe und SHA-256 übernommen.
-Der Rohtext wird nicht über die CLI ausgegeben.
+Der Rohtext wird nicht über die CLI ausgegeben. DRM-Entfernung oder -Umgehung
+gehört nicht zum Vertrag. Ein DRM-geschütztes, beschädigtes oder anderweitig
+nicht konvertierbares Buch bleibt eine fehlgeschlagene `ToolExecution`; nur
+eine erfolgreiche leere Extraktion darf `NO_TEXT` erzeugen.
 
 Nach UTF-8- und Artifact-Integritätsprüfung normalisiert FolioTone den Text mit
 Unicode `NFKC`, reduziert Unicode-Whitespace-Folgen und bildet SHA-256. Der
@@ -276,7 +284,7 @@ Die später implementierten `DELETED`-, Relocation- und Resume-Funktionen sind d
 
 Der Linux-Container wurde über Docker Engine 29.7.2 und Docker Compose 5.4.0 in WSL2 gebaut. Container-Bootstrap und Alembic-Head-Migration waren erfolgreich. Der allowlist-basierte Docker-Build-Kontext enthält ausschließlich `Dockerfile`, `pyproject.toml`, `README.md` und `src/`; lokale Runtime-, Medien-, Secret-, Test- und Git-Daten werden nicht übertragen.
 
-### W3-001 bis W3-004 lokale Verifikation
+### W3-001 bis W3-005 lokale Verifikation
 
 **Empirisch:** Am 2026-08-14 wurde das offizielle calibre-9.13.0-MSI nach
 SHA-256- und Authenticode-Prüfung als separates administratives Abbild unter
@@ -331,18 +339,32 @@ nach Abschluss leer.
 Der vollständige W3-004-Stand bestand anschließend lokal `ruff check .`, Mypy
 für 63 Source-Dateien und alle 133 Pytest-Tests in 6 Minuten 35 Sekunden.
 
+**Empirisch für W3-005:** Ein End-to-End-Lauf mit calibre 9.13.0 und
+ausschließlich synthetischen, DRM-freien EPUB-, MOBI-, AZW- und AZW3-Dateien
+bestätigte vier erfolgreiche Metadaten- sowie vier erfolgreiche Text-
+`ToolExecution`-Records. Alle vier Textläufe lieferten `TEXT_EXTRACTED`, 43
+normalisierte Zeichen und denselben `EBOOK_NORMALIZED_TEXT`-Fingerprint. Der
+Adapterstand `ebook-convert-text/2` war viermal erfolgreich persistiert. Das
+ephemere Work-Verzeichnis war nach Abschluss leer; Rohtext wurde nicht über die
+CLI ausgegeben. Die gezielten 32 calibre-/CLI-Tests sowie Ruff und Mypy für 63
+Source-Dateien waren erfolgreich.
+
+Der vollständige W3-005-Stand bestand anschließend lokal `ruff check .`, Mypy
+für 63 Source-Dateien und alle 142 Pytest-Tests in 8 Minuten 50 Sekunden.
+
 ## W3-Stand und nächster Schritt
 
-In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` bis `W3-004` sind
-abgeschlossen. `W3-005` ist `NEXT`: MOBI/AZW/AZW3-Beobachtungen werden zunächst
-über calibre oder ein anderes gepflegtes Werkzeug unterstützt, bevor
-formatspezifischer Code entsteht.
+In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` bis `W3-005` sind
+abgeschlossen. `W3-006` ist `NEXT`: ISBN, Contributors, Sprache, Verlag, Serie
+und weitere Felder werden als Provenance-erhaltende Beobachtungen und
+Kandidaten detaillierter abgebildet.
 
 ## Nicht implementiert
 
 Noch nicht vorhanden sind unter anderem:
 
-- MOBI/AZW/AZW3- sowie weitere E-Book- und alle Music-ToolProvider;
+- weitere Formate außerhalb der expliziten EPUB/MOBI/AZW/AZW3-Text-Allowlist
+  sowie alle Music-ToolProvider;
 - calibre Library Reconciliation;
 - Entity Resolution Engine;
 - externe Knowledge Provider und Provider Cache;
