@@ -3,16 +3,17 @@
 Stand: 2026-08-14
 
 Diese Bewertung schloss `W3-001` ab und dokumentiert zusätzlich die in
-`W3-002` bis `W3-004` implementierten calibre- und Poppler-Verträge. Sie betrachtet nur
-dokumentierte, automatisierbare und bis einschließlich W9 nicht mutierende
-Analysepfade. Die Versionsangaben sind ein zeitgebundener Snapshot und müssen
-vor einem späteren Upgrade oder einer neuen Integration erneut geprüft werden.
+`W3-002` bis `W3-005` implementierten calibre- und Poppler-Verträge. Sie
+betrachtet nur dokumentierte, automatisierbare und bis einschließlich W9 nicht
+mutierende Analysepfade. Die Versionsangaben sind ein zeitgebundener Snapshot
+und müssen vor einem späteren Upgrade oder einer neuen Integration erneut
+geprüft werden.
 
 ## Entscheidungsmatrix
 
 | Werkzeug | geprüfter Stand | Lizenz | geeignete FolioTone-Rolle | Entscheidung |
 |---|---:|---|---|---|
-| calibre | 9.13.0 | GPL-3.0 | Metadaten aus mehreren Formaten; EPUB-Textextraktion; spätere optionale Library-Abfragen | `ebook-meta` für `W3-002` und `ebook-convert` für `W3-003` wiederverwenden; `calibredb` vorerst zurückstellen |
+| calibre | 9.13.0 | GPL-3.0 | Metadaten aus mehreren Formaten; EPUB/MOBI/AZW/AZW3-Textextraktion; spätere optionale Library-Abfragen | `ebook-meta` für `W3-002`/`W3-005` und `ebook-convert` für `W3-003`/`W3-005` wiederverwenden; `calibredb` vorerst zurückstellen |
 | EPUBCheck | 5.3.0 | BSD-3-Clause | EPUB-2-/EPUB-3-Konformität und strukturelle Fehler mit JSON-Report | für `W3-008` vormerken; nicht für Metadaten- oder Textextraktion verwenden |
 | Poppler | 26.07.0 | GPL-2.0-or-later in den geprüften Frontend-Quellen; vor Redistribution komponentengenau prüfen | PDF-Metadaten, Seitenzahl und Text über `pdfinfo`/`pdftotext` | für `W3-004` als zwei feste CLI-Adapterpfade implementiert |
 | qpdf | 12.4.0 | Apache-2.0 | PDF-Struktur, Integrität und maschinenlesbare JSON-v2-Repräsentation | optional ergänzend für strukturelle Evidence; nicht für Textextraktion |
@@ -53,13 +54,16 @@ Offizielle Referenzen:
 - https://manual.calibre-ebook.com/generated/en/cli-index.html
 - https://github.com/kovidgoyal/calibre
 
-### EPUB-Text und FolioTone-Fingerprint
+### EPUB/MOBI/AZW/AZW3-Text und FolioTone-Fingerprint
 
 `W3-003` verwendet die dokumentierte `ebook-convert`-Schnittstelle, weil
 calibre EPUB-Spine, Markup und Zeichencodierung bereits formatgerecht in eine
 TXT-Repräsentation überführt. FolioTone implementiert deshalb keinen parallelen
-EPUB-Parser. Der Adapter akzeptiert ausschließlich eine zuvor persistierte,
-unveränderte EPUB-`FileObservation` und besitzt diese feste Befehlsform:
+EPUB-Parser. `W3-005` verwendet dieselbe dokumentierte Schnittstelle für MOBI,
+AZW und AZW3, statt formatspezifischen Code hinzuzufügen. Adapterversion
+`ebook-convert-text/2` akzeptiert ausschließlich eine zuvor persistierte,
+unveränderte EPUB-, MOBI-, AZW- oder AZW3-`FileObservation` und besitzt diese
+feste Befehlsform:
 
 ```text
 ebook-convert <runtime-source-file> content.txt
@@ -98,9 +102,18 @@ Der Fingerprint beschreibt nur den durch calibre extrahierbaren Plaintext in
 der von calibre bestimmten Lesereihenfolge. Layout, CSS, Bilder, Linkziele,
 OCR und nicht extrahierbarer Bildtext gehören nicht zu diesem Vertrag.
 
+KFX, AZW1, AZW4 und weitere Formate sind nicht Teil der expliziten Text-
+Allowlist. Calibre unterstützt laut eigener Dokumentation keine DRM-Entfernung.
+FolioTone ergänzt weder Entschlüsselung noch DRM-Umgehung. Geschützte,
+beschädigte oder anderweitig nicht konvertierbare Dateien bleiben
+fehlgeschlagene `ToolExecution`-Records ohne Textstatus oder Fingerprint. Nur
+eine erfolgreiche Konvertierung mit leerem normalisiertem Inhalt ist
+`NO_TEXT`.
+
 Offizielle Referenz:
 
 - https://manual.calibre-ebook.com/generated/en/ebook-convert.html
+- https://manual.calibre-ebook.com/drm.html
 
 ### Verbindliche Sicherheitsuntergrenze
 
@@ -239,7 +252,7 @@ Offizielle Referenzen:
 - https://qpdf.readthedocs.io/en/latest/json.html
 - https://github.com/qpdf/qpdf/blob/main/LICENSE.txt
 
-## Verifizierte `W3-002`- bis `W3-004`-Slices
+## Verifizierte `W3-002`- bis `W3-005`-Slices
 
 Am 2026-08-14 wurde calibre 9.13.0 als separates administratives Abbild außerhalb
 des Repositorys installiert. Das offizielle MSI hatte den erwarteten
@@ -279,3 +292,17 @@ echten Medien verwendet.
 
 Der vollständige W3-004-Stand bestand anschließend lokal `ruff check .`, Mypy
 für 63 Source-Dateien und alle 133 Pytest-Tests.
+
+Der `W3-005`-Smoke-Test verwendete ausschließlich synthetische, DRM-freie
+EPUB-, MOBI-, AZW- und AZW3-Dateien. `foliotone scan` erzeugte vier
+`FileObservation`-Records. Danach lieferten `foliotone ebook-metadata` und
+`foliotone ebook-text` je Format insgesamt acht erfolgreiche calibre-
+`ToolExecution`-Records. Jeder Textlauf ergab `TEXT_EXTRACTED`, 43
+normalisierte Zeichen und denselben `EBOOK_NORMALIZED_TEXT`-Fingerprint. Vier
+Ausführungen wurden mit Adapterversion `ebook-convert-text/2` persistiert. Das
+ephemere Work-Verzeichnis war nach Abschluss leer; Rohtext wurde nicht über die
+CLI ausgegeben. Die gezielten 32 calibre-/CLI-Tests sowie Ruff und Mypy für 63
+Source-Dateien waren erfolgreich.
+
+Der vollständige W3-005-Stand bestand lokal `ruff check .`, Mypy für 63
+Source-Dateien und alle 142 Pytest-Tests in 8 Minuten 50 Sekunden.

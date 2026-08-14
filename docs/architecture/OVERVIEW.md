@@ -90,6 +90,15 @@ FolioTone-owned normalized-text fingerprint used for EPUB. Successful empty
 extraction is explicit `NO_TEXT`; tool failures are not converted into that
 state. The slice exposes no OCR, password, arbitrary-option or write path.
 
+The fourth W3 vertical slice reuses the existing calibre adapters instead of
+adding native Kindle-format parsers. `ebook-meta` remains format-neutral, while
+`ebook-text` now accepts an exact EPUB/MOBI/AZW/AZW3 allowlist through adapter
+version `ebook-convert-text/2`. The conversion command, private artifact,
+normalization and fingerprint contracts are unchanged. DRM removal or bypass
+is outside FolioTone; protected, damaged or otherwise failed conversions remain
+failed executions and never become successful `NO_TEXT` observations. KFX,
+AZW1, AZW4 and other formats remain outside this text contract.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.

@@ -150,8 +150,18 @@ class RecordingRuntime:
         return self.opf
 
 
+@pytest.mark.parametrize(
+    "relative_path",
+    (
+        "books/example.epub",
+        "books/example.mobi",
+        "books/example.azw",
+        "books/example.azw3",
+    ),
+)
 def test_analyzer_exposes_only_read_only_command_shape_and_persists_results(
     tmp_path: Path,
+    relative_path: str,
 ) -> None:
     database = tmp_path / "foliotone.db"
     migrate(database)
@@ -173,7 +183,7 @@ def test_analyzer_exposes_only_read_only_command_shape_and_persists_results(
     fake_runtime = RecordingRuntime(execution, SAMPLE_OPF)
 
     source_root = tmp_path / "media"
-    source_file = source_root / "books" / "example.epub"
+    source_file = source_root.joinpath(*relative_path.split("/"))
     source_file.parent.mkdir(parents=True)
     source_file.write_bytes(b"synthetic ebook")
     stat = source_file.stat()
@@ -181,7 +191,7 @@ def test_analyzer_exposes_only_read_only_command_shape_and_persists_results(
         id=EntityId.new(),
         file_id=EntityId.new(),
         scan_run_id=EntityId.new(),
-        relative_path="books/example.epub",
+        relative_path=relative_path,
         size_bytes=stat.st_size,
         modified_at=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
         observed_at=NOW,

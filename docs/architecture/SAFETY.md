@@ -77,5 +77,9 @@ adapters store it only as bounded `ToolArtifact` data under the configured
 artifact root; the CLI emits status, character count and fingerprint, but not
 the raw text. Their fixed command allowlists expose no caller-controlled
 conversion options, PDF passwords, OCR or Source-Media write operations.
+The calibre text allowlist is limited to EPUB, MOBI, AZW and AZW3. FolioTone
+does not remove or bypass DRM; protected, damaged or otherwise failed
+conversions remain failed `ToolExecution` records and are not mislabeled as
+successful `NO_TEXT` observations.
 
 Imported/local provider datasets and external tool reports derived from a private collection must also stay out of Git unless a future explicit decision establishes that a specific redistributable artifact belongs in the repository.

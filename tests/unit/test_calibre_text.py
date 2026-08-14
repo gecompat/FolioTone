@@ -9,7 +9,9 @@ from foliotone.adapters.calibre.common import calibre_version_policy
 from foliotone.adapters.calibre.text import (
     CALIBRE_TEXT_ARTIFACT,
     CALIBRE_TEXT_CONFIG_IDENTITY,
+    CALIBRE_TEXT_FORMATS,
     CALIBRE_TEXT_PROVIDER,
+    CALIBRE_TEXT_SUFFIXES,
     MAX_TEXT_BYTES,
     TEXT_FINGERPRINT_KIND,
     TEXT_NORMALIZATION_PROFILE,
@@ -69,6 +71,7 @@ class RecordingRuntime:
         self.command: LocalCommand | None = None
         self.input_identity: str | None = None
         self.config_identity: str | None = None
+        self.read_artifact_calls = 0
         self.text = text
         artifact = ToolArtifact(
             id=EntityId.new(),
@@ -95,17 +98,31 @@ class RecordingRuntime:
         return self.outcome
 
     def read_artifact_bytes(self, _artifact: ToolArtifact, *, max_bytes: int) -> bytes:
+        self.read_artifact_calls += 1
         assert max_bytes == MAX_TEXT_BYTES
         return self.text
 
 
+@pytest.mark.parametrize(
+    "relative_path",
+    (
+        "books/example.epub",
+        "books/example.mobi",
+        "books/example.azw",
+        "books/example.azw3",
+    ),
+)
 def test_analyzer_uses_fixed_command_and_persists_status_and_fingerprint(
     tmp_path: Path,
+    relative_path: str,
 ) -> None:
     database = tmp_path / "foliotone.db"
     migrate(database)
     engine = create_sqlite_engine(database)
-    source_root, source_file, observation = _synthetic_observation(tmp_path)
+    source_root, source_file, observation = _synthetic_observation(
+        tmp_path,
+        relative_path=relative_path,
+    )
     execution = _successful_execution(observation)
     repository(engine, ToolExecution).save(execution)
     runtime = RecordingRuntime(execution, b"  Example\r\ntext  ")
@@ -118,6 +135,11 @@ def test_analyzer_uses_fixed_command_and_persists_status_and_fingerprint(
     outcome = analyzer.analyze(source_root, observation)
 
     assert runtime.descriptor == CALIBRE_TEXT_PROVIDER
+    assert CALIBRE_TEXT_PROVIDER.adapter_version == "ebook-convert-text/2"
+    assert CALIBRE_TEXT_FORMATS == ("EPUB", "MOBI", "AZW", "AZW3")
+    assert CALIBRE_TEXT_SUFFIXES == frozenset(
+        {".epub", ".mobi", ".azw", ".azw3"}
+    )
     assert runtime.command is not None
     assert runtime.command.args == (
         str(source_file.resolve()),
@@ -138,6 +160,7 @@ def test_analyzer_uses_fixed_command_and_persists_status_and_fingerprint(
     assert runtime.command.version_policy is calibre_version_policy
     assert runtime.input_identity == f"file-observation:{observation.id}"
     assert runtime.config_identity == CALIBRE_TEXT_CONFIG_IDENTITY
+    assert runtime.read_artifact_calls == 1
 
     assert {(result.key, result.value) for result in outcome.results} == {
         ("text_status", "TEXT_EXTRACTED"),
@@ -192,21 +215,59 @@ def test_analyzer_rejects_changed_source_before_invoking_calibre(tmp_path: Path)
     assert runtime.command is None
 
 
-def test_analyzer_rejects_non_epub_before_invoking_calibre(tmp_path: Path) -> None:
+@pytest.mark.parametrize("suffix", (".pdf", ".azw4", ".kfx"))
+def test_analyzer_rejects_unsupported_format_before_invoking_calibre(
+    tmp_path: Path,
+    suffix: str,
+) -> None:
     database = tmp_path / "foliotone.db"
     migrate(database)
     engine = create_sqlite_engine(database)
     source_root, _source_file, observation = _synthetic_observation(
         tmp_path,
-        relative_path="books/example.pdf",
+        relative_path=f"books/example{suffix}",
     )
     execution = _successful_execution(observation)
     runtime = RecordingRuntime(execution, b"text")
 
     analyzer = CalibreTextAnalyzer(engine, runtime)  # type: ignore[arg-type]
-    with pytest.raises(CalibreTextError, match="only EPUB"):
+    with pytest.raises(
+        CalibreTextError,
+        match="only EPUB, MOBI, AZW, or AZW3",
+    ):
         analyzer.analyze(source_root, observation)
     assert runtime.command is None
+    assert runtime.read_artifact_calls == 0
+
+
+def test_failed_conversion_is_not_mislabeled_as_no_text(tmp_path: Path) -> None:
+    database = tmp_path / "foliotone.db"
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    source_root, _source_file, observation = _synthetic_observation(
+        tmp_path,
+        relative_path="books/protected.azw3",
+    )
+    execution = _execution(
+        observation,
+        status=ToolExecutionStatus.FAILED,
+        exit_code=1,
+        error_summary="exit code 1",
+    )
+    repository(engine, ToolExecution).save(execution)
+    runtime = RecordingRuntime(execution, b"")
+
+    outcome = CalibreTextAnalyzer(engine, runtime).analyze(  # type: ignore[arg-type]
+        source_root,
+        observation,
+    )
+
+    assert outcome.run.execution.status is ToolExecutionStatus.FAILED
+    assert outcome.results == ()
+    assert outcome.fingerprint is None
+    assert runtime.read_artifact_calls == 0
+    assert repository(engine, ToolResult).list_all() == []
+    assert repository(engine, Fingerprint).list_all() == []
 
 
 def _synthetic_observation(
@@ -232,16 +293,31 @@ def _synthetic_observation(
 
 
 def _successful_execution(observation: FileObservation) -> ToolExecution:
+    return _execution(
+        observation,
+        status=ToolExecutionStatus.SUCCEEDED,
+        exit_code=0,
+    )
+
+
+def _execution(
+    observation: FileObservation,
+    *,
+    status: ToolExecutionStatus,
+    exit_code: int,
+    error_summary: str | None = None,
+) -> ToolExecution:
     return ToolExecution(
         id=EntityId.new(),
         provider_id="calibre",
         tool_version="ebook-convert.exe (calibre 9.13.0)",
-        adapter_version="ebook-convert-text/1",
+        adapter_version="ebook-convert-text/2",
         capability=ToolCapability.EXTRACT_TEXT,
         input_identity=f"file-observation:{observation.id}",
         config_identity=CALIBRE_TEXT_CONFIG_IDENTITY,
         started_at=NOW,
         finished_at=NOW,
-        status=ToolExecutionStatus.SUCCEEDED,
-        exit_code=0,
+        status=status,
+        exit_code=exit_code,
+        error_summary=error_summary,
     )

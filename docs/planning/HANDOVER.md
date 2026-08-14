@@ -14,7 +14,8 @@ E-Book-Toolchain ist bewertet, und der erste read-only calibre-Metadaten-Slice
 ist implementiert. `W3-003` ergänzt einen festen read-only calibre-EPUB-
 Textpfad und einen FolioTone-eigenen normalisierten Fingerprint. `W3-004`
 ergänzt feste Poppler-PDF-Metadaten-, Seiten- und Textpfade mit explizitem
-`NO_TEXT`. `W3-005` ist als Nächstes vorgesehen.
+`NO_TEXT`. `W3-005` erweitert die vorhandenen calibre-Pfade auf eine explizite
+EPUB/MOBI/AZW/AZW3-Allowlist. `W3-006` ist als Nächstes vorgesehen.
 
 ## Vor Änderungen lesen
 
@@ -72,7 +73,7 @@ Die Abschlussprüfung bestätigt zusätzlich:
 - keine Wiederverwendung ohne explizite Konfigurationsidentität;
 - allowlist-basierten Docker-Build-Kontext ohne lokale Runtime-, Medien-, Secret-, Test- oder Git-Daten.
 
-### W3-001 bis W3-004
+### W3-001 bis W3-005
 
 Der Snapshot vom 2026-08-14 wählt calibre 9.13.0 für dateibezogene Metadaten,
 EPUBCheck 5.3.0 für spätere EPUB-Konformität, Poppler 26.07.0 für implementierte
@@ -95,14 +96,15 @@ Source-Dateien und 107 Pytest-Tests. Der Implementierungscommit
 `1a02dc146919db7294b7b88ad6d9f6a7a6e60e04` bestand GitHub Actions Run
 `31794835407` einschließlich aller Docker-Smoke-Schritte.
 
-`foliotone ebook-text` akzeptiert ausschließlich eine unveränderte EPUB-
-`FileObservation`. Der Adapter ruft `ebook-convert` mit einer festen
+`foliotone ebook-text` akzeptiert eine unveränderte EPUB-, MOBI-, AZW- oder
+AZW3-`FileObservation`. Der Adapter ruft `ebook-convert` mit einer festen
 Plaintext-/UTF-8-/Unix-Befehlsform auf und übernimmt maximal 64 MiB als privates
 `CALIBRE_TEXT`-Artefakt. FolioTone normalisiert mit Unicode `NFKC`, reduziert
 Whitespace und speichert SHA-256 als `EBOOK_NORMALIZED_TEXT`-`Fingerprint` mit
 `ToolExecution`-Link und versioniertem Unicode-Datenprofil. `TEXT_EXTRACTED`
-und `NO_TEXT` sind explizite `ToolResult`-Werte; `NO_TEXT` erzeugt keinen
-Fingerprint. Rohtext erscheint nicht in der CLI-Ausgabe.
+und `NO_TEXT` sind explizite `ToolResult`-Werte; `NO_TEXT` entsteht nur nach
+erfolgreicher leerer Extraktion und erzeugt keinen Fingerprint. DRM-Umgehung
+gehört nicht zum Vertrag. Rohtext erscheint nicht in der CLI-Ausgabe.
 
 Ein lokaler End-to-End-Smoke-Test mit calibre 9.13.0 und ausschließlich dem
 synthetischen EPUB bestätigte `TEXT_EXTRACTED`, 43 normalisierte Zeichen, ein
@@ -130,6 +132,17 @@ ephemeren Work-Verzeichnisse waren nach Abschluss leer.
 
 Der vollständige W3-004-Stand bestand lokal `ruff check .`, Mypy für 63
 Source-Dateien und alle 133 Pytest-Tests in 6 Minuten 35 Sekunden.
+
+Der lokale W3-005-End-to-End-Smoke verwendete ausschließlich synthetische,
+DRM-freie EPUB-, MOBI-, AZW- und AZW3-Dateien. Mit calibre 9.13.0 entstanden
+jeweils vier erfolgreiche Metadaten- und Textausführungen. Alle Textläufe
+lieferten `TEXT_EXTRACTED`, 43 normalisierte Zeichen und denselben
+`EBOOK_NORMALIZED_TEXT`-Fingerprint; das Work-Verzeichnis war danach leer. Die
+gezielten 32 calibre-/CLI-Tests sowie Ruff und Mypy für 63 Source-Dateien waren
+erfolgreich.
+
+Der vollständige W3-005-Stand bestand lokal `ruff check .`, Mypy für 63
+Source-Dateien und alle 142 Pytest-Tests in 8 Minuten 50 Sekunden.
 
 ## W2 aktuell implementiert
 
@@ -197,11 +210,11 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
   Series-Beobachtungen mit `ToolExecution`-Link;
 - kein `calibredb` bis zu einem konkreten read-only Library-Reconciliation-Vertrag.
 
-### calibre-EPUB-Text
+### calibre-EPUB/MOBI/AZW/AZW3-Text
 
 - `CalibreTextAnalyzer` und CLI `foliotone ebook-text`;
-- ausschließlich EPUB und eine feste `ebook-convert FILE content.txt`-
-  Befehlsform ohne frei übergebbare Optionen;
+- explizite EPUB/MOBI/AZW/AZW3-Allowlist und eine feste
+  `ebook-convert FILE content.txt`-Befehlsform ohne frei übergebbare Optionen;
 - `ToolCapability.EXTRACT_TEXT` sowie Sicherheitsuntergrenze calibre 9.10.0;
 - UTF-8-Plaintext, Unix-Zeilenenden und deaktivierte Zeilenaufteilung;
 - maximal 64 MiB großes privates, integritätsgeprüftes `CALIBRE_TEXT`-Artefakt;
@@ -209,6 +222,8 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
 - `EBOOK_NORMALIZED_TEXT` gegen konkrete `FileObservation` und `ToolExecution`;
 - explizite Zustände `TEXT_EXTRACTED` und `NO_TEXT`, ohne Fingerprint bei
   fehlendem Text;
+- keine DRM-Entfernung oder -Umgehung; Konvertierungsfehler bleiben
+  fehlgeschlagene `ToolExecution`-Records und werden nicht zu `NO_TEXT`;
 - keine Ausgabe des extrahierten Rohtexts über die CLI.
 
 ### Poppler-PDF
@@ -240,11 +255,11 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-005` — MOBI/AZW/AZW3-Beobachtungen zunächst über calibre;
-2. `W3-006` — detailliertere Feld-/Rollenabbildung als Provenance-erhaltende
+1. `W3-006` — detailliertere Feld-/Rollenabbildung als Provenance-erhaltende
    Beobachtungen und Kandidaten.
-3. `W3-007` — synthetische/öffentliche Vergleichs-Fixtures für Editionen,
+2. `W3-007` — synthetische/öffentliche Vergleichs-Fixtures für Editionen,
    Übersetzungen, Metadatenänderungen und Tool-Disagreement.
+3. `W3-008` — strukturelle Validierungs- und Book-Diff-Evidence bewerten.
 
 Die Produktoberfläche bleibt dabei ausschließlich die CLI. Externe Tool-Ergebnisse werden weiterhin als Evidence behandelt und nicht direkt zu kanonischen Metadaten.
 

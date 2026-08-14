@@ -9,7 +9,9 @@ from foliotone.adapters.calibre.metadata import (
     parse_calibre_opf,
 )
 from foliotone.adapters.calibre.text import (
+    CALIBRE_TEXT_FORMATS,
     CALIBRE_TEXT_PROVIDER,
+    CALIBRE_TEXT_SUFFIXES,
     CalibreTextAnalyzer,
     CalibreTextError,
     CalibreTextOutcome,
@@ -19,7 +21,9 @@ from foliotone.adapters.calibre.text import (
 
 __all__ = [
     "CALIBRE_PROVIDER",
+    "CALIBRE_TEXT_FORMATS",
     "CALIBRE_TEXT_PROVIDER",
+    "CALIBRE_TEXT_SUFFIXES",
     "CalibreMetadataAnalyzer",
     "CalibreMetadataError",
     "CalibreMetadataOutcome",
