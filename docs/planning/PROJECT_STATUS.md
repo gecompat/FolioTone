@@ -427,6 +427,11 @@ zweier widersprüchlicher Tool-Werte ohne Kanonisierung.
 Der vollständige W3-007-Stand bestand lokal `ruff check .`, Mypy für 64
 Source-Dateien und alle 155 Pytest-Tests in 8 Minuten 25 Sekunden.
 
+**Remote für W3-007:** Der Implementierungscommit
+`352eb8567c542e709e77f98de42c222f21dd3f75` von PR #17 bestand die beiden durch
+Push und Pull Request ausgelösten GitHub-Actions-Runs `31844049430` und
+`31844093222`. Beide `quality`-Jobs waren nach jeweils 52 Sekunden erfolgreich.
+
 ## W3-Stand und nächster Schritt
 
 In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` bis `W3-007` sind
