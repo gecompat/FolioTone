@@ -4,7 +4,7 @@ Stand: 2026-08-14
 
 ## Aktuelle Welle
 
-**W3 aktiv — OPF2-/OPF3-Feld-/Rollenabbildung abgeschlossen; Vergleichs-Fixtures als Nächstes**
+**W3 aktiv — versionierter Vergleichskorpus abgeschlossen; strukturelle Validierung als Nächstes**
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
@@ -18,7 +18,9 @@ explizitem `NO_TEXT`. `W3-005` erweitert den unveränderlichen calibre-
 Analysepfad ohne nativen Formatparser auf MOBI, AZW und AZW3. `W3-006` ergänzt
 rohe OPF2-/OPF3-Beobachtungen und provider-neutrale, gruppierte
 Metadatenkandidaten mit exakten `ToolExecution`-/`FileObservation`-Links.
-`W3-007` ist der nächste Backlog-Eintrag.
+`W3-007` ergänzt einen versionierten synthetischen Vergleichskorpus für
+Datei-, Inhalts-, `Edition`-, `Work`- und Tool-Disagreement-Ground-Truth.
+`W3-008` ist der nächste Backlog-Eintrag.
 
 ## Implementierter W2-Slice
 
@@ -250,6 +252,34 @@ Die CLI gibt keinen Rohtext aus. OCR, Passwortargumente, frei übergebbare
 Poppler-Optionen und schreibende PDF-Operationen sind nicht exponiert. qpdf
 bleibt bis zu einem konkreten strukturellen Evidence-Gap zurückgestellt.
 
+### Versionierter E-Book-Vergleichskorpus
+
+`W3-007` stellt unter `tests/fixtures/ebook_comparison/v1/` fünf vollständig
+synthetische Items und fünf gelabelte Szenarien bereit. Das Manifest
+`foliotone-ebook-comparison-fixture/v1` bindet ausschließlich sichere relative
+Pfade sowie SHA-256-Werte der Container-Surrogate und extrahierten
+Text-Artefakte. Der produktive `EBOOK_NORMALIZED_TEXT`-Vertrag erzeugt daraus
+die versionierten Inhalts-Fingerprints. `.gitattributes` verhindert dabei eine
+plattformabhängige Zeilenendenkonvertierung der checksum-behafteten Fixtures.
+
+Die Ground Truth unterscheidet:
+
+- zwei byte-identische Dateien;
+- unterschiedliche Dateibytes nach einer Metadatenänderung bei identischem
+  normalisiertem Text und derselben `Edition`;
+- dieselbe `Edition` als EPUB-/MOBI-Formatvariante;
+- eine Übersetzung als andere `Edition` desselben `Work`;
+- zwei widersprüchliche synthetische Tool-Beobachtungen für denselben
+  Identifier mit getrennten Tool-, Adapter- und Kandidatenprofilversionen.
+
+Die Container-Surrogate sind bewusst keine echten EPUB-/MOBI-Dateien und
+testen deshalb keine Drittanbieterparser nach. Das Disagreement-Szenario setzt
+keinen kanonischen Wert. Die deklarierten `RelationType`-Werte dienen als
+kontrollierte Eingabe für spätere W6-Tests; Candidate Blocking, Scoring,
+Confidence-Schwellen und automatische Review-Entscheidungen sind nicht Teil
+von W3-007. Der Slice ergänzt keine Produktoberfläche und verändert keine
+Source Media.
+
 ## Lizenz und Dokumentations-Governance
 
 Die Lizenz- und Dokumentationsentscheidungen bleiben unverändert:
@@ -303,7 +333,7 @@ Die später implementierten `DELETED`-, Relocation- und Resume-Funktionen sind d
 
 Der Linux-Container wurde über Docker Engine 29.7.2 und Docker Compose 5.4.0 in WSL2 gebaut. Container-Bootstrap und Alembic-Head-Migration waren erfolgreich. Der allowlist-basierte Docker-Build-Kontext enthält ausschließlich `Dockerfile`, `pyproject.toml`, `README.md` und `src/`; lokale Runtime-, Medien-, Secret-, Test- und Git-Daten werden nicht übertragen.
 
-### W3-001 bis W3-006 lokale Verifikation
+### W3-001 bis W3-007 lokale Verifikation
 
 **Empirisch:** Am 2026-08-14 wurde das offizielle calibre-9.13.0-MSI nach
 SHA-256- und Authenticode-Prüfung als separates administratives Abbild unter
@@ -388,12 +418,26 @@ Work-Verzeichnis war nach Abschluss leer.
 Der vollständige W3-006-Stand bestand lokal `ruff check .`, Mypy für 64
 Source-Dateien und alle 152 Pytest-Tests in 8 Minuten 45 Sekunden.
 
+**Empirisch für W3-007:** Die drei gezielten Fixture-Vertragsprüfungen
+bestanden. Sie prüfen Schema-Version und Provenance, sichere relative Pfade,
+alle deklarierten Datei-/Text-SHA-256-Werte, den produktiven normalisierten
+Text-Fingerprint, die vier paarweisen Identitätsabgrenzungen und die Erhaltung
+zweier widersprüchlicher Tool-Werte ohne Kanonisierung.
+
+Der vollständige W3-007-Stand bestand lokal `ruff check .`, Mypy für 64
+Source-Dateien und alle 155 Pytest-Tests in 8 Minuten 25 Sekunden.
+
+**Remote für W3-007:** Der Implementierungscommit
+`352eb8567c542e709e77f98de42c222f21dd3f75` von PR #17 bestand die beiden durch
+Push und Pull Request ausgelösten GitHub-Actions-Runs `31844049430` und
+`31844093222`. Beide `quality`-Jobs waren nach jeweils 52 Sekunden erfolgreich.
+
 ## W3-Stand und nächster Schritt
 
-In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` bis `W3-006` sind
-abgeschlossen. `W3-007` ist `NEXT`: synthetische/öffentliche Fixtures sollen
-identische Dateien, geänderte Metadaten, dieselbe und unterschiedliche
-Editionen/Übersetzungen sowie Tool-Disagreement vergleichbar abbilden.
+In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` bis `W3-007` sind
+abgeschlossen. `W3-008` ist `NEXT`: calibre und weitere geeignete Werkzeuge
+sollen auf wiederverwendbare strukturelle Validierungs- und Book-Diff-Evidence
+für spätere Qualitäts-/Inhaltsvergleiche bewertet werden.
 
 ## Nicht implementiert
 

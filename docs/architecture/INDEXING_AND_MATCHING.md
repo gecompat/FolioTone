@@ -130,6 +130,23 @@ Music:
 
 Blocking logic must be versioned/configurable where behavior can change.
 
+## Kontrollierter E-Book-Vergleichskorpus
+
+`W3-007` stellt unter `tests/fixtures/ebook_comparison/v1/` einen versionierten,
+vollständig synthetischen Referenzkorpus bereit. Das Manifest trennt rohe
+Dateibytes, extrahierte Text-Artefakte, FolioTone-normalisierte
+Text-Fingerprints, Metadatenbeobachtungen und gelabelte `Work`-/`Edition`-
+Ground-Truth. Die Szenarien bilden byte-identische Dateien, eine reine
+Metadatenänderung, dieselbe `Edition` in EPUB und MOBI sowie eine Übersetzung
+als andere `Edition` desselben `Work` ab.
+
+Ein weiterer Fall hält zwei widersprüchliche, versionsgebundene
+Tool-Beobachtungen desselben Identifier-Felds getrennt und setzt ausdrücklich
+keinen kanonischen Wert. Die deklarierten `RelationType`-Werte sind erwartete
+Ground Truth für spätere W6-Tests. W3-007 implementiert weder Candidate
+Blocking noch Scoring, Confidence-Schwellen oder automatische
+Review-Entscheidungen.
+
 ## Scoring
 
 Scoring happens only after duplicate/relation candidate generation. Rules/weights must be configurable or otherwise versioned so old decisions can be traced to the matcher behavior that produced them.

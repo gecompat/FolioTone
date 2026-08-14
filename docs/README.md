@@ -40,6 +40,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [Sprach- und Terminologierichtlinie](quality/LANGUAGE_AND_TERMINOLOGY.md) definiert Deutsch als kanonische erklärende Dokumentationssprache und schützt technische Literale vor Übersetzung.
 - [Glossar](reference/GLOSSARY.md) ist die zentrale Terminologiequelle.
 - [Lokaler W2-Smoke-Test](quality/LOCAL_SMOKE_TEST.md) dokumentiert den abgeschlossenen manuellen W2-Plattformtest.
+- [Synthetischer E-Book-Vergleichskorpus](../tests/fixtures/ebook_comparison/v1/README.md) dokumentiert die versionierte Ground Truth für spätere Matching-Tests.
 
 Automatische Dokumentationsprüfungen sind bewusst konservativ. Sie verhindern bekannte Regressionen wie Änderungen am geschützten Lizenzblock oder alte Projektnamen, ersetzen aber kein fachliches oder sprachliches Review.
 

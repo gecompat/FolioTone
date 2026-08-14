@@ -1,0 +1,212 @@
+{
+  "schema_version": "foliotone-ebook-comparison-fixture/v1",
+  "provenance": {
+    "source_kind": "synthetic",
+    "source_name": "FolioTone W3-007",
+    "license": "generated-for-foliotone-tests",
+    "contains_real_media": false
+  },
+  "items": [
+    {
+      "id": "lantern-en-epub-a",
+      "file_path": "files/lantern-en-ed1-epub-a.fixture",
+      "text_path": "text/lantern-en-v1.txt",
+      "media_format": "EPUB",
+      "file_sha256": "9aa6de2d9aa4973d3bc376c4a5e7c1559ddc2b5a6f0227939dc868641e52b553",
+      "text_artifact_sha256": "426293b290b747dd5659f16317cd1d4f2de4de81b2892e83b57784b4aa4d4449",
+      "normalized_text_sha256": "d81f494208b02c19328723b982fd804254f7088353c803c050201867eb5dd87b",
+      "ground_truth": {
+        "work_id": "work-lantern-archive",
+        "edition_id": "edition-lantern-archive-en-1",
+        "language": "en"
+      },
+      "metadata": {
+        "title": "The Lantern Archive",
+        "language": "en",
+        "publisher": "Northstar Press",
+        "identifier.isbn": "9780000000001",
+        "contributor.author": "Ada Example"
+      }
+    },
+    {
+      "id": "lantern-en-epub-copy",
+      "file_path": "files/lantern-en-ed1-epub-copy.fixture",
+      "text_path": "text/lantern-en-v1.txt",
+      "media_format": "EPUB",
+      "file_sha256": "9aa6de2d9aa4973d3bc376c4a5e7c1559ddc2b5a6f0227939dc868641e52b553",
+      "text_artifact_sha256": "426293b290b747dd5659f16317cd1d4f2de4de81b2892e83b57784b4aa4d4449",
+      "normalized_text_sha256": "d81f494208b02c19328723b982fd804254f7088353c803c050201867eb5dd87b",
+      "ground_truth": {
+        "work_id": "work-lantern-archive",
+        "edition_id": "edition-lantern-archive-en-1",
+        "language": "en"
+      },
+      "metadata": {
+        "title": "The Lantern Archive",
+        "language": "en",
+        "publisher": "Northstar Press",
+        "identifier.isbn": "9780000000001",
+        "contributor.author": "Ada Example"
+      }
+    },
+    {
+      "id": "lantern-en-epub-metadata-change",
+      "file_path": "files/lantern-en-ed1-epub-metadata-change.fixture",
+      "text_path": "text/lantern-en-v1.txt",
+      "media_format": "EPUB",
+      "file_sha256": "ac2df8a451a9b9138c8ae4ea0868e85b8f8520d6140076f56569a36dff482571",
+      "text_artifact_sha256": "426293b290b747dd5659f16317cd1d4f2de4de81b2892e83b57784b4aa4d4449",
+      "normalized_text_sha256": "d81f494208b02c19328723b982fd804254f7088353c803c050201867eb5dd87b",
+      "ground_truth": {
+        "work_id": "work-lantern-archive",
+        "edition_id": "edition-lantern-archive-en-1",
+        "language": "en"
+      },
+      "metadata": {
+        "title": "The Lantern Archive",
+        "language": "en",
+        "publisher": "North Star Press",
+        "identifier.isbn": "9780000000001",
+        "contributor.author": "Ada Example"
+      }
+    },
+    {
+      "id": "lantern-en-mobi",
+      "file_path": "files/lantern-en-ed1-mobi.fixture",
+      "text_path": "text/lantern-en-v1-format-variant.txt",
+      "media_format": "MOBI",
+      "file_sha256": "c707ddb962a3780a8c5fd5f70873ccc8ca9219c1e4560c1d299cd050911c0497",
+      "text_artifact_sha256": "0098c614129c393df027e7d38e8748a5f9af196348b32c62a632502ae64ca6e5",
+      "normalized_text_sha256": "d81f494208b02c19328723b982fd804254f7088353c803c050201867eb5dd87b",
+      "ground_truth": {
+        "work_id": "work-lantern-archive",
+        "edition_id": "edition-lantern-archive-en-1",
+        "language": "en"
+      },
+      "metadata": {
+        "title": "The Lantern Archive",
+        "language": "en",
+        "publisher": "Northstar Press",
+        "identifier.isbn": "9780000000001",
+        "contributor.author": "Ada Example"
+      }
+    },
+    {
+      "id": "lantern-de-epub",
+      "file_path": "files/lantern-de-ed2-epub.fixture",
+      "text_path": "text/lantern-de-v1.txt",
+      "media_format": "EPUB",
+      "file_sha256": "e81deab041660c221b383f560a041ddcc7ece7c3b5cf90d915c75370b2b02183",
+      "text_artifact_sha256": "00b9d9028cc86df8909f6d9cae858615d84647a790ede027dccb2088469460ca",
+      "normalized_text_sha256": "71aca2ade3131099b05ca1e0c9cc5d55a4bff69c03929956ccc647fe44d3d3a6",
+      "ground_truth": {
+        "work_id": "work-lantern-archive",
+        "edition_id": "edition-lantern-archive-de-1",
+        "language": "de"
+      },
+      "metadata": {
+        "title": "Das Laternenarchiv",
+        "language": "de",
+        "publisher": "Nordstern Verlag",
+        "identifier.isbn": "9780000000999",
+        "contributor.author": "Ada Example",
+        "contributor.translator": "Theo Translator"
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "identical-file",
+      "kind": "IDENTICAL_FILE",
+      "left_item": "lantern-en-epub-a",
+      "right_item": "lantern-en-epub-copy",
+      "expected": {
+        "same_file_bytes": true,
+        "same_normalized_text": true,
+        "same_work": true,
+        "same_edition": true,
+        "same_format": true,
+        "metadata_differences": [],
+        "relation_types": ["EXACT_DUPLICATE"]
+      }
+    },
+    {
+      "id": "changed-metadata",
+      "kind": "CHANGED_METADATA",
+      "left_item": "lantern-en-epub-a",
+      "right_item": "lantern-en-epub-metadata-change",
+      "expected": {
+        "same_file_bytes": false,
+        "same_normalized_text": true,
+        "same_work": true,
+        "same_edition": true,
+        "same_format": true,
+        "metadata_differences": ["publisher"],
+        "relation_types": ["CONTENT_DUPLICATE", "SAME_EDITION"]
+      }
+    },
+    {
+      "id": "same-edition-format-variant",
+      "kind": "SAME_EDITION",
+      "left_item": "lantern-en-epub-a",
+      "right_item": "lantern-en-mobi",
+      "expected": {
+        "same_file_bytes": false,
+        "same_normalized_text": true,
+        "same_work": true,
+        "same_edition": true,
+        "same_format": false,
+        "metadata_differences": [],
+        "relation_types": ["FORMAT_VARIANT", "SAME_EDITION"]
+      }
+    },
+    {
+      "id": "different-edition-translation",
+      "kind": "DIFFERENT_EDITION_TRANSLATION",
+      "left_item": "lantern-en-epub-a",
+      "right_item": "lantern-de-epub",
+      "expected": {
+        "same_file_bytes": false,
+        "same_normalized_text": false,
+        "same_work": true,
+        "same_edition": false,
+        "same_format": true,
+        "metadata_differences": [
+          "contributor.translator",
+          "identifier.isbn",
+          "language",
+          "publisher",
+          "title"
+        ],
+        "relation_types": ["SAME_WORK", "DIFFERENT_EDITION"]
+      }
+    },
+    {
+      "id": "tool-identifier-disagreement",
+      "kind": "TOOL_DISAGREEMENT",
+      "subject_item": "lantern-en-epub-a",
+      "field_path": "identifier.isbn",
+      "observations": [
+        {
+          "provider_id": "fixture-tool-a",
+          "tool_version": "1.0",
+          "adapter_version": "fixture-tool-a/1",
+          "candidate_profile": "fixture-metadata-candidate/v1",
+          "value": "9780000000001"
+        },
+        {
+          "provider_id": "fixture-tool-b",
+          "tool_version": "2.0",
+          "adapter_version": "fixture-tool-b/1",
+          "candidate_profile": "fixture-metadata-candidate/v1",
+          "value": "9780000000999"
+        }
+      ],
+      "expected": {
+        "distinct_values": 2,
+        "status": "REVIEW_REQUIRED",
+        "canonical_value": null
+      }
+    }
+  ]
+}

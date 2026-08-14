@@ -307,6 +307,17 @@ Music:
 
 The exact final enum is refined during matching implementation, but different identity levels must not be collapsed.
 
+### Controlled comparison fixtures
+
+The versioned synthetic e-book comparison corpus provides labeled ground truth
+for later matching implementation. Each item separates raw file bytes,
+normalized extracted text, observed metadata and bibliographic `Work`/`Edition`
+identity. Pair scenarios cover exact copies, metadata-only changes, format
+variants of the same `Edition`, and a translation as a different `Edition` of
+the same `Work`. A separate disagreement scenario retains two versioned tool
+values without choosing a canonical value. These fixtures are calibration
+inputs, not persisted match decisions or matcher behavior.
+
 ### MatchStatus
 
 Initial decision/status vocabulary:

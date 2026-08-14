@@ -122,7 +122,7 @@ Do **not** start by writing EPUB/PDF/MOBI parsers from scratch.
 
 First evaluate maintained specialist capabilities, especially calibre CLI, plus targeted format validators/tools where appropriate. Document reuse/rejection decisions with current maintenance/licensing/security information.
 
-Implemented sequence and decisions through `W3-006`:
+Implemented sequence and decisions through `W3-007`:
 
 1. calibre `ebook-meta` as a fixed read-only metadata extraction vertical slice;
 2. fixed calibre `ebook-convert` EPUB text plus a FolioTone-owned fingerprint;
@@ -133,7 +133,11 @@ Implemented sequence and decisions through `W3-006`:
    publication date, series and other fields with exact execution/observation
    links;
 6. defer read-oriented `calibredb` integration until W8 provides a concrete
-   Library-Reconciliation contract.
+   Library-Reconciliation contract;
+7. add a versioned synthetic comparison corpus with raw-file hashes,
+   normalized-text fingerprints, bibliographic ground truth and
+   provenance-scoped disagreement for exact copies, metadata changes, format
+   variants of one `Edition`, and translations of one `Work`.
 
 Separate raw tool/analyzer observations, normalized/derived assertions and canonical domain entities.
 
@@ -148,7 +152,10 @@ Planned evidence includes:
 
 OCR is out of the first implementation. Scanned PDFs without text should be represented explicitly rather than silently OCRed.
 
-Acceptance requires ToolExecution provenance and tests showing that tool results do not directly become canonical truth.
+Acceptance requires ToolExecution provenance and tests showing that tool
+results do not directly become canonical truth. The controlled comparison
+corpus must keep file, content, `Edition` and `Work` identity levels distinct
+without defining W6 scoring or automatic review thresholds prematurely.
 
 ## W4 — Music Analysis / Orchestration
 

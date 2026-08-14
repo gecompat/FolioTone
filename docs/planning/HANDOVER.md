@@ -17,7 +17,9 @@ ergänzt feste Poppler-PDF-Metadaten-, Seiten- und Textpfade mit explizitem
 `NO_TEXT`. `W3-005` erweitert die vorhandenen calibre-Pfade auf eine explizite
 EPUB/MOBI/AZW/AZW3-Allowlist. `W3-006` ergänzt eine OPF2-/OPF3-Feld- und
 Rollenprojektion mit provider-neutralen, Provenance-verknüpften Kandidaten.
-`W3-007` ist als Nächstes vorgesehen.
+`W3-007` ergänzt einen versionierten synthetischen Vergleichskorpus für Datei-,
+Inhalts-, `Edition`-, `Work`- und Tool-Disagreement-Ground-Truth. `W3-008` ist
+als Nächstes vorgesehen.
 
 ## Vor Änderungen lesen
 
@@ -75,7 +77,7 @@ Die Abschlussprüfung bestätigt zusätzlich:
 - keine Wiederverwendung ohne explizite Konfigurationsidentität;
 - allowlist-basierten Docker-Build-Kontext ohne lokale Runtime-, Medien-, Secret-, Test- oder Git-Daten.
 
-### W3-001 bis W3-006
+### W3-001 bis W3-007
 
 Der Snapshot vom 2026-08-14 wählt calibre 9.13.0 für dateibezogene Metadaten,
 EPUBCheck 5.3.0 für spätere EPUB-Konformität, Poppler 26.07.0 für implementierte
@@ -159,6 +161,19 @@ Beobachtungen und 21 Kandidaten. Alle Ergebnisse verwiesen auf genau eine
 `ToolExecution` und `FileObservation`; die Tabellen für `Agent`, `Work`,
 `Edition` und `Series` blieben leer. Das OPF-Artefakt war persistent, das
 ephemere Work-Verzeichnis nach Abschluss leer.
+
+`W3-007` stellt unter `tests/fixtures/ebook_comparison/v1/` fünf synthetische
+Items und fünf Szenarien bereit. Kontrolliert werden byte-identische Dateien,
+eine Metadatenänderung bei gleichem normalisiertem Text, dieselbe `Edition` als
+EPUB-/MOBI-Variante, eine Übersetzung als andere `Edition` desselben `Work` und
+zwei widersprüchliche versionsgebundene Tool-Werte ohne kanonische Auswahl.
+Die drei gezielten Fixture-Tests sowie der vollständige Stand mit Ruff, Mypy
+für 64 Source-Dateien und 155 Pytest-Tests in 8 Minuten 25 Sekunden waren
+lokal erfolgreich.
+
+Der Implementierungscommit `352eb8567c542e709e77f98de42c222f21dd3f75`
+von PR #17 bestand die GitHub-Actions-Runs `31844049430` und `31844093222`;
+beide `quality`-Jobs waren nach jeweils 52 Sekunden erfolgreich.
 
 ## W2 aktuell implementiert
 
@@ -265,6 +280,23 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
 - qpdf bis zu einem konkreten Bedarf an zusätzlicher Struktur-Evidence
   zurückgestellt.
 
+### Synthetischer E-Book-Vergleichskorpus
+
+- Manifestversion `foliotone-ebook-comparison-fixture/v1` mit ausschließlich
+  sicheren relativen Fixture-Pfaden;
+- reproduzierbare SHA-256-Werte für Container-Surrogate und extrahierte
+  Text-Artefakte;
+- byte-stabile Git-Attribute für binäre Container-Surrogate und LF-normalisierte
+  Text-Artefakte;
+- produktiver `EBOOK_NORMALIZED_TEXT`-Fingerprint für Inhaltsvergleich;
+- getrennte Ground Truth für `File`, normalisierten Inhalt, `Edition` und
+  `Work`;
+- gelabelte `RelationType`-Erwartungen für spätere W6-Kalibrierung;
+- versionsgebundene synthetische Tool-Beobachtungen, die bei Widerspruch
+  erhalten bleiben und keinen kanonischen Wert erzeugen;
+- keine Matching Engine, kein Scoring, keine automatische Review-Entscheidung
+  und keine zusätzliche Produktoberfläche.
+
 ### Persistence
 
 - Alembic `0002_incremental_index` ergänzt Scan-Events, Tool-Artefakte und W2-Indizes;
@@ -278,10 +310,8 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-007` — synthetische/öffentliche Vergleichs-Fixtures für Editionen,
-   Übersetzungen, Metadatenänderungen und Tool-Disagreement.
-2. `W3-008` — strukturelle Validierungs- und Book-Diff-Evidence bewerten.
-3. `W3-009` — Cover-Extraktion/perzeptuelle Fingerprints als optionale Evidence
+1. `W3-008` — strukturelle Validierungs- und Book-Diff-Evidence bewerten.
+2. `W3-009` — Cover-Extraktion/perzeptuelle Fingerprints als optionale Evidence
    bewerten, ohne den initialen Analyzer zu blockieren.
 
 Die Produktoberfläche bleibt dabei ausschließlich die CLI. Externe Tool-Ergebnisse werden weiterhin als Evidence behandelt und nicht direkt zu kanonischen Metadaten.

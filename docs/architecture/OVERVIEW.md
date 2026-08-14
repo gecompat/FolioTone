@@ -111,6 +111,15 @@ references the exact `ToolExecution`; no `Agent`, `Work`, `Edition`, `Series`
 or canonical value is created by this extraction step. Unknown role
 vocabularies remain source evidence instead of being guessed.
 
+The sixth W3 vertical slice adds the versioned, entirely synthetic
+`foliotone-ebook-comparison-fixture/v1` corpus. It records reproducible raw-file
+and normalized-text hashes, bibliographic ground truth, metadata differences
+and provenance-scoped tool disagreement for exact copies, metadata-only
+changes, format variants of one `Edition`, and translations of one `Work`.
+The corpus labels expected identity levels for later W6 calibration; it does
+not implement candidate blocking, scoring, confidence thresholds, review or
+canonical metadata selection.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.
