@@ -61,8 +61,8 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W3-004 | DONE | Implement fixed Poppler 26.07.0 `pdfinfo`/`pdftotext` PDF analysis with separate provenance, bounded metadata/text artifacts, page count, shared normalized-text fingerprint and explicit `NO_TEXT`; defer qpdf until structural evidence has a concrete gap. |
 | W3-005 | DONE | Reuse the existing fixed calibre metadata and text paths for an explicit EPUB/MOBI/AZW/AZW3 allowlist; keep DRM, damaged-input and tool failures distinct from successful `NO_TEXT`, without format-specific parsers. |
 | W3-006 | DONE | Extract ISBN, contributors, language, publisher, series and other fields as observations/candidates with ToolExecution/provenance links. |
-| W3-007 | NEXT | Add synthetic/public fixtures covering identical file, changed metadata, same edition, different edition/translation and tool disagreement. |
-| W3-008 | PLANNED | Evaluate calibre/other structural validation and book-diff capabilities as reusable evidence for future quality/content comparison. |
+| W3-007 | DONE | Add a versioned synthetic comparison corpus covering identical file, changed metadata, same Edition, different Edition/translation and provenance-preserving tool disagreement without implementing matching. |
+| W3-008 | NEXT | Evaluate calibre/other structural validation and book-diff capabilities as reusable evidence for future quality/content comparison. |
 | W3-009 | PLANNED | Evaluate cover-image extraction/perceptual fingerprint as optional future evidence; do not block initial analyzer. |
 
 ## W4 — Music Analysis / Tool Orchestration

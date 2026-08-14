@@ -37,8 +37,9 @@ FolioTone ist eine **Orchestration- und Reconciliation-Plattform für große E-B
 FolioTone hat **W2 — Incremental Index + Filename/Path Context + Tool Runtime**
 abgeschlossen. In W3 sind die E-Book-Toolchain-Bewertung, feste read-only
 calibre-/Poppler-Analysepfade für EPUB, MOBI, AZW, AZW3 und PDF sowie die
-Provenance-erhaltende OPF2-/OPF3-Metadatenprojektion umgesetzt. `W3-007` mit
-vergleichbaren Edition-/Übersetzungs-/Disagreement-Fixtures ist der nächste
+Provenance-erhaltende OPF2-/OPF3-Metadatenprojektion und ein versionierter,
+synthetischer E-Book-Vergleichskorpus umgesetzt. `W3-007` ist abgeschlossen;
+`W3-008` zur strukturellen Validierungs- und Book-Diff-Evidence ist der nächste
 Backlog-Eintrag.
 
 W0 bis W2 stellen die verifizierte technische Grundlage bereit:
@@ -57,7 +58,7 @@ W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 - Custom Community & Attribution License;
 - verbindliche Dokumentations-, Sprach- und Terminologieregeln.
 
-Der aktive W3-Stand ergänzt ausschließlich über die CLI:
+Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
 
 - feste read-only calibre-Metadaten- und Textpfade für EPUB/MOBI/AZW/AZW3;
 - feste Poppler-PDF-Metadaten-, Seiten- und Textanalyse;
@@ -66,7 +67,10 @@ Der aktive W3-Stand ergänzt ausschließlich über die CLI:
   andere Identifier, Contributors/Rollen/Sortiernamen, Sprache, Verlag,
   Publikationsdatum, Serie und weitere Felder;
 - exakte Links jedes Metadatenkandidaten auf `ToolExecution` und
-  `FileObservation`, ohne automatische Kanonisierung oder Entity Resolution.
+  `FileObservation`, ohne automatische Kanonisierung oder Entity Resolution;
+- einen reproduzierbaren Vergleichskorpus für byte-identische Dateien,
+  Metadatenänderungen, dieselbe `Edition`, Übersetzungen und widersprüchliche
+  Tool-Beobachtungen, ohne eine Matching Engine vorwegzunehmen.
 
 Die anfängliche Produktoberfläche bleibt ausschließlich die CLI. Eine Web-API, Desktop-Oberfläche oder ein Dashboard gehört nicht zum aktuellen Scope. [ADR-0016](docs/decisions/ADR-0016-cli-first-product-surface.md) hält diese Entscheidung fest.
 

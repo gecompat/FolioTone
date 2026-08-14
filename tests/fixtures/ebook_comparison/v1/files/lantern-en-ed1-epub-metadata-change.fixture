@@ -1,0 +1,9 @@
+SYNTHETIC-EBOOK-CONTAINER/v1
+format=EPUB
+work=lantern-archive
+edition=lantern-archive-en-1
+title=The Lantern Archive
+language=en
+publisher=North Star Press
+identifier=fixture:isbn:9780000000001
+content-ref=lantern-en-v1

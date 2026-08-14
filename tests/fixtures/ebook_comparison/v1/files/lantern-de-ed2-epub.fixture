@@ -1,0 +1,10 @@
+SYNTHETIC-EBOOK-CONTAINER/v1
+format=EPUB
+work=lantern-archive
+edition=lantern-archive-de-1
+title=Das Laternenarchiv
+language=de
+publisher=Nordstern Verlag
+identifier=fixture:isbn:9780000000999
+translator=Theo Translator
+content-ref=lantern-de-v1
