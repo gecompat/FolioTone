@@ -3,7 +3,7 @@
 Stand: 2026-08-14
 
 Diese Bewertung schloss `W3-001` ab und dokumentiert zusätzlich die in
-`W3-002` bis `W3-005` implementierten calibre- und Poppler-Verträge. Sie
+`W3-002` bis `W3-006` implementierten calibre- und Poppler-Verträge. Sie
 betrachtet nur dokumentierte, automatisierbare und bis einschließlich W9 nicht
 mutierende Analysepfade. Die Versionsangaben sind ein zeitgebundener Snapshot
 und müssen vor einem späteren Upgrade oder einer neuen Integration erneut
@@ -13,7 +13,7 @@ geprüft werden.
 
 | Werkzeug | geprüfter Stand | Lizenz | geeignete FolioTone-Rolle | Entscheidung |
 |---|---:|---|---|---|
-| calibre | 9.13.0 | GPL-3.0 | Metadaten aus mehreren Formaten; EPUB/MOBI/AZW/AZW3-Textextraktion; spätere optionale Library-Abfragen | `ebook-meta` für `W3-002`/`W3-005` und `ebook-convert` für `W3-003`/`W3-005` wiederverwenden; `calibredb` vorerst zurückstellen |
+| calibre | 9.13.0 | GPL-3.0 | Metadaten aus mehreren Formaten; EPUB/MOBI/AZW/AZW3-Textextraktion; spätere optionale Library-Abfragen | `ebook-meta` für `W3-002`/`W3-005`/`W3-006` und `ebook-convert` für `W3-003`/`W3-005` wiederverwenden; `calibredb` vorerst zurückstellen |
 | EPUBCheck | 5.3.0 | BSD-3-Clause | EPUB-2-/EPUB-3-Konformität und strukturelle Fehler mit JSON-Report | für `W3-008` vormerken; nicht für Metadaten- oder Textextraktion verwenden |
 | Poppler | 26.07.0 | GPL-2.0-or-later in den geprüften Frontend-Quellen; vor Redistribution komponentengenau prüfen | PDF-Metadaten, Seitenzahl und Text über `pdfinfo`/`pdftotext` | für `W3-004` als zwei feste CLI-Adapterpfade implementiert |
 | qpdf | 12.4.0 | Apache-2.0 | PDF-Struktur, Integrität und maschinenlesbare JSON-v2-Repräsentation | optional ergänzend für strukturelle Evidence; nicht für Textextraktion |
@@ -43,16 +43,36 @@ des Adaptervertrags. Der absolute Runtime-Pfad wird an den lokalen Prozess
 die interne `FileObservation`-ID.
 
 Der erste Slice normalisiert ausgewählte OPF-Werte als rohe `ToolResult`-Evidence
-gegen genau diese `FileObservation`: Titel, Creator mit vorhandener Rolle,
-Identifier mit vorhandenem Scheme, Sprache, Verlag, Datum, Subject und
-Calibre-Series-Felder. Diese Werte sind weder kanonische Metadaten noch ein
-Identity-Merge.
+gegen genau diese `FileObservation`. `W3-006` erweitert Adapter und Parser auf
+`ebook-meta-opf/2`: Provider-nahe `calibre_metadata`-Beobachtungen bleiben
+erhalten; zusätzlich projiziert der provider-neutrale Vertrag
+`ebook-metadata-candidate/v1` OPF-2-Attribute und OPF-3-Refinements.
+
+Stabile Feldpfade gruppieren Identifier-Namespace/-Wert, Contributor-Name,
+Quelle, MARC-Relator-Rolle und Sortiername sowie Serienname/-position. Direkte
+Felder umfassen Titel, Sprache, Verlag, Publikationsdatum, Subject,
+Beschreibung, Rechte, Typ, Titelsortierung und calibre-Rating, soweit
+vorhanden. Explizite ISBN-Schemes, `urn:isbn` und die ONIX-Codelist-5-Werte 02
+und 15 werden als ISBN-Namespace abgebildet; der Identifierwert bleibt als
+Evidence unverändert. Die unterstützten MARC-Relator-Codes sind `aut`, `bkp`,
+`ctb`, `edt`, `ill`, `nrt`, `oth` und `trl`. Andere Rollen/Schemes werden
+beobachtet, aber nicht geraten.
+
+Jeder Kandidat verweist auf dieselbe konkrete `FileObservation` und die exakte
+`ToolExecution`; Profil und OPF-Quellposition stehen in der Erklärung. Eine
+Confidence von 1,0 beschreibt die direkte Projektion, nicht die Richtigkeit
+oder Kanonizität des Quellwerts. Der Slice legt keine `Agent`-, `Work`-,
+`Edition`-, `Series`- oder `SeriesMembership`-Identität an und führt keinen
+Identity-Merge aus.
 
 Offizielle Referenzen:
 
 - https://manual.calibre-ebook.com/generated/en/ebook-meta.html
 - https://manual.calibre-ebook.com/generated/en/cli-index.html
 - https://github.com/kovidgoyal/calibre
+- https://www.w3.org/TR/epub-33/
+- https://www.loc.gov/marc/relators/relacode.html
+- https://github.com/kovidgoyal/calibre/blob/master/src/calibre/ebooks/metadata/opf3.py
 
 ### EPUB/MOBI/AZW/AZW3-Text und FolioTone-Fingerprint
 
@@ -252,7 +272,7 @@ Offizielle Referenzen:
 - https://qpdf.readthedocs.io/en/latest/json.html
 - https://github.com/qpdf/qpdf/blob/main/LICENSE.txt
 
-## Verifizierte `W3-002`- bis `W3-005`-Slices
+## Verifizierte `W3-002`- bis `W3-006`-Slices
 
 Am 2026-08-14 wurde calibre 9.13.0 als separates administratives Abbild außerhalb
 des Repositorys installiert. Das offizielle MSI hatte den erwarteten
@@ -306,3 +326,17 @@ Source-Dateien waren erfolgreich.
 
 Der vollständige W3-005-Stand bestand lokal `ruff check .`, Mypy für 63
 Source-Dateien und alle 142 Pytest-Tests in 8 Minuten 50 Sekunden.
+
+Der `W3-006`-Smoke-Test verwendete calibre 9.13 und ausschließlich ein bereits
+synthetisch erzeugtes, DRM-freies MOBI. Die erfolgreiche
+`ebook-meta-opf/2`-Ausführung persistierte elf rohe OPF-Beobachtungen und 21
+Kandidaten unter `ebook-metadata-candidate/v1`. Alle 32 Ergebnisse waren mit
+genau dieser `ToolExecution` und `FileObservation` verknüpft. Die Tabellen für
+`Agent`, `Work`, `Edition` und `Series` blieben leer; das OPF-Artefakt wurde
+übernommen und das ephemere Work-Verzeichnis bereinigt.
+
+Die gezielten 26 calibre-Metadaten-Tests deckten OPF 2, OPF 3, Identifier-/ISBN-
+Namespaces, MARC-Rollen, fremde Rollen-Schemes, Contributor-Sortiernamen,
+Sprache, Verlag, Datum, Subject, Beschreibung, Rechte, Typ und Serien ab. Der
+vollständige W3-006-Stand bestand lokal `ruff check .`, Mypy für 64
+Source-Dateien und alle 152 Pytest-Tests in 8 Minuten 45 Sekunden.

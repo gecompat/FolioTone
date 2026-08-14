@@ -260,6 +260,13 @@ Different provider/tool classifications may coexist. `Classical` as a broad musi
 
 Represents a parsed/derived candidate value from filename, path context, metadata, external tool output or another inference source. It does not directly overwrite canonical metadata.
 
+The implemented e-book metadata specialization uses versioned grouped field
+paths and persists each candidate as a `ToolResult` linked to the exact
+`ToolExecution` and `FileObservation`. Identifier, contributor and series
+groups retain their component relationship without creating an authority or
+bibliographic entity. Direct extraction confidence describes the projection,
+not the truth or canonical status of the metadata value.
+
 ### EntityResolutionCandidate
 
 Represents a proposed mapping between an observed/derived value and an Agent/Work/Edition/MusicWork/Recording/ReleaseGroup/Release or external authority entity.

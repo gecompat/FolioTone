@@ -6,7 +6,9 @@ from foliotone.adapters.calibre.metadata import (
     CalibreMetadataAnalyzer,
     CalibreMetadataError,
     CalibreMetadataOutcome,
+    CalibreMetadataProjection,
     parse_calibre_opf,
+    project_calibre_opf,
 )
 from foliotone.adapters.calibre.text import (
     CALIBRE_TEXT_FORMATS,
@@ -18,15 +20,22 @@ from foliotone.adapters.calibre.text import (
     NormalizedEbookText,
     normalize_ebook_text,
 )
+from foliotone.analyzers.ebook import (
+    EBOOK_METADATA_CANDIDATE_PROFILE,
+    EBOOK_METADATA_CANDIDATE_RESULT,
+)
 
 __all__ = [
     "CALIBRE_PROVIDER",
     "CALIBRE_TEXT_FORMATS",
     "CALIBRE_TEXT_PROVIDER",
     "CALIBRE_TEXT_SUFFIXES",
+    "EBOOK_METADATA_CANDIDATE_PROFILE",
+    "EBOOK_METADATA_CANDIDATE_RESULT",
     "CalibreMetadataAnalyzer",
     "CalibreMetadataError",
     "CalibreMetadataOutcome",
+    "CalibreMetadataProjection",
     "CalibreTextAnalyzer",
     "CalibreTextError",
     "CalibreTextOutcome",
@@ -34,4 +43,5 @@ __all__ = [
     "calibre_version_policy",
     "normalize_ebook_text",
     "parse_calibre_opf",
+    "project_calibre_opf",
 ]

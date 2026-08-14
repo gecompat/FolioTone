@@ -15,7 +15,9 @@ ist implementiert. `W3-003` ergänzt einen festen read-only calibre-EPUB-
 Textpfad und einen FolioTone-eigenen normalisierten Fingerprint. `W3-004`
 ergänzt feste Poppler-PDF-Metadaten-, Seiten- und Textpfade mit explizitem
 `NO_TEXT`. `W3-005` erweitert die vorhandenen calibre-Pfade auf eine explizite
-EPUB/MOBI/AZW/AZW3-Allowlist. `W3-006` ist als Nächstes vorgesehen.
+EPUB/MOBI/AZW/AZW3-Allowlist. `W3-006` ergänzt eine OPF2-/OPF3-Feld- und
+Rollenprojektion mit provider-neutralen, Provenance-verknüpften Kandidaten.
+`W3-007` ist als Nächstes vorgesehen.
 
 ## Vor Änderungen lesen
 
@@ -73,7 +75,7 @@ Die Abschlussprüfung bestätigt zusätzlich:
 - keine Wiederverwendung ohne explizite Konfigurationsidentität;
 - allowlist-basierten Docker-Build-Kontext ohne lokale Runtime-, Medien-, Secret-, Test- oder Git-Daten.
 
-### W3-001 bis W3-005
+### W3-001 bis W3-006
 
 Der Snapshot vom 2026-08-14 wählt calibre 9.13.0 für dateibezogene Metadaten,
 EPUBCheck 5.3.0 für spätere EPUB-Konformität, Poppler 26.07.0 für implementierte
@@ -144,6 +146,20 @@ erfolgreich.
 Der vollständige W3-005-Stand bestand lokal `ruff check .`, Mypy für 63
 Source-Dateien und alle 142 Pytest-Tests in 8 Minuten 50 Sekunden.
 
+Der gezielte W3-006-Lauf bestand alle 26 calibre-Metadaten-Tests einschließlich
+OPF-2-Attributen, OPF-3-Refinements, ISBN-/Identifier-Namespace,
+Contributor-Gruppierung, MARC-Rollen, Sortiernamen, Series-Gruppierung und
+bewusst nicht normalisierten fremden Rollen-Schemes. Der vollständige Stand
+bestand lokal `ruff check .`, Mypy für 64 Source-Dateien und alle 152
+Pytest-Tests in 8 Minuten 45 Sekunden.
+
+Der read-only CLI-Smoke-Test mit calibre 9.13 und einem ausschließlich
+synthetischen, DRM-freien MOBI persistierte unter `ebook-meta-opf/2` elf rohe
+Beobachtungen und 21 Kandidaten. Alle Ergebnisse verwiesen auf genau eine
+`ToolExecution` und `FileObservation`; die Tabellen für `Agent`, `Work`,
+`Edition` und `Series` blieben leer. Das OPF-Artefakt war persistent, das
+ephemere Work-Verzeichnis nach Abschluss leer.
+
 ## W2 aktuell implementiert
 
 ### Index
@@ -206,8 +222,15 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
 - Sicherheitsuntergrenze calibre 9.10.0 vor dem Öffnen der Eingabe;
 - ephemere `CALIBRE_CONFIG_DIRECTORY` für Versionsabfrage und Analyse;
 - begrenztes, integritätsgeprüftes OPF-Artefakt;
-- rohe Titel-, Creator-, Identifier-, Sprach-, Verlags-, Datums-, Subject- und
-  Series-Beobachtungen mit `ToolExecution`-Link;
+- rohe OPF2-/OPF3-Beobachtungen unter `calibre_metadata`;
+- provider-neutrale `ebook_metadata_candidate`-Ergebnisse unter dem
+  versionierten Profil `ebook-metadata-candidate/v1`;
+- stabile Gruppenpfade für Identifier-Namespace/-Wert,
+  Contributor-Name/-Quelle/-MARC-Rolle/-Sortiername und Series-Name/-Position;
+- direkte Kandidaten für Titel, Sprache, Verlag, Publikationsdatum, Subject,
+  Beschreibung, Rechte, Typ, Titelsortierung und Rating;
+- exakter `ToolExecution`-/`FileObservation`-Link ohne Anlage kanonischer
+  `Agent`-, `Work`-, `Edition`- oder `Series`-Entitäten;
 - kein `calibredb` bis zu einem konkreten read-only Library-Reconciliation-Vertrag.
 
 ### calibre-EPUB/MOBI/AZW/AZW3-Text
@@ -255,11 +278,11 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-006` — detailliertere Feld-/Rollenabbildung als Provenance-erhaltende
-   Beobachtungen und Kandidaten.
-2. `W3-007` — synthetische/öffentliche Vergleichs-Fixtures für Editionen,
+1. `W3-007` — synthetische/öffentliche Vergleichs-Fixtures für Editionen,
    Übersetzungen, Metadatenänderungen und Tool-Disagreement.
-3. `W3-008` — strukturelle Validierungs- und Book-Diff-Evidence bewerten.
+2. `W3-008` — strukturelle Validierungs- und Book-Diff-Evidence bewerten.
+3. `W3-009` — Cover-Extraktion/perzeptuelle Fingerprints als optionale Evidence
+   bewerten, ohne den initialen Analyzer zu blockieren.
 
 Die Produktoberfläche bleibt dabei ausschließlich die CLI. Externe Tool-Ergebnisse werden weiterhin als Evidence behandelt und nicht direkt zu kanonischen Metadaten.
 

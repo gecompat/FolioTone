@@ -99,6 +99,18 @@ is outside FolioTone; protected, damaged or otherwise failed conversions remain
 failed executions and never become successful `NO_TEXT` observations. KFX,
 AZW1, AZW4 and other formats remain outside this text contract.
 
+The fifth W3 vertical slice keeps provider-shaped `calibre_metadata` results
+and adds provider-neutral `ebook_metadata_candidate` results under the
+versioned `ebook-metadata-candidate/v1` profile. The projection understands
+OPF 2 attributes and OPF 3 refinements. Stable field paths group identifier
+namespace/value pairs, contributor names/source elements/MARC roles/sort names,
+and series names/positions. Direct fields include title, language, publisher,
+publication date, subjects, description, rights, type, title sort and calibre
+rating where present. Every candidate targets the same `FileObservation` and
+references the exact `ToolExecution`; no `Agent`, `Work`, `Edition`, `Series`
+or canonical value is created by this extraction step. Unknown role
+vocabularies remain source evidence instead of being guessed.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.

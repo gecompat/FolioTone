@@ -122,13 +122,17 @@ Do **not** start by writing EPUB/PDF/MOBI parsers from scratch.
 
 First evaluate maintained specialist capabilities, especially calibre CLI, plus targeted format validators/tools where appropriate. Document reuse/rejection decisions with current maintenance/licensing/security information.
 
-Implemented sequence and decisions through `W3-005`:
+Implemented sequence and decisions through `W3-006`:
 
 1. calibre `ebook-meta` as a fixed read-only metadata extraction vertical slice;
 2. fixed calibre `ebook-convert` EPUB text plus a FolioTone-owned fingerprint;
 3. fixed Poppler PDF metadata/page/text analysis;
 4. reuse the same calibre contracts for an explicit MOBI/AZW/AZW3 extension;
-5. defer read-oriented `calibredb` integration until W8 provides a concrete
+5. retain raw OPF 2/3 observations and project versioned, grouped candidates
+   for identifiers, contributors/roles/sort names, language, publisher,
+   publication date, series and other fields with exact execution/observation
+   links;
+6. defer read-oriented `calibredb` integration until W8 provides a concrete
    Library-Reconciliation contract.
 
 Separate raw tool/analyzer observations, normalized/derived assertions and canonical domain entities.
