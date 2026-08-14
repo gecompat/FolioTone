@@ -287,8 +287,11 @@ Work-Verzeichnis.
 
 Repository-Ruff, Mypy für 59 Source-Dateien und 115 Pytest-Tests waren lokal
 erfolgreich. Die gezielten 42 calibre-/Runtime-/CLI-Tests waren ebenfalls
-erfolgreich. Die GitHub-Actions-Prüfung für W3-003 steht bis zur Veröffentlichung
-des Branches noch aus.
+erfolgreich. Der W3-003-Implementierungscommit
+`dc2cd09ffbc07098e0c296bea231532c4f38051b` bestand GitHub Actions Run
+`31809375485` für PR #13. Erfolgreich waren Install, Ruff, Mypy, Pytest,
+Docker-Build, Migration, persistentes `/data`, Incremental-Scan-Smoke und
+Bootstrap.
 
 ## W3-Stand und nächster Schritt
 

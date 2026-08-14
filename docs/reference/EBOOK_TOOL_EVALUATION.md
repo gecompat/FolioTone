@@ -234,4 +234,7 @@ eine erfolgreiche `ToolExecution`, ein 49 Byte großes `CALIBRE_TEXT`-Artefakt,
 `TEXT_EXTRACTED`, 43 normalisierte Zeichen und einen
 `EBOOK_NORMALIZED_TEXT`-Fingerprint. Das ephemere Work-Verzeichnis war nach
 Abschluss leer. Repository-Ruff, Mypy für 59 Source-Dateien und 115 Pytest-
-Tests waren erfolgreich.
+Tests waren erfolgreich. Der W3-003-Implementierungscommit
+`dc2cd09ffbc07098e0c296bea231532c4f38051b` bestand GitHub Actions Run
+`31809375485` für PR #13 einschließlich der Docker-, Migrations-, Scan- und
+Bootstrap-Schritte.

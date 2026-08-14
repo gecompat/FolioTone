@@ -107,8 +107,9 @@ Ein lokaler End-to-End-Smoke-Test mit calibre 9.13.0 und ausschließlich dem
 synthetischen EPUB bestätigte `TEXT_EXTRACTED`, 43 normalisierte Zeichen, ein
 49 Byte großes Text-Artefakt, einen 64-stelligen Fingerprint und ein leeres
 ephemeres Work-Verzeichnis. Repository-Ruff, Mypy für 59 Source-Dateien und 115
-Pytest-Tests waren erfolgreich. GitHub Actions für W3-003 ist bis zur
-Branch-Veröffentlichung noch nicht verifiziert.
+Pytest-Tests waren erfolgreich. Der Implementierungscommit
+`dc2cd09ffbc07098e0c296bea231532c4f38051b` bestand GitHub Actions Run
+`31809375485` für PR #13 einschließlich aller Docker-Smoke-Schritte.
 
 ## W2 aktuell implementiert
 
