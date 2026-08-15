@@ -1,6 +1,15 @@
 """Persistence implementations behind provider-independent core contracts."""
 
 from foliotone.persistence.contracts import Repository
+from foliotone.persistence.evidence_queries import (
+    MAX_EVIDENCE_QUERY_EXECUTIONS,
+    MAX_EVIDENCE_QUERY_FINGERPRINTS,
+    MAX_EVIDENCE_QUERY_OBSERVATIONS,
+    MAX_EVIDENCE_QUERY_RESULTS,
+    EvidenceQueryLimitError,
+    ObservationEvidenceRecords,
+    load_observation_evidence,
+)
 from foliotone.persistence.sqlite import (
     SQLiteRepository,
     alembic_config,
@@ -12,10 +21,17 @@ from foliotone.persistence.sqlite import (
 
 __all__ = [
     "Repository",
+    "MAX_EVIDENCE_QUERY_EXECUTIONS",
+    "MAX_EVIDENCE_QUERY_FINGERPRINTS",
+    "MAX_EVIDENCE_QUERY_OBSERVATIONS",
+    "MAX_EVIDENCE_QUERY_RESULTS",
+    "EvidenceQueryLimitError",
+    "ObservationEvidenceRecords",
     "SQLiteRepository",
     "alembic_config",
     "create_sqlite_engine",
     "migrate",
+    "load_observation_evidence",
     "repository",
     "transaction",
 ]

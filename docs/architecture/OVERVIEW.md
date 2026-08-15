@@ -122,6 +122,15 @@ The corpus labels expected identity levels for later W6 calibration; it does
 not implement candidate blocking, scoring, confidence thresholds, review or
 canonical metadata selection.
 
+Der additive W3-014-Korpus
+`foliotone-ebook-comparison-fixture/v2` ergänzt alle aktuell unterstützten
+Formate EPUB, MOBI, AZW, AZW3 und PDF sowie `SPARSE`- und `MALFORMED`-
+Evidence. Cover-dHash-Distanzen von 0, 1, 8, 32 und 64 bleiben technische
+Kalibrierungswerte ohne Ähnlichkeits- oder Identitätsschwelle. Der zugehörige
+synthetische Skalierungstest trennt zwei angeforderte Beobachtungen von 10.000
+fremden Records je Evidence-Tabelle und prüft den indexgestützten,
+collection-unabhängigen Leseweg.
+
 The seventh W3 vertical slice runs EPUBCheck 5.3.0 against an unchanged EPUB
 observation with a fixed headless Java/JAR command. A bounded private JSON
 artifact is validated before FolioTone projects only conformance, severity
@@ -188,6 +197,13 @@ provenance and emits only safe field or diagnostic keys. Compatible cover
 dHash values expose their raw Hamming distance without applying a similarity
 threshold. The projection explicitly writes no Relation, confidence, review
 decision or identity verdict; those contracts remain later Matching work.
+
+Der dreizehnte W3-Slice ersetzt die collection-weite Vorabladung des
+Paarvergleichs durch drei begrenzte, indexgestützte Target-Abfragen. Feste
+Record-Grenzen und `LIMIT maximum + 1` verhindern unbeschränkte
+Evidence-Historien; eine Überschreitung bricht technisch ab. Alembic
+`0006_ebook_evidence_lookup_indexes` stellt die zugehörigen SQLite-Indizes
+bereit. Der fachliche Vertrag von `ebook-comparison/v1` bleibt unverändert.
 
 ### Music Analysis
 

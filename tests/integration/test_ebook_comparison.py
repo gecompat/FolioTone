@@ -37,6 +37,9 @@ from foliotone.workflows import (
 )
 
 FIXTURE_ROOT = Path(__file__).parents[1] / "fixtures" / "ebook_comparison" / "v1"
+EDGE_FIXTURE_ROOT = (
+    Path(__file__).parents[1] / "fixtures" / "ebook_comparison" / "v2"
+)
 NOW = datetime(2026, 8, 15, 18, 0, tzinfo=UTC)
 
 JsonObject = dict[str, object]
@@ -241,44 +244,115 @@ def test_ebook_compare_cli_is_bounded_and_writes_no_relation(
     assert repository(create_sqlite_engine(database), Relation).list_all() == []
 
 
+def test_provider_neutral_comparison_handles_extended_synthetic_edge_corpus(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    database, observations, _items = _seed_corpus(
+        tmp_path,
+        capsys,
+        include_edge_cases=True,
+    )
+    engine = create_sqlite_engine(database)
+    service = EbookComparisonService(engine)
+    edge_manifest = _object(
+        json.loads((EDGE_FIXTURE_ROOT / "manifest.json").read_text(encoding="utf-8"))
+    )
+
+    outcomes: dict[str, EbookComparisonOutcome] = {}
+    for value in _array(edge_manifest["scenarios"]):
+        scenario = _object(value)
+        scenario_id = _string(scenario["id"])
+        outcome = service.compare(
+            observations[_string(scenario["left_item"])].id,
+            observations[_string(scenario["right_item"])].id,
+        )
+        outcomes[scenario_id] = outcome
+        assert outcome.status is EbookComparisonStatus(
+            _string(scenario["expected_status"])
+        )
+        expected_states = _object(scenario["expected_states"])
+        actual_states = {
+            dimension.name.value: dimension.state.value
+            for dimension in outcome.dimensions
+        }
+        assert actual_states == {
+            key: _string(state) for key, state in expected_states.items()
+        }
+        expected_distance = scenario.get("expected_cover_distance")
+        if expected_distance is not None:
+            assert _facts(outcome, EbookComparisonDimensionName.COVER)[
+                "dhash_distance"
+            ] == str(expected_distance)
+
+    sparse = outcomes["sparse-evidence"]
+    assert _facts(sparse, EbookComparisonDimensionName.NORMALIZED_TEXT)["reason"] == (
+        "NORMALIZED_TEXT_FINGERPRINT_MISSING"
+    )
+    assert _facts(sparse, EbookComparisonDimensionName.METADATA)["reason"] == (
+        "METADATA_EVIDENCE_MISSING"
+    )
+    malformed = outcomes["malformed-evidence"]
+    assert _facts(malformed, EbookComparisonDimensionName.NORMALIZED_TEXT)[
+        "reason"
+    ] == "FINGERPRINT_PROFILE_INCOMPATIBLE"
+    assert _facts(malformed, EbookComparisonDimensionName.METADATA)["reason"] == (
+        "METADATA_EVIDENCE_MISSING"
+    )
+    assert _facts(malformed, EbookComparisonDimensionName.STRUCTURE)["reason"] == (
+        "STRUCTURE_EVIDENCE_MISSING"
+    )
+    assert _facts(malformed, EbookComparisonDimensionName.COVER)["reason"] == (
+        "COVER_FINGERPRINT_INVALID"
+    )
+    assert repository(engine, Relation).list_all() == []
+
+
 def _seed_corpus(
     tmp_path: Path,
     capsys: CaptureFixture[str],
+    *,
+    include_edge_cases: bool = False,
 ) -> tuple[Path, dict[str, FileObservation], list[JsonObject]]:
-    manifest = _object(
-        json.loads((FIXTURE_ROOT / "manifest.json").read_text(encoding="utf-8"))
-    )
-    items = [_object(value) for value in _array(manifest["items"])]
+    roots = (FIXTURE_ROOT, EDGE_FIXTURE_ROOT) if include_edge_cases else (FIXTURE_ROOT,)
+    sourced_items: list[tuple[Path, JsonObject]] = []
+    for root in roots:
+        manifest = _object(
+            json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+        )
+        sourced_items.extend(
+            (root, _object(value)) for value in _array(manifest["items"])
+        )
+    items = [item for _root, item in sourced_items]
     media = tmp_path / "media"
     media.mkdir()
     filename_by_id: dict[str, str] = {}
-    for item in items:
+    for root, item in sourced_items:
         item_id = _string(item["id"])
         suffix = _string(item["media_format"]).lower()
         filename = f"{item_id}.{suffix}"
         filename_by_id[item_id] = filename
-        source = FIXTURE_ROOT / Path(_string(item["file_path"]))
+        source = root / Path(_string(item["file_path"]))
         (media / filename).write_bytes(source.read_bytes())
 
     database = tmp_path / "foliotone.db"
+    scan_args = [
+        "scan",
+        "--name",
+        "comparison-fixture",
+        "--path",
+        str(media),
+        "--media-type",
+        "ebook",
+        "--database",
+        str(database),
+        "--hash",
+        "full",
+    ]
+    for suffix in sorted({_string(item["media_format"]).lower() for item in items}):
+        scan_args.extend(("--suffix", suffix))
     assert main(
-        [
-            "scan",
-            "--name",
-            "comparison-fixture",
-            "--path",
-            str(media),
-            "--media-type",
-            "ebook",
-            "--database",
-            str(database),
-            "--hash",
-            "full",
-            "--suffix",
-            "epub",
-            "--suffix",
-            "mobi",
-        ]
+        scan_args
     ) == 0
     capsys.readouterr()
 
@@ -302,11 +376,29 @@ def _seed_item(
     *,
     offset: int,
 ) -> None:
-    metadata_execution = _execution(
-        observation,
-        ToolCapability.READ_METADATA,
-        provider_id="fixture-calibre",
-        offset=offset,
+    evidence_case = str(item.get("evidence_case", "COMPLETE"))
+    if evidence_case == "SPARSE":
+        return
+    media_format = _string(item["media_format"])
+    metadata_capability = (
+        ToolCapability.TECHNICAL_METADATA
+        if media_format == "PDF"
+        else ToolCapability.READ_METADATA
+    )
+    metadata_execution = (
+        _failed_execution(
+            observation,
+            metadata_capability,
+            provider_id="fixture-metadata",
+            offset=offset,
+        )
+        if evidence_case == "MALFORMED"
+        else _execution(
+            observation,
+            metadata_capability,
+            provider_id=("fixture-poppler" if media_format == "PDF" else "fixture-calibre"),
+            offset=offset,
+        )
     )
     text_execution = _execution(
         observation,
@@ -314,44 +406,53 @@ def _seed_item(
         provider_id="fixture-text",
         offset=offset + 1,
     )
-    cover_execution = _execution(
-        observation,
-        ToolCapability.FINGERPRINT,
-        provider_id="fixture-cover",
-        offset=offset + 2,
-    )
     execution_repo = repository(engine, ToolExecution)
     result_repo = repository(engine, ToolResult)
     fingerprint_repo = repository(engine, Fingerprint)
-    for execution in (metadata_execution, text_execution, cover_execution):
+    for execution in (metadata_execution, text_execution):
         execution_repo.save(execution)
 
     metadata = {
         key: _string(value) for key, value in _object(item["metadata"]).items()
     }
-    for key, value in _candidate_values(metadata):
-        result_repo.save(
-            _result(
-                metadata_execution,
-                observation,
-                EBOOK_METADATA_CANDIDATE_RESULT,
-                key,
-                value,
-            )
-        )
-    for key, value in (
-        ("identifier.99.value", str(observation.id)),
-        ("identifier.99.namespace", "calibre"),
-    ):
-        result_repo.save(
-            _result(
-                metadata_execution,
-                observation,
-                EBOOK_METADATA_CANDIDATE_RESULT,
-                key,
-                value,
-            )
-        )
+    if evidence_case != "MALFORMED":
+        if media_format == "PDF":
+            for field, key in (("title", "title"), ("contributor.author", "author")):
+                value = metadata.get(field)
+                if value is not None:
+                    result_repo.save(
+                        _result(
+                            metadata_execution,
+                            observation,
+                            "poppler_pdf_metadata",
+                            key,
+                            value,
+                        )
+                    )
+        else:
+            for key, value in _candidate_values(metadata):
+                result_repo.save(
+                    _result(
+                        metadata_execution,
+                        observation,
+                        EBOOK_METADATA_CANDIDATE_RESULT,
+                        key,
+                        value,
+                    )
+                )
+            for key, value in (
+                ("identifier.99.value", str(observation.id)),
+                ("identifier.99.namespace", "calibre"),
+            ):
+                result_repo.save(
+                    _result(
+                        metadata_execution,
+                        observation,
+                        EBOOK_METADATA_CANDIDATE_RESULT,
+                        key,
+                        value,
+                    )
+                )
 
     result_repo.save(
         _result(text_execution, observation, "fixture_text", "text_status", "TEXT_EXTRACTED")
@@ -363,42 +464,56 @@ def _seed_item(
             target_id=observation.id,
             kind=TEXT_FINGERPRINT_KIND,
             algorithm="sha256",
-            algorithm_version=TEXT_NORMALIZATION_PROFILE,
+            algorithm_version=(
+                "fixture-incompatible-text/v1"
+                if evidence_case == "MALFORMED"
+                else TEXT_NORMALIZATION_PROFILE
+            ),
             value=_string(item["normalized_text_sha256"]),
             created_at=text_execution.finished_at or NOW,
             tool_execution_id=text_execution.id,
         )
     )
 
-    result_repo.save(
-        _result(
-            cover_execution,
+    if media_format != "PDF":
+        cover_execution = _execution(
             observation,
-            "fixture_cover",
-            "cover_status",
-            "COVER_EXTRACTED",
+            ToolCapability.FINGERPRINT,
+            provider_id="fixture-cover",
+            offset=offset + 2,
         )
-    )
-    cover_value = (
-        "ffffffffffffffff"
-        if _string(item["id"]) == "lantern-de-epub"
-        else "0000000000000000"
-    )
-    fingerprint_repo.save(
-        Fingerprint(
-            id=EntityId.new(),
-            target_kind=EntityKind.FILE_OBSERVATION,
-            target_id=observation.id,
-            kind=COVER_FINGERPRINT_KIND,
-            algorithm="dhash-64",
-            algorithm_version="fixture-cover/v1",
-            value=cover_value,
-            created_at=cover_execution.finished_at or NOW,
-            tool_execution_id=cover_execution.id,
+        execution_repo.save(cover_execution)
+        result_repo.save(
+            _result(
+                cover_execution,
+                observation,
+                "fixture_cover",
+                "cover_status",
+                "COVER_EXTRACTED",
+            )
         )
-    )
+        cover_value = item.get("cover_dhash")
+        if cover_value is None:
+            cover_value = (
+                "ffffffffffffffff"
+                if _string(item["id"]) == "lantern-de-epub"
+                else "0000000000000000"
+            )
+        fingerprint_repo.save(
+            Fingerprint(
+                id=EntityId.new(),
+                target_kind=EntityKind.FILE_OBSERVATION,
+                target_id=observation.id,
+                kind=COVER_FINGERPRINT_KIND,
+                algorithm="dhash-64",
+                algorithm_version="fixture-cover/v1",
+                value=_string(cover_value),
+                created_at=cover_execution.finished_at or NOW,
+                tool_execution_id=cover_execution.id,
+            )
+        )
 
-    if _string(item["media_format"]) == "EPUB":
+    if media_format == "EPUB":
         structure_execution = _execution(
             observation,
             ToolCapability.STRUCTURAL_VALIDATION,
@@ -408,10 +523,17 @@ def _seed_item(
         execution_repo.save(structure_execution)
         is_translation = _string(item["id"]) == "lantern-de-epub"
         values = (
-            ("conformance_status", "NONCONFORMANT" if is_translation else "CONFORMANT"),
-            ("fatal_count", "0"),
-            ("error_count", "1" if is_translation else "0"),
-            ("warning_count", "0"),
+            (("conformance_status", "CONFORMANT"),)
+            if evidence_case == "MALFORMED"
+            else (
+                (
+                    "conformance_status",
+                    "NONCONFORMANT" if is_translation else "CONFORMANT",
+                ),
+                ("fatal_count", "0"),
+                ("error_count", "1" if is_translation else "0"),
+                ("warning_count", "0"),
+            )
         )
         for key, value in values:
             result_repo.save(

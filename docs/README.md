@@ -36,6 +36,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0017](decisions/ADR-0017-provider-accepted-exit-codes.md) trennt einen adapter-akzeptierten Domain-Befund mit Nonzero-Exitcode von technischen Toolfehlern.
 - [ADR-0018](decisions/ADR-0018-versioned-ebook-quality-profile.md) definiert das versionierte, mehrdimensionale E-Book-Qualitätsprofil ohne skalaren Score oder Identitätsaussage.
 - [ADR-0019](decisions/ADR-0019-provider-neutral-ebook-evidence-comparison.md) definiert den read-only Vergleich persistierter Datei-, Text-, Metadaten-, Struktur- und Cover-Evidence ohne Match- oder Identitätsurteil.
+- [ADR-0020](decisions/ADR-0020-bounded-ebook-evidence-queries.md) begrenzt Paarvergleichs-Evidence auf zielgerichtete, indexgestützte SQLite-Abfragen und definiert den synthetischen Skalierungsvertrag.
 
 ## Qualität, Sprache und Dokumentationsregeln
 
@@ -43,7 +44,8 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [Sprach- und Terminologierichtlinie](quality/LANGUAGE_AND_TERMINOLOGY.md) definiert Deutsch als kanonische erklärende Dokumentationssprache und schützt technische Literale vor Übersetzung.
 - [Glossar](reference/GLOSSARY.md) ist die zentrale Terminologiequelle.
 - [Lokaler W2-Smoke-Test](quality/LOCAL_SMOKE_TEST.md) dokumentiert den abgeschlossenen manuellen W2-Plattformtest.
-- [Synthetischer E-Book-Vergleichskorpus](../tests/fixtures/ebook_comparison/v1/README.md) dokumentiert die versionierte Ground Truth für spätere Matching-Tests.
+- [Synthetischer E-Book-Vergleichskorpus v1](../tests/fixtures/ebook_comparison/v1/README.md) dokumentiert die ursprüngliche Ground Truth für spätere Matching-Tests.
+- [Synthetischer E-Book-Vergleichskorpus v2](../tests/fixtures/ebook_comparison/v2/README.md) ergänzt Multi-Format-, Sparse-, Malformed-, Distanz- und Skalierungsfälle.
 
 Automatische Dokumentationsprüfungen sind bewusst konservativ. Sie verhindern bekannte Regressionen wie Änderungen am geschützten Lizenzblock oder alte Projektnamen, ersetzen aber kein fachliches oder sprachliches Review.
 

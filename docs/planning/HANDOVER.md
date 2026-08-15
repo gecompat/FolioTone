@@ -28,9 +28,11 @@ ergänzt dessen konservative exakte Evidence-Wiederverwendung, gezielten
 Schritt-Retry und `--fresh`. `W3-012` ergänzt das separate versionierte
 E-Book-Qualitätsprofil mit fünf Dimensionen und festen Befundcodes.
 `W3-013` ergänzt den provider-neutralen read-only Evidence-Paarvergleich ohne
-Relation oder Identitätsurteil. Auf Benutzerentscheidung bleibt die
-Entwicklung bis zur Reife der E-Book-Pipeline bei E-Books; `W3-014` ist als
-Nächstes vorgesehen, Music W4 ist zurückgestellt.
+Relation oder Identitätsurteil. `W3-014` ergänzt den vollständig synthetischen
+v2-Edge-Korpus und begrenzte, indexgestützte Evidence-Abfragen. Auf
+Benutzerentscheidung bleibt die Entwicklung bis zur Reife der E-Book-Pipeline
+bei E-Books; `W3-015` ist als Nächstes vorgesehen, Music W4 ist
+zurückgestellt.
 
 ## Vor Änderungen lesen
 
@@ -581,6 +583,28 @@ enthält `foliotone/workflows/comparison.py`.
 - Alembic `0003_deletion_confirmation` ergänzt die persistente Abwesenheitsserie;
 - Alembic `0004_relocation_candidates` ergänzt persistente Relocation-Kandidaten;
 - Alembic `0005_scan_resume_lineage` ergänzt `scan_runs.resumed_from_run_id` und den zugehörigen Index.
+- Alembic `0006_ebook_evidence_lookup_indexes` ergänzt drei additive Indizes für begrenzte Observation-Evidence-Abfragen.
+
+### Begrenzter Evidence-Lesepfad und synthetischer v2-Korpus
+
+- `load_observation_evidence()` lädt ausschließlich Records expliziter
+  `FileObservation`-IDs und führt keinen collection-weiten `list_all()`-Read
+  aus;
+- feste `LIMIT maximum + 1`-Grenzen schützen `ToolExecution`, `ToolResult`
+  und `Fingerprint` vor unbeschränkter Historienladung;
+- eine Überschreitung erzeugt einen technischen Fehler ohne Full-Table-
+  Fallback;
+- der v2-Korpus ergänzt AZW, AZW3, PDF, Sparse-/Malformed-Evidence und
+  Cover-dHash-Distanzen 0/1/8/32/64;
+- der Skalierungstest verwendet 10.000 synthetische Fremdrecords je Evidence-
+  Tabelle und bestätigt genau drei gefilterte, indexgestützte Reads;
+- 12 gezielte Tests bestanden in 2 Minuten 39 Sekunden; Ruff, Mypy für 77
+  Source-Dateien und alle 229 Pytest-Tests in 15 Minuten 46 Sekunden waren
+  erfolgreich.
+- das gebaute Wheel unter
+  `C:\rep\artifacts\FolioTone\w3-014-wheel-01` hat SHA-256
+  `8c39c43917d55fbd7e241cc6b4610afc64642a0f5b92b3032f8f92fc8605a3a3`
+  und enthält Query-Modul, Migration und Vergleichsworkflow.
 
 Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
@@ -588,14 +612,15 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-014` — synthetische Malformed-, Sparse-, Multi-Format-, Distanz- und
-   Performance-Fälle ergänzen und Grenzen kalibrieren.
-2. `W3-015` und `W3-016` — resumierbare Collection-Batch-Analyse und
-   nachvollziehbare lokale CLI-Sammlungsberichte aufbauen.
+1. `W3-015` — resumierbare Collection-Batch-Analyse mit begrenzter
+   Parallelität, per-File-Fehlerfortsetzung und exakter Evidence-
+   Wiederverwendung implementieren.
+2. `W3-016` — nachvollziehbare lokale CLI-Sammlungsberichte mit aggregierten
+   Qualitäts-, Analyse-, Duplicate- und Varianten-Review-Sets aufbauen.
 3. `W3-017` — die echte Sammlung unter `Z:\NAS\E-Book` zuerst als read-only
-   Pilot und anschließend vollständig analysieren, sobald die Quelle für den
-   Codex-Prozess sichtbar ist. Am 2026-08-15 war weder das Laufwerk `Z:` noch
-   eine dazugehörige SMB-Zuordnung im Prozesskontext verfügbar.
+   Pilot und anschließend vollständig analysieren. Die Quelle ist im
+   bestätigten Host-Kontext erreichbar; der isolierte Sandbox-Kontext besitzt
+   die Laufwerkszuordnung nicht. Source Media bleibt unverändert.
 
 Music W4 bleibt geplant, wird aber erst nach der E-Book-Vertiefung und den
 book-spezifischen Teilen von Authority Resolution, Matching, Review und

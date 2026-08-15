@@ -173,6 +173,13 @@ Implemented sequence and decisions through `W3-010`:
     structure and embedded-cover Evidence. Keep dimension state separate from
     coverage, retain exact Evidence and ToolExecution provenance, suppress raw
     values and paths, and produce no Relation, confidence or identity verdict.
+14. extend the synthetic comparison ground truth to
+    `foliotone-ebook-comparison-fixture/v2` with EPUB/MOBI/AZW/AZW3/PDF,
+    sparse and malformed Evidence, and calibrated cover distances. Replace
+    collection-wide Evidence loading with bounded target queries, explicit
+    record limits and the measured SQLite indexes from Alembic
+    `0006_ebook_evidence_lookup_indexes` without changing the comparison
+    profile or producing an identity decision.
 
 Current execution priority is intentionally e-book-first. Music W4 remains in
 the architecture and backlog but is deferred until the e-book completion track

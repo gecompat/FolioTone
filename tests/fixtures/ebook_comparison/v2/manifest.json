@@ -1,0 +1,244 @@
+{
+  "schema_version": "foliotone-ebook-comparison-fixture/v2",
+  "extends_schema_version": "foliotone-ebook-comparison-fixture/v1",
+  "provenance": {
+    "source_kind": "synthetic",
+    "source_name": "FolioTone W3-014",
+    "license": "generated-for-foliotone-tests",
+    "contains_real_media": false
+  },
+  "cover_distance_calibration": {
+    "reference_item": "lantern-en-epub-a",
+    "reference_dhash": "0000000000000000",
+    "cases": [
+      {
+        "item": "lantern-en-epub-copy",
+        "dhash": "0000000000000000",
+        "expected_distance": 0
+      },
+      {
+        "item": "lantern-en-azw",
+        "dhash": "0000000000000001",
+        "expected_distance": 1
+      },
+      {
+        "item": "lantern-en-azw3",
+        "dhash": "00000000000000ff",
+        "expected_distance": 8
+      },
+      {
+        "item": "lantern-en-cover-distance-32-epub",
+        "dhash": "00000000ffffffff",
+        "expected_distance": 32
+      },
+      {
+        "item": "lantern-de-epub",
+        "dhash": "ffffffffffffffff",
+        "expected_distance": 64
+      }
+    ]
+  },
+  "items": [
+    {
+      "id": "lantern-en-azw",
+      "file_path": "files/lantern-en-ed1-azw.fixture",
+      "text_path": "text/lantern-en-v1.txt",
+      "media_format": "AZW",
+      "file_sha256": "261bfa30d9f5f8c968d2cae87fabf0685f9c08e0ac80de6924f0829233c0cbac",
+      "text_artifact_sha256": "426293b290b747dd5659f16317cd1d4f2de4de81b2892e83b57784b4aa4d4449",
+      "normalized_text_sha256": "d81f494208b02c19328723b982fd804254f7088353c803c050201867eb5dd87b",
+      "cover_dhash": "0000000000000001",
+      "evidence_case": "COMPLETE",
+      "ground_truth": {
+        "work_id": "work-lantern-archive",
+        "edition_id": "edition-lantern-archive-en-1",
+        "language": "en"
+      },
+      "metadata": {
+        "title": "The Lantern Archive",
+        "language": "en",
+        "publisher": "Northstar Press",
+        "identifier.isbn": "9780000000001",
+        "contributor.author": "Ada Example"
+      }
+    },
+    {
+      "id": "lantern-en-azw3",
+      "file_path": "files/lantern-en-ed1-azw3.fixture",
+      "text_path": "text/lantern-en-v1.txt",
+      "media_format": "AZW3",
+      "file_sha256": "b5898d1b6a41078049262bdc31f1d386fb5e7654d0a8ee4d88e9ac0eec02e901",
+      "text_artifact_sha256": "426293b290b747dd5659f16317cd1d4f2de4de81b2892e83b57784b4aa4d4449",
+      "normalized_text_sha256": "d81f494208b02c19328723b982fd804254f7088353c803c050201867eb5dd87b",
+      "cover_dhash": "00000000000000ff",
+      "evidence_case": "COMPLETE",
+      "ground_truth": {
+        "work_id": "work-lantern-archive",
+        "edition_id": "edition-lantern-archive-en-1",
+        "language": "en"
+      },
+      "metadata": {
+        "title": "The Lantern Archive",
+        "language": "en",
+        "publisher": "Northstar Press",
+        "identifier.isbn": "9780000000001",
+        "contributor.author": "Ada Example"
+      }
+    },
+    {
+      "id": "lantern-en-pdf",
+      "file_path": "files/lantern-en-ed1-pdf.fixture",
+      "text_path": "text/lantern-en-v1.txt",
+      "media_format": "PDF",
+      "file_sha256": "019ab550f8db3b92f9cd13ddea0ee393d9ef11d7c30c46de1cf8d43f34a3d200",
+      "text_artifact_sha256": "426293b290b747dd5659f16317cd1d4f2de4de81b2892e83b57784b4aa4d4449",
+      "normalized_text_sha256": "d81f494208b02c19328723b982fd804254f7088353c803c050201867eb5dd87b",
+      "evidence_case": "COMPLETE",
+      "ground_truth": {
+        "work_id": "work-lantern-archive",
+        "edition_id": "edition-lantern-archive-en-1",
+        "language": "en"
+      },
+      "metadata": {
+        "title": "The Lantern Archive",
+        "contributor.author": "Ada Example"
+      }
+    },
+    {
+      "id": "lantern-en-cover-distance-32-epub",
+      "file_path": "files/lantern-en-ed1-cover-distance-32-epub.fixture",
+      "text_path": "text/lantern-en-v1.txt",
+      "media_format": "EPUB",
+      "file_sha256": "8a72efc7f0d9c1ebdd3c6b5a3a07f5aee5ce225b65ea1bae03d3da775736daa9",
+      "text_artifact_sha256": "426293b290b747dd5659f16317cd1d4f2de4de81b2892e83b57784b4aa4d4449",
+      "normalized_text_sha256": "d81f494208b02c19328723b982fd804254f7088353c803c050201867eb5dd87b",
+      "cover_dhash": "00000000ffffffff",
+      "evidence_case": "COMPLETE",
+      "ground_truth": {
+        "work_id": "work-lantern-archive",
+        "edition_id": "edition-lantern-archive-en-1",
+        "language": "en"
+      },
+      "metadata": {
+        "title": "The Lantern Archive",
+        "language": "en",
+        "publisher": "Northstar Press",
+        "identifier.isbn": "9780000000001",
+        "contributor.author": "Ada Example"
+      }
+    },
+    {
+      "id": "sparse-book-epub",
+      "file_path": "files/sparse-book-epub.fixture",
+      "media_format": "EPUB",
+      "file_sha256": "4a4332516c33589dda1ec32491c4fa405e4804b414c3d8a7b8c482c8c143e578",
+      "evidence_case": "SPARSE",
+      "ground_truth": {
+        "work_id": "work-sparse-book",
+        "edition_id": "edition-sparse-book-en-1",
+        "language": "en"
+      },
+      "metadata": {}
+    },
+    {
+      "id": "malformed-evidence-epub",
+      "file_path": "files/malformed-evidence-epub.fixture",
+      "text_path": "text/malformed-evidence.txt",
+      "media_format": "EPUB",
+      "file_sha256": "600710a58cc9a18615c49ad2c5ec7207022fccadef7942a2b6f5b1f11203ba39",
+      "text_artifact_sha256": "426293b290b747dd5659f16317cd1d4f2de4de81b2892e83b57784b4aa4d4449",
+      "normalized_text_sha256": "d81f494208b02c19328723b982fd804254f7088353c803c050201867eb5dd87b",
+      "cover_dhash": "not-a-dhash",
+      "evidence_case": "MALFORMED",
+      "ground_truth": {
+        "work_id": "work-malformed-evidence",
+        "edition_id": "edition-malformed-evidence-en-1",
+        "language": "en"
+      },
+      "metadata": {}
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "same-edition-azw",
+      "left_item": "lantern-en-epub-a",
+      "right_item": "lantern-en-azw",
+      "expected_status": "COMPLETE",
+      "expected_states": {
+        "FILE_BYTES": "DIFFERENT",
+        "NORMALIZED_TEXT": "SAME",
+        "METADATA": "SAME",
+        "STRUCTURE": "NOT_APPLICABLE",
+        "COVER": "DIFFERENT"
+      },
+      "expected_cover_distance": 1
+    },
+    {
+      "id": "same-edition-azw3",
+      "left_item": "lantern-en-epub-a",
+      "right_item": "lantern-en-azw3",
+      "expected_status": "COMPLETE",
+      "expected_states": {
+        "FILE_BYTES": "DIFFERENT",
+        "NORMALIZED_TEXT": "SAME",
+        "METADATA": "SAME",
+        "STRUCTURE": "NOT_APPLICABLE",
+        "COVER": "DIFFERENT"
+      },
+      "expected_cover_distance": 8
+    },
+    {
+      "id": "same-edition-pdf",
+      "left_item": "lantern-en-epub-a",
+      "right_item": "lantern-en-pdf",
+      "expected_status": "PARTIAL",
+      "expected_states": {
+        "FILE_BYTES": "DIFFERENT",
+        "NORMALIZED_TEXT": "SAME",
+        "METADATA": "SAME",
+        "STRUCTURE": "NOT_APPLICABLE",
+        "COVER": "NOT_APPLICABLE"
+      }
+    },
+    {
+      "id": "cover-distance-32",
+      "left_item": "lantern-en-epub-a",
+      "right_item": "lantern-en-cover-distance-32-epub",
+      "expected_status": "COMPLETE",
+      "expected_states": {
+        "FILE_BYTES": "DIFFERENT",
+        "NORMALIZED_TEXT": "SAME",
+        "METADATA": "SAME",
+        "STRUCTURE": "SAME",
+        "COVER": "DIFFERENT"
+      },
+      "expected_cover_distance": 32
+    },
+    {
+      "id": "sparse-evidence",
+      "left_item": "lantern-en-epub-a",
+      "right_item": "sparse-book-epub",
+      "expected_status": "PARTIAL",
+      "expected_states": {
+        "FILE_BYTES": "DIFFERENT",
+        "NORMALIZED_TEXT": "INDETERMINATE",
+        "METADATA": "INDETERMINATE",
+        "STRUCTURE": "INDETERMINATE",
+        "COVER": "INDETERMINATE"
+      }
+    },
+    {
+      "id": "malformed-evidence",
+      "left_item": "lantern-en-epub-a",
+      "right_item": "malformed-evidence-epub",
+      "expected_status": "PARTIAL",
+      "expected_states": {
+        "FILE_BYTES": "DIFFERENT",
+        "NORMALIZED_TEXT": "INDETERMINATE",
+        "METADATA": "INDETERMINATE",
+        "STRUCTURE": "INDETERMINATE",
+        "COVER": "INDETERMINATE"
+      }
+    }
+  ]
+}

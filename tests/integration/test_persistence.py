@@ -90,10 +90,21 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
     assert {"missing_since_at", "consecutive_missing_scans"} <= file_columns
     scan_columns = {column["name"] for column in inspector.get_columns("scan_runs")}
     assert "resumed_from_run_id" in scan_columns
+    expected_indexes = {
+        "tool_executions": {
+            "ix_tool_executions_input_capability_provider_started"
+        },
+        "tool_results": {"ix_tool_results_target_execution"},
+        "fingerprints": {"ix_fingerprints_target_kind_execution"},
+    }
+    for table_name, names in expected_indexes.items():
+        assert names <= {
+            str(index["name"]) for index in inspector.get_indexes(table_name)
+        }
 
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0005_scan_resume_lineage"
+    assert revision == "0006_ebook_evidence_lookup_indexes"
 
 
 def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) -> None:
@@ -147,7 +158,7 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0005_scan_resume_lineage"
+    assert revision == "0006_ebook_evidence_lookup_indexes"
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:
