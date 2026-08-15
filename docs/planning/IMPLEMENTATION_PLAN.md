@@ -162,6 +162,12 @@ Implemented sequence and decisions through `W3-010`:
     fingerprints. Re-run missing, failed, stale, damaged or inconsistent steps,
     expose `REUSED`/`EXECUTED`, and let `--fresh` bypass reuse completely. Keep
     the existing two-execution Poppler PDF adapter atomic at workflow-step level.
+12. advance the unified result contract to `ebook-analysis-workflow/v3` and
+    project its bounded facts through `ebook-quality/v1`. Evaluate metadata,
+    readable text, cover presence, EPUB structure and format-specific risk as
+    separate dimensions with stable finding codes and exact available
+    ToolExecution provenance. Keep `INCOMPLETE` evidence separate from media
+    findings, omit a scalar score and retain the technical CLI exit semantics.
 
 Current execution priority is intentionally e-book-first. Music W4 remains in
 the architecture and backlog but is deferred until the e-book completion track
@@ -178,7 +184,8 @@ Planned evidence includes:
 - metadata/tool disagreement;
 - optional embedded-cover facts and versioned perceptual fingerprint;
 - EPUB structural validation Evidence;
-- later provider-neutral content-diff and broader quality Evidence.
+- versioned multi-dimensional E-Book quality findings;
+- later provider-neutral content comparison and collection-level reports.
 
 OCR is out of the first implementation. Scanned PDFs without text should be represented explicitly rather than silently OCRed.
 

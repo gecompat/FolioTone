@@ -47,9 +47,12 @@ verdecken. `W3-011` ergänzt das Profil `ebook-analysis-workflow/v2`: Nur exakt
 passende erfolgreiche Evidence mit reproduzierbaren Ableitungen und intakten
 Pflichtartefakten wird wiederverwendet; sonst läuft ausschließlich der
 betroffene Workflow-Schritt neu. `--fresh` erzwingt einen vollständigen neuen
-Lauf. Auf Benutzerentscheidung bleibt die Entwicklung zunächst bei E-Books:
-Das Qualitätsprofil `W3-012` ist als Nächstes vorgesehen; die Music-Toolchain
-bleibt zurückgestellt.
+Lauf. `W3-012` ergänzt `ebook-analysis-workflow/v3` und die separate Projektion
+`ebook-quality/v1`: Metadaten, Text, Cover, Struktur und Formatrisiken werden
+ohne skalaren Score und ohne Identitätsaussage als nachvollziehbare Dimensionen
+und feste Befundcodes ausgegeben. Auf Benutzerentscheidung bleibt die
+Entwicklung zunächst bei E-Books; als Nächstes folgt der provider-neutrale
+E-Book-Vergleich. Die Music-Toolchain bleibt zurückgestellt.
 
 W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 
@@ -79,6 +82,9 @@ Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
   MOBI, AZW, AZW3 und PDF mit explizitem `PARTIAL_FAILURE`;
 - konservative exakte Evidence-Wiederverwendung, gezielten Schritt-Retry,
   sichtbare `REUSED`-/`EXECUTED`-Aktionen und einen expliziten `--fresh`-Modus;
+- ein versioniertes `EbookQualityAssessment` mit `METADATA`, `TEXT`, `COVER`,
+  `STRUCTURE` und `FORMAT_RISK`, festen Befundcodes und getrennten Zuständen
+  für unvollständige Analyse, Review und erforderliche Maßnahmen;
 - rohe OPF-Beobachtungen und versionierte, gruppierte Kandidaten für ISBN und
   andere Identifier, Contributors/Rollen/Sortiernamen, Sprache, Verlag,
   Publikationsdatum, Serie und weitere Felder;

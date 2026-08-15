@@ -473,6 +473,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Unified format-aware read-only e-book orchestration is available through "
             "ebook-analyze."
         )
+        print(
+            "Versioned multi-dimensional e-book quality findings are available through "
+            "ebook-analyze."
+        )
         print("Read-only PDF metadata and text analysis is available through pdf-analyze.")
         print("Read-only EPUB conformance evidence is available through epub-validate.")
         print("Source-media and external-tool mutation commands are not implemented.")
@@ -708,6 +712,17 @@ def _run_ebook_analyze(args: argparse.Namespace) -> int:
                 )
         for key, value in step.facts:
             print(f"{step.name}.{key}: {json.dumps(value, ensure_ascii=False)}")
+    print(f"Quality profile: {outcome.quality.profile}")
+    print(f"Quality status: {outcome.quality.status.value}")
+    for dimension in outcome.quality.dimensions:
+        print(f"Quality dimension {dimension.name.value}: {dimension.status.value}")
+    print(f"Quality findings: {len(outcome.quality.findings)}")
+    for finding in outcome.quality.findings:
+        sources = ",".join(map(str, finding.source_execution_ids)) or "none"
+        print(
+            f"Quality finding {finding.code}: severity={finding.severity.value}; "
+            f"dimension={finding.dimension.value}; ToolExecutions={sources}"
+        )
     print(f"Overall status: {outcome.status.value}")
     return 0 if outcome.status is EbookAnalysisStatus.SUCCEEDED else 1
 

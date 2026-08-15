@@ -30,6 +30,7 @@ from foliotone.workflows import (
     EbookAnalysisStepOutcome,
     EbookAnalysisStepState,
     EbookAnalysisTools,
+    EbookQualityStatus,
     ebook_analysis_format,
 )
 
@@ -67,6 +68,7 @@ def test_epub_workflow_runs_every_applicable_step_and_bounds_summary() -> None:
     assert outcome.format_name == "EPUB"
     assert outcome.profile == EBOOK_ANALYSIS_PROFILE
     assert outcome.status is EbookAnalysisStatus.SUCCEEDED
+    assert outcome.quality.status is EbookQualityStatus.REVIEW
     assert [step.name for step in outcome.steps] == [
         "metadata",
         "text",
@@ -79,6 +81,15 @@ def test_epub_workflow_runs_every_applicable_step_and_bounds_summary() -> None:
     assert metadata_facts == {
         "metadata_observation_count": "1",
         "metadata_candidate_count": "1",
+        "title_present": "true",
+        "author_present": "false",
+        "contributor_present": "false",
+        "language_present": "false",
+        "identifier_present": "false",
+        "publisher_present": "false",
+        "publication_date_present": "false",
+        "series_present": "false",
+        "series_position_present": "false",
     }
     assert "Synthetic Title" not in metadata_facts.values()
     assert dict(outcome.steps[1].facts) == {
@@ -136,6 +147,8 @@ def test_pdf_workflow_uses_only_poppler_and_preserves_both_executions() -> None:
     assert len(step.executions) == 2
     assert dict(step.facts) == {
         "metadata_observation_count": "4",
+        "title_present": "true",
+        "author_present": "false",
         "page_count": "42",
         "encrypted": "no",
         "pdf_version": "1.7",
@@ -158,6 +171,7 @@ def test_failed_tool_step_does_not_hide_or_block_later_steps() -> None:
     assert outcome.steps[2].state is EbookAnalysisStepState.SUCCEEDED
     assert outcome.steps[3].state is EbookAnalysisStepState.SUCCEEDED
     assert outcome.status is EbookAnalysisStatus.PARTIAL_FAILURE
+    assert outcome.quality.status is EbookQualityStatus.INCOMPLETE
 
 
 def test_adapter_error_is_bounded_and_does_not_block_independent_steps() -> None:
@@ -172,6 +186,7 @@ def test_adapter_error_is_bounded_and_does_not_block_independent_steps() -> None
     assert outcome.steps[0].executions == ()
     assert outcome.steps[0].error == "metadata projection failed"
     assert outcome.status is EbookAnalysisStatus.PARTIAL_FAILURE
+    assert outcome.quality.status is EbookQualityStatus.INCOMPLETE
 
 
 def test_exact_prior_outcomes_are_reused_without_invoking_analyzers(
@@ -360,7 +375,7 @@ def _tools(
                 _result(
                     execution,
                     observation,
-                    "title.candidate",
+                    "title",
                     "Synthetic Title",
                 ),
             ),
