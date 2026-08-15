@@ -3,17 +3,19 @@
 Stand: 2026-08-15
 
 Diese Bewertung schloss `W3-001` ab und dokumentiert zusätzlich die in
-`W3-002` bis `W3-008` implementierten calibre-, Poppler- und EPUBCheck-Verträge. Sie
-betrachtet nur dokumentierte, automatisierbare und bis einschließlich W9 nicht
-mutierende Analysepfade. Die Versionsangaben sind ein zeitgebundener Snapshot
-und müssen vor einem späteren Upgrade oder einer neuen Integration erneut
-geprüft werden.
+`W3-002` bis `W3-009` implementierten calibre-, Poppler-, EPUBCheck- und
+Pillow-Verträge. Sie betrachtet nur dokumentierte, automatisierbare und bis
+einschließlich W9 nicht mutierende Analysepfade. Die Versionsangaben sind ein
+zeitgebundener Snapshot und müssen vor einem späteren Upgrade oder einer neuen
+Integration erneut geprüft werden.
 
 ## Entscheidungsmatrix
 
 | Werkzeug | geprüfter Stand | Lizenz | geeignete FolioTone-Rolle | Entscheidung |
 |---|---:|---|---|---|
-| calibre | 9.13.0 | GPL-3.0 | Metadaten aus mehreren Formaten; EPUB/MOBI/AZW/AZW3-Textextraktion; spätere optionale Library-Abfragen | `ebook-meta` für `W3-002`/`W3-005`/`W3-006` und `ebook-convert` für `W3-003`/`W3-005` wiederverwenden; `calibredb` vorerst zurückstellen |
+| calibre | 9.13.0 | GPL-3.0 | Metadaten aus mehreren Formaten; EPUB/MOBI/AZW/AZW3-Text- und Embedded-Cover-Extraktion; spätere optionale Library-Abfragen | `ebook-meta` für `W3-002`/`W3-005`/`W3-006`, `ebook-convert` für `W3-003`/`W3-005` und einen festen `calibre-debug -e`-Helper für `W3-009` wiederverwenden; direkten `ebook-meta --get-cover`-Pfad und `calibredb` vorerst zurückstellen |
+| Pillow | 12.3.0 | MIT-CMU | begrenzte Rasterdekodierung, EXIF-Orientierung, Graustufen- und Lanczos-Normalisierung | für `W3-009` wiederverwenden; dHash-Vertrag und Versionierung bleiben FolioTone-eigen |
+| ImageHash | 4.3.2 | BSD-2-Clause | mehrere perzeptuelle Bildhash-Verfahren | nicht übernehmen: der kleine feste dHash benötigt keine zusätzlichen NumPy-/SciPy-/PyWavelets-Abhängigkeiten |
 | EPUBCheck | 5.3.0 | BSD-3-Clause | EPUB-2-/EPUB-3-Konformität und strukturelle Fehler mit JSON-Report | mit `epubcheck-json/1` für `W3-008` implementiert; nicht für Metadaten- oder Textextraktion verwenden |
 | Poppler | 26.07.0 | GPL-2.0-or-later in den geprüften Frontend-Quellen; vor Redistribution komponentengenau prüfen | PDF-Metadaten, Seitenzahl und Text über `pdfinfo`/`pdftotext` | für `W3-004` als zwei feste CLI-Adapterpfade implementiert |
 | qpdf | 12.4.0 | Apache-2.0 | PDF-Struktur, Integrität und maschinenlesbare JSON-v2-Repräsentation | optional ergänzend für strukturelle Evidence; nicht für Textextraktion |
@@ -134,6 +136,59 @@ Offizielle Referenz:
 
 - https://manual.calibre-ebook.com/generated/en/ebook-convert.html
 - https://manual.calibre-ebook.com/drm.html
+
+### EPUB/MOBI/AZW/AZW3-Embedded-Cover und FolioTone-dHash
+
+`W3-009` verwendet die dokumentierte Fähigkeit von `calibre-debug`, ein festes
+Standalone-Skript über `-e` auszuführen. Der paketierte Helper akzeptiert nur
+die vom Adapter gesetzten Argumente, kopiert die konkrete Source-Observation
+zuerst in den privaten Workspace und übergibt ausschließlich diese Kopie an den
+calibre-Metadatenreader. Für EPUB wird `allow_rendered_cover=False` gesetzt.
+Damit bezeichnet ein extrahiertes Raster tatsächlich ein eingebettetes Cover;
+eine sonst von calibre gerenderte erste Seite wird nicht als Cover-Evidence
+missverstanden.
+
+Der scheinbar einfachere dokumentierte `ebook-meta --get-cover`-Pfad erfüllt
+den Vertrag nicht. Ohne `--disallow-rendered-cover` erzeugt calibre für ein
+coverloses EPUB ein gerendertes Titelbild. Der lokale calibre-9.13-Test zeigte,
+dass die zusätzliche Option von `ebook-meta` zugleich als schreibende Option
+klassifiziert wird und die Eingabe neu serialisieren kann. Selbst eine
+nachgelagerte Hashprüfung wäre dafür keine ausreichende Schutzgrenze. Der
+implementierte Helper lässt den calibre-Reader deshalb nur auf der ephemeren
+Kopie arbeiten und verwendet `ebook-meta` nicht.
+
+Der Helper liefert ein erforderliches, maximal 1 KiB großes JSON-Ergebnis mit
+`COVER_EXTRACTED` oder `NO_EMBEDDED_COVER`, Covergröße und SHA-256 der
+gestagten Source. FolioTone vergleicht den Digest nach dem Prozess erneut mit
+der unveränderten `FileObservation`. Das optionale Cover ist auf 32 MiB
+begrenzt und bleibt privates `CALIBRE_EMBEDDED_COVER`-`ToolArtifact`.
+
+Pillow 12.3.0 ist die einzige neue Runtime-Abhängigkeit. Zugelassen sind JPEG,
+PNG, WebP und GIF bis 40 Megapixel; Decompression-Bomb-Warnungen werden als
+Fehler behandelt. FolioTone verwendet den EXIF-orientierten ersten Frame,
+konvertiert ihn nach Graustufen und skaliert mit Lanczos auf 9 x 8 Pixel. Acht
+horizontale Vergleiche pro Zeile ergeben den 64-Bit-`dhash-64`. Das Profil
+`horizontal-luma-9x8-lanczos-v1+pillow-<version>` macht sämtliche
+reproduktionsrelevanten Entscheidungen sichtbar.
+
+ImageHash 4.3.2 wurde geprüft, aber nicht als Abhängigkeit aufgenommen. Das
+Paket implementiert deutlich mehr Verfahren und deklariert NumPy, SciPy,
+Pillow und PyWavelets; für den bewusst kleinen dHash-Vertrag wären drei davon
+unnötig. Ein späterer Bedarf an pHash, Wavelet-, Farb- oder crop-resistentem
+Hashing erfordert eine neue Bewertung und ein neues `algorithm_version`-
+Profil. Der aktuelle dHash ist ausschließlich unterstützende Evidence und
+kein automatischer Datei-, `Edition`- oder `Work`-Identitätsbeweis.
+
+Offizielle Referenzen:
+
+- https://manual.calibre-ebook.com/generated/en/calibre-debug.html
+- https://manual.calibre-ebook.com/generated/en/ebook-meta.html
+- https://github.com/kovidgoyal/calibre/blob/v9.13.0/src/calibre/ebooks/metadata/cli.py
+- https://github.com/kovidgoyal/calibre/blob/v9.13.0/src/calibre/ebooks/metadata/epub.py
+- https://pypi.org/project/pillow/
+- https://pillow.readthedocs.io/en/stable/reference/Image.html
+- https://github.com/JohannesBuchner/imagehash
+- https://github.com/JohannesBuchner/imagehash/blob/master/setup.py
 
 ### Verbindliche Sicherheitsuntergrenze
 
@@ -328,7 +383,7 @@ Offizielle Referenzen:
 - https://qpdf.readthedocs.io/en/latest/json.html
 - https://github.com/qpdf/qpdf/blob/main/LICENSE.txt
 
-## Verifizierte `W3-002`- bis `W3-008`-Slices
+## Verifizierte `W3-002`- bis `W3-009`-Slices
 
 Am 2026-08-14 wurde calibre 9.13.0 als separates administratives Abbild außerhalb
 des Repositorys installiert. Das offizielle MSI hatte den erwarteten
@@ -415,3 +470,18 @@ Die Source-Datei blieb bytegleich, der private JSON-Report wurde als Artefakt
 
 Der vollständige W3-008-Stand bestand mit Python 3.12.10 lokal `ruff check .`,
 Mypy für 66 Source-Dateien und alle 175 Pytest-Tests in 9 Minuten 23 Sekunden.
+
+Für `W3-009` wurde Pillow 12.3.0 nur in der projektbezogenen Umgebung unter
+`C:\rep\cache\FolioTone` installiert. Der echte CLI-Smoke-Test unter
+`C:\rep\tmp\FolioTone\w3-009-smoke-01` verwendete zwei ausschließlich
+synthetische EPUBs. Das EPUB mit eingebettetem JPEG lieferte
+`COVER_EXTRACTED`, Format und Abmessungen sowie den dHash
+`4000000000000000`; das coverlose EPUB lieferte `NO_EMBEDDED_COVER` ohne
+Fingerprint. Beide Läufe endeten erfolgreich, und beide Source-SHA-256 blieben
+unverändert. Die 13 neuen Cover-Tests plus zwei Bootstrap-Tests, Ruff und Mypy
+für 69 Source-Dateien waren erfolgreich.
+
+Der vollständige W3-009-Stand bestand mit Python 3.12.10 lokal
+`ruff check .`, Mypy für 69 Source-Dateien und alle 188 Pytest-Tests in
+11 Minuten 31 Sekunden. Der lokale Wheel-Build enthielt die neue
+Cover-Implementierung einschließlich des `calibre-debug`-Helpers.

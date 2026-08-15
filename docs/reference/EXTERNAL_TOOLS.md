@@ -31,13 +31,15 @@ Through W9, source media remains read-only. Tool write/delete/move/retag capabil
 
 Priority: **very high**
 
-Evaluated snapshot: **9.13.0 on 2026-08-14; metadata and EPUB/MOBI/AZW/AZW3 text adapters implemented**
+Evaluated snapshot: **9.13.0 on 2026-08-15; metadata, EPUB/MOBI/AZW/AZW3 text and embedded-cover adapters implemented**
 
 Candidate roles:
 
 - e-book metadata extraction through calibre CLI tools;
 - deterministic plain-text extraction from EPUB, MOBI, AZW and AZW3 for
   FolioTone-owned fingerprints;
+- embedded-cover extraction from EPUB, MOBI, AZW and AZW3 for bounded
+  FolioTone-owned visual Evidence;
 - calibre library inventory/query through `calibredb`;
 - optional remote library access through a calibre Content Server used by `calibredb`;
 - format inspection/conversion support for analysis workflows;
@@ -48,6 +50,8 @@ Preferred integration:
 - `CLI`: the implemented immutable `ebook-meta FILE --to-opf metadata.opf` shape;
 - `CLI`: the implemented immutable `ebook-convert FILE content.txt` shape with
   fixed UTF-8, Unix-newline, plain-text and no-line-wrap options;
+- `CLI`: the implemented fixed `calibre-debug -e` helper, which stages source
+  privately and disables rendered EPUB fallback covers;
 - `CLI`: a future explicit read-command allowlist for `calibredb`, not arbitrary subcommands;
 - `SERVICE`: calibre Content Server where useful, using documented interfaces rather than reverse-engineered web UI calls;
 - `CONTAINER_JOB`: optional external calibre container.
@@ -82,6 +86,15 @@ the fingerprint or domain model. DRM removal or bypass is not implemented.
 Protected, damaged or otherwise failed conversions remain failures and are not
 mislabeled as successful `NO_TEXT` results.
 
+Adapter version `calibre-debug-cover/1` accepts exactly EPUB, MOBI, AZW and
+AZW3. The fixed packaged helper copies the observed file into the private
+workspace before calibre sees it, returns a bounded JSON result plus optional
+32 MiB private cover artifact, and verifies the staged Source SHA-256 after the
+run. Rendered first-page EPUB covers are disabled; absent embedded artwork is
+explicit `NO_EMBEDDED_COVER`. Direct `ebook-meta --get-cover` is not used
+because its rendered-cover fallback violates that semantic contract and the
+9.13 `--disallow-rendered-cover` path can rewrite the input.
+
 The binding evaluation, license notes and reuse/defer decisions are documented
 in [E-Book-Toolchain-Bewertung](EBOOK_TOOL_EVALUATION.md).
 
@@ -90,6 +103,7 @@ Official references:
 - https://manual.calibre-ebook.com/en/generated/en/cli-index.html
 - https://manual.calibre-ebook.com/generated/en/ebook-meta.html
 - https://manual.calibre-ebook.com/generated/en/ebook-convert.html
+- https://manual.calibre-ebook.com/generated/en/calibre-debug.html
 - https://manual.calibre-ebook.com/drm.html
 - https://manual.calibre-ebook.com/en/generated/en/calibredb.html
 - https://manual.calibre-ebook.com/server.html
@@ -106,6 +120,40 @@ Container candidate:
 Security note:
 
 The LinuxServer calibre image exposes a full GUI/terminal environment and its own documentation warns about privileged access implications. It should not automatically become part of FolioTone's default minimal runtime. Prefer a purpose-built CLI integration or an isolated optional profile where practical.
+
+### Pillow
+
+Priority: **high**
+
+Evaluated snapshot: **12.3.0 on 2026-08-15; bounded e-book cover normalization implemented**
+
+Implemented role:
+
+- decode JPEG, PNG, WebP or GIF embedded covers;
+- apply EXIF orientation, grayscale conversion and 9 x 8 Lanczos resampling;
+- provide pixels for FolioTone's versioned horizontal 64-bit dHash.
+
+Important boundary:
+
+Pillow is the image decoder/resampler, not the owner of the fingerprint or an
+identity decision. FolioTone limits the encoded artifact to 32 MiB and decoded
+image to 40 megapixels, treats Decompression-Bomb warnings as failures, uses
+only the first frame and records the exact Pillow version in
+`algorithm_version`. The resulting `EBOOK_COVER_DHASH` is supporting Evidence
+only. Pillow is licensed MIT-CMU.
+
+ImageHash 4.3.2 was evaluated but not added. Its package brings NumPy, SciPy and
+PyWavelets in addition to Pillow, while the current contract needs only a
+small fixed dHash. Additional visual algorithms require a new evaluation and
+new versioned profile.
+
+Official references:
+
+- https://pypi.org/project/pillow/
+- https://pillow.readthedocs.io/en/stable/reference/Image.html
+- https://github.com/python-pillow/Pillow/blob/main/LICENSE
+- https://pypi.org/project/ImageHash/
+- https://github.com/JohannesBuchner/imagehash/blob/master/setup.py
 
 ### EPUBCheck
 

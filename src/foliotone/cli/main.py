@@ -12,6 +12,8 @@ from pathlib import Path
 
 from foliotone import __version__
 from foliotone.adapters.calibre import (
+    CalibreCoverAnalyzer,
+    CalibreCoverError,
     CalibreMetadataAnalyzer,
     CalibreMetadataError,
     CalibreTextAnalyzer,
@@ -212,6 +214,51 @@ def build_parser() -> argparse.ArgumentParser:
         help="ebook-convert executable or absolute executable path.",
     )
 
+    ebook_cover = subparsers.add_parser(
+        "ebook-cover",
+        help=(
+            "Extract an embedded EPUB/MOBI/AZW/AZW3 cover read-only and calculate "
+            "a perceptual dHash fingerprint."
+        ),
+    )
+    ebook_cover.add_argument(
+        "--root",
+        required=True,
+        type=Path,
+        help="Runtime source root containing the recorded e-book observation.",
+    )
+    ebook_cover.add_argument(
+        "--observation-id",
+        required=True,
+        type=EntityId.parse,
+        help="Persisted EPUB/MOBI/AZW/AZW3 FileObservation ID to analyze.",
+    )
+    ebook_cover.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="SQLite database path; defaults to /data/foliotone.db.",
+    )
+    ebook_cover.add_argument(
+        "--artifact-root",
+        type=Path,
+        default=Path(
+            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
+        ),
+        help="Durable private tool-artifact root; defaults to /data/tool-artifacts.",
+    )
+    ebook_cover.add_argument(
+        "--work-root",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_TOOL_WORK_ROOT", "/tmp/foliotone-tools")),
+        help="Ephemeral isolated tool-work root; defaults to /tmp/foliotone-tools.",
+    )
+    ebook_cover.add_argument(
+        "--calibre-debug-executable",
+        default=os.environ.get("FOLIOTONE_CALIBRE_DEBUG", "calibre-debug"),
+        help="calibre-debug executable or absolute executable path.",
+    )
+
     pdf_analyze = subparsers.add_parser(
         "pdf-analyze",
         help="Analyze PDF metadata, page count, and text read-only with Poppler.",
@@ -326,6 +373,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Read-only EPUB/MOBI/AZW/AZW3 text fingerprints are available through "
             "ebook-text."
         )
+        print(
+            "Read-only embedded-cover facts and perceptual fingerprints are available "
+            "through ebook-cover."
+        )
         print("Read-only PDF metadata and text analysis is available through pdf-analyze.")
         print("Read-only EPUB conformance evidence is available through epub-validate.")
         print("Source-media and external-tool mutation commands are not implemented.")
@@ -340,6 +391,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-text":
         return _run_ebook_text(args)
+
+    if args.command == "ebook-cover":
+        return _run_ebook_cover(args)
 
     if args.command == "pdf-analyze":
         return _run_pdf_analyze(args)
@@ -505,6 +559,44 @@ def _run_ebook_text(args: argparse.Namespace) -> int:
         print(f"{result.key}: {result.value}")
     if outcome.fingerprint is not None:
         print(f"Normalized text fingerprint: {outcome.fingerprint.value}")
+    return 0 if execution.status is ToolExecutionStatus.SUCCEEDED else 1
+
+
+def _run_ebook_cover(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    observation = repository(engine, FileObservation).get(args.observation_id)
+    if observation is None:
+        print("Cover analysis failed: FileObservation does not exist.")
+        return 2
+
+    runtime = ToolRuntime(
+        engine,
+        args.artifact_root,
+        work_root=args.work_root,
+    )
+    try:
+        analyzer = CalibreCoverAnalyzer(
+            engine,
+            runtime,
+            executable=args.calibre_debug_executable,
+        )
+        outcome = analyzer.analyze(args.root, observation)
+    except (CalibreCoverError, ValueError) as error:
+        print(f"Cover analysis failed: {error}")
+        return 1
+
+    execution = outcome.run.execution
+    print(f"ToolExecution: {execution.id}")
+    print(f"Status: {execution.status.value}")
+    print(f"Tool version: {json.dumps(execution.tool_version, ensure_ascii=False)}")
+    if execution.error_summary is not None:
+        print(f"Error: {json.dumps(execution.error_summary, ensure_ascii=False)}")
+    for result in outcome.results:
+        print(f"{result.key}: {result.value}")
+    if outcome.fingerprint is not None:
+        print(f"Cover perceptual fingerprint: {outcome.fingerprint.value}")
     return 0 if execution.status is ToolExecutionStatus.SUCCEEDED else 1
 
 

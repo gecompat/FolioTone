@@ -20,7 +20,10 @@ Rollenprojektion mit provider-neutralen, Provenance-verknüpften Kandidaten.
 `W3-007` ergänzt einen versionierten synthetischen Vergleichskorpus für Datei-,
 Inhalts-, `Edition`-, `Work`- und Tool-Disagreement-Ground-Truth. `W3-008`
 ergänzt feste EPUBCheck-JSON-Strukturvalidierung und provider-spezifische
-akzeptierte Exitcodes. `W3-009` ist als Nächstes vorgesehen.
+akzeptierte Exitcodes. `W3-009` ergänzt eine quellisolierte
+EPUB/MOBI/AZW/AZW3-Embedded-Cover-Extraktion, explizites
+`NO_EMBEDDED_COVER` und einen versionierten FolioTone-dHash. W3 ist
+abgeschlossen; `W4-001` ist als Nächstes vorgesehen.
 
 ## Vor Änderungen lesen
 
@@ -78,7 +81,7 @@ Die Abschlussprüfung bestätigt zusätzlich:
 - keine Wiederverwendung ohne explizite Konfigurationsidentität;
 - allowlist-basierten Docker-Build-Kontext ohne lokale Runtime-, Medien-, Secret-, Test- oder Git-Daten.
 
-### W3-001 bis W3-008
+### W3-001 bis W3-009
 
 Der am 2026-08-15 aktualisierte Snapshot wählt calibre 9.13.0 für dateibezogene Metadaten,
 EPUBCheck 5.3.0 für implementierte EPUB-Konformität, Poppler 26.07.0 für implementierte
@@ -205,13 +208,42 @@ Der Implementierungscommit `e80b1d9cba28e2d883daaa2627b4fc0ef795d11c`
 von PR #18 bestand die GitHub-Actions-Runs `31866746326` und `31866764769`;
 beide `quality`-Jobs waren nach 58 beziehungsweise 50 Sekunden erfolgreich.
 
+`foliotone ebook-cover` akzeptiert ausschließlich eine unveränderte EPUB-,
+MOBI-, AZW- oder AZW3-`FileObservation`. Der feste
+`calibre-debug-cover/1`-Helper wird über `calibre-debug -e` ausgeführt, kopiert
+die Source in den privaten Workspace und übergibt nur diese Kopie an den
+calibre-Reader. Gerenderte EPUB-Ersatzcover sind deaktiviert. Das erforderliche
+JSON-Ergebnis enthält Status, Covergröße und Source-SHA-256; das optionale,
+maximal 32 MiB große Raster bleibt privates `CALIBRE_EMBEDDED_COVER`-
+`ToolArtifact`.
+
+Pillow 12.3.x dekodiert nur JPEG, PNG, WebP oder GIF unter einer
+40-Megapixel-Grenze. FolioTone normalisiert EXIF-orientiert in Graustufen auf
+9 x 8 Pixel mit Lanczos und speichert einen versionierten horizontalen
+64-Bit-`EBOOK_COVER_DHASH`. `NO_EMBEDDED_COVER` ist ein erfolgreicher Befund
+ohne Fingerprint. Coverähnlichkeit bleibt unterstützende Evidence und ist kein
+Identitätsbeweis.
+
+Der echte CLI-Smoke-Test unter
+`C:\rep\tmp\FolioTone\w3-009-smoke-01` verwendete zwei ausschließlich
+synthetische EPUBs. Ein eingebettetes JPEG ergab `COVER_EXTRACTED`,
+1240 x 1752 Pixel und dHash `4000000000000000`; das zweite EPUB ergab
+`NO_EMBEDDED_COVER`. Beide Source-SHA-256 blieben unverändert. Die 13 neuen
+Cover-Tests plus zwei Bootstrap-Tests, Ruff und Mypy für 69 Source-Dateien
+waren lokal erfolgreich.
+
+Der vollständige W3-009-Stand bestand mit Python 3.12.10 lokal
+`ruff check .`, Mypy für 69 Source-Dateien und alle 188 Pytest-Tests in
+11 Minuten 31 Sekunden. Das gebaute Wheel enthielt Adapter, dHash-Logik und
+den paketierten calibre-Helper.
+
 Calibres dokumentiertes `calibre-debug --diff` startet ein GUI-Modul ohne
 headless JSON-/Reportvertrag und wurde deshalb nicht adaptiert. Ein späterer
 provider-neutraler Book-Diff soll persistierte Datei-, Text-, Metadaten-,
 Struktur- und Cover-Evidence vergleichen. qpdf bleibt bis zu einem zusätzlichen
 PDF-Struktur-Gap zurückgestellt.
 
-## W2 aktuell implementiert
+## Aktuell implementiert
 
 ### Index
 
@@ -356,6 +388,25 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
 - kein calibre-GUI-Diff-Adapter und kein qpdf-Adapter ohne zusätzlichen
   maschinenlesbaren Vergleichs- oder PDF-Strukturbedarf.
 
+### calibre-Embedded-Cover und FolioTone-dHash
+
+- `CalibreCoverAnalyzer` und CLI `foliotone ebook-cover`;
+- feste EPUB/MOBI/AZW/AZW3-Allowlist unter `ToolCapability.FINGERPRINT`;
+- paketierter `calibre-debug -e`-Helper mit privater Source-Kopie, ohne
+  `ebook-meta`-Setter oder caller-kontrollierte Python-/calibre-Argumente;
+- deaktivierte gerenderte EPUB-Ersatzcover und explizites
+  `NO_EMBEDDED_COVER` ohne Fingerprint;
+- erforderliches, maximal 1 KiB großes JSON-Ergebnis mit Source-SHA-256 sowie
+  erneuter Digest-Prüfung nach dem Lauf;
+- optionales, maximal 32 MiB großes privates
+  `CALIBRE_EMBEDDED_COVER`-Artefakt;
+- Pillow-12.3-Rasterdekodierung für JPEG/PNG/WebP/GIF mit
+  Decompression-Bomb- und 40-Megapixel-Grenze;
+- EXIF-orientierter 9-x-8-Graustufen-Lanczos-Normalisierer und versionierter
+  horizontaler 64-Bit-`EBOOK_COVER_DHASH`;
+- Coverähnlichkeit ausschließlich als unterstützende Evidence, ohne
+  automatische Datei-/`Edition`-/`Work`-Identität.
+
 ### Persistence
 
 - Alembic `0002_incremental_index` ergänzt Scan-Events, Tool-Artefakte und W2-Indizes;
@@ -369,8 +420,9 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-009` — Cover-Extraktion/perzeptuelle Fingerprints als optionale Evidence
-   bewerten, ohne den initialen Analyzer zu blockieren.
+1. `W4-001` — aktuelle ffprobe-, Chromaprint/`fpcalc`-, beets-, SongKong- und
+   Picard-Schnittstellen, Wartung, Lizenzen und Sicherheitsgrenzen bewerten;
+   erst danach den ersten Music-ToolProvider auswählen.
 
 Die Produktoberfläche bleibt dabei ausschließlich die CLI. Externe Tool-Ergebnisse werden weiterhin als Evidence behandelt und nicht direkt zu kanonischen Metadaten.
 

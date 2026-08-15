@@ -124,7 +124,7 @@ Do **not** start by writing EPUB/PDF/MOBI parsers from scratch.
 
 First evaluate maintained specialist capabilities, especially calibre CLI, plus targeted format validators/tools where appropriate. Document reuse/rejection decisions with current maintenance/licensing/security information.
 
-Implemented sequence and decisions through `W3-008`:
+Implemented sequence and decisions through `W3-009`:
 
 1. calibre `ebook-meta` as a fixed read-only metadata extraction vertical slice;
 2. fixed calibre `ebook-convert` EPUB text plus a FolioTone-owned fingerprint;
@@ -144,6 +144,10 @@ Implemented sequence and decisions through `W3-008`:
    conformance/severity/diagnostic-code Evidence and provider-specific accepted
    exit codes; defer calibre's GUI-only diff and qpdf until a machine-readable
    comparison or additional PDF-structure gap exists.
+9. add optional embedded-cover Evidence for EPUB/MOBI/AZW/AZW3 through a fixed
+   `calibre-debug -e` helper that stages source privately, disables rendered
+   EPUB fallback covers and distinguishes `NO_EMBEDDED_COVER`; use bounded
+   Pillow decoding and a FolioTone-owned, versioned 64-bit horizontal dHash.
 
 Separate raw tool/analyzer observations, normalized/derived assertions and canonical domain entities.
 
@@ -153,7 +157,7 @@ Planned evidence includes:
 - format/content fingerprint;
 - normalized text fingerprint where text is available;
 - metadata/tool disagreement;
-- later cover/image perceptual fingerprint;
+- optional embedded-cover facts and versioned perceptual fingerprint;
 - EPUB structural validation Evidence;
 - later provider-neutral content-diff and broader quality Evidence.
 
