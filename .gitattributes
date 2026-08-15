@@ -1,3 +1,5 @@
 # Keep checksum-bearing comparison fixtures byte-stable across platforms.
 tests/fixtures/ebook_comparison/v1/files/*.fixture binary
 tests/fixtures/ebook_comparison/v1/text/*.txt text eol=lf
+tests/fixtures/ebook_comparison/v2/files/*.fixture binary
+tests/fixtures/ebook_comparison/v2/text/*.txt text eol=lf

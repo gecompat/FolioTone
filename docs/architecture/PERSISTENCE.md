@@ -128,6 +128,21 @@ list_all()
 
 `save()` is an ID-based insert-or-update operation. It does not infer identity from metadata or external IDs.
 
+### Begrenzter Evidence-Lesepfad
+
+Der Paarvergleich verwendet nicht `list_all()`. Die SQLite-spezifische
+Projektion `load_observation_evidence()` lädt ausschließlich
+`ToolExecution`, `ToolResult` und `Fingerprint` für explizite
+`FileObservation`-IDs. Drei feste `LIMIT maximum + 1`-Grenzen verhindern eine
+unbeschränkte Historienladung. Eine Überschreitung wird als technischer Fehler
+gemeldet; es gibt keinen Fallback auf vollständige Tabellenabfragen.
+
+Alembic `0006_ebook_evidence_lookup_indexes` ergänzt zusammengesetzte Indizes
+für `ToolExecution.input_identity` sowie polymorphe Target-/Execution-Abfragen
+auf `tool_results` und `fingerprints`. Der synthetische Skalierungstest prüft
+die verwendeten SQLite-Query-Pläne mit 10.000 nicht angeforderten Datensätzen
+je Evidence-Tabelle.
+
 ## Current constraints and deferred integrity
 
 Implemented SQL constraints include:
@@ -138,7 +153,12 @@ Implemented SQL constraints include:
 - unique namespaced external identifier per target;
 - unique catalog designation per music work/system/value.
 
-Cross-table polymorphic target validation, richer query repositories, bulk write paths, transaction orchestration and performance indexes are intentionally deferred until their W2/W5/W6 access patterns are known. They should be added through migrations rather than speculative schema complexity.
+Cross-table polymorphic target validation, allgemeine Query-Repositories,
+Bulk-Write-Pfade und Transaction Orchestration bleiben zurückgestellt, bis
+ihre konkreten Zugriffsverträge vorliegen. Der gemessene E-Book-
+Paarvergleichspfad besitzt gezielte Indizes; weitere Performance-Indizes
+werden weiterhin nur über additive Migrationen für belegte Access Patterns
+ergänzt.
 
 ## Tests
 
@@ -152,5 +172,7 @@ W1 persistence integration tests cover:
 - foreign-key enforcement;
 - unique scan-root-relative file path;
 - deterministic listing.
+- begrenzte, indexgestützte Observation-Evidence-Abfragen unabhängig von
+  nicht angeforderten collection-weiten Records.
 
 No real collection data is used in tests.

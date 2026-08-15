@@ -324,6 +324,14 @@ the same `Work`. A separate disagreement scenario retains two versioned tool
 values without choosing a canonical value. These fixtures are calibration
 inputs, not persisted match decisions or matcher behavior.
 
+Die additive v2-Ground-Truth ergänzt AZW, AZW3 und PDF, vollständig fehlende
+Analyse-Evidence, gezielt inkompatible beziehungsweise unvollständige
+Evidence sowie Cover-dHash-Distanzen von 0, 1, 8, 32 und 64 Bit. Die
+Distanzwerte kalibrieren ausschließlich den technischen Vergleich; sie
+definieren keine Matching-Schwelle. Ein separater synthetischer
+Skalierungsfall prüft, dass nicht angeforderte collection-weite Evidence den
+Paarvergleich weder inhaltlich noch bei der Zahl der SQL-Abfragen vergrößert.
+
 ### Structural validation evidence
 
 The implemented EPUBCheck slice attaches a bounded conformance verdict,

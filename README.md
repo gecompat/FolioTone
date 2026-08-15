@@ -54,9 +54,11 @@ und feste Befundcodes ausgegeben. `W3-013` ergänzt den read-only CLI-Befehl
 `ebook-compare`: Persistierte Datei-, Text-, Metadaten-, Struktur- und Cover-
 Evidence zweier Beobachtungen wird provider-neutral verglichen, ohne Source-
 Zugriff, rohe Werte, Relation oder Identitätsurteil. Auf Benutzerentscheidung
-bleibt die Entwicklung zunächst bei E-Books; als Nächstes wird der
-synthetische Edge-/Performance-Korpus erweitert. Die Music-Toolchain bleibt
-zurückgestellt.
+bleibt die Entwicklung zunächst bei E-Books. `W3-014` ergänzt einen
+synthetischen Multi-Format-/Sparse-/Malformed-Korpus und ersetzt
+collection-weite Vergleichsreads durch begrenzte, indexgestützte Evidence-
+Abfragen. Als Nächstes folgt die fortsetzbare Collection-Batch-Analyse; die
+Music-Toolchain bleibt zurückgestellt.
 
 W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 
@@ -92,6 +94,8 @@ Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
 - `ebook-comparison/v1` und CLI `ebook-compare` mit getrennten Zuständen und
   Evidence-Coverage für Datei-Bytes, normalisierten Text, Metadaten, Struktur
   und Cover, ausdrücklich ohne Match- oder Identitätsentscheidung;
+- begrenzte, indexgestützte Observation-Evidence-Abfragen mit festen
+  Historiengrenzen statt collection-weiter Vorabladung;
 - rohe OPF-Beobachtungen und versionierte, gruppierte Kandidaten für ISBN und
   andere Identifier, Contributors/Rollen/Sortiernamen, Sprache, Verlag,
   Publikationsdatum, Serie und weitere Felder;
@@ -99,7 +103,9 @@ Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
   `FileObservation`, ohne automatische Kanonisierung oder Entity Resolution;
 - einen reproduzierbaren Vergleichskorpus für byte-identische Dateien,
   Metadatenänderungen, dieselbe `Edition`, Übersetzungen und widersprüchliche
-  Tool-Beobachtungen, ohne eine Matching Engine vorwegzunehmen.
+  Tool-Beobachtungen sowie einen additiven v2-Korpus für alle fünf
+  unterstützten Formate, Sparse-/Malformed-Evidence und kalibrierte Cover-
+  Distanzen, ohne eine Matching Engine vorwegzunehmen.
 
 Die anfängliche Produktoberfläche bleibt ausschließlich die CLI. Eine Web-API, Desktop-Oberfläche oder ein Dashboard gehört nicht zum aktuellen Scope. [ADR-0016](docs/decisions/ADR-0016-cli-first-product-surface.md) hält diese Entscheidung fest.
 
@@ -203,7 +209,7 @@ Tool orchestration
 Persistence
   Repository[T] / SQLiteRepository[T]
   SQLAlchemy Core
-  Alembic 0001_initial through 0005_scan_resume_lineage
+  Alembic 0001_initial through 0006_ebook_evidence_lookup_indexes
 ```
 
 ## Repository-Dokumentation

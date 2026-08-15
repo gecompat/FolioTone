@@ -16,13 +16,16 @@ from foliotone.analyzers.ebook import (
 )
 from foliotone.core import (
     EntityId,
-    EntityKind,
     FileObservation,
     Fingerprint,
     ToolCapability,
     ToolExecutionStatus,
 )
-from foliotone.persistence import repository
+from foliotone.persistence import (
+    EvidenceQueryLimitError,
+    load_observation_evidence,
+    repository,
+)
 from foliotone.tooling import ToolExecution, ToolResult
 from foliotone.workflows.ebook import ebook_analysis_format
 
@@ -195,27 +198,18 @@ class _MetadataSnapshot:
 
 
 class _EvidenceCatalog:
-    """In-memory index built once for one CLI comparison request."""
+    """Bounded in-memory index built once for one CLI comparison request."""
 
     def __init__(self, engine: Engine, observation_ids: frozenset[EntityId]) -> None:
-        identities = {f"file-observation:{value}" for value in observation_ids}
-        self.executions = tuple(
-            execution
-            for execution in repository(engine, ToolExecution).list_all()
-            if execution.input_identity in identities
-        )
-        self.results = tuple(
-            result
-            for result in repository(engine, ToolResult).list_all()
-            if result.target_kind is EntityKind.FILE_OBSERVATION
-            and result.target_id in observation_ids
-        )
-        self.fingerprints = tuple(
-            fingerprint
-            for fingerprint in repository(engine, Fingerprint).list_all()
-            if fingerprint.target_kind is EntityKind.FILE_OBSERVATION
-            and fingerprint.target_id in observation_ids
-        )
+        try:
+            records = load_observation_evidence(engine, observation_ids)
+        except EvidenceQueryLimitError as error:
+            raise EbookComparisonError(
+                "persisted Evidence exceeds the comparison safety limit"
+            ) from error
+        self.executions = records.executions
+        self.results = records.results
+        self.fingerprints = records.fingerprints
 
     def latest(
         self,

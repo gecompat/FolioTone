@@ -4,7 +4,7 @@ Stand: 2026-08-15
 
 ## Aktuelle Welle
 
-**W3 E-Book-Vertiefung aktiv — provider-neutraler Evidence-Vergleich implementiert; Edge- und Performance-Korpus als Nächstes**
+**W3 E-Book-Vertiefung aktiv — begrenzter Evidence-Vergleich und Edge-Korpus implementiert; Collection Batch als Nächstes**
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
@@ -32,8 +32,9 @@ separate, mehrdimensionale Projektion `ebook-quality/v1` mit festen
 Befundcodes. `W3-013` ergänzt `ebook-comparison/v1` und den read-only CLI-
 Paarvergleich persistierter Datei-, Text-, Metadaten-, Struktur- und Cover-
 Evidence ohne Relation oder Identitätsurteil. Auf Benutzerentscheidung bleibt
-die aktive Entwicklung bei E-Books; `W3-014` ist `NEXT`, die Music-Welle W4
-bleibt geplant und zurückgestellt.
+die aktive Entwicklung bei E-Books. `W3-014` ergänzt den synthetischen v2-
+Edge-Korpus sowie begrenzte, indexgestützte Evidence-Abfragen. `W3-015` ist
+`NEXT`; die Music-Welle W4 bleibt geplant und zurückgestellt.
 
 ## Implementierter W2-Slice
 
@@ -151,6 +152,10 @@ Die W1-Persistence wurde bisher über vier zusätzliche Alembic-Revisionen erwei
 `0004_relocation_candidates` ergänzt `file_relocation_candidates` sowie Indizes für Run- und Source-/Target-Abfragen.
 
 `0005_scan_resume_lineage` ergänzt `scan_runs.resumed_from_run_id` als nullable selbstreferenzierende Foreign-Key-Lineage sowie einen Query-Index.
+
+`0006_ebook_evidence_lookup_indexes` ergänzt drei additive Indizes für
+zielgerichtete `ToolExecution`-, `ToolResult`- und `Fingerprint`-Abfragen des
+E-Book-Paarvergleichs. Bestehende Domain-Datensätze werden nicht umgeschrieben.
 
 Beim Upgrade einer bestehenden `0002`-Datenbank wird keine historische Abwesenheitsdauer oder Bestätigungsserie erfunden. Bestehende Datensätze beginnen konservativ mit `missing_since_at = NULL` und `consecutive_missing_scans = 0`; erst nachfolgende erfolgreiche Scans bauen neue Bestätigungsevidenz auf.
 
@@ -738,17 +743,46 @@ hat SHA-256
 `985e84dbf06e8bcad2e23468af3cd096a6ef9c0469300ae357a016854da669fe` und
 enthält `foliotone/workflows/comparison.py`.
 
+**Empirisch für W3-014:** Der additive synthetische v2-Korpus deckt alle
+aktuell unterstützten Formate EPUB, MOBI, AZW, AZW3 und PDF, vollständig
+fehlende sowie gezielt inkompatible/unvollständige Evidence und Cover-dHash-
+Distanzen von 0, 1, 8, 32 und 64 Bit ab. Sechs neue Paar-Szenarien liefern die
+deklarierten Zustände; Sparse- und Malformed-Fälle bleiben technisch
+`INDETERMINATE` und erzeugen keine `Relation`.
+
+Der synthetische Skalierungstest ergänzt 10.000 nicht angeforderte Records je
+Evidence-Tabelle. Der Read lädt trotzdem nur die drei angeforderten Records
+über genau drei gefilterte SQL-Abfragen. SQLite verwendet alle drei Indizes
+aus `0006_ebook_evidence_lookup_indexes`; der isolierte Read blieb unter dem
+Regression Guard von zwei Sekunden. Feste Grenzen von 1.024
+`ToolExecution`-, 16.384 `ToolResult`- und 4.096 `Fingerprint`-Records
+verhindern eine unbeschränkte Historienladung.
+
+Die gezielte Korpus-, Evidence-, Migrations- und Vergleichssuite bestand mit
+12 Tests in 2 Minuten 39 Sekunden. `ruff check .` war erfolgreich; Mypy
+prüfte 77 Source-Dateien ohne Befund. Der vollständige Stand bestand alle 229
+Pytest-Tests in 15 Minuten 46 Sekunden.
+
+Das Wheel
+`C:\rep\artifacts\FolioTone\w3-014-wheel-01\foliotone-0.1.0-py3-none-any.whl`
+hat SHA-256
+`8c39c43917d55fbd7e241cc6b4610afc64642a0f5b92b3032f8f92fc8605a3a3`
+und enthält `persistence/evidence_queries.py`, Alembic
+`0006_ebook_evidence_lookup_indexes` sowie den aktualisierten
+Paarvergleich.
+
 ## Aktiver W3-Stand und nächster Schritt
 
-W2 ist abgeschlossen; `W3-001` bis `W3-013` sind abgeschlossen. W3-013 stellt
-`ebook-comparison/v1` und CLI `ebook-compare` bereit. Der Paarvergleich trennt
-Dimensionszustand und Evidence-Coverage, verwendet ausschließlich persistierte
-Evidence, öffnet keine Source Media, unterdrückt rohe Werte und erzeugt keine
-Relation, Confidence oder Identitätsableitung.
+W2 ist abgeschlossen; `W3-001` bis `W3-014` sind abgeschlossen. W3-014 stellt
+den additiven v2-Korpus sowie begrenzte, indexgestützte SQLite-Abfragen für
+`ebook-comparison/v1` bereit. Der Paarvergleich lädt keine collection-weiten
+Evidence-Tabellen mehr und bleibt weiterhin read-only, wertunterdrückend und
+frei von Relation, Confidence oder Identitätsableitung.
 
-`W3-014` ist `NEXT`: Der synthetische Korpus soll um Malformed-, Sparse-,
-Multi-Format-, Cover-Distanz- und Performance-Fälle erweitert werden. Danach
-folgen resumierbare Batch-Orchestrierung und lokale Sammlungsberichte. Music W4
+`W3-015` ist `NEXT`: Die Analyse aktueller EPUB/MOBI/AZW/AZW3/PDF-
+Beobachtungen wird als fortsetzbarer Collection Batch mit begrenzter
+Parallelität, exakter Evidence-Wiederverwendung und per-File-
+Fehlerfortsetzung aufgebaut. Danach folgen lokale Sammlungsberichte. Music W4
 bleibt geplant, aber bis zur E-Book-Reife zurückgestellt. Die
 Produktoberfläche bleibt ausschließlich die CLI.
 

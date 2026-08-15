@@ -5,6 +5,7 @@ from sqlalchemy import (
     Column,
     Float,
     ForeignKey,
+    Index,
     Integer,
     MetaData,
     String,
@@ -297,6 +298,27 @@ tool_results = Table(
     Column("value", Text, nullable=False),
     Column("confidence", Float),
     Column("explanation", Text),
+)
+
+Index(
+    "ix_tool_executions_input_capability_provider_started",
+    tool_executions.c.input_identity,
+    tool_executions.c.capability,
+    tool_executions.c.provider_id,
+    tool_executions.c.started_at,
+)
+Index(
+    "ix_tool_results_target_execution",
+    tool_results.c.target_kind,
+    tool_results.c.target_id,
+    tool_results.c.execution_id,
+)
+Index(
+    "ix_fingerprints_target_kind_execution",
+    fingerprints.c.target_kind,
+    fingerprints.c.target_id,
+    fingerprints.c.kind,
+    fingerprints.c.tool_execution_id,
 )
 
 relations = Table(
