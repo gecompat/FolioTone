@@ -46,6 +46,22 @@ class ScanRunStatus(StrEnum):
     INTERRUPTED = "INTERRUPTED"
 
 
+class EbookCollectionRunStatus(StrEnum):
+    RUNNING = "RUNNING"
+    INTERRUPTED = "INTERRUPTED"
+    COMPLETED = "COMPLETED"
+    COMPLETED_WITH_FAILURES = "COMPLETED_WITH_FAILURES"
+
+
+class EbookCollectionItemStatus(StrEnum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    PARTIAL_FAILURE = "PARTIAL_FAILURE"
+    FAILED = "FAILED"
+    ERROR = "ERROR"
+
+
 class ValueState(StrEnum):
     OBSERVED = "OBSERVED"
     DERIVED = "DERIVED"

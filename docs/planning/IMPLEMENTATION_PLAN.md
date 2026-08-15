@@ -180,6 +180,14 @@ Implemented sequence and decisions through `W3-010`:
     record limits and the measured SQLite indexes from Alembic
     `0006_ebook_evidence_lookup_indexes` without changing the comparison
     profile or producing an identity decision.
+15. add `ebook-collection-analysis/v1` and CLI
+    `foliotone ebook-collection-analyze`. Bind one immutable plan to the latest
+    completed EBOOK `ScanRun`, stream eligible current EPUB/MOBI/AZW/AZW3/PDF
+    observations into bounded persisted batches, claim work under a lease with
+    1 to 8 workers, continue after per-file failures and resume without
+    replanning or repeating completed items. Reuse exact Evidence through
+    `ebook-analysis-workflow/v3`, keep batch summaries path-free and preserve
+    read-only Source Media.
 
 Current execution priority is intentionally e-book-first. Music W4 remains in
 the architecture and backlog but is deferred until the e-book completion track

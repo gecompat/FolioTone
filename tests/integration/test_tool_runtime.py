@@ -1,9 +1,11 @@
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
+import foliotone.tooling.runtime as runtime_module
 from foliotone.core import ToolCapability, ToolExecutionStatus
 from foliotone.persistence import create_sqlite_engine, migrate, repository
 from foliotone.tooling import (
@@ -107,6 +109,57 @@ def test_local_probe_is_read_only_and_applies_version_policy(tmp_path: Path) -> 
     assert not rejected.usable
     assert rejected.error_summary == "version rejected"
     assert repository(engine, ToolExecution).list_all() == []
+
+
+def test_opt_in_local_probe_cache_is_shared_across_worker_threads(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database = tmp_path / "foliotone.db"
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    tool_runtime = ToolRuntime(
+        engine,
+        tmp_path / "artifacts",
+        work_root=tmp_path / "work",
+        cache_local_probes=True,
+    )
+    command = LocalCommand(
+        executable=sys.executable,
+        args=(),
+        capability=ToolCapability.STATUS_REPORT,
+    )
+    detected: list[str] = []
+
+    def detect_version(
+        executable: str,
+        _args: tuple[str, ...],
+        *,
+        environment: object,
+    ) -> str:
+        assert environment
+        detected.append(executable)
+        return "synthetic-version"
+
+    monkeypatch.setattr(runtime_module, "_detect_version", detect_version)
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        probes = tuple(
+            executor.map(
+                lambda _index: tool_runtime.probe_local(descriptor(), command),
+                range(16),
+            )
+        )
+
+    outcome = tool_runtime.execute_local(
+        descriptor(),
+        command,
+        input_identity="synthetic:cached-probe",
+    )
+
+    assert len(detected) == 1
+    assert all(probe.tool_version == "synthetic-version" for probe in probes)
+    assert outcome.execution.tool_version == "synthetic-version"
+    assert outcome.execution.status is ToolExecutionStatus.SUCCEEDED
 
 
 def test_nonzero_exit_is_persisted_as_failed(tmp_path: Path) -> None:

@@ -37,6 +37,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0018](decisions/ADR-0018-versioned-ebook-quality-profile.md) definiert das versionierte, mehrdimensionale E-Book-Qualitätsprofil ohne skalaren Score oder Identitätsaussage.
 - [ADR-0019](decisions/ADR-0019-provider-neutral-ebook-evidence-comparison.md) definiert den read-only Vergleich persistierter Datei-, Text-, Metadaten-, Struktur- und Cover-Evidence ohne Match- oder Identitätsurteil.
 - [ADR-0020](decisions/ADR-0020-bounded-ebook-evidence-queries.md) begrenzt Paarvergleichs-Evidence auf zielgerichtete, indexgestützte SQLite-Abfragen und definiert den synthetischen Skalierungsvertrag.
+- [ADR-0021](decisions/ADR-0021-resumable-ebook-collection-analysis.md) definiert Snapshot-Plan, Lease, Workergrenzen, Resume und path-freie Zustände der Collection-Analyse.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

@@ -138,4 +138,13 @@ cancelled provider execution prevents older Evidence from silently appearing
 current. `SAME`, a dHash distance or equal metadata fields are comparison facts
 and never an automatic file-, `Edition`- or `Work`-identity decision.
 
+`ebook-collection-analysis/v1` persistiert nur Run-/Observation-IDs,
+Lifecycle, Lease, technische Zustände und begrenzte Zähler. Die CLI gibt keine
+Observation-ID, keinen relativen oder absoluten Medienpfad und keine
+Metadatenwerte aus. Datenbank, Tool-Artefakte und ephemeres Work-Verzeichnis
+müssen außerhalb des Source Root liegen. Jedes geplante Item durchläuft vor
+einer tatsächlichen Toolausführung erneut die vorhandene Root-, Symlink-,
+Größen- und Änderungszeitprüfung. Ein Fehler bleibt lokal zum Item und
+berechtigt weder eine Source-Media-Operation noch eine Identitätsentscheidung.
+
 Imported/local provider datasets and external tool reports derived from a private collection must also stay out of Git unless a future explicit decision establishes that a specific redistributable artifact belongs in the repository.

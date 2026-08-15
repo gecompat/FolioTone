@@ -29,10 +29,11 @@ Schritt-Retry und `--fresh`. `W3-012` ergänzt das separate versionierte
 E-Book-Qualitätsprofil mit fünf Dimensionen und festen Befundcodes.
 `W3-013` ergänzt den provider-neutralen read-only Evidence-Paarvergleich ohne
 Relation oder Identitätsurteil. `W3-014` ergänzt den vollständig synthetischen
-v2-Edge-Korpus und begrenzte, indexgestützte Evidence-Abfragen. Auf
-Benutzerentscheidung bleibt die Entwicklung bis zur Reife der E-Book-Pipeline
-bei E-Books; `W3-015` ist als Nächstes vorgesehen, Music W4 ist
-zurückgestellt.
+v2-Edge-Korpus und begrenzte, indexgestützte Evidence-Abfragen. `W3-015`
+ergänzt die fortsetzbare Collection-Analyse über einen persistenten Snapshot-
+Plan, begrenzte Worker und per-File-Fehlerfortsetzung. Auf Benutzerentscheidung
+bleibt die Entwicklung bis zur Reife der E-Book-Pipeline bei E-Books;
+`W3-016` ist als Nächstes vorgesehen, Music W4 ist zurückgestellt.
 
 ## Vor Änderungen lesen
 
@@ -584,6 +585,9 @@ enthält `foliotone/workflows/comparison.py`.
 - Alembic `0004_relocation_candidates` ergänzt persistente Relocation-Kandidaten;
 - Alembic `0005_scan_resume_lineage` ergänzt `scan_runs.resumed_from_run_id` und den zugehörigen Index.
 - Alembic `0006_ebook_evidence_lookup_indexes` ergänzt drei additive Indizes für begrenzte Observation-Evidence-Abfragen.
+- Alembic `0007_ebook_collection_batches` ergänzt fortsetzbare Collection-
+  Runs und Items mit Root-/Status- und Run-/Status-/Ordinal-Indizes, ohne
+  Pfade oder Metadatenwerte in den Batch-Tabellen zu speichern.
 
 ### Begrenzter Evidence-Lesepfad und synthetischer v2-Korpus
 
@@ -606,21 +610,60 @@ enthält `foliotone/workflows/comparison.py`.
   `8c39c43917d55fbd7e241cc6b4610afc64642a0f5b92b3032f8f92fc8605a3a3`
   und enthält Query-Modul, Migration und Vergleichsworkflow.
 
+### Fortsetzbare E-Book-Collection-Analyse
+
+- `EbookCollectionService`, Profil `ebook-collection-analysis/v1` und CLI
+  `foliotone ebook-collection-analyze`;
+- unveränderlicher Plan aus dem neuesten `COMPLETED`-`ScanRun` eines
+  aktivierten EBOOK-`ScanRoot`;
+- ausschließlich aktuelle `PRESENT`-Beobachtungen mit exakt gleichem relativem
+  Pfad, Größe und Änderungszeitpunkt für EPUB/MOBI/AZW/AZW3/PDF;
+- genau ein gestreamter Plan-Read mit höchstens 500 Items je Insert-Batch und
+  optionalem `--plan-limit` für deterministische Piloten;
+- persistente Lease, 1 bis 8 Worker, höchstens zwei beanspruchte Workerwellen
+  und 30-Sekunden-SQLite-`busy_timeout`;
+- kontrollierte Teil-Invocation über `--max-items` sowie Resume desselben Plans
+  über `--resume-run`, ohne abgeschlossene Items zu wiederholen;
+- exakte Evidence-Wiederverwendung oder `--fresh` für den gesamten neuen Lauf;
+- per-File-Fehlerfortsetzung mit pfadfreien Fehlercodes und begrenzten
+  Analyse-/Quality-Zählern;
+- prozesslokaler thread-sicherer Versionsprobe-Cache ausschließlich im
+  Batch-Modus;
+- keine Source-Media-Mutation, keine `Relation`, keine Confidence und keine
+  kanonischen Metadaten.
+
+Sieben Batch-Integrationstests bestanden in 1 Minute 20 Sekunden. Der
+Skalierungsfall bestätigt einen Plan-SELECT und Insert-Batches von 500, 500
+und 201 für 1.201 synthetische Beobachtungen. Fünf CLI-/Bootstrap-Tests
+bestanden in 28 Sekunden und prüfen Teil-Invocation, Resume, path-freie
+Ausgabe, unveränderte Source-Dateien und getrennte beschreibbare Runtime-Pfade.
+Der verfeinerte Tool-Versionsprobe-Cache bestand seinen gezielten
+Parallelitätstest. ADR-0021 dokumentiert den Vertrag.
+
+Der vollständige W3-015-Stand bestand mit Python 3.12.10 lokal
+`ruff check .`, Mypy für 82 Source-Dateien und alle 239 Pytest-Tests in
+18 Minuten 43 Sekunden. Der JUnit-Bericht liegt unter
+`C:\rep\artifacts\FolioTone\w3-015-test-results\pytest-full.xml`. Das Wheel
+`C:\rep\artifacts\FolioTone\w3-015-wheel-01\foliotone-0.1.0-py3-none-any.whl`
+ist 134.583 Byte groß, hat SHA-256
+`3a4d98aa852769c83dc2019f1e986cbacd41931ec38558f38b02ef6b3fd99a2e`
+und enthält Collection-Domainmodell, Persistenz, Workflow und Migration
+`0007_ebook_collection_batches`. Die Remote Quality Gates sind bis zum PR
+noch offen.
+
 Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 ## Danach weiterarbeiten
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-015` — resumierbare Collection-Batch-Analyse mit begrenzter
-   Parallelität, per-File-Fehlerfortsetzung und exakter Evidence-
-   Wiederverwendung implementieren.
-2. `W3-016` — nachvollziehbare lokale CLI-Sammlungsberichte mit aggregierten
+1. `W3-016` — nachvollziehbare lokale CLI-Sammlungsberichte mit aggregierten
    Qualitäts-, Analyse-, Duplicate- und Varianten-Review-Sets aufbauen.
-3. `W3-017` — die echte Sammlung unter `Z:\NAS\E-Book` zuerst als read-only
-   Pilot und anschließend vollständig analysieren. Die Quelle ist im
-   bestätigten Host-Kontext erreichbar; der isolierte Sandbox-Kontext besitzt
-   die Laufwerkszuordnung nicht. Source Media bleibt unverändert.
+2. `W3-017` — die bestätigte lokale Sammlung zuerst als read-only Pilot und
+   anschließend vollständig im Host-Kontext analysieren. Der isolierte
+   Sandbox-Kontext besitzt die Laufwerkszuordnung nicht. Private Pfade,
+   Runtime-Daten und Berichte bleiben außerhalb von Git; Source Media bleibt
+   unverändert.
 
 Music W4 bleibt geplant, wird aber erst nach der E-Book-Vertiefung und den
 book-spezifischen Teilen von Authority Resolution, Matching, Review und

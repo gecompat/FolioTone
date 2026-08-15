@@ -1,5 +1,14 @@
 """Application workflows that compose replaceable read-only analyzers."""
 
+from foliotone.workflows.collection import (
+    EBOOK_COLLECTION_CLAIM_FACTOR,
+    EBOOK_COLLECTION_LEASE_DURATION,
+    EBOOK_COLLECTION_PROFILE,
+    EbookCollectionError,
+    EbookCollectionInterrupted,
+    EbookCollectionOutcome,
+    EbookCollectionService,
+)
 from foliotone.workflows.comparison import (
     EBOOK_COMPARISON_PROFILE,
     EbookComparisonCoverage,
@@ -40,6 +49,9 @@ from foliotone.workflows.reuse import EbookAnalysisReuseService
 
 __all__ = [
     "EBOOK_COMPARISON_PROFILE",
+    "EBOOK_COLLECTION_CLAIM_FACTOR",
+    "EBOOK_COLLECTION_LEASE_DURATION",
+    "EBOOK_COLLECTION_PROFILE",
     "EBOOK_ANALYSIS_FORMATS",
     "EBOOK_ANALYSIS_PROFILE",
     "EBOOK_QUALITY_MIN_TEXT_CHARACTERS",
@@ -61,6 +73,10 @@ __all__ = [
     "EbookComparisonService",
     "EbookComparisonState",
     "EbookComparisonStatus",
+    "EbookCollectionError",
+    "EbookCollectionInterrupted",
+    "EbookCollectionOutcome",
+    "EbookCollectionService",
     "EbookQualityAssessment",
     "EbookQualityDimension",
     "EbookQualityDimensionName",

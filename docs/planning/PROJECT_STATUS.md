@@ -4,7 +4,7 @@ Stand: 2026-08-15
 
 ## Aktuelle Welle
 
-**W3 E-Book-Vertiefung aktiv — begrenzter Evidence-Vergleich und Edge-Korpus implementiert; Collection Batch als Nächstes**
+**W3 E-Book-Vertiefung aktiv — fortsetzbare Collection-Analyse implementiert; lokale Sammlungsberichte als Nächstes**
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
@@ -33,8 +33,10 @@ Befundcodes. `W3-013` ergänzt `ebook-comparison/v1` und den read-only CLI-
 Paarvergleich persistierter Datei-, Text-, Metadaten-, Struktur- und Cover-
 Evidence ohne Relation oder Identitätsurteil. Auf Benutzerentscheidung bleibt
 die aktive Entwicklung bei E-Books. `W3-014` ergänzt den synthetischen v2-
-Edge-Korpus sowie begrenzte, indexgestützte Evidence-Abfragen. `W3-015` ist
-`NEXT`; die Music-Welle W4 bleibt geplant und zurückgestellt.
+Edge-Korpus sowie begrenzte, indexgestützte Evidence-Abfragen. `W3-015`
+ergänzt einen fortsetzbaren Collection Batch mit persistentem Snapshot-Plan,
+Lease, begrenzten Workern und per-File-Fehlerfortsetzung. `W3-016` ist `NEXT`;
+die Music-Welle W4 bleibt geplant und zurückgestellt.
 
 ## Implementierter W2-Slice
 
@@ -143,7 +145,7 @@ fpcalc-, beets-, SongKong- oder Picard-Adapter sind noch nicht implementiert.
 
 ### Persistence
 
-Die W1-Persistence wurde bisher über vier zusätzliche Alembic-Revisionen erweitert. Bereits gemergte Migrationen werden nicht rückwirkend verändert.
+Die W1-Persistence wurde bisher über sechs zusätzliche Alembic-Revisionen erweitert. Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 `0002_incremental_index` ergänzt insbesondere `file_scan_events`, `tool_artifacts`, Scan-/Tool-relevante Indizes und eindeutige logische `ScanRoot.name`-Werte.
 
@@ -156,6 +158,11 @@ Die W1-Persistence wurde bisher über vier zusätzliche Alembic-Revisionen erwei
 `0006_ebook_evidence_lookup_indexes` ergänzt drei additive Indizes für
 zielgerichtete `ToolExecution`-, `ToolResult`- und `Fingerprint`-Abfragen des
 E-Book-Paarvergleichs. Bestehende Domain-Datensätze werden nicht umgeschrieben.
+
+`0007_ebook_collection_batches` ergänzt `ebook_collection_runs` und
+`ebook_collection_items` sowie Indizes für Root-/Status- und
+Run-/Status-/Ordinal-Abfragen. Die Batch-Tabellen speichern Observation-IDs,
+Lifecycle und begrenzte Zähler, aber keine Pfade oder Metadatenwerte.
 
 Beim Upgrade einer bestehenden `0002`-Datenbank wird keine historische Abwesenheitsdauer oder Bestätigungsserie erfunden. Bestehende Datensätze beginnen konservativ mit `missing_since_at = NULL` und `consecutive_missing_scans = 0`; erst nachfolgende erfolgreiche Scans bauen neue Bestätigungsevidenz auf.
 
@@ -771,18 +778,46 @@ und enthält `persistence/evidence_queries.py`, Alembic
 `0006_ebook_evidence_lookup_indexes` sowie den aktualisierten
 Paarvergleich.
 
+**Empirisch für W3-015:** Sieben gezielte Batch-Integrationstests bestätigen
+den stabil gefilterten Multi-Format-Plan, kontrolliertes `--max-items`-
+Unterbrechen, exaktes Resume ohne Wiederholung abgeschlossener Items,
+per-File-Fehlerfortsetzung ohne Pfadleck, eine Workergrenze, Lease-Konflikt und
+stale Claim Recovery sowie `Ctrl+C`-Resume. Der synthetische Skalierungsfall
+plant 1.201 Beobachtungen über genau einen gestreamten SELECT und drei
+begrenzte Inserts mit 500, 500 und 201 Items. Die Suite bestand in 1 Minute
+20 Sekunden.
+
+Die fünf gezielten CLI-/Bootstrap-Tests bestanden in 28 Sekunden. Sie prüfen
+eine kontrollierte Teil-Invocation, Resume, path-freie Summen, unveränderte
+Source-Dateien und die Ablehnung beschreibbarer Runtime-Pfade innerhalb des
+Source Root. Der thread-sichere, ausschließlich im Batch-Modus aktivierte
+Tool-Versionsprobe-Cache bestand seinen erneuten Parallelitätstest. Ruff war
+für den aktuellen Source-Stand erfolgreich; Mypy prüfte 82 Source-Dateien
+ohne Befund. Der vollständige W3-015-Stand bestand mit Python 3.12.10 alle
+239 Pytest-Tests in 18 Minuten 43 Sekunden. Der maschinenlesbare JUnit-Bericht
+liegt außerhalb von Git unter
+`C:\rep\artifacts\FolioTone\w3-015-test-results\pytest-full.xml`.
+
+Das Wheel
+`C:\rep\artifacts\FolioTone\w3-015-wheel-01\foliotone-0.1.0-py3-none-any.whl`
+ist 134.583 Byte groß, hat SHA-256
+`3a4d98aa852769c83dc2019f1e986cbacd41931ec38558f38b02ef6b3fd99a2e`
+und enthält Collection-Domainmodell, Persistenz, Workflow und Alembic
+`0007_ebook_collection_batches`. Die Remote Quality Gates werden nach dem
+W3-015-PR nachgetragen.
+
 ## Aktiver W3-Stand und nächster Schritt
 
-W2 ist abgeschlossen; `W3-001` bis `W3-014` sind abgeschlossen. W3-014 stellt
-den additiven v2-Korpus sowie begrenzte, indexgestützte SQLite-Abfragen für
-`ebook-comparison/v1` bereit. Der Paarvergleich lädt keine collection-weiten
-Evidence-Tabellen mehr und bleibt weiterhin read-only, wertunterdrückend und
-frei von Relation, Confidence oder Identitätsableitung.
+W2 ist abgeschlossen; `W3-001` bis `W3-015` sind abgeschlossen. W3-015 stellt
+`ebook-collection-analysis/v1`, die CLI `ebook-collection-analyze` und die
+additive Migration `0007_ebook_collection_batches` bereit. Ein Lauf bindet
+einen unveränderlichen Plan an den neuesten abgeschlossenen EBOOK-`ScanRun`,
+verarbeitet ihn in begrenzten Workerwellen und setzt denselben Plan nach einer
+kontrollierten oder unerwarteten Unterbrechung fort. Exakte Evidence-
+Wiederverwendung bleibt pro Observation erhalten.
 
-`W3-015` ist `NEXT`: Die Analyse aktueller EPUB/MOBI/AZW/AZW3/PDF-
-Beobachtungen wird als fortsetzbarer Collection Batch mit begrenzter
-Parallelität, exakter Evidence-Wiederverwendung und per-File-
-Fehlerfortsetzung aufgebaut. Danach folgen lokale Sammlungsberichte. Music W4
+`W3-016` ist `NEXT`: Lokale CLI-Sammlungsberichte sollen Analyse-, Quality-
+und Befundzustände aggregieren und priorisierte Review-Sets erzeugen. Music W4
 bleibt geplant, aber bis zur E-Book-Reife zurückgestellt. Die
 Produktoberfläche bleibt ausschließlich die CLI.
 
@@ -797,8 +832,7 @@ Noch nicht vorhanden sind unter anderem:
 - externe Knowledge Provider und Provider Cache;
 - Classification Engine;
 - Matching Engine;
-- Collection-Batch-Analyse, Sammlungsreports und zusätzliche qpdf-Struktur-
-  Evidence;
+- Sammlungsreports und zusätzliche qpdf-Struktur-Evidence;
 - Review System;
 - Consolidation Planning und Execution;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.

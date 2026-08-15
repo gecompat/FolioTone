@@ -40,7 +40,7 @@ Domain datetimes must be timezone-aware. Persistence normalizes them to UTC ISO-
 
 This avoids relying on SQLite timezone semantics and keeps round-trip behavior explicit.
 
-## Current W1 tables
+## Current tables
 
 ### Physical/index
 
@@ -85,6 +85,18 @@ Provenance-bearing tables flatten the stable source fields (`source_kind`, `sour
 
 Material specialist-tool evidence keeps a link to the exact execution identity and therefore to provider/tool/adapter/input/config versions.
 
+### E-Book-Collection-Analyse
+
+- `ebook_collection_runs`
+- `ebook_collection_items`
+
+Ein `EbookCollectionRun` verweist auf genau einen `ScanRoot` und einen
+abgeschlossenen Source-`ScanRun`. Die zugehörigen Items verweisen auf exakte
+`FileObservation`-IDs. Eindeutige Constraints auf `(run_id, observation_id)`
+und `(run_id, ordinal)` verhindern doppelte Planpositionen. Die Tabellen
+enthalten Lifecycle, Lease, Versuchszahl und begrenzte Ergebniszähler, aber
+keine Pfade oder Metadatenwerte.
+
 ### Classification / matching evidence
 
 - `classification_assertions`
@@ -100,7 +112,10 @@ Concrete single-table relationships use SQLite foreign keys where applicable.
 
 ## Foreign-key behavior
 
-Application-created SQLite connections enable `PRAGMA foreign_keys=ON` through an SQLAlchemy connection event.
+Application-created SQLite connections enable `PRAGMA foreign_keys=ON` and a
+30-second `PRAGMA busy_timeout` through an SQLAlchemy connection event. Das
+Timeout begrenzt vorübergehende Writer-Konkurrenz zwischen den höchstens acht
+Collection-Workern; es ersetzt keine Lease oder Transaction-Grenze.
 
 The Alembic environment also enables foreign keys, but explicitly ends SQLAlchemy's small implicit PRAGMA transaction before starting Alembic's migration transaction. This is important: otherwise the version-table update can be rolled back independently of SQLite DDL.
 
@@ -143,6 +158,21 @@ auf `tool_results` und `fingerprints`. Der synthetische Skalierungstest prüft
 die verwendeten SQLite-Query-Pläne mit 10.000 nicht angeforderten Datensätzen
 je Evidence-Tabelle.
 
+### Fortsetzbarer Collection-Plan
+
+`SQLiteEbookCollectionStore` erstellt den Plan aus dem neuesten
+`COMPLETED`-`ScanRun`. Ein gestreamter, stabil sortierter SELECT wird mit
+`fetchmany(500)` in `ebook_collection_items` übernommen. Der Plan bleibt nach
+der Anlage unverändert und wird beim Resume nicht erneut aus dem aktuellen
+Index abgeleitet.
+
+Alembic `0007_ebook_collection_batches` ergänzt die beiden Batch-Tabellen
+sowie `ix_ebook_collection_runs_root_status` und
+`ix_ebook_collection_items_run_status_ordinal`. Claim, Completion,
+Heartbeat, kontrolliertes `INTERRUPTED` und stale Claim Recovery laufen in
+kurzen expliziten Transaktionen. Toolausführungen bleiben davon getrennte,
+provenance-erhaltende Records.
+
 ## Current constraints and deferred integrity
 
 Implemented SQL constraints include:
@@ -152,6 +182,8 @@ Implemented SQL constraints include:
 - unique file path within one scan root;
 - unique namespaced external identifier per target;
 - unique catalog designation per music work/system/value.
+- eindeutige Observation und Ordinalposition innerhalb eines
+  `EbookCollectionRun`.
 
 Cross-table polymorphic target validation, allgemeine Query-Repositories,
 Bulk-Write-Pfade und Transaction Orchestration bleiben zurückgestellt, bis
@@ -174,5 +206,7 @@ W1 persistence integration tests cover:
 - deterministic listing.
 - begrenzte, indexgestützte Observation-Evidence-Abfragen unabhängig von
   nicht angeforderten collection-weiten Records.
+- fortsetzbare Collection-Zustände, Lease-Konflikte, stale Claim Recovery und
+  einen einzelnen gestreamten Plan-Read mit begrenzten Insert-Batches.
 
 No real collection data is used in tests.

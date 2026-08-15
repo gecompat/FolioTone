@@ -7,7 +7,9 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 from collections.abc import Callable, Mapping
+from concurrent.futures import Future
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -27,6 +29,15 @@ from foliotone.tooling.structured import (
 
 Clock = Callable[[], datetime]
 VersionPolicy = Callable[[str], str | None]
+type LocalProbeCacheKey = tuple[
+    str,
+    tuple[str, ...],
+    str,
+    str,
+    tuple[tuple[str, str], ...],
+    tuple[tuple[str, str], ...],
+    int,
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,6 +188,7 @@ class ToolRuntime:
         work_root: Path | None = None,
         preview_bytes: int = 64 * 1024,
         clock: Clock | None = None,
+        cache_local_probes: bool = False,
     ) -> None:
         if preview_bytes <= 0:
             raise ValueError("preview_bytes must be positive")
@@ -186,6 +198,12 @@ class ToolRuntime:
         self._work_root = work_root or artifact_root / "work"
         self._preview_bytes = preview_bytes
         self._clock = clock or _utc_now
+        self._cache_local_probes = cache_local_probes
+        self._local_probe_cache: dict[
+            LocalProbeCacheKey,
+            Future[LocalToolProbe],
+        ] = {}
+        self._local_probe_lock = threading.Lock()
         self._artifact_root.mkdir(parents=True, exist_ok=True)
         self._work_root.mkdir(parents=True, exist_ok=True)
 
@@ -374,6 +392,27 @@ class ToolRuntime:
             raise ValueError(f"provider does not declare capability {capability.value}")
 
     def _probe_local(self, command: LocalCommand) -> LocalToolProbe:
+        if not self._cache_local_probes:
+            return self._probe_local_uncached(command)
+        key = _local_probe_cache_key(command)
+        with self._local_probe_lock:
+            future = self._local_probe_cache.get(key)
+            owner = future is None
+            if future is None:
+                future = Future()
+                self._local_probe_cache[key] = future
+        if owner:
+            try:
+                future.set_result(self._probe_local_uncached(command))
+            except BaseException as error:
+                future.set_exception(error)
+                with self._local_probe_lock:
+                    if self._local_probe_cache.get(key) is future:
+                        self._local_probe_cache.pop(key)
+                raise
+        return future.result()
+
+    def _probe_local_uncached(self, command: LocalCommand) -> LocalToolProbe:
         executable = shutil.which(command.executable)
         if executable is None:
             return LocalToolProbe(
@@ -708,6 +747,18 @@ def build_docker_argv(
     argv.append(command.image)
     argv.extend(command.args)
     return tuple(argv)
+
+
+def _local_probe_cache_key(command: LocalCommand) -> LocalProbeCacheKey:
+    return (
+        command.executable,
+        command.version_args,
+        os.environ.get("PATH", ""),
+        os.environ.get("PATHEXT", ""),
+        tuple(sorted((command.environment or {}).items())),
+        tuple(sorted((command.workspace_environment or {}).items())),
+        id(command.version_policy),
+    )
 
 
 def _detect_version(
