@@ -342,6 +342,10 @@ PDF-Struktur-Gap zurückgestellt.
 - unavailable-root Schutz gegen falsches MISSING;
 - read-only `foliotone scan` CLI einschließlich `--resume-run`;
 - begrenzte Batch-Verarbeitung;
+- set-orientierte `FileRecord`-/`FileObservation`-/`FileEvent`-Persistenz je Discovery-Batch;
+- optional 1 bis 8 begrenzte Hash-Worker über `--hash-workers`, Standard 1;
+- atomare Fingerprint-Persistenz je Discovery-Batch;
+- isolierte Hash-I/O-Teilfehler mit selektivem Retry im nächsten Scan;
 - persistente Abwesenheitsserie über `missing_since_at` und `consecutive_missing_scans`;
 - persistente `FileRelocationCandidate`-Records für eindeutige NEW/erstmalig-MISSING Fingerprint-Paare im selben erfolgreichen Scan.
 
@@ -355,7 +359,15 @@ PDF-Struktur-Gap zurückgestellt.
 
 ### Interrupt/Resume
 
-Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf den persistierten `INTERRUPTED`-Vorgänger desselben `ScanRoot`. Discovery läuft erneut vollständig und streaming-basiert; ein persistenter `os.scandir`-Cursor wird bewusst nicht verwendet. Bereits persistierte unveränderte Teilverarbeitung wird durch den normalen Incremental-Vergleich wiederverwendet und nicht erneut gehasht. Erst ein vollständig erfolgreicher Resume-Run darf `MISSING`/`DELETED` klassifizieren. ADR-0015 ist verbindlich.
+Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf
+den persistierten `INTERRUPTED`-Vorgänger desselben `ScanRoot`. Discovery läuft
+erneut vollständig und streaming-basiert; ein persistenter `os.scandir`-Cursor
+wird bewusst nicht verwendet. Vollständige Hash-Evidence der jeweils jüngsten
+unveränderten Observation wird auf die neue Observation projiziert, ohne die
+Source erneut zu öffnen. Nur eine dort fehlende Evidence wird gezielt
+nachgehasht; stale ältere Hashes werden nicht übersprungen. Erst ein vollständig
+erfolgreicher Resume-Run darf `MISSING`/`DELETED` klassifizieren. ADR-0015 ist
+verbindlich.
 
 ### Hashing
 
@@ -363,7 +375,9 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
 - Quick Fingerprint mit begrenztem Datei-I/O;
 - vollständiges SHA-256 als Streaming-Hash;
 - Fingerprints gegen konkrete `FileObservation`;
-- kein unnötiges Rehashing unveränderter Dateien, auch nicht bei Resume bereits verarbeiteter unveränderter Files.
+- kein unnötiges Rehashing unveränderter Dateien, auch nicht bei Resume bereits verarbeiteter unveränderter Files;
+- fehlende jüngste Hash-Evidence wird selektiv ergänzt;
+- atomare Fingerprint-Batches und ausdrücklich begrenzte Hash-Parallelität.
 
 ### Filename- und Path-Context-Kandidaten
 
@@ -601,6 +615,9 @@ enthält `foliotone/workflows/comparison.py`.
 - `load_observation_evidence()` lädt ausschließlich Records expliziter
   `FileObservation`-IDs und führt keinen collection-weiten `list_all()`-Read
   aus;
+- Paarvergleich und exakte Collection-Evidence-Wiederverwendung teilen diesen
+  indexgestützten Lesepfad; Reuse fordert genau eine Observation sowie
+  höchstens 64 Artefakte der ausgewählten Ausführung an;
 - feste `LIMIT maximum + 1`-Grenzen schützen `ToolExecution`, `ToolResult`
   und `Fingerprint` vor unbeschränkter Historienladung;
 - eine Überschreitung erzeugt einen technischen Fehler ohne Full-Table-
@@ -625,8 +642,11 @@ enthält `foliotone/workflows/comparison.py`.
   aktivierten EBOOK-`ScanRoot`;
 - ausschließlich aktuelle `PRESENT`-Beobachtungen mit exakt gleichem relativem
   Pfad, Größe und Änderungszeitpunkt für EPUB/MOBI/AZW/AZW3/PDF;
-- genau ein gestreamter Plan-Read mit höchstens 500 Items je Insert-Batch und
-  optionalem `--plan-limit` für deterministische Piloten;
+- im Default genau ein gestreamter Plan-Read mit höchstens 500 Items je
+  Insert-Batch und optionalem `--plan-limit` für globale deterministische
+  Piloten;
+- alternativ `--plan-per-format N` für höchstens N stabil sortierte Items je
+  vorhandenem unterstütztem Format; gegenseitig exklusiv zu `--plan-limit`;
 - persistente Lease, 1 bis 8 Worker, höchstens zwei beanspruchte Workerwellen
   und 30-Sekunden-SQLite-`busy_timeout`;
 - kontrollierte Teil-Invocation über `--max-items` sowie Resume desselben Plans
@@ -701,15 +721,52 @@ und enthält Report-Query, Workflow, CLI-Anbindung und Migration `0008`.
 
 Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
+### Reale Collection-Härtung und selektive Duplikatbestätigung
+
+- unveränderte Scan-Observationen übernehmen vollständige jüngste
+  Hash-Evidence ohne erneuten Source-Read; fehlende Evidence wird selektiv
+  ergänzt;
+- 1 bis 8 begrenzte Hash-Worker, set-orientierte Indexwrites und atomare
+  Fingerprint-Batches beseitigen die gemessenen Persistenzengpässe;
+- per-File-Hash-I/O-Fehler bleiben isoliert und werden durch den nächsten
+  normalen Scan ausschließlich für die fehlenden Objekte erneut versucht;
+- `--plan-per-format N` ergänzt einen gegenseitig exklusiven,
+  formatabdeckenden Pilotmodus neben dem globalen `--plan-limit`;
+- `ebook-duplicate-hash/v1` und `foliotone ebook-hash-candidates` berechnen
+  vollständiges SHA-256 nur für aktuelle Mitglieder mehrfach belegter
+  `QUICK_FILE`-Gruppen ohne vorhandenen Vollhash;
+- stabile Keyset-Batches, `--max-items`, 1 bis 8 Worker und atomare Writes
+  machen die Duplikatbestätigung begrenzt und durch denselben Aufruf
+  fortsetzbar;
+- Observation-Prüfung vor und nach dem Hash verhindert, dass inzwischen
+  veränderte Source-Dateien falsche Evidence erhalten;
+- ein privater read-only Vierformat-Pilot bestätigte reale EPUB-, PDF-, AZW3-
+  und MOBI-Verarbeitung sowie exakte Evidence-Wiederverwendung, ohne private
+  Pfade, Inhalte oder Sammlungskennzahlen in Git zu übernehmen.
+- `ebook-inventory-report/v1` und `foliotone ebook-inventory-report` erzeugen
+  aus dem neuesten abgeschlossenen Scan ohne Source-Zugriff vollständige
+  Format-/Byte-Summen, Hash-Abdeckung, offene Quick-Kandidaten und exakte
+  Duplikatsummen;
+- Gruppen-/Mitgliederlimits begrenzen private Pfaddetails, während vollständige
+  Summen und Kürzungsmarker erhalten bleiben; rohe Hashwerte, Relation,
+  Keep-Präferenz und Identitätsurteil werden nicht ausgegeben.
+
+ADR-0015, ADR-0021, ADR-0023 und ADR-0024 dokumentieren die verbindlichen
+Resume-, Plan-, Hash- und Inventarverträge. Die vollständige lokale Testsuite
+wird nicht während jeder Iteration wiederholt; gezielte Source-/
+Integrationstests laufen während der Entwicklung, der vollständige Gate genau
+einmal am Pull Request.
+
 ## Danach weiterarbeiten
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-017` — die bestätigte lokale Sammlung zuerst als read-only Pilot und
-   anschließend vollständig im Host-Kontext analysieren. Der isolierte
-   Sandbox-Kontext besitzt die Laufwerkszuordnung nicht. Private Pfade,
-   Runtime-Daten und Berichte bleiben außerhalb von Git; Source Media bleibt
-   unverändert.
+1. `W3-017` — den laufenden read-only Inventar-Snapshot abschließen, selektive
+   Vollhash-Evidence für Quick-Duplikatkandidaten ergänzen, den scanweiten
+   privaten Inventarbericht erzeugen und einen formatabdeckenden Collection-
+   Lauf bis zum Qualitäts-/Duplicate-Bericht fortsetzen. Private Pfade,
+   Runtime-Daten, Kennzahlen und Berichte bleiben außerhalb von Git; Source
+   Media bleibt unverändert.
 
 Music W4 bleibt geplant, wird aber erst nach der E-Book-Vertiefung und den
 book-spezifischen Teilen von Authority Resolution, Matching, Review und

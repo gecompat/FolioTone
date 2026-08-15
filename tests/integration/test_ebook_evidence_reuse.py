@@ -2,6 +2,8 @@ import hashlib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from sqlalchemy import event
+
 from foliotone.core import EntityId, EntityKind, ToolCapability, ToolExecutionStatus
 from foliotone.persistence import create_sqlite_engine, migrate, repository
 from foliotone.tooling import (
@@ -33,7 +35,11 @@ def test_reader_reuses_only_latest_exact_success_with_intact_artifact(
         capabilities=frozenset({ToolCapability.STATUS_REPORT}),
     )
     target_id = EntityId.new()
-    execution = _execution(descriptor, status=ToolExecutionStatus.SUCCEEDED)
+    execution = _execution(
+        descriptor,
+        target_id,
+        status=ToolExecutionStatus.SUCCEEDED,
+    )
     repository(engine, ToolExecution).save(execution)
     artifact = _artifact(artifact_root, execution.id, b"trusted evidence")
     repository(engine, ToolArtifact).save(artifact)
@@ -51,21 +57,39 @@ def test_reader_reuses_only_latest_exact_success_with_intact_artifact(
         descriptor=descriptor,
         capability=ToolCapability.STATUS_REPORT,
         tool_version="fixture 1.0",
-        input_identity="file-observation:fixture",
+        input_identity=f"file-observation:{target_id}",
         config_identity="fixture:v1",
         required_artifacts=(ToolArtifactRequirement("FIXTURE", 1024),),
     )
     reader = ToolEvidenceReader(engine, runtime)
+    statements: list[str] = []
 
-    snapshot = reader.find_reusable(
-        request,
-        target_kind=EntityKind.FILE_OBSERVATION,
-        target_id=target_id,
-    )
+    def record_statement(
+        _connection: object,
+        _cursor: object,
+        statement: str,
+        _parameters: object,
+        _context: object,
+        _executemany: bool,
+    ) -> None:
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(" ".join(statement.upper().split()))
+
+    event.listen(engine, "before_cursor_execute", record_statement)
+    try:
+        snapshot = reader.find_reusable(
+            request,
+            target_kind=EntityKind.FILE_OBSERVATION,
+            target_id=target_id,
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", record_statement)
 
     assert snapshot is not None
     assert snapshot.run.execution == execution
     assert snapshot.results == (result,)
+    assert len(statements) == 4
+    assert all(" WHERE " in statement for statement in statements)
 
     artifact_path = artifact_root / artifact.relative_path
     artifact_path.write_bytes(b"tampered evidence")
@@ -91,13 +115,19 @@ def test_latest_failed_exact_attempt_prevents_older_success_reuse(tmp_path: Path
         adapter_version="fixture/1",
         capabilities=frozenset({ToolCapability.STATUS_REPORT}),
     )
-    successful = _execution(descriptor, status=ToolExecutionStatus.SUCCEEDED)
+    target_id = EntityId.new()
+    successful = _execution(
+        descriptor,
+        target_id,
+        status=ToolExecutionStatus.SUCCEEDED,
+    )
     repository(engine, ToolExecution).save(successful)
     repository(engine, ToolArtifact).save(
         _artifact(artifact_root, successful.id, b"older success")
     )
     failed = _execution(
         descriptor,
+        target_id,
         status=ToolExecutionStatus.FAILED,
         started_at=NOW + timedelta(minutes=1),
     )
@@ -106,7 +136,7 @@ def test_latest_failed_exact_attempt_prevents_older_success_reuse(tmp_path: Path
         descriptor=descriptor,
         capability=ToolCapability.STATUS_REPORT,
         tool_version="fixture 1.0",
-        input_identity="file-observation:fixture",
+        input_identity=f"file-observation:{target_id}",
         config_identity="fixture:v1",
         required_artifacts=(ToolArtifactRequirement("FIXTURE", 1024),),
     )
@@ -115,7 +145,7 @@ def test_latest_failed_exact_attempt_prevents_older_success_reuse(tmp_path: Path
         ToolEvidenceReader(engine, runtime).find_reusable(
             request,
             target_kind=EntityKind.FILE_OBSERVATION,
-            target_id=EntityId.new(),
+            target_id=target_id,
         )
         is None
     )
@@ -123,6 +153,7 @@ def test_latest_failed_exact_attempt_prevents_older_success_reuse(tmp_path: Path
 
 def _execution(
     descriptor: ToolProviderDescriptor,
+    target_id: EntityId,
     *,
     status: ToolExecutionStatus,
     started_at: datetime = NOW,
@@ -133,7 +164,7 @@ def _execution(
         tool_version="fixture 1.0",
         adapter_version=descriptor.adapter_version,
         capability=ToolCapability.STATUS_REPORT,
-        input_identity="file-observation:fixture",
+        input_identity=f"file-observation:{target_id}",
         config_identity="fixture:v1",
         started_at=started_at,
         finished_at=started_at,

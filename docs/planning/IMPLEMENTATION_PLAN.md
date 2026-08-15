@@ -124,7 +124,7 @@ Do **not** start by writing EPUB/PDF/MOBI parsers from scratch.
 
 First evaluate maintained specialist capabilities, especially calibre CLI, plus targeted format validators/tools where appropriate. Document reuse/rejection decisions with current maintenance/licensing/security information.
 
-Implemented sequence and decisions through `W3-010`:
+Implemented sequence and decisions through the active `W3-017`:
 
 1. calibre `ebook-meta` as a fixed read-only metadata extraction vertical slice;
 2. fixed calibre `ebook-convert` EPUB text plus a FolioTone-owned fingerprint;
@@ -197,6 +197,23 @@ Implemented sequence and decisions through `W3-010`:
     deterministic private JSON/CSV/checksum artifacts. Expose truncation,
     suppress raw fingerprints, and produce no Relation, confidence or
     identity verdict.
+17. harden the real read-only collection path: project complete latest hash
+    Evidence for unchanged observations without reopening Source Media, use
+    bounded hash workers plus set-oriented index and atomic fingerprint
+    batches, and isolate per-file hash I/O failures for selective retry. Add
+    mutually exclusive `--plan-per-format` for heterogeneous pilots and
+    `ebook-duplicate-hash/v1` / `ebook-hash-candidates` to compute full
+    SHA-256 only for current repeated Quick-fingerprint groups that still lack
+    exact file Evidence. Keep both workflows resumable, path-free and
+    non-mutating.
+18. add `ebook-inventory-report/v1` and CLI
+    `foliotone ebook-inventory-report`. Read only the newest completed scan
+    snapshot without reopening Source Media; aggregate complete format/byte
+    totals, full-hash coverage, repeated Quick groups, pending candidate hashes
+    and confirmed exact-file duplicate totals. Stream sorted duplicate details,
+    retain only bounded prioritized groups/members, suppress raw fingerprints
+    and emit deterministic private JSON/CSV/checksum artifacts without a
+    Relation, keep preference or identity verdict.
 
 Current execution priority is intentionally e-book-first. Music W4 remains in
 the architecture and backlog but is deferred until the e-book completion track

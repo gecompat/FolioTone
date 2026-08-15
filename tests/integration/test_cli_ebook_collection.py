@@ -81,7 +81,15 @@ def test_collection_cli_stops_and_resumes_without_exposing_source_paths(
         str(tmp_path / "missing-epubcheck.jar"),
     ]
     first_result = main(
-        [*base_args, "--workers", "2", "--plan-limit", "2", "--max-items", "1"]
+        [
+            *base_args,
+            "--workers",
+            "2",
+            "--plan-per-format",
+            "1",
+            "--max-items",
+            "1",
+        ]
     )
     first_output = capsys.readouterr().out
 

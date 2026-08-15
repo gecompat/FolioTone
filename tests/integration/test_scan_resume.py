@@ -85,7 +85,7 @@ def test_interrupted_first_scan_resumes_without_rehashing_completed_work(
         FileChangeState.UNCHANGED: 1,
     }
     assert len(repository(engine, FileRecord).list_all()) == 2
-    assert len(repository(engine, Fingerprint).list_all()) == 2
+    assert len(repository(engine, Fingerprint).list_all()) == 3
 
 
 def test_interrupted_scan_does_not_mark_unseen_known_files_missing(

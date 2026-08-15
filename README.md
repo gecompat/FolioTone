@@ -61,8 +61,15 @@ Abfragen. `W3-015` ergänzt den fortsetzbaren CLI-Collection-Batch über einen
 stabilen abgeschlossenen Scan-Snapshot, begrenzte Worker, per-File-
 Fehlerfortsetzung und exakte Evidence-Wiederverwendung. `W3-016` ergänzt den
 deterministischen privaten CLI-Sammlungsbericht ohne erneuten Source-Zugriff
-und ohne Identitätsurteil. Als Nächstes folgt der read-only Pilot an der
-bestätigten lokalen Sammlung; die Music-Toolchain bleibt zurückgestellt.
+und ohne Identitätsurteil. `W3-017` härtet den realen read-only
+Collection-Betrieb: unveränderte Hash-Evidence wird ohne erneuten Source-Read
+übernommen, Scan- und Fingerprint-Batches werden begrenzt parallel und
+set-orientiert persistiert, Pilotpläne können alle vorhandenen Formate
+abdecken, und vollständiges SHA-256 wird selektiv auf Quick-
+Duplikatkandidaten begrenzt. Ein scanweiter privater Inventarbericht liefert
+Format-/Größenverteilung, Hash-Abdeckung, offene Quick-Kandidaten und exakt
+bestätigte Duplikatgruppen bereits vor der vollständigen Tiefenanalyse. Die
+Music-Toolchain bleibt zurückgestellt.
 
 W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 
@@ -102,11 +109,18 @@ Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
   Historiengrenzen statt collection-weiter Vorabladung;
 - `ebook-collection-analysis/v1` und CLI `ebook-collection-analyze` mit
   persistentem Plan, Lease, kontrollierter Teil-Invocation und Resume ohne
-  erneute Planung abgeschlossener Items;
+  erneute Planung abgeschlossener Items sowie `--plan-per-format` für
+  begrenzte heterogene Piloten;
 - `ebook-collection-report/v1` und CLI `ebook-collection-report` mit
   vollständigen Summenzählern, priorisierten Review-Items sowie begrenzten
   Exact-Duplicate- und Content-Variant-Kandidaten in privaten
   JSON-/CSV-/Checksum-Artefakten;
+- `ebook-duplicate-hash/v1` und CLI `ebook-hash-candidates` für begrenztes,
+  fortsetzbares vollständiges SHA-256 ausschließlich bei aktuellen
+  mehrfach belegten Quick-Fingerprint-Gruppen;
+- `ebook-inventory-report/v1` und CLI `ebook-inventory-report` für einen
+  deterministischen scanweiten Format-, Größen-, Hash-Abdeckungs- und
+  Exact-Duplicate-Bericht ohne erneuten Source-Media-Zugriff;
 - rohe OPF-Beobachtungen und versionierte, gruppierte Kandidaten für ISBN und
   andere Identifier, Contributors/Rollen/Sortiernamen, Sprache, Verlag,
   Publikationsdatum, Serie und weitere Felder;

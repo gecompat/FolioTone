@@ -39,6 +39,8 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0020](decisions/ADR-0020-bounded-ebook-evidence-queries.md) begrenzt Paarvergleichs-Evidence auf zielgerichtete, indexgestützte SQLite-Abfragen und definiert den synthetischen Skalierungsvertrag.
 - [ADR-0021](decisions/ADR-0021-resumable-ebook-collection-analysis.md) definiert Snapshot-Plan, Lease, Workergrenzen, Resume und path-freie Zustände der Collection-Analyse.
 - [ADR-0022](decisions/ADR-0022-deterministic-private-ebook-collection-reports.md) definiert persistierte Befundprovenance, begrenzte Duplicate-/Varianten-Kandidaten und deterministische private Collection-Berichte.
+- [ADR-0023](decisions/ADR-0023-selective-duplicate-candidate-hashing.md) begrenzt vollständiges SHA-256-Hashing auf aktuelle Quick-Duplikatkandidaten und definiert den fortsetzbaren read-only Evidence-Vertrag.
+- [ADR-0024](decisions/ADR-0024-deterministic-scan-wide-ebook-inventory-report.md) definiert den deterministischen scanweiten Bestands-, Hash-Abdeckungs- und Exact-Duplicate-Bericht ohne erneuten Source-Zugriff.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

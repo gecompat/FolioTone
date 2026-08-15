@@ -5,11 +5,12 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, select
 
 from foliotone.core import EntityId, EntityKind, Fingerprint
-from foliotone.persistence import repository
-from foliotone.tooling import ToolArtifact, ToolExecution, ToolResult
+from foliotone.persistence import EvidenceQueryLimitError, load_observation_evidence
+from foliotone.persistence.codecs import codec_for
+from foliotone.tooling import ToolArtifact, ToolResult
 from foliotone.tooling.reanalysis import (
     ToolArtifactRequirement,
     ToolReuseRequest,
@@ -17,6 +18,8 @@ from foliotone.tooling.reanalysis import (
 )
 from foliotone.tooling.runtime import ToolRunOutcome, ToolRuntime
 from foliotone.tooling.structured import StructuredOutputError
+
+MAX_REUSE_QUERY_ARTIFACTS = 64
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,10 +47,8 @@ class ToolEvidenceReader:
     """Resolve only the latest exact successful run with intact required artifacts."""
 
     def __init__(self, engine: Engine, runtime: ToolRuntime) -> None:
-        self._execution_repo = repository(engine, ToolExecution)
-        self._artifact_repo = repository(engine, ToolArtifact)
-        self._result_repo = repository(engine, ToolResult)
-        self._fingerprint_repo = repository(engine, Fingerprint)
+        self._engine = engine
+        self._artifact_codec = codec_for(ToolArtifact)
         self._runtime = runtime
 
     def find_reusable(
@@ -60,9 +61,13 @@ class ToolEvidenceReader:
         """Return exact evidence or ``None`` so the caller safely re-runs the tool."""
         if request is None:
             return None
+        try:
+            records = load_observation_evidence(self._engine, {target_id})
+        except EvidenceQueryLimitError:
+            return None
         candidates = tuple(
             execution
-            for execution in self._execution_repo.list_all()
+            for execution in records.executions
             if execution.provider_id == request.descriptor.provider_id
             and execution.capability is request.capability
             and execution.tool_version == request.tool_version
@@ -86,25 +91,23 @@ class ToolEvidenceReader:
             return None
         assert previous is not None
 
-        artifacts = tuple(
-            artifact
-            for artifact in self._artifact_repo.list_all()
-            if artifact.execution_id == previous.id
-        )
+        artifacts = self._artifacts_for_execution(previous.id)
+        if artifacts is None:
+            return None
         for requirement in request.required_artifacts:
             if not self._artifact_is_intact(artifacts, requirement):
                 return None
 
         results = tuple(
             result
-            for result in self._result_repo.list_all()
+            for result in records.results
             if result.execution_id == previous.id
             and result.target_kind is target_kind
             and result.target_id == target_id
         )
         fingerprints = tuple(
             fingerprint
-            for fingerprint in self._fingerprint_repo.list_all()
+            for fingerprint in records.fingerprints
             if fingerprint.tool_execution_id == previous.id
             and fingerprint.target_kind is target_kind
             and fingerprint.target_id == target_id
@@ -114,6 +117,23 @@ class ToolEvidenceReader:
             results=results,
             fingerprints=fingerprints,
         )
+
+    def _artifacts_for_execution(
+        self,
+        execution_id: EntityId,
+    ) -> tuple[ToolArtifact, ...] | None:
+        with self._engine.connect() as connection:
+            rows = connection.execute(
+                select(self._artifact_codec.table)
+                .where(
+                    self._artifact_codec.table.c.execution_id == str(execution_id)
+                )
+                .order_by(self._artifact_codec.table.c.id)
+                .limit(MAX_REUSE_QUERY_ARTIFACTS + 1)
+            ).mappings().all()
+        if len(rows) > MAX_REUSE_QUERY_ARTIFACTS:
+            return None
+        return tuple(self._artifact_codec.decode(row) for row in rows)
 
     def has_intact_artifact(
         self,

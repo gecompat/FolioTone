@@ -1,12 +1,16 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from threading import Barrier
 
 import pytest
-from sqlalchemy import Engine
+from sqlalchemy import Engine, delete, event
 
+import foliotone.index.hashing as hashing_module
 from foliotone.core import (
     FileChangeState,
+    FileObservation,
     FileRecord,
     FileRelocationCandidate,
     Fingerprint,
@@ -19,6 +23,7 @@ from foliotone.core import (
 )
 from foliotone.index import (
     DeletionConfirmationPolicy,
+    DiscoveredFile,
     FingerprintWriter,
     HashMode,
     IncrementalScanner,
@@ -26,7 +31,7 @@ from foliotone.index import (
     ScanRootBinding,
     SQLiteIndexStore,
 )
-from foliotone.persistence import create_sqlite_engine, migrate, repository
+from foliotone.persistence import create_sqlite_engine, migrate, repository, schema
 
 NOW = datetime(2026, 8, 8, 20, 0, tzinfo=UTC)
 
@@ -37,6 +42,29 @@ class IndexEnvironment:
     root: ScanRoot
     media: Path
     scanner: IncrementalScanner
+
+
+class CoordinatedFingerprintWriter(FingerprintWriter):
+    """Prove two calculations overlap while retaining the real batch write."""
+
+    def __init__(self, engine: Engine) -> None:
+        super().__init__(engine)
+        self._barrier = Barrier(2)
+        self.saved_batch_sizes: list[int] = []
+
+    def calculate(
+        self,
+        observation: FileObservation,
+        physical_path: Path,
+        mode: HashMode,
+        created_at: datetime,
+    ) -> tuple[Fingerprint, ...]:
+        self._barrier.wait(timeout=2)
+        return super().calculate(observation, physical_path, mode, created_at)
+
+    def save_many(self, fingerprints: Sequence[Fingerprint]) -> None:
+        self.saved_batch_sizes.append(len(fingerprints))
+        super().save_many(fingerprints)
 
 
 @pytest.fixture
@@ -64,6 +92,77 @@ def test_logical_scan_root_is_reused_by_name(index_environment: IndexEnvironment
     resolved = store.get_or_create_root("test", MediaType.EBOOK)
     assert resolved == index_environment.root
     assert len(repository(index_environment.engine, ScanRoot).list_all()) == 1
+
+
+def test_hash_workers_overlap_calculation_and_persist_one_batch(tmp_path: Path) -> None:
+    database = tmp_path / "foliotone.db"
+    media = tmp_path / "media"
+    media.mkdir()
+    (media / "A.epub").write_bytes(b"alpha")
+    (media / "B.epub").write_bytes(b"bravo")
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    store = SQLiteIndexStore(engine)
+    root = store.get_or_create_root("parallel-hash", MediaType.EBOOK)
+    writer = CoordinatedFingerprintWriter(engine)
+    scanner = IncrementalScanner(
+        store,
+        batch_size=2,
+        hash_mode=HashMode.QUICK,
+        hash_workers=2,
+        fingerprint_writer=writer,
+        clock=lambda: NOW,
+    )
+
+    summary = scanner.scan(
+        root,
+        ScanRootBinding(media, include_suffixes=frozenset({"epub"})),
+    )
+
+    assert summary.counts == {FileChangeState.NEW: 2}
+    assert writer.saved_batch_sizes == [2]
+    assert len(repository(engine, Fingerprint).list_all()) == 2
+
+
+def test_index_store_persists_each_discovery_batch_with_set_writes(tmp_path: Path) -> None:
+    database = tmp_path / "foliotone.db"
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    store = SQLiteIndexStore(engine)
+    root = store.get_or_create_root("set-write", MediaType.EBOOK)
+    discovered = tuple(
+        DiscoveredFile(
+            relative_path=f"book-{index:03}.epub",
+            size_bytes=index,
+            modified_at=NOW,
+            physical_path=tmp_path / f"book-{index:03}.epub",
+        )
+        for index in range(200)
+    )
+
+    def statement_count(run: ScanRun) -> tuple[int, tuple[FileChangeState, ...]]:
+        count = 0
+
+        def count_statement(*_args: object) -> None:
+            nonlocal count
+            count += 1
+
+        event.listen(engine, "before_cursor_execute", count_statement)
+        try:
+            outcome = store.process_batch(root, run, discovered, NOW)
+        finally:
+            event.remove(engine, "before_cursor_execute", count_statement)
+        return count, tuple(item.change_state for item in outcome.events)
+
+    initial_run = store.start_scan(root, NOW)
+    initial_statements, initial_states = statement_count(initial_run)
+    assert initial_statements == 4
+    assert set(initial_states) == {FileChangeState.NEW}
+
+    unchanged_run = store.start_scan(root, NOW)
+    unchanged_statements, unchanged_states = statement_count(unchanged_run)
+    assert unchanged_statements == 4
+    assert set(unchanged_states) == {FileChangeState.UNCHANGED}
 
 
 def test_logical_scan_root_rejects_media_type_change(
@@ -94,7 +193,7 @@ def test_incremental_scan_tracks_new_unchanged_modified_missing_and_reappeared(
 
     unchanged = scanner.scan(root, binding)
     assert unchanged.counts == {FileChangeState.UNCHANGED: 2}
-    assert len(repository(engine, Fingerprint).list_all()) == 2
+    assert len(repository(engine, Fingerprint).list_all()) == 4
 
     first.write_bytes(b"alpha-modified")
     second.unlink()
@@ -103,7 +202,7 @@ def test_incremental_scan_tracks_new_unchanged_modified_missing_and_reappeared(
         FileChangeState.MODIFIED: 1,
         FileChangeState.MISSING: 1,
     }
-    assert len(repository(engine, Fingerprint).list_all()) == 3
+    assert len(repository(engine, Fingerprint).list_all()) == 5
 
     records = repository(engine, FileRecord).list_all()
     missing_record = next(record for record in records if record.relative_path == "B.epub")
@@ -117,7 +216,7 @@ def test_incremental_scan_tracks_new_unchanged_modified_missing_and_reappeared(
         FileChangeState.UNCHANGED: 1,
         FileChangeState.REAPPEARED: 1,
     }
-    assert len(repository(engine, Fingerprint).list_all()) == 4
+    assert len(repository(engine, Fingerprint).list_all()) == 7
     recovered = next(
         record
         for record in repository(engine, FileRecord).list_all()
@@ -126,6 +225,101 @@ def test_incremental_scan_tracks_new_unchanged_modified_missing_and_reappeared(
     assert recovered.presence_state is PresenceState.PRESENT
     assert recovered.missing_since_at is None
     assert recovered.consecutive_missing_scans == 0
+
+
+def test_unchanged_scan_reuses_only_complete_latest_hash_evidence(
+    index_environment: IndexEnvironment,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = index_environment.engine
+    root = index_environment.root
+    media = index_environment.media
+    scanner = index_environment.scanner
+    source = media / "A.epub"
+    source.write_bytes(b"alpha")
+    binding = ScanRootBinding(media, include_suffixes=frozenset({"epub"}))
+
+    scanner.scan(root, binding)
+
+    def unexpected_hash(_path: Path, _mode: HashMode):
+        raise AssertionError("unchanged source must not be re-hashed")
+
+    with monkeypatch.context() as context:
+        context.setattr(hashing_module, "calculate_hashes", unexpected_hash)
+        reused = scanner.scan(root, binding)
+
+    assert reused.counts == {FileChangeState.UNCHANGED: 1}
+    observations = repository(engine, FileObservation).list_all()
+    reused_observation = next(
+        observation
+        for observation in observations
+        if observation.scan_run_id == reused.run.id
+    )
+    assert any(
+        fingerprint.target_id == reused_observation.id
+        for fingerprint in repository(engine, Fingerprint).list_all()
+    )
+
+    with engine.begin() as connection:
+        connection.execute(
+            delete(schema.fingerprints).where(
+                schema.fingerprints.c.target_id == str(reused_observation.id)
+            )
+        )
+    calculated_paths: list[Path] = []
+    real_calculate = hashing_module.calculate_hashes
+
+    def record_hash(path: Path, mode: HashMode):
+        calculated_paths.append(path)
+        return real_calculate(path, mode)
+
+    monkeypatch.setattr(hashing_module, "calculate_hashes", record_hash)
+    recovered = scanner.scan(root, binding)
+
+    assert recovered.counts == {FileChangeState.UNCHANGED: 1}
+    assert calculated_paths == [source]
+
+
+def test_per_file_hash_io_failure_is_isolated_and_retried_selectively(
+    index_environment: IndexEnvironment,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = index_environment.engine
+    root = index_environment.root
+    media = index_environment.media
+    scanner = index_environment.scanner
+    first = media / "A.epub"
+    second = media / "B.epub"
+    first.write_bytes(b"alpha")
+    second.write_bytes(b"bravo")
+    binding = ScanRootBinding(media, include_suffixes=frozenset({"epub"}))
+    real_calculate = hashing_module.calculate_hashes
+
+    def fail_one(path: Path, mode: HashMode):
+        if path == first:
+            raise FileNotFoundError(path)
+        return real_calculate(path, mode)
+
+    monkeypatch.setattr(hashing_module, "calculate_hashes", fail_one)
+    partial = scanner.scan(root, binding)
+
+    assert partial.run.status is ScanRunStatus.COMPLETED
+    assert partial.hash_failures == 1
+    assert len(repository(engine, Fingerprint).list_all()) == 1
+
+    retried_paths: list[Path] = []
+
+    def record_retry(path: Path, mode: HashMode):
+        retried_paths.append(path)
+        return real_calculate(path, mode)
+
+    monkeypatch.setattr(hashing_module, "calculate_hashes", record_retry)
+    recovered = scanner.scan(root, binding)
+
+    assert recovered.counts == {FileChangeState.UNCHANGED: 2}
+    assert recovered.hash_failures == 0
+    assert retried_paths == [first]
+    assert len(repository(engine, Fingerprint).list_all()) == 3
 
 
 def test_deletion_confirmation_is_disabled_by_default(
