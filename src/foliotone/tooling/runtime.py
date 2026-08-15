@@ -67,6 +67,7 @@ class LocalCommand:
     workspace_environment: Mapping[str, str] | None = None
     outputs: tuple[WorkspaceOutput, ...] = ()
     version_policy: VersionPolicy | None = None
+    accepted_exit_codes: frozenset[int] = frozenset({0})
 
     def __post_init__(self) -> None:
         if not self.executable.strip():
@@ -81,6 +82,11 @@ class LocalCommand:
         artifact_types = [output.artifact_type for output in self.outputs]
         if len(artifact_types) != len(set(artifact_types)):
             raise ValueError("workspace output artifact types must be unique")
+        object.__setattr__(
+            self,
+            "accepted_exit_codes",
+            _validate_accepted_exit_codes(self.accepted_exit_codes),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +112,7 @@ class ContainerCommand:
     timeout_seconds: float = 120.0
     network_enabled: bool = False
     outputs: tuple[WorkspaceOutput, ...] = ()
+    accepted_exit_codes: frozenset[int] = frozenset({0})
 
     def __post_init__(self) -> None:
         if not self.image.strip():
@@ -115,6 +122,11 @@ class ContainerCommand:
         artifact_types = [output.artifact_type for output in self.outputs]
         if len(artifact_types) != len(set(artifact_types)):
             raise ValueError("workspace output artifact types must be unique")
+        object.__setattr__(
+            self,
+            "accepted_exit_codes",
+            _validate_accepted_exit_codes(self.accepted_exit_codes),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -280,6 +292,7 @@ class ToolRuntime:
             environment,
             workspace_environment=command.workspace_environment,
             outputs=command.outputs,
+            accepted_exit_codes=command.accepted_exit_codes,
         )
 
     def execute_container(
@@ -319,6 +332,7 @@ class ToolRuntime:
                 execution_id=execution_id,
                 workspace=workspace,
                 outputs=command.outputs,
+                accepted_exit_codes=command.accepted_exit_codes,
             )
         finally:
             shutil.rmtree(workspace, ignore_errors=True)
@@ -353,6 +367,7 @@ class ToolRuntime:
         workspace: Path | None = None,
         workspace_environment: Mapping[str, str] | None = None,
         outputs: tuple[WorkspaceOutput, ...] = (),
+        accepted_exit_codes: frozenset[int] = frozenset({0}),
     ) -> ToolRunOutcome:
         execution_id = execution_id or EntityId.new()
         created_workspace = workspace is None
@@ -426,11 +441,15 @@ class ToolRuntime:
                             finished_at=self._clock(),
                             status=(
                                 ToolExecutionStatus.SUCCEEDED
-                                if exit_code == 0
+                                if exit_code in accepted_exit_codes
                                 else ToolExecutionStatus.FAILED
                             ),
                             exit_code=exit_code,
-                            error_summary=None if exit_code == 0 else f"exit code {exit_code}",
+                            error_summary=(
+                                None
+                                if exit_code in accepted_exit_codes
+                                else f"exit code {exit_code}"
+                            ),
                         )
             except OSError as exc:
                 terminal = replace(
@@ -649,6 +668,15 @@ def _sha256_file(path: Path) -> str:
 
 def _looks_like_absolute_path(value: str) -> bool:
     return Path(value).is_absolute() or PureWindowsPath(value).is_absolute()
+
+
+def _validate_accepted_exit_codes(codes: frozenset[int]) -> frozenset[int]:
+    normalized = frozenset(codes)
+    if not normalized:
+        raise ValueError("accepted_exit_codes must not be empty")
+    if any(isinstance(code, bool) or not isinstance(code, int) or code < 0 for code in normalized):
+        raise ValueError("accepted_exit_codes must contain non-negative integers")
+    return normalized
 
 
 def _apply_workspace_environment(

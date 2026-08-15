@@ -1,9 +1,9 @@
 # Bewertung der E-Book-Toolchain
 
-Stand: 2026-08-14
+Stand: 2026-08-15
 
 Diese Bewertung schloss `W3-001` ab und dokumentiert zusätzlich die in
-`W3-002` bis `W3-006` implementierten calibre- und Poppler-Verträge. Sie
+`W3-002` bis `W3-008` implementierten calibre-, Poppler- und EPUBCheck-Verträge. Sie
 betrachtet nur dokumentierte, automatisierbare und bis einschließlich W9 nicht
 mutierende Analysepfade. Die Versionsangaben sind ein zeitgebundener Snapshot
 und müssen vor einem späteren Upgrade oder einer neuen Integration erneut
@@ -14,7 +14,7 @@ geprüft werden.
 | Werkzeug | geprüfter Stand | Lizenz | geeignete FolioTone-Rolle | Entscheidung |
 |---|---:|---|---|---|
 | calibre | 9.13.0 | GPL-3.0 | Metadaten aus mehreren Formaten; EPUB/MOBI/AZW/AZW3-Textextraktion; spätere optionale Library-Abfragen | `ebook-meta` für `W3-002`/`W3-005`/`W3-006` und `ebook-convert` für `W3-003`/`W3-005` wiederverwenden; `calibredb` vorerst zurückstellen |
-| EPUBCheck | 5.3.0 | BSD-3-Clause | EPUB-2-/EPUB-3-Konformität und strukturelle Fehler mit JSON-Report | für `W3-008` vormerken; nicht für Metadaten- oder Textextraktion verwenden |
+| EPUBCheck | 5.3.0 | BSD-3-Clause | EPUB-2-/EPUB-3-Konformität und strukturelle Fehler mit JSON-Report | mit `epubcheck-json/1` für `W3-008` implementiert; nicht für Metadaten- oder Textextraktion verwenden |
 | Poppler | 26.07.0 | GPL-2.0-or-later in den geprüften Frontend-Quellen; vor Redistribution komponentengenau prüfen | PDF-Metadaten, Seitenzahl und Text über `pdfinfo`/`pdftotext` | für `W3-004` als zwei feste CLI-Adapterpfade implementiert |
 | qpdf | 12.4.0 | Apache-2.0 | PDF-Struktur, Integrität und maschinenlesbare JSON-v2-Repräsentation | optional ergänzend für strukturelle Evidence; nicht für Textextraktion |
 
@@ -182,6 +182,27 @@ Offizielle Referenz:
 
 - https://manual.calibre-ebook.com/generated/en/calibredb.html
 
+### calibre Book-Diff
+
+Die dokumentierte Schnittstelle `calibre-debug --diff file1 file2` startet das
+calibre-Diff-Werkzeug aus dem GUI-Modul. Sie besitzt keinen dokumentierten
+headless JSON-, Report- oder stabilen Exitcode-Vertrag. Der am 2026-08-15
+lokal geprüfte Aufruf mit calibre 9.13 bestätigt nur die GUI-orientierte
+`--diff`-Option; er stellt keine automatisierbare Evidence-Schnittstelle bereit.
+
+FolioTone implementiert deshalb keinen `calibre-debug --diff`-Adapter. Der
+spätere Inhaltsvergleich soll provider-neutrale, bereits persistierte Evidence
+wie Datei-Hashes, normalisierte Text-Fingerprints, Metadatenkandidaten,
+Strukturdiagnosen und Cover-Fingerprints vergleichen. Damit bleibt die
+Matching-Erklärung versionierbar und hängt nicht von einem interaktiven
+Diff-Renderer ab. Das calibre-Diff-Werkzeug kann unabhängig davon für manuelle
+Einzelfallprüfung nützlich sein.
+
+Offizielle Referenzen:
+
+- https://manual.calibre-ebook.com/generated/en/calibre-debug.html
+- https://github.com/kovidgoyal/calibre/blob/v9.13.0/src/calibre/debug.py
+
 ### Lizenz- und Distributionsgrenze
 
 calibre ist GPL-3.0. FolioTone ruft in diesem Slice eine separat installierte CLI
@@ -198,14 +219,49 @@ Java-Library, Container und JSON-Ausgabe. Diese Schnittstelle ist für
 strukturelle Konformitäts-Evidence deutlich geeigneter als eine native
 FolioTone-Neuimplementierung.
 
-EPUBCheck liest weder die fachlichen Metadaten für den ersten Slice noch liefert
-es einen normalisierten Buchtext-Fingerprint. Es wird deshalb für `W3-008`
-vorgemerkt und blockiert `W3-002`/`W3-003` nicht.
+`W3-008` implementiert Adapterversion `epubcheck-json/1` und den CLI-Befehl
+`foliotone epub-validate`. Der Adapter akzeptiert nur EPUB und verwendet diese
+feste Befehlsform:
+
+```text
+java -Djava.awt.headless=true -Djava.io.tmpdir=. -jar epubcheck.jar
+  <runtime-source-file> --json report.json --locale en
+```
+
+Die JAR-Datei und das Java-Executable sind konfigurierbare
+Runtime-Abhängigkeiten; zusätzliche EPUBCheck-Optionen sind nicht exponiert.
+EPUBCheck 5.3.0 ist die Schemaprofil-Untergrenze. Die Source-Datei muss vor und
+nach dem Toollauf noch exakt zur persistierten `FileObservation` passen.
+
+Der JSON-Report ist auf 8 MiB und 10.000 Meldungen begrenzt. Er wird als
+privates `EPUBCHECK_JSON`-`ToolArtifact` mit Größe und SHA-256 persistiert.
+Der Parser verifiziert Dateiname, Tool-/Reportversion, Count-Felder,
+Severity-Allowlist und Diagnose-ID-Form. `ToolResult` enthält ausschließlich:
+
+- `conformance_status = CONFORMANT` oder `NONCONFORMANT`;
+- Fatal-, Error-, Warning-, Usage- und Info-Anzahl;
+- aggregierte Counts je Severity und EPUBCheck-Diagnosecode.
+
+Meldungstexte, Publication-Metadaten und lokale Pfade werden nicht in
+`ToolResult` oder CLI-Ausgabe übernommen. Der private Rohreport kann den
+Runtime-Pfad enthalten und bleibt deshalb außerhalb von Git.
+
+EPUBCheck dokumentiert Exitcode `1` für einen abgeschlossenen Lauf mit
+Konformitätsfehlern. `LocalCommand.accepted_exit_codes = {0, 1}` trennt diesen
+negativen Befund von einem technischen Ausführungsfehler. Ein fehlender,
+ungültiger oder zu großer Report macht den Lauf weiterhin unbrauchbar. Die
+normalisierte Konformitätsaussage bleibt externe Evidence und ist weder eine
+vollständige Qualitätsbewertung noch kanonische Wahrheit.
+
+EPUBCheck liest weder die fachlichen Metadaten für diesen Slice noch liefert es
+einen normalisierten Buchtext-Fingerprint. Diese Rollen bleiben bei den bereits
+implementierten calibre-Verträgen.
 
 Offizielle Referenzen:
 
 - https://github.com/w3c/epubcheck
 - https://github.com/w3c/epubcheck/releases/tag/v5.3.0
+- https://github.com/w3c/epubcheck/blob/v5.3.0/src/main/java/com/adobe/epubcheck/tool/EpubChecker.java
 
 ## Poppler
 
@@ -272,7 +328,7 @@ Offizielle Referenzen:
 - https://qpdf.readthedocs.io/en/latest/json.html
 - https://github.com/qpdf/qpdf/blob/main/LICENSE.txt
 
-## Verifizierte `W3-002`- bis `W3-006`-Slices
+## Verifizierte `W3-002`- bis `W3-008`-Slices
 
 Am 2026-08-14 wurde calibre 9.13.0 als separates administratives Abbild außerhalb
 des Repositorys installiert. Das offizielle MSI hatte den erwarteten
@@ -340,3 +396,22 @@ Namespaces, MARC-Rollen, fremde Rollen-Schemes, Contributor-Sortiernamen,
 Sprache, Verlag, Datum, Subject, Beschreibung, Rechte, Typ und Serien ab. Der
 vollständige W3-006-Stand bestand lokal `ruff check .`, Mypy für 64
 Source-Dateien und alle 152 Pytest-Tests in 8 Minuten 45 Sekunden.
+
+Für `W3-008` wurden Temurin JRE 21.0.12+8 und EPUBCheck 5.3.0 ausschließlich
+portabel unter `C:\rep\cache\FolioTone` bereitgestellt. Die offiziellen
+Archive besaßen die verifizierten SHA-256-Werte
+`B8AA18FEF5EDB69BEE8618F99677D66D0873D22CB40D974C15AC9FFCDECF73BA`
+und
+`6C07E68584B2E2CE2F89FE06E1246DFEAD3EB36B46B340E7D93524F29DCFF6C5`.
+Es erfolgte keine systemweite Installation und kein Neustart.
+
+Der echte CLI-Smoke-Test verwendete ausschließlich das bereits synthetisch
+erzeugte EPUB. EPUBCheck meldete drei strukturelle Fehler und Exitcode `1`;
+FolioTone persistierte dennoch korrekt eine erfolgreiche
+`STRUCTURAL_VALIDATION`-`ToolExecution`, `NONCONFORMANT`, die fünf
+Severity-Counts und je einen Count für `PKG-006`, `PKG-007` und `RSC-005`.
+Die Source-Datei blieb bytegleich, der private JSON-Report wurde als Artefakt
+übernommen und das ephemere Work-Verzeichnis war nach Abschluss leer.
+
+Der vollständige W3-008-Stand bestand mit Python 3.12.10 lokal `ruff check .`,
+Mypy für 66 Source-Dateien und alle 175 Pytest-Tests in 9 Minuten 23 Sekunden.

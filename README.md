@@ -38,9 +38,10 @@ FolioTone hat **W2 — Incremental Index + Filename/Path Context + Tool Runtime*
 abgeschlossen. In W3 sind die E-Book-Toolchain-Bewertung, feste read-only
 calibre-/Poppler-Analysepfade für EPUB, MOBI, AZW, AZW3 und PDF sowie die
 Provenance-erhaltende OPF2-/OPF3-Metadatenprojektion und ein versionierter,
-synthetischer E-Book-Vergleichskorpus umgesetzt. `W3-007` ist abgeschlossen;
-`W3-008` zur strukturellen Validierungs- und Book-Diff-Evidence ist der nächste
-Backlog-Eintrag.
+synthetischer E-Book-Vergleichskorpus umgesetzt. `W3-008` ergänzt feste
+read-only EPUBCheck-Konformitäts-Evidence; calibre Book-Diff bleibt wegen der
+GUI-only-Schnittstelle zurückgestellt. `W3-009` zur Cover-Extraktion und
+perzeptuellen Fingerprint-Evidence ist der nächste Backlog-Eintrag.
 
 W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 
@@ -62,6 +63,7 @@ Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
 
 - feste read-only calibre-Metadaten- und Textpfade für EPUB/MOBI/AZW/AZW3;
 - feste Poppler-PDF-Metadaten-, Seiten- und Textanalyse;
+- feste read-only EPUBCheck-Konformitätsanalyse mit begrenzter JSON-Evidence;
 - einen FolioTone-eigenen normalisierten E-Book-Textfingerprint;
 - rohe OPF-Beobachtungen und versionierte, gruppierte Kandidaten für ISBN und
   andere Identifier, Contributors/Rollen/Sortiernamen, Sprache, Verlag,

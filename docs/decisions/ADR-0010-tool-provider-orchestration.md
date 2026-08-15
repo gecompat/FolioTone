@@ -48,6 +48,12 @@ Material tool executions should be able to retain:
 
 The same real-world claim may be supported or contradicted by several tools/providers. FolioTone owns the reconciliation and final decision model.
 
+`ToolExecution.status` describes whether an invocation completed under its
+adapter contract, not whether the inspected media received a positive domain
+verdict. ADR-0017 therefore permits a fixed provider-specific accepted
+exit-code allowlist while preserving the actual exit code and storing findings
+as `ToolResult` Evidence.
+
 ## Safety
 
 Through W9, ToolProviders are analysis-only with respect to source media.

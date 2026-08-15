@@ -53,6 +53,8 @@ Responsibilities include:
 - bounded, strictly validated JSON loading from persisted `ToolArtifact` files;
 - bounded declared workspace-output capture with path, size and SHA-256 validation before ephemeral work is removed;
 - adapter-owned version policies that can reject unsafe tool versions before Source Media is opened;
+- provider-specific accepted-exit-code allowlists with zero-only default and
+  preservation of the observed code;
 - recording tool/adapter/parser versions and execution status;
 - conservative re-analysis decisions based on a prior successful `ToolExecution` and exact provider, capability, input, tool, adapter and configuration identity;
 - mapping tool-specific output into FolioTone observations/evidence;
@@ -119,6 +121,16 @@ changes, format variants of one `Edition`, and translations of one `Work`.
 The corpus labels expected identity levels for later W6 calibration; it does
 not implement candidate blocking, scoring, confidence thresholds, review or
 canonical metadata selection.
+
+The seventh W3 vertical slice runs EPUBCheck 5.3.0 against an unchanged EPUB
+observation with a fixed headless Java/JAR command. A bounded private JSON
+artifact is validated before FolioTone projects only conformance, severity
+counts and diagnostic-code counts. EPUBCheck exit code `1` is an accepted
+completed validation with conformance errors, not a process failure; the
+negative verdict remains separate `ToolResult` Evidence. Message text, report
+paths and publication fields are not projected or printed. calibre's GUI-only
+diff interface and qpdf remain deferred until a machine-readable comparison or
+additional PDF-structure gap exists.
 
 ### Music Analysis
 

@@ -82,4 +82,11 @@ does not remove or bypass DRM; protected, damaged or otherwise failed
 conversions remain failed `ToolExecution` records and are not mislabeled as
 successful `NO_TEXT` observations.
 
+EPUBCheck validation uses a fixed Java/JAR command and writes its bounded JSON
+report only into the private tool workspace before artifact capture. The raw
+report may contain the runtime source path and therefore remains private
+runtime data. Normalized `ToolResult` Evidence contains only the conformance
+verdict, bounded severity counts and diagnostic-code counts; message text and
+local paths are not emitted by the CLI.
+
 Imported/local provider datasets and external tool reports derived from a private collection must also stay out of Git unless a future explicit decision establishes that a specific redistributable artifact belongs in the repository.

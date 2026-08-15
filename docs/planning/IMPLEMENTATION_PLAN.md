@@ -113,7 +113,9 @@ Acceptance includes tests for:
 - no unnecessary full re-hash for unchanged files;
 - representative filename/path parsing conventions;
 - parser version/provenance retained for derived candidates;
-- missing tool, non-zero exit, timeout and malformed result behavior;
+- missing tool, non-accepted exit code, timeout and malformed result behavior;
+- explicit provider-owned accepted-exit-code semantics with zero-only as the
+  runtime default;
 - no external-tool source mutation through the standard runtime.
 
 ## W3 — E-Book Analysis / Orchestration
@@ -122,7 +124,7 @@ Do **not** start by writing EPUB/PDF/MOBI parsers from scratch.
 
 First evaluate maintained specialist capabilities, especially calibre CLI, plus targeted format validators/tools where appropriate. Document reuse/rejection decisions with current maintenance/licensing/security information.
 
-Implemented sequence and decisions through `W3-007`:
+Implemented sequence and decisions through `W3-008`:
 
 1. calibre `ebook-meta` as a fixed read-only metadata extraction vertical slice;
 2. fixed calibre `ebook-convert` EPUB text plus a FolioTone-owned fingerprint;
@@ -138,6 +140,10 @@ Implemented sequence and decisions through `W3-007`:
    normalized-text fingerprints, bibliographic ground truth and
    provenance-scoped disagreement for exact copies, metadata changes, format
    variants of one `Edition`, and translations of one `Work`.
+8. add fixed EPUBCheck 5.3.0 JSON validation for EPUB with bounded
+   conformance/severity/diagnostic-code Evidence and provider-specific accepted
+   exit codes; defer calibre's GUI-only diff and qpdf until a machine-readable
+   comparison or additional PDF-structure gap exists.
 
 Separate raw tool/analyzer observations, normalized/derived assertions and canonical domain entities.
 
@@ -148,7 +154,8 @@ Planned evidence includes:
 - normalized text fingerprint where text is available;
 - metadata/tool disagreement;
 - later cover/image perceptual fingerprint;
-- later structural validation and content-diff/quality evidence.
+- EPUB structural validation Evidence;
+- later provider-neutral content-diff and broader quality Evidence.
 
 OCR is out of the first implementation. Scanned PDFs without text should be represented explicitly rather than silently OCRed.
 

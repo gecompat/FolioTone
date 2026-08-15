@@ -22,7 +22,7 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 ## Externe Werkzeuge und Wissensquellen
 
 - [External Analysis Tools](reference/EXTERNAL_TOOLS.md) führt mögliche `ToolProvider` wie calibre, ffprobe, Chromaprint, beets, SongKong und Picard auf.
-- [Bewertung der E-Book-Toolchain](reference/EBOOK_TOOL_EVALUATION.md) hält den zeitgebundenen W3-Toolentscheid, die Calibre-Sicherheitsuntergrenze und die ersten EPUB-/PDF-Rollen fest.
+- [Bewertung der E-Book-Toolchain](reference/EBOOK_TOOL_EVALUATION.md) hält den zeitgebundenen W3-Toolentscheid, die Calibre-Sicherheitsuntergrenze sowie die implementierten EPUB-/PDF-Analyse- und Strukturvalidierungsrollen fest.
 - [External Data Sources](reference/EXTERNAL_DATA_SOURCES.md) dokumentiert Kandidaten für strukturierte Wissensquellen wie Open Library, GND, Wikidata, MusicBrainz und AcoustID.
 - [Glossar](reference/GLOSSARY.md) definiert die kanonischen fachlichen Kernbegriffe von FolioTone.
 
@@ -33,6 +33,7 @@ Ein Eintrag in einer Tool- oder Provider-Registry ist keine automatische Abhäng
 Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue wesentliche Architekturentscheidungen werden als ADR dokumentiert; eine redaktionelle Änderung darf einen technischen Vertrag nicht stillschweigend ersetzen.
 
 - [ADR-0016](decisions/ADR-0016-cli-first-product-surface.md) legt die CLI als anfängliche Produktoberfläche fest und verschiebt Web-API, Desktop-Oberfläche und Dashboard aus dem aktiven Scope.
+- [ADR-0017](decisions/ADR-0017-provider-accepted-exit-codes.md) trennt einen adapter-akzeptierten Domain-Befund mit Nonzero-Exitcode von technischen Toolfehlern.
 
 ## Qualität, Sprache und Dokumentationsregeln
 
