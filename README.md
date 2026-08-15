@@ -50,9 +50,13 @@ betroffene Workflow-Schritt neu. `--fresh` erzwingt einen vollständigen neuen
 Lauf. `W3-012` ergänzt `ebook-analysis-workflow/v3` und die separate Projektion
 `ebook-quality/v1`: Metadaten, Text, Cover, Struktur und Formatrisiken werden
 ohne skalaren Score und ohne Identitätsaussage als nachvollziehbare Dimensionen
-und feste Befundcodes ausgegeben. Auf Benutzerentscheidung bleibt die
-Entwicklung zunächst bei E-Books; als Nächstes folgt der provider-neutrale
-E-Book-Vergleich. Die Music-Toolchain bleibt zurückgestellt.
+und feste Befundcodes ausgegeben. `W3-013` ergänzt den read-only CLI-Befehl
+`ebook-compare`: Persistierte Datei-, Text-, Metadaten-, Struktur- und Cover-
+Evidence zweier Beobachtungen wird provider-neutral verglichen, ohne Source-
+Zugriff, rohe Werte, Relation oder Identitätsurteil. Auf Benutzerentscheidung
+bleibt die Entwicklung zunächst bei E-Books; als Nächstes wird der
+synthetische Edge-/Performance-Korpus erweitert. Die Music-Toolchain bleibt
+zurückgestellt.
 
 W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 
@@ -85,6 +89,9 @@ Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
 - ein versioniertes `EbookQualityAssessment` mit `METADATA`, `TEXT`, `COVER`,
   `STRUCTURE` und `FORMAT_RISK`, festen Befundcodes und getrennten Zuständen
   für unvollständige Analyse, Review und erforderliche Maßnahmen;
+- `ebook-comparison/v1` und CLI `ebook-compare` mit getrennten Zuständen und
+  Evidence-Coverage für Datei-Bytes, normalisierten Text, Metadaten, Struktur
+  und Cover, ausdrücklich ohne Match- oder Identitätsentscheidung;
 - rohe OPF-Beobachtungen und versionierte, gruppierte Kandidaten für ISBN und
   andere Identifier, Contributors/Rollen/Sortiernamen, Sprache, Verlag,
   Publikationsdatum, Serie und weitere Felder;

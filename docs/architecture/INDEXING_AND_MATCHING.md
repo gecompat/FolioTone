@@ -147,6 +147,16 @@ Ground Truth für spätere W6-Tests. W3-007 implementiert weder Candidate
 Blocking noch Scoring, Confidence-Schwellen oder automatische
 Review-Entscheidungen.
 
+`W3-013` nutzt diesen Korpus für `ebook-comparison/v1`. Der read-only
+Paarvergleich liest persistierte `FILE_SHA256`-, normalisierte Text-,
+Metadatenkandidaten-, Struktur- und Cover-Evidence und gibt pro Dimension nur
+`SAME`, `DIFFERENT`, `INDETERMINATE` oder `NOT_APPLICABLE` sowie eine getrennte
+Coverage aus. Der Vergleich nennt sichere unterschiedliche Feld- oder
+Diagnostic-Schlüssel, aber keine privaten Werte. Ein dHash-Abstand bleibt ein
+unkalibrierter technischer Fakt. Es werden weder `RelationType`, Confidence,
+Matchstatus noch Review-Entscheidung erzeugt; Candidate Blocking und Matching
+bleiben nachgelagerte, versionierte Schritte.
+
 ## Scoring
 
 Scoring happens only after duplicate/relation candidate generation. Rules/weights must be configurable or otherwise versioned so old decisions can be traced to the matcher behavior that produced them.

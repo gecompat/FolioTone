@@ -39,6 +39,10 @@ def test_status_command_is_non_destructive_bootstrap(
             "Versioned multi-dimensional e-book quality findings are available through "
             "ebook-analyze."
         ),
+        (
+            "Provider-neutral persisted e-book Evidence comparison is available through "
+            "ebook-compare."
+        ),
         "Read-only PDF metadata and text analysis is available through pdf-analyze.",
         "Read-only EPUB conformance evidence is available through epub-validate.",
         "Source-media and external-tool mutation commands are not implemented.",

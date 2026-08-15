@@ -128,4 +128,14 @@ Quality dimensions, metadata completeness, text availability, cover presence
 and structural findings are not identity Evidence by themselves and never
 confirm a file-, `Edition`- or `Work`-level duplicate.
 
+`ebook-comparison/v1` reads only persisted Evidence for two explicit
+FileObservation IDs. It receives no Source Root, does not open media, invokes
+no ToolProvider and writes no Relation or other matching state. The CLI emits
+only formats, dimension states, coverage, bounded field/diagnostic keys,
+Evidence counts and internal provenance IDs; raw metadata values, text,
+covers, artifact paths and source paths remain private. A newer failed or
+cancelled provider execution prevents older Evidence from silently appearing
+current. `SAME`, a dHash distance or equal metadata fields are comparison facts
+and never an automatic file-, `Edition`- or `Work`-identity decision.
+
 Imported/local provider datasets and external tool reports derived from a private collection must also stay out of Git unless a future explicit decision establishes that a specific redistributable artifact belongs in the repository.

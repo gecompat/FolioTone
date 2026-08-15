@@ -46,6 +46,8 @@ from foliotone.workflows import (
     EbookAnalysisReuseService,
     EbookAnalysisStatus,
     EbookAnalysisTools,
+    EbookComparisonError,
+    EbookComparisonService,
     ebook_analysis_format,
 )
 
@@ -351,6 +353,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="EPUBCheck JAR path; defaults to epubcheck.jar.",
     )
 
+    ebook_compare = subparsers.add_parser(
+        "ebook-compare",
+        help=(
+            "Compare persisted file, text, metadata, structure, and cover Evidence "
+            "for two recorded e-book observations."
+        ),
+    )
+    ebook_compare.add_argument(
+        "--left-observation-id",
+        required=True,
+        type=EntityId.parse,
+        help="First persisted EPUB/MOBI/AZW/AZW3/PDF FileObservation ID.",
+    )
+    ebook_compare.add_argument(
+        "--right-observation-id",
+        required=True,
+        type=EntityId.parse,
+        help="Second persisted EPUB/MOBI/AZW/AZW3/PDF FileObservation ID.",
+    )
+    ebook_compare.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="SQLite database path; defaults to /data/foliotone.db.",
+    )
+
     pdf_analyze = subparsers.add_parser(
         "pdf-analyze",
         help="Analyze PDF metadata, page count, and text read-only with Poppler.",
@@ -477,6 +505,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Versioned multi-dimensional e-book quality findings are available through "
             "ebook-analyze."
         )
+        print(
+            "Provider-neutral persisted e-book Evidence comparison is available through "
+            "ebook-compare."
+        )
         print("Read-only PDF metadata and text analysis is available through pdf-analyze.")
         print("Read-only EPUB conformance evidence is available through epub-validate.")
         print("Source-media and external-tool mutation commands are not implemented.")
@@ -497,6 +529,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-analyze":
         return _run_ebook_analyze(args)
+
+    if args.command == "ebook-compare":
+        return _run_ebook_compare(args)
 
     if args.command == "pdf-analyze":
         return _run_pdf_analyze(args)
@@ -725,6 +760,40 @@ def _run_ebook_analyze(args: argparse.Namespace) -> int:
         )
     print(f"Overall status: {outcome.status.value}")
     return 0 if outcome.status is EbookAnalysisStatus.SUCCEEDED else 1
+
+
+def _run_ebook_compare(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    try:
+        outcome = EbookComparisonService(engine).compare(
+            args.left_observation_id,
+            args.right_observation_id,
+        )
+    except (EbookComparisonError, ValueError) as error:
+        print(f"E-book comparison failed: {error}")
+        return 1
+
+    print(f"Left FileObservation: {outcome.left_observation_id}")
+    print(f"Right FileObservation: {outcome.right_observation_id}")
+    print(f"Left format: {outcome.left_format}")
+    print(f"Right format: {outcome.right_format}")
+    print(f"Comparison profile: {outcome.profile}")
+    print(f"Comparison status: {outcome.status.value}")
+    for dimension in outcome.dimensions:
+        label = dimension.name.value
+        print(f"Comparison dimension {label}: {dimension.state.value}")
+        print(f"Comparison coverage {label}: {dimension.coverage.value}")
+        print(f"Comparison {label} left Evidence count: {len(dimension.left_evidence_ids)}")
+        print(f"Comparison {label} right Evidence count: {len(dimension.right_evidence_ids)}")
+        for execution_id in dimension.source_execution_ids:
+            print(f"Comparison {label} ToolExecution: {execution_id}")
+        for key, value in dimension.facts:
+            print(f"Comparison {label}.{key}: {json.dumps(value, ensure_ascii=False)}")
+    print("Identity verdict: NOT_PRODUCED")
+    print("Relation records written: 0")
+    return 0
 
 
 def _run_ebook_metadata(args: argparse.Namespace) -> int:
