@@ -1,15 +1,26 @@
 name: CI
 
 on:
-  push:
   pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   quality:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -67,3 +78,19 @@ jobs:
           grep -q 'REAPPEARED: 1' <<< "$fourth"
       - name: Docker bootstrap
         run: docker compose run --rm foliotone status
+
+  post-merge-contract:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+      - name: Verify merge integration contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent_count="$(git rev-list --parents -n 1 HEAD | awk '{print NF - 1}')"
+          test "$parent_count" -eq 2
+          git diff-tree --check HEAD^1 HEAD

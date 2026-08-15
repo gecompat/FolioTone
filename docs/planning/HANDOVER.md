@@ -648,8 +648,14 @@ Der vollständige W3-015-Stand bestand mit Python 3.12.10 lokal
 ist 134.583 Byte groß, hat SHA-256
 `3a4d98aa852769c83dc2019f1e986cbacd41931ec38558f38b02ef6b3fd99a2e`
 und enthält Collection-Domainmodell, Persistenz, Workflow und Migration
-`0007_ebook_collection_batches`. Die Remote Quality Gates sind bis zum PR
-noch offen.
+`0007_ebook_collection_batches`.
+
+Commit `9a6b2d1ace10b1ef57c4402439ba782ede233b04` bestand in PR #25 den
+vollständigen Remote-Gate mit Ruff, Mypy, 239 Pytest-Tests und allen Docker-
+Smokes. Merge-Commit `fe3672a7002137859607dacb12072eeae35e268a` und GitHub
+Actions Run `31900550819` auf `main` waren erfolgreich. Der anschließend
+versionierte CI-Vertrag führt die Vollsuite nur am PR oder manuell aus; ein
+`main`-Push erhält nur den kurzen Merge-/Whitespace-Vertrag.
 
 Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 

@@ -803,8 +803,16 @@ Das Wheel
 ist 134.583 Byte groß, hat SHA-256
 `3a4d98aa852769c83dc2019f1e986cbacd41931ec38558f38b02ef6b3fd99a2e`
 und enthält Collection-Domainmodell, Persistenz, Workflow und Alembic
-`0007_ebook_collection_batches`. Die Remote Quality Gates werden nach dem
-W3-015-PR nachgetragen.
+`0007_ebook_collection_batches`.
+
+**Remote für W3-015:** Commit
+`9a6b2d1ace10b1ef57c4402439ba782ede233b04` bestand in PR #25 Ruff, Mypy,
+239 Pytest-Tests und alle Docker-Smoke-Schritte. Der PR wurde als Merge-Commit
+`fe3672a7002137859607dacb12072eeae35e268a` nach `main` übernommen; GitHub
+Actions Run `31900550819` war erfolgreich. Die dabei sichtbare dreifache
+Vollausführung durch Branch-Push, Pull Request und Main-Push wird im
+nachfolgenden CI-Vertrag auf einen autoritativen PR-Gate plus kurzen
+Post-Merge-Vertrag reduziert.
 
 ## Aktiver W3-Stand und nächster Schritt
 
