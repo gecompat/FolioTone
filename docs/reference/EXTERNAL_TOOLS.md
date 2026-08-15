@@ -107,6 +107,49 @@ Security note:
 
 The LinuxServer calibre image exposes a full GUI/terminal environment and its own documentation warns about privileged access implications. It should not automatically become part of FolioTone's default minimal runtime. Prefer a purpose-built CLI integration or an isolated optional profile where practical.
 
+### EPUBCheck
+
+Priority: **very high**
+
+Evaluated snapshot: **5.3.0 on 2026-08-15; EPUB 2/3 JSON validation adapter implemented**
+
+Implemented role:
+
+- EPUB conformance and structural diagnostics as bounded external Evidence.
+
+Preferred integration:
+
+- `CLI`: Java runs the separately installed official `epubcheck.jar` with one
+  source EPUB, `--json report.json` and fixed English locale output.
+
+Important boundary:
+
+Adapter version `epubcheck-json/1` accepts only an unchanged persisted EPUB
+`FileObservation`. It exposes no caller-controlled EPUBCheck options, fixes the
+JVM to headless mode, and redirects the JVM temporary directory into the
+ephemeral private tool workspace. Version 5.3.0 is the minimum accepted report
+contract. The JSON artifact is limited to 8 MiB, integrity-checked and parsed
+with bounded message counts.
+
+EPUBCheck uses exit code `1` for a completed validation with errors. The
+adapter therefore accepts only `{0, 1}` for this operation, preserves the
+observed code, and requires a valid report before treating the invocation as
+successful. `ToolResult` records contain `CONFORMANT` or `NONCONFORMANT`,
+fatal/error/warning/usage/info counts and aggregated severity/code counts.
+They omit report message text and local paths. The raw private report remains a
+`ToolArtifact`; it is not committed or printed by the CLI.
+
+EPUBCheck is BSD-3-Clause. FolioTone does not bundle its JAR or a Java runtime
+in this repository. A later distributable package must decide and document how
+those dependencies and their license notices are supplied.
+
+Official references:
+
+- https://github.com/w3c/epubcheck
+- https://github.com/w3c/epubcheck/releases/tag/v5.3.0
+- https://github.com/w3c/epubcheck/blob/v5.3.0/src/main/java/com/adobe/epubcheck/tool/EpubChecker.java
+- https://github.com/w3c/epubcheck/blob/v5.3.0/LICENSE.md
+
 ### Poppler
 
 Priority: **very high**
@@ -325,7 +368,6 @@ These may provide useful specialist functions but need a dedicated current revie
 - MediaInfo — technical media metadata;
 - ExifTool — broad metadata extraction;
 - ebook-polish sub-workflows within calibre;
-- EPUBCheck 5.3.0 — selected for a later EPUB conformance/structural validation adapter;
 - qpdf 12.4.0 — optional later PDF structural/integrity evidence; it does not extract text;
 - MuPDF — deferred until a concrete gap remains after Poppler/qpdf evaluation;
 - additional audio integrity/checksum tools;

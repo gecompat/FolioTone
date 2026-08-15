@@ -18,8 +18,9 @@ ergänzt feste Poppler-PDF-Metadaten-, Seiten- und Textpfade mit explizitem
 EPUB/MOBI/AZW/AZW3-Allowlist. `W3-006` ergänzt eine OPF2-/OPF3-Feld- und
 Rollenprojektion mit provider-neutralen, Provenance-verknüpften Kandidaten.
 `W3-007` ergänzt einen versionierten synthetischen Vergleichskorpus für Datei-,
-Inhalts-, `Edition`-, `Work`- und Tool-Disagreement-Ground-Truth. `W3-008` ist
-als Nächstes vorgesehen.
+Inhalts-, `Edition`-, `Work`- und Tool-Disagreement-Ground-Truth. `W3-008`
+ergänzt feste EPUBCheck-JSON-Strukturvalidierung und provider-spezifische
+akzeptierte Exitcodes. `W3-009` ist als Nächstes vorgesehen.
 
 ## Vor Änderungen lesen
 
@@ -77,10 +78,10 @@ Die Abschlussprüfung bestätigt zusätzlich:
 - keine Wiederverwendung ohne explizite Konfigurationsidentität;
 - allowlist-basierten Docker-Build-Kontext ohne lokale Runtime-, Medien-, Secret-, Test- oder Git-Daten.
 
-### W3-001 bis W3-007
+### W3-001 bis W3-008
 
-Der Snapshot vom 2026-08-14 wählt calibre 9.13.0 für dateibezogene Metadaten,
-EPUBCheck 5.3.0 für spätere EPUB-Konformität, Poppler 26.07.0 für implementierte
+Der am 2026-08-15 aktualisierte Snapshot wählt calibre 9.13.0 für dateibezogene Metadaten,
+EPUBCheck 5.3.0 für implementierte EPUB-Konformität, Poppler 26.07.0 für implementierte
 PDF-Metadaten-/Seiten-/Textanalyse und qpdf 12.4.0 als optionale strukturelle
 PDF-Evidence. Details und Lizenzen stehen in
 `docs/reference/EBOOK_TOOL_EVALUATION.md`.
@@ -175,6 +176,37 @@ Der Implementierungscommit `352eb8567c542e709e77f98de42c222f21dd3f75`
 von PR #17 bestand die GitHub-Actions-Runs `31844049430` und `31844093222`;
 beide `quality`-Jobs waren nach jeweils 52 Sekunden erfolgreich.
 
+`W3-008` implementiert `foliotone epub-validate` über den festen
+`epubcheck-json/1`-Vertrag. Eine unveränderte EPUB-`FileObservation` wird mit
+EPUBCheck 5.3.0 in einem privaten headless Java-Workspace geprüft. Der maximal
+8 MiB große `EPUBCHECK_JSON`-Report bleibt privates `ToolArtifact`; persistierte
+Evidence enthält nur `CONFORMANT`/`NONCONFORMANT`, fünf Severity-Counts und
+aggregierte Severity-/Diagnosecode-Counts. Meldungstexte, Publication-Daten
+und lokale Pfade erscheinen nicht in `ToolResult` oder CLI-Ausgabe.
+
+ADR-0017 lässt für einen festen Adapter dokumentierte Nonzero-Domain-Exitcodes
+zu, während der Standard `{0}` bleibt. EPUBCheck akzeptiert `{0, 1}`: Ein
+Prüflauf mit Konformitätsfehlern ist ausführungsseitig `SUCCEEDED`, behält den
+Exitcode und persistiert den negativen Befund getrennt. Fehlender oder
+ungültiger Report, andere Exitcodes und Timeouts bleiben technische Fehler.
+
+Temurin JRE 21.0.12+8 und EPUBCheck 5.3.0 wurden nur portabel und
+SHA-256-verifiziert unter `C:\rep\cache\FolioTone` bereitgestellt. Der echte
+CLI-Smoke-Test mit dem synthetischen EPUB persistierte bei Exitcode `1`
+`NONCONFORMANT` und die drei Codes `PKG-006`, `PKG-007` und `RSC-005`. Die
+Quelldatei blieb bytegleich und das Work-Verzeichnis leer. 15 Adaptertests und
+37 gezielte Runtime-/Toolingtests bestanden; der gezielte Mypy-Lauf war
+fehlerfrei.
+
+Der vollständige W3-008-Stand bestand mit Python 3.12.10 lokal `ruff check .`,
+Mypy für 66 Source-Dateien und alle 175 Pytest-Tests in 9 Minuten 23 Sekunden.
+
+Calibres dokumentiertes `calibre-debug --diff` startet ein GUI-Modul ohne
+headless JSON-/Reportvertrag und wurde deshalb nicht adaptiert. Ein späterer
+provider-neutraler Book-Diff soll persistierte Datei-, Text-, Metadaten-,
+Struktur- und Cover-Evidence vergleichen. qpdf bleibt bis zu einem zusätzlichen
+PDF-Struktur-Gap zurückgestellt.
+
 ## W2 aktuell implementiert
 
 ### Index
@@ -219,7 +251,9 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
 - lokale Ausführung ohne Shell;
 - Version Detection;
 - Timeout/Cancellation;
-- FAILED-Erfassung bei fehlendem Tool und Non-zero Exit;
+- FAILED-Erfassung bei fehlendem Tool und nicht adapter-akzeptiertem Exitcode;
+- unveränderliche provider-spezifische `accepted_exit_codes`-Allowlist mit
+  Standard `{0}` und Erhaltung des tatsächlich beobachteten Exitcodes;
 - stdout/stderr als `ToolArtifact` mit SHA-256;
 - begrenzte, strikte JSON-Auswertung aus persistiertem stdout-`ToolArtifact` mit Größen-/SHA-256-Integritätsprüfung;
 - konservative Reanalyse anhand erfolgreicher früherer Ausführung und exakter Provider-, Capability-, Input-, Tool-, Adapter- und Konfigurationsidentität;
@@ -297,6 +331,27 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
 - keine Matching Engine, kein Scoring, keine automatische Review-Entscheidung
   und keine zusätzliche Produktoberfläche.
 
+### EPUBCheck-Strukturvalidierung
+
+- `EpubCheckAnalyzer` und CLI `foliotone epub-validate`;
+- ausschließlich unveränderte EPUB-`FileObservation`-Eingaben;
+- `ToolCapability.STRUCTURAL_VALIDATION` und Adapterversion
+  `epubcheck-json/1`;
+- feste headless Java/JAR-Befehlsform ohne caller-kontrollierte
+  EPUBCheck-Optionen;
+- EPUBCheck 5.3.0 als Mindestversion;
+- JVM-Tempdaten und Report ausschließlich im ephemeren Tool-Workspace;
+- maximal 8 MiB großes privates, integritätsgeprüftes
+  `EPUBCHECK_JSON`-Artefakt und höchstens 10.000 Meldungen;
+- `CONFORMANT`/`NONCONFORMANT`, fünf Severity-Counts und aggregierte
+  Diagnosecode-Counts mit exaktem Execution-/Observation-Link;
+- keine Meldungstexte, Publication-Metadaten oder lokalen Pfade in
+  `ToolResult` und CLI-Ausgabe;
+- `{0, 1}` als feste akzeptierte Exitcodes, wobei ein Konformitätsfehler
+  Evidence und kein technischer Prozessfehler ist;
+- kein calibre-GUI-Diff-Adapter und kein qpdf-Adapter ohne zusätzlichen
+  maschinenlesbaren Vergleichs- oder PDF-Strukturbedarf.
+
 ### Persistence
 
 - Alembic `0002_incremental_index` ergänzt Scan-Events, Tool-Artefakte und W2-Indizes;
@@ -310,8 +365,7 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-008` — strukturelle Validierungs- und Book-Diff-Evidence bewerten.
-2. `W3-009` — Cover-Extraktion/perzeptuelle Fingerprints als optionale Evidence
+1. `W3-009` — Cover-Extraktion/perzeptuelle Fingerprints als optionale Evidence
    bewerten, ohne den initialen Analyzer zu blockieren.
 
 Die Produktoberfläche bleibt dabei ausschließlich die CLI. Externe Tool-Ergebnisse werden weiterhin als Evidence behandelt und nicht direkt zu kanonischen Metadaten.

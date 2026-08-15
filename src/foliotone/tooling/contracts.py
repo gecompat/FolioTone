@@ -78,8 +78,10 @@ class ToolExecution:
             raise ValueError("terminal ToolExecution status requires finished_at")
         if self.status not in terminal and self.finished_at is not None:
             raise ValueError("non-terminal ToolExecution status must not have finished_at")
-        if self.status is ToolExecutionStatus.SUCCEEDED and self.exit_code not in {None, 0}:
-            raise ValueError("successful ToolExecution must have exit code 0 or no exit code")
+        # Some analysis tools use non-zero exit codes for a completed domain
+        # verdict (for example, a validator that found conformance errors).
+        # The adapter owns the accepted-exit-code allowlist; ToolExecution
+        # preserves the observed code without reinterpreting it globally.
         if self.config_identity is not None:
             object.__setattr__(
                 self,

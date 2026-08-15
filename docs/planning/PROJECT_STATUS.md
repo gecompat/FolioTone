@@ -1,10 +1,10 @@
 # Projektstatus
 
-Stand: 2026-08-14
+Stand: 2026-08-15
 
 ## Aktuelle Welle
 
-**W3 aktiv — versionierter Vergleichskorpus abgeschlossen; strukturelle Validierung als Nächstes**
+**W3 aktiv — EPUB-Strukturvalidierung abgeschlossen; Cover-Evidence als Nächstes**
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
@@ -20,7 +20,9 @@ rohe OPF2-/OPF3-Beobachtungen und provider-neutrale, gruppierte
 Metadatenkandidaten mit exakten `ToolExecution`-/`FileObservation`-Links.
 `W3-007` ergänzt einen versionierten synthetischen Vergleichskorpus für
 Datei-, Inhalts-, `Edition`-, `Work`- und Tool-Disagreement-Ground-Truth.
-`W3-008` ist der nächste Backlog-Eintrag.
+`W3-008` ergänzt feste read-only EPUBCheck-JSON-Validierung, einen neuen
+`STRUCTURAL_VALIDATION`-Evidence-Vertrag und provider-spezifische akzeptierte
+Exitcodes. `W3-009` ist der nächste Backlog-Eintrag.
 
 ## Implementierter W2-Slice
 
@@ -112,7 +114,8 @@ Implementiert sind:
 - lokale Tool-Ausführung ohne Shell;
 - Tool-Versionsermittlung;
 - Timeouts und Cancellation;
-- auditierbare FAILED-Ausführung bei fehlendem Tool oder Non-zero Exit;
+- auditierbare FAILED-Ausführung bei fehlendem Tool oder einem vom Adapter nicht
+  akzeptierten Exitcode; standardmäßig wird ausschließlich `0` akzeptiert;
 - file-backed stdout/stderr mit `ToolArtifact`, Größe und SHA-256;
 - begrenzte stdout/stderr Previews;
 - begrenzte, strikt als UTF-8 JSON validierte Auswertung eines persistierten stdout-`ToolArtifact` einschließlich Size-/SHA-256-Integritätsprüfung;
@@ -144,11 +147,11 @@ Beim Upgrade einer bestehenden `0002`-Datenbank wird keine historische Abwesenhe
 
 ### Aktuelle E-Book-Toolbewertung
 
-`W3-001` ist mit einem Snapshot vom 2026-08-14 abgeschlossen:
+Die Toolauswahl wurde am 2026-08-15 für `W3-008` erneut geprüft:
 
 - calibre 9.13.0 wird für dateibezogene Metadaten sowie die
   EPUB/MOBI/AZW/AZW3-Textextraktion wiederverwendet;
-- EPUBCheck 5.3.0 ist für spätere EPUB-Konformitäts-Evidence ausgewählt;
+- EPUBCheck 5.3.0 ist für EPUB-Konformitäts-Evidence implementiert;
 - Poppler 26.07.0 ist für PDF-Metadaten-, Seiten- und Textanalyse implementiert;
 - qpdf 12.4.0 bleibt eine optionale zweite Quelle für PDF-Struktur und
   Integrität, nicht für Textextraktion;
@@ -280,6 +283,39 @@ Confidence-Schwellen und automatische Review-Entscheidungen sind nicht Teil
 von W3-007. Der Slice ergänzt keine Produktoberfläche und verändert keine
 Source Media.
 
+### EPUBCheck-Strukturvalidierung
+
+`W3-008` implementiert `EpubCheckAnalyzer` und den CLI-Befehl
+`foliotone epub-validate`. Der Adapter akzeptiert nur eine unveränderte
+EPUB-`FileObservation` und ruft eine separat bereitgestellte Java-Runtime plus
+`epubcheck.jar` über eine feste Headless-Befehlsform auf. JVM-Tempdaten und
+`report.json` entstehen ausschließlich im privaten ephemeren Tool-Workspace.
+Zusätzliche EPUBCheck-Optionen sind nicht über die CLI verfügbar.
+
+EPUBCheck 5.3.0 ist die Mindestversion. Der maximal 8 MiB große JSON-Report wird
+als integritätsgeprüftes `EPUBCHECK_JSON`-`ToolArtifact` übernommen. Der
+strikte Parser begrenzt die Meldungszahl auf 10.000 und verifiziert Dateiname,
+Tool-/Reportversion, deklarierte Counts, Severity-Allowlist sowie Diagnose-IDs.
+Persistiert werden `CONFORMANT` oder `NONCONFORMANT`, fünf Severity-Counts und
+aggregierte Severity-/Diagnosecode-Counts gegen die exakte `ToolExecution` und
+`FileObservation`. Meldungstext, Publication-Metadaten und lokale Pfade werden
+nicht in `ToolResult` oder CLI-Ausgabe projiziert.
+
+ADR-0017 erweitert den generischen Runtime-Vertrag um eine unveränderliche
+`accepted_exit_codes`-Allowlist mit Standard `{0}`. Der EPUBCheck-Befehl
+akzeptiert dokumentiert `{0, 1}`, weil Exitcode `1` einen abgeschlossenen
+Prüflauf mit Konformitätsfehlern bezeichnet. Der Code bleibt in
+`ToolExecution.exit_code` erhalten; der negative Befund steht getrennt in
+`ToolResult`. Nicht erlaubte Codes, Timeout sowie fehlende, ungültige oder zu
+große Pflichtartefakte bleiben technische Fehler.
+
+`calibre-debug --diff` wurde nicht integriert: Die dokumentierte Option startet
+das GUI-Diff-Modul und besitzt keinen headless, maschinenlesbaren Report- oder
+stabilen Exitcode-Vertrag. Spätere Inhaltsvergleiche sollen die bereits
+provider-neutral persistierte Evidence aus Datei-Hash, normalisiertem Text,
+Metadaten, Struktur und künftig Cover-Fingerprints verwenden. qpdf 12.4.0
+bleibt bis zu einem zusätzlichen PDF-Struktur-Gap zurückgestellt.
+
 ## Lizenz und Dokumentations-Governance
 
 Die Lizenz- und Dokumentationsentscheidungen bleiben unverändert:
@@ -333,7 +369,7 @@ Die später implementierten `DELETED`-, Relocation- und Resume-Funktionen sind d
 
 Der Linux-Container wurde über Docker Engine 29.7.2 und Docker Compose 5.4.0 in WSL2 gebaut. Container-Bootstrap und Alembic-Head-Migration waren erfolgreich. Der allowlist-basierte Docker-Build-Kontext enthält ausschließlich `Dockerfile`, `pyproject.toml`, `README.md` und `src/`; lokale Runtime-, Medien-, Secret-, Test- und Git-Daten werden nicht übertragen.
 
-### W3-001 bis W3-007 lokale Verifikation
+### W3-001 bis W3-008 lokale Verifikation
 
 **Empirisch:** Am 2026-08-14 wurde das offizielle calibre-9.13.0-MSI nach
 SHA-256- und Authenticode-Prüfung als separates administratives Abbild unter
@@ -432,12 +468,30 @@ Source-Dateien und alle 155 Pytest-Tests in 8 Minuten 25 Sekunden.
 Push und Pull Request ausgelösten GitHub-Actions-Runs `31844049430` und
 `31844093222`. Beide `quality`-Jobs waren nach jeweils 52 Sekunden erfolgreich.
 
+**Empirisch für W3-008:** Temurin JRE 21.0.12+8 und EPUBCheck 5.3.0 wurden als
+portable, SHA-256-verifizierte Runtime-Abhängigkeiten unter
+`C:\rep\cache\FolioTone` bereitgestellt. Es gab keine systemweite Installation,
+keinen Neustart und keinen Eingriff in Codex.
+
+Der echte CLI-Smoke-Test verwendete ausschließlich das vorhandene synthetische
+EPUB. EPUBCheck meldete drei Konformitätsfehler und Exitcode `1`; FolioTone
+persistierte eine erfolgreiche `STRUCTURAL_VALIDATION`-Ausführung,
+`NONCONFORMANT`, fünf Severity-Counts und die Codes `PKG-006`, `PKG-007` und
+`RSC-005`. Die Source-Datei blieb bytegleich, der Report wurde privat
+übernommen und das Work-Verzeichnis vollständig bereinigt. Die 15 neuen
+Adaptertests sowie 37 gezielten Runtime-/Toolingtests waren erfolgreich; der
+gezielte Mypy-Lauf für Adapter, Runtime und CLI war fehlerfrei.
+
+Der vollständige W3-008-Stand bestand anschließend mit Python 3.12.10 lokal
+`ruff check .`, Mypy für 66 Source-Dateien und alle 175 Pytest-Tests in
+9 Minuten 23 Sekunden.
+
 ## W3-Stand und nächster Schritt
 
-In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` bis `W3-007` sind
-abgeschlossen. `W3-008` ist `NEXT`: calibre und weitere geeignete Werkzeuge
-sollen auf wiederverwendbare strukturelle Validierungs- und Book-Diff-Evidence
-für spätere Qualitäts-/Inhaltsvergleiche bewertet werden.
+In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` bis `W3-008` sind
+abgeschlossen. `W3-009` ist `NEXT`: Cover-Extraktion und perzeptuelle
+Fingerprint-Verfahren sollen als optionale Evidence bewertet werden, ohne den
+initialen Analyzer zu blockieren.
 
 ## Nicht implementiert
 
@@ -450,8 +504,10 @@ Noch nicht vorhanden sind unter anderem:
 - externe Knowledge Provider und Provider Cache;
 - Classification Engine;
 - Matching Engine;
+- automatisierter provider-neutraler Book-Diff und zusätzliche qpdf-
+  Struktur-Evidence;
 - Review System;
-- Consolidation Planning und Execution.
+- Consolidation Planning und Execution;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 
 ## Sicherheitsgrenze

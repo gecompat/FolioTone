@@ -17,6 +17,7 @@ from foliotone.adapters.calibre import (
     CalibreTextAnalyzer,
     CalibreTextError,
 )
+from foliotone.adapters.epubcheck import EpubCheckAnalyzer, EpubCheckError
 from foliotone.adapters.poppler import PopplerPdfAnalyzer, PopplerPdfError
 from foliotone.core import (
     EntityId,
@@ -257,6 +258,54 @@ def build_parser() -> argparse.ArgumentParser:
         default=os.environ.get("FOLIOTONE_PDFTOTEXT", "pdftotext"),
         help="pdftotext executable or absolute executable path.",
     )
+
+    epub_validate = subparsers.add_parser(
+        "epub-validate",
+        help="Validate one recorded EPUB structurally read-only with EPUBCheck.",
+    )
+    epub_validate.add_argument(
+        "--root",
+        required=True,
+        type=Path,
+        help="Runtime source root containing the already recorded EPUB observation.",
+    )
+    epub_validate.add_argument(
+        "--observation-id",
+        required=True,
+        type=EntityId.parse,
+        help="Persisted EPUB FileObservation ID to validate.",
+    )
+    epub_validate.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="SQLite database path; defaults to /data/foliotone.db.",
+    )
+    epub_validate.add_argument(
+        "--artifact-root",
+        type=Path,
+        default=Path(
+            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
+        ),
+        help="Durable private tool-artifact root; defaults to /data/tool-artifacts.",
+    )
+    epub_validate.add_argument(
+        "--work-root",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_TOOL_WORK_ROOT", "/tmp/foliotone-tools")),
+        help="Ephemeral isolated tool-work root; defaults to /tmp/foliotone-tools.",
+    )
+    epub_validate.add_argument(
+        "--java-executable",
+        default=os.environ.get("FOLIOTONE_JAVA", "java"),
+        help="Java executable or absolute executable path.",
+    )
+    epub_validate.add_argument(
+        "--epubcheck-jar",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_EPUBCHECK_JAR", "epubcheck.jar")),
+        help="EPUBCheck JAR path; defaults to epubcheck.jar.",
+    )
     return parser
 
 
@@ -278,6 +327,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "ebook-text."
         )
         print("Read-only PDF metadata and text analysis is available through pdf-analyze.")
+        print("Read-only EPUB conformance evidence is available through epub-validate.")
         print("Source-media and external-tool mutation commands are not implemented.")
         return 0
 
@@ -293,6 +343,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "pdf-analyze":
         return _run_pdf_analyze(args)
+
+    if args.command == "epub-validate":
+        return _run_epub_validate(args)
 
     parser.print_help()
     return 0
@@ -508,6 +561,46 @@ def _run_pdf_analyze(args: argparse.Namespace) -> int:
         and outcome.text_run.execution.status is ToolExecutionStatus.SUCCEEDED
     )
     return 0 if succeeded else 1
+
+
+def _run_epub_validate(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    observation = repository(engine, FileObservation).get(args.observation_id)
+    if observation is None:
+        print("EPUB validation failed: FileObservation does not exist.")
+        return 2
+
+    runtime = ToolRuntime(
+        engine,
+        args.artifact_root,
+        work_root=args.work_root,
+    )
+    try:
+        analyzer = EpubCheckAnalyzer(
+            engine,
+            runtime,
+            java_executable=args.java_executable,
+            epubcheck_jar=args.epubcheck_jar,
+        )
+        outcome = analyzer.analyze(args.root, observation)
+    except (EpubCheckError, ValueError) as error:
+        print(f"EPUB validation failed: {error}")
+        return 1
+
+    execution = outcome.run.execution
+    print(f"ToolExecution: {execution.id}")
+    print(f"Status: {execution.status.value}")
+    print(f"Tool version: {json.dumps(execution.tool_version, ensure_ascii=False)}")
+    if execution.error_summary is not None:
+        print(f"Error: {json.dumps(execution.error_summary, ensure_ascii=False)}")
+    if outcome.conformance_status is not None:
+        print(f"Conformance: {outcome.conformance_status}")
+    for result in outcome.results:
+        if result.key != "conformance_status":
+            print(f"{result.key}: {result.value}")
+    return 0 if execution.status is ToolExecutionStatus.SUCCEEDED else 1
 
 
 if __name__ == "__main__":

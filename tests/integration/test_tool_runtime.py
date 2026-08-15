@@ -81,6 +81,35 @@ def test_nonzero_exit_is_persisted_as_failed(tmp_path: Path) -> None:
     assert "bad" in outcome.stderr_preview
 
 
+def test_adapter_can_accept_a_nonzero_domain_verdict(tmp_path: Path) -> None:
+    outcome = runtime(tmp_path).execute_local(
+        descriptor(),
+        LocalCommand(
+            executable=sys.executable,
+            args=("-c", "import sys; print('domain finding'); sys.exit(3)"),
+            capability=ToolCapability.STATUS_REPORT,
+            accepted_exit_codes=frozenset({0, 3}),
+        ),
+        input_identity="synthetic:accepted-domain-verdict",
+    )
+
+    assert outcome.execution.status is ToolExecutionStatus.SUCCEEDED
+    assert outcome.execution.exit_code == 3
+    assert outcome.execution.error_summary is None
+    assert outcome.stdout_preview == "domain finding\n"
+
+
+@pytest.mark.parametrize("codes", (frozenset(), frozenset({-1}), frozenset({True})))
+def test_command_rejects_invalid_accepted_exit_codes(codes: frozenset[int]) -> None:
+    with pytest.raises(ValueError, match="accepted_exit_codes"):
+        LocalCommand(
+            executable=sys.executable,
+            args=(),
+            capability=ToolCapability.STATUS_REPORT,
+            accepted_exit_codes=codes,
+        )
+
+
 def test_timeout_is_cancelled_without_shell(tmp_path: Path) -> None:
     outcome = runtime(tmp_path).execute_local(
         descriptor(),

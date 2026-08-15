@@ -91,6 +91,12 @@ Expected provenance includes:
 - produced observation/assertion/artifact references;
 - timeout/cancellation/retry metadata where relevant.
 
+An adapter-specific accepted exit code can represent a completed inspection
+with a negative domain verdict. In that case the execution is successful, the
+non-zero code remains preserved, and the verdict is represented separately as
+`ToolResult` Evidence. Exit codes outside the immutable adapter allowlist are
+technical failures. See ADR-0017.
+
 The exact persistence decomposition is a W1 decision. The requirement is that a downstream Evidence item can explain which tool execution produced it and whether it becomes stale after tool/adapter/config changes.
 
 ### ToolArtifact / ToolResultReference
@@ -317,6 +323,15 @@ variants of the same `Edition`, and a translation as a different `Edition` of
 the same `Work`. A separate disagreement scenario retains two versioned tool
 values without choosing a canonical value. These fixtures are calibration
 inputs, not persisted match decisions or matcher behavior.
+
+### Structural validation evidence
+
+The implemented EPUBCheck slice attaches a bounded conformance verdict,
+severity counts and diagnostic-code counts to the exact `FileObservation` and
+`ToolExecution`. `CONFORMANT` and `NONCONFORMANT` describe the external
+validator result; they do not establish bibliographic identity, canonical
+metadata or a complete quality ranking. Raw message text and local paths are
+not projected into `ToolResult` values.
 
 ### MatchStatus
 

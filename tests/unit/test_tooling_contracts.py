@@ -53,6 +53,23 @@ def test_successful_execution_is_versioned_and_terminal() -> None:
     assert execution.tool_version == "8.0"
 
 
+def test_successful_execution_preserves_adapter_accepted_nonzero_exit_code() -> None:
+    execution = ToolExecution(
+        id=EntityId.new(),
+        provider_id="validator",
+        tool_version="5.3.0",
+        adapter_version="1",
+        capability=ToolCapability.STRUCTURAL_VALIDATION,
+        input_identity="file-observation:synthetic",
+        started_at=START,
+        finished_at=FINISH,
+        status=ToolExecutionStatus.SUCCEEDED,
+        exit_code=1,
+    )
+
+    assert execution.exit_code == 1
+
+
 def test_terminal_execution_requires_finished_at() -> None:
     with pytest.raises(ValueError):
         ToolExecution(
