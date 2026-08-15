@@ -237,6 +237,11 @@ Der vollständige W3-009-Stand bestand mit Python 3.12.10 lokal
 11 Minuten 31 Sekunden. Das gebaute Wheel enthielt Adapter, dHash-Logik und
 den paketierten calibre-Helper.
 
+Der Implementierungscommit `a55b553445b223ea6219a522cdaafeff98165aa7`
+von PR #19 bestand die GitHub-Actions-Runs `31871971678` und `31871990590`;
+die beiden `quality`-Jobs waren nach 58 beziehungsweise 63 Sekunden
+erfolgreich.
+
 Calibres dokumentiertes `calibre-debug --diff` startet ein GUI-Modul ohne
 headless JSON-/Reportvertrag und wurde deshalb nicht adaptiert. Ein späterer
 provider-neutraler Book-Diff soll persistierte Datei-, Text-, Metadaten-,
