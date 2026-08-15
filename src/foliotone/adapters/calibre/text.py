@@ -25,7 +25,12 @@ from foliotone.core import (
     ToolExecutionStatus,
 )
 from foliotone.persistence import repository
-from foliotone.tooling import ToolProviderDescriptor, ToolResult
+from foliotone.tooling import (
+    ToolArtifactRequirement,
+    ToolProviderDescriptor,
+    ToolResult,
+    ToolReuseRequest,
+)
 from foliotone.tooling.runtime import (
     LocalCommand,
     ToolRunOutcome,
@@ -83,6 +88,32 @@ class CalibreTextAnalyzer:
         self._fingerprint_repo = repository(engine, Fingerprint)
         self._runtime = runtime
         self._executable = executable
+
+    def reuse_request(self, observation: FileObservation) -> ToolReuseRequest | None:
+        """Describe exact reusable text evidence after a safe version probe."""
+        probe = self._runtime.probe_local(
+            CALIBRE_TEXT_PROVIDER,
+            LocalCommand(
+                executable=self._executable,
+                args=(),
+                capability=ToolCapability.EXTRACT_TEXT,
+                environment={"CALIBRE_ALLOW_PYTHON_TEMPLATES": "0"},
+                workspace_environment={"CALIBRE_CONFIG_DIRECTORY": "calibre-config"},
+                version_policy=calibre_version_policy,
+            ),
+        )
+        if not probe.usable:
+            return None
+        return ToolReuseRequest(
+            descriptor=CALIBRE_TEXT_PROVIDER,
+            capability=ToolCapability.EXTRACT_TEXT,
+            tool_version=probe.tool_version,
+            input_identity=f"file-observation:{observation.id}",
+            config_identity=CALIBRE_TEXT_CONFIG_IDENTITY,
+            required_artifacts=(
+                ToolArtifactRequirement(CALIBRE_TEXT_ARTIFACT, MAX_TEXT_BYTES),
+            ),
+        )
 
     def analyze(
         self,

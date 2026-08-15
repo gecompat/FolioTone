@@ -7,7 +7,9 @@ from foliotone.adapters.calibre.cover import (
     CALIBRE_COVER_SUFFIXES,
     CalibreCoverAnalyzer,
     CalibreCoverError,
+    CalibreCoverExtractionResult,
     CalibreCoverOutcome,
+    parse_calibre_cover_result,
 )
 from foliotone.adapters.calibre.metadata import (
     CALIBRE_PROVIDER,
@@ -45,6 +47,7 @@ __all__ = [
     "EBOOK_METADATA_CANDIDATE_RESULT",
     "CalibreCoverAnalyzer",
     "CalibreCoverError",
+    "CalibreCoverExtractionResult",
     "CalibreCoverOutcome",
     "CalibreMetadataAnalyzer",
     "CalibreMetadataError",
@@ -57,5 +60,6 @@ __all__ = [
     "calibre_version_policy",
     "normalize_ebook_text",
     "parse_calibre_opf",
+    "parse_calibre_cover_result",
     "project_calibre_opf",
 ]

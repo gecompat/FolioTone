@@ -45,9 +45,8 @@ def test_ebook_analyze_cli_reports_all_missing_tools_without_exposing_paths(
     engine = create_sqlite_engine(database)
     (observation,) = repository(engine, FileObservation).list_all()
     missing = "foliotone-definitely-missing-executable"
-    result = main(
-        [
-            "ebook-analyze",
+    analyze_args = [
+        "ebook-analyze",
             "--root",
             str(media),
             "--observation-id",
@@ -67,19 +66,21 @@ def test_ebook_analyze_cli_reports_all_missing_tools_without_exposing_paths(
             "--java-executable",
             missing,
             "--epubcheck-jar",
-            str(tmp_path / "missing-epubcheck.jar"),
-        ]
-    )
+        str(tmp_path / "missing-epubcheck.jar"),
+    ]
+    result = main(analyze_args)
 
     assert result == 1
     output = capsys.readouterr().out
     assert f"FileObservation: {observation.id}" in output
     assert "Format: EPUB" in output
-    assert "Analysis profile: ebook-analysis-workflow/v1" in output
+    assert "Analysis profile: ebook-analysis-workflow/v2" in output
+    assert "Evidence policy: REUSE_EXACT" in output
     assert "metadata status: FAILED" in output
     assert "text status: FAILED" in output
     assert "cover status: FAILED" in output
     assert "structural-validation status: FAILED" in output
+    assert output.count("evidence action: EXECUTED") == 4
     assert "Overall status: FAILED" in output
     assert str(media) not in output
     assert str(source) not in output
@@ -93,5 +94,17 @@ def test_ebook_analyze_cli_reports_all_missing_tools_without_exposing_paths(
         execution.input_identity == f"file-observation:{observation.id}"
         for execution in executions
     )
+
+    assert main(analyze_args) == 1
+    retry_output = capsys.readouterr().out
+    assert "Evidence policy: REUSE_EXACT" in retry_output
+    assert retry_output.count("evidence action: EXECUTED") == 4
+    assert len(repository(engine, ToolExecution).list_all()) == 8
+
+    assert main([*analyze_args, "--fresh"]) == 1
+    fresh_output = capsys.readouterr().out
+    assert "Evidence policy: FRESH" in fresh_output
+    assert fresh_output.count("evidence action: EXECUTED") == 4
+    assert len(repository(engine, ToolExecution).list_all()) == 12
     assert source.read_bytes() == source_bytes
     assert list(work.iterdir()) == []

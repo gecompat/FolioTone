@@ -43,9 +43,13 @@ read-only EPUBCheck-Konformitäts-Evidence. `W3-009` ergänzt optionale,
 quellisolierte Embedded-Cover-Extraktion und einen versionierten
 FolioTone-dHash. `W3-010` bündelt die vorhandenen Adapter formatabhängig im
 read-only CLI-Befehl `ebook-analyze`, ohne Teilfehler oder Provenance zu
-verdecken. Auf Benutzerentscheidung bleibt die Entwicklung zunächst bei
-E-Books: `W3-011` zur selektiven Wiederverwendung und zum gezielten Retry ist
-als Nächstes vorgesehen; die Music-Toolchain bleibt zurückgestellt.
+verdecken. `W3-011` ergänzt das Profil `ebook-analysis-workflow/v2`: Nur exakt
+passende erfolgreiche Evidence mit reproduzierbaren Ableitungen und intakten
+Pflichtartefakten wird wiederverwendet; sonst läuft ausschließlich der
+betroffene Workflow-Schritt neu. `--fresh` erzwingt einen vollständigen neuen
+Lauf. Auf Benutzerentscheidung bleibt die Entwicklung zunächst bei E-Books:
+Das Qualitätsprofil `W3-012` ist als Nächstes vorgesehen; die Music-Toolchain
+bleibt zurückgestellt.
 
 W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 
@@ -73,6 +77,8 @@ Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
   `EBOOK_COVER_DHASH` für EPUB/MOBI/AZW/AZW3;
 - einen einheitlichen, formatbewussten `ebook-analyze`-Workflow für EPUB,
   MOBI, AZW, AZW3 und PDF mit explizitem `PARTIAL_FAILURE`;
+- konservative exakte Evidence-Wiederverwendung, gezielten Schritt-Retry,
+  sichtbare `REUSED`-/`EXECUTED`-Aktionen und einen expliziten `--fresh`-Modus;
 - rohe OPF-Beobachtungen und versionierte, gruppierte Kandidaten für ISBN und
   andere Identifier, Contributors/Rollen/Sortiernamen, Sprache, Verlag,
   Publikationsdatum, Serie und weitere Felder;

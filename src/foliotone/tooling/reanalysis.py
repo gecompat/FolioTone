@@ -2,11 +2,64 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path, PureWindowsPath
 
 from foliotone.core._validation import require_non_empty
 from foliotone.core.enums import ToolCapability, ToolExecutionStatus
 from foliotone.tooling.contracts import ToolExecution, ToolProviderDescriptor
+
+
+@dataclass(frozen=True, slots=True)
+class ToolArtifactRequirement:
+    """One exact persisted artifact required before evidence can be reused."""
+
+    artifact_type: str
+    max_bytes: int
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "artifact_type",
+            require_non_empty(self.artifact_type, "artifact_type"),
+        )
+        if self.max_bytes <= 0:
+            raise ValueError("max_bytes must be positive")
+
+
+@dataclass(frozen=True, slots=True)
+class ToolReuseRequest:
+    """Exact versioned identity and required artifacts for one reusable run."""
+
+    descriptor: ToolProviderDescriptor
+    capability: ToolCapability
+    tool_version: str
+    input_identity: str
+    config_identity: str
+    required_artifacts: tuple[ToolArtifactRequirement, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "tool_version",
+            require_non_empty(self.tool_version, "tool_version"),
+        )
+        input_identity = require_non_empty(self.input_identity, "input_identity")
+        if _looks_like_absolute_path(input_identity):
+            raise ValueError("input_identity must not persist an absolute local path")
+        object.__setattr__(self, "input_identity", input_identity)
+        object.__setattr__(
+            self,
+            "config_identity",
+            require_non_empty(self.config_identity, "config_identity"),
+        )
+        if self.capability not in self.descriptor.capabilities:
+            raise ValueError(f"provider does not declare capability {self.capability.value}")
+        artifact_types = [item.artifact_type for item in self.required_artifacts]
+        if not artifact_types:
+            raise ValueError("reusable tool evidence requires at least one artifact")
+        if len(artifact_types) != len(set(artifact_types)):
+            raise ValueError("required artifact types must be unique")
 
 
 def requires_reanalysis(
