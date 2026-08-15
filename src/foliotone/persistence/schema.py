@@ -320,6 +320,15 @@ Index(
     fingerprints.c.kind,
     fingerprints.c.tool_execution_id,
 )
+Index(
+    "ix_fingerprints_kind_algorithm_version_value_target",
+    fingerprints.c.kind,
+    fingerprints.c.algorithm,
+    fingerprints.c.algorithm_version,
+    fingerprints.c.value,
+    fingerprints.c.target_kind,
+    fingerprints.c.target_id,
+)
 
 relations = Table(
     "relations",

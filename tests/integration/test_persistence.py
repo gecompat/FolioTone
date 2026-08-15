@@ -53,6 +53,9 @@ from foliotone.persistence.w2_schema import (
     tool_artifacts,
 )
 from foliotone.persistence.w3_schema import (
+    ebook_collection_finding_executions,
+    ebook_collection_findings,
+    ebook_collection_item_executions,
     ebook_collection_items,
     ebook_collection_runs,
 )
@@ -90,6 +93,9 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
         tool_artifacts.name,
         ebook_collection_runs.name,
         ebook_collection_items.name,
+        ebook_collection_item_executions.name,
+        ebook_collection_findings.name,
+        ebook_collection_finding_executions.name,
     }
     assert table_names == expected
     file_columns = {column["name"] for column in inspector.get_columns("file_records")}
@@ -101,10 +107,22 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
             "ix_tool_executions_input_capability_provider_started"
         },
         "tool_results": {"ix_tool_results_target_execution"},
-        "fingerprints": {"ix_fingerprints_target_kind_execution"},
+        "fingerprints": {
+            "ix_fingerprints_target_kind_execution",
+            "ix_fingerprints_kind_algorithm_version_value_target",
+        },
         "ebook_collection_runs": {"ix_ebook_collection_runs_root_status"},
         "ebook_collection_items": {
             "ix_ebook_collection_items_run_status_ordinal"
+        },
+        "ebook_collection_item_executions": {
+            "ix_ebook_collection_item_executions_execution_item"
+        },
+        "ebook_collection_findings": {
+            "ix_ebook_collection_findings_code_item"
+        },
+        "ebook_collection_finding_executions": {
+            "ix_ebook_collection_finding_executions_execution_finding"
         },
     }
     for table_name, names in expected_indexes.items():
@@ -114,7 +132,7 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
 
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0007_ebook_collection_batches"
+    assert revision == "0008_ebook_collection_reports"
 
 
 def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) -> None:
@@ -168,7 +186,7 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0007_ebook_collection_batches"
+    assert revision == "0008_ebook_collection_reports"
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:

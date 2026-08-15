@@ -210,6 +210,21 @@ Ein Batch-Ergebnis beschreibt Ausführung und Analyseabdeckung. Es ist keine
 `Relation`, kein Duplicate-Verdict und keine `Work`-/`Edition`-
 Identitätsentscheidung.
 
+### EbookCollectionReportSnapshot / EbookCollectionCandidateGroup
+
+`EbookCollectionReportSnapshot` ist eine read-only Anwendungsprojektion eines
+persistierten, nicht mehr aktiven `EbookCollectionRun`. Sie kombiniert
+vollständige Summenzähler mit begrenzten priorisierten Review-Items und
+technischen Kandidatengruppen. Befunde behalten ihre exakten verfügbaren
+`ToolExecution`-Quellen; die Projektion wird nicht als kanonisches Domain-
+Objekt oder Matching-Ergebnis persistiert.
+
+Eine `EbookCollectionCandidateGroup` fasst Beobachtungen zusammen, die
+entweder denselben vollständigen Datei-Hash oder denselben normalisierten
+Textfingerprint bei unterschiedlichen vollständigen Datei-Hashes besitzen.
+Die Gruppe hat eine abgeleitete stabile ID und dokumentierte Basis, ist aber
+keine `Relation`, Confidence oder Aussage über `Edition`-/`Work`-Identität.
+
 ## Music layer
 
 ### MusicWork

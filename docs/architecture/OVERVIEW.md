@@ -222,6 +222,23 @@ Batch-Persistenz enthält keine Source-Pfade, Metadatenwerte oder Inhalte und
 erzeugt keine `Relation` oder Identitätsentscheidung. ADR-0021 dokumentiert
 den Lifecycle und die Sicherheitsgrenzen.
 
+Der fünfzehnte W3-Slice ergänzt `ebook-collection-report/v1` und den CLI-
+Befehl `foliotone ebook-collection-report`. Die Projektion liest einen
+persistierten, nicht mehr aktiven Collection-Lauf in einer konsistenten
+Datenbanktransaktion und öffnet keine Source-Media-Datei. Sie aggregiert
+vollständige Format-, Analyse-, Quality- und Befundzähler und erzeugt eine
+begrenzte priorisierte Review-Liste mit exakten verfügbaren
+`ToolExecution`-Quellen der Befunde.
+
+Gleiche vollständige `FILE_SHA256`-Werte bilden Exact-Duplicate-Kandidaten;
+gleiche versionierte `EBOOK_NORMALIZED_TEXT`-Werte mit unterschiedlichen
+vollständigen Datei-Hashes bilden Content-Variant-Kandidaten. Sortierte
+SQL-Streams und feste Ausgabegrenzen halten Speicher und Artefaktgröße
+begrenzt. Private JSON-/CSV-/Checksum-Artefakte enthalten keine rohen
+Fingerprints und werden byte-stabil außerhalb des Source Root gespeichert.
+Die Kandidaten erzeugen keine `Relation`, Confidence oder
+Identitätsentscheidung. ADR-0022 dokumentiert diesen Vertrag.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.

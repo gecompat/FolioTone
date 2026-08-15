@@ -147,4 +147,15 @@ einer tatsächlichen Toolausführung erneut die vorhandene Root-, Symlink-,
 Größen- und Änderungszeitprüfung. Ein Fehler bleibt lokal zum Item und
 berechtigt weder eine Source-Media-Operation noch eine Identitätsentscheidung.
 
+`ebook-collection-report/v1` liest ausschließlich den persistierten
+Collection-Snapshot und öffnet keine Source-Media-Datei. Datenbank und Report
+Root müssen außerhalb des Source Root liegen. Die CLI gibt nur Run-ID,
+Profile, Summen, Bericht-Hash und privaten Ausgabeort aus; relative
+Medienpfade erscheinen ausschließlich in den lokalen Review-Artefakten. Rohe
+Datei- und Textfingerprints werden weder im JSON noch in CSV ausgegeben.
+CSV-Zellen mit Formelpräfixen werden neutralisiert. Exact-Duplicate- und
+Content-Variant-Gruppen sind technische Review-Kandidaten und berechtigen
+weder eine Source-Media-Operation noch eine `Relation` oder
+Identitätsentscheidung.
+
 Imported/local provider datasets and external tool reports derived from a private collection must also stay out of Git unless a future explicit decision establishes that a specific redistributable artifact belongs in the repository.

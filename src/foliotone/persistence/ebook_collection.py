@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime
@@ -25,6 +26,12 @@ from foliotone.persistence import schema, w3_schema
 from foliotone.persistence.codecs import Codec, codec_for
 
 EBOOK_COLLECTION_PLAN_BATCH_SIZE = 500
+_COLLECTION_FINDING_CODE = re.compile(r"[A-Z][A-Z0-9_]{0,63}")
+_COLLECTION_FINDING_DIMENSIONS = frozenset(
+    {"METADATA", "TEXT", "COVER", "STRUCTURE", "FORMAT_RISK"}
+)
+_COLLECTION_FINDING_SEVERITIES = frozenset({"INFO", "WARNING", "ERROR"})
+_COLLECTION_STEP_DISPOSITIONS = frozenset({"EXECUTED", "REUSED"})
 
 
 class EbookCollectionStoreError(RuntimeError):
@@ -41,6 +48,43 @@ class CreatedEbookCollectionRun:
 class EbookCollectionWorkItem:
     item: EbookCollectionItem
     observation: FileObservation
+
+
+@dataclass(frozen=True, slots=True)
+class EbookCollectionExecutionSummary:
+    """One exact ToolExecution used by a completed collection item."""
+
+    step_name: str
+    disposition: str
+    execution_id: EntityId
+
+    def __post_init__(self) -> None:
+        step_name = self.step_name.strip()
+        if not step_name or len(step_name) > 64:
+            raise ValueError("collection step name must be bounded and non-empty")
+        object.__setattr__(self, "step_name", step_name)
+        if self.disposition not in _COLLECTION_STEP_DISPOSITIONS:
+            raise ValueError("collection step disposition is unsupported")
+
+
+@dataclass(frozen=True, slots=True)
+class EbookCollectionFindingSummary:
+    """Bounded deterministic quality finding persisted for reporting."""
+
+    code: str
+    dimension: str
+    severity: str
+    source_execution_ids: tuple[EntityId, ...] = ()
+
+    def __post_init__(self) -> None:
+        if _COLLECTION_FINDING_CODE.fullmatch(self.code) is None:
+            raise ValueError("collection finding code is invalid")
+        if self.dimension not in _COLLECTION_FINDING_DIMENSIONS:
+            raise ValueError("collection finding dimension is unsupported")
+        if self.severity not in _COLLECTION_FINDING_SEVERITIES:
+            raise ValueError("collection finding severity is unsupported")
+        if len(self.source_execution_ids) != len(set(self.source_execution_ids)):
+            raise ValueError("collection finding execution references must be unique")
 
 
 @dataclass(frozen=True, slots=True)
@@ -264,11 +308,27 @@ class SQLiteEbookCollectionStore:
         quality_status: str | None,
         reused_step_count: int = 0,
         executed_step_count: int = 0,
-        finding_count: int = 0,
+        executions: tuple[EbookCollectionExecutionSummary, ...] = (),
+        findings: tuple[EbookCollectionFindingSummary, ...] = (),
         error_code: str | None = None,
     ) -> EbookCollectionItem:
         if status in {EbookCollectionItemStatus.PENDING, EbookCollectionItemStatus.RUNNING}:
             raise ValueError("completed item requires a terminal status")
+        execution_ids = tuple(summary.execution_id for summary in executions)
+        if len(execution_ids) != len(set(execution_ids)):
+            raise ValueError("collection item execution references must be unique")
+        finding_codes = tuple(summary.code for summary in findings)
+        if len(finding_codes) != len(set(finding_codes)):
+            raise ValueError("collection item finding codes must be unique")
+        if quality_status is None and findings:
+            raise ValueError("collection item without quality cannot persist findings")
+        execution_id_set = set(execution_ids)
+        if any(
+            execution_id not in execution_id_set
+            for finding in findings
+            for execution_id in finding.source_execution_ids
+        ):
+            raise ValueError("collection finding references an unavailable execution")
         with self._engine.begin() as connection:
             self._require_lease(connection, item.run_id, lease_token, completed_at)
             current = self._get_item(connection, item.id)
@@ -281,10 +341,60 @@ class SQLiteEbookCollectionStore:
                 quality_status=quality_status,
                 reused_step_count=reused_step_count,
                 executed_step_count=executed_step_count,
-                finding_count=finding_count,
+                finding_count=len(findings),
                 error_code=error_code,
             )
             self._update_record(connection, self._item_codec, completed)
+            if executions:
+                connection.execute(
+                    insert(w3_schema.ebook_collection_item_executions),
+                    [
+                        {
+                            "id": str(EntityId.new()),
+                            "item_id": str(completed.id),
+                            "ordinal": ordinal,
+                            "step_name": summary.step_name,
+                            "disposition": summary.disposition,
+                            "execution_id": str(summary.execution_id),
+                        }
+                        for ordinal, summary in enumerate(executions)
+                    ],
+                )
+            if findings:
+                finding_rows: list[dict[str, object]] = []
+                finding_execution_rows: list[dict[str, object]] = []
+                for ordinal, summary in enumerate(findings):
+                    finding_id = EntityId.new()
+                    finding_rows.append(
+                        {
+                            "id": str(finding_id),
+                            "item_id": str(completed.id),
+                            "ordinal": ordinal,
+                            "code": summary.code,
+                            "dimension": summary.dimension,
+                            "severity": summary.severity,
+                        }
+                    )
+                    finding_execution_rows.extend(
+                        {
+                            "id": str(EntityId.new()),
+                            "finding_id": str(finding_id),
+                            "ordinal": execution_ordinal,
+                            "execution_id": str(execution_id),
+                        }
+                        for execution_ordinal, execution_id in enumerate(
+                            summary.source_execution_ids
+                        )
+                    )
+                connection.execute(
+                    insert(w3_schema.ebook_collection_findings),
+                    finding_rows,
+                )
+                if finding_execution_rows:
+                    connection.execute(
+                        insert(w3_schema.ebook_collection_finding_executions),
+                        finding_execution_rows,
+                    )
             return completed
 
     def finish_invocation(

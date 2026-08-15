@@ -16,6 +16,8 @@ from foliotone.core import (
 )
 from foliotone.persistence import (
     EbookCollectionCounts,
+    EbookCollectionExecutionSummary,
+    EbookCollectionFindingSummary,
     EbookCollectionWorkItem,
     SQLiteEbookCollectionStore,
 )
@@ -71,7 +73,8 @@ class _ItemSummary:
     quality_status: str | None
     reused_step_count: int = 0
     executed_step_count: int = 0
-    finding_count: int = 0
+    executions: tuple[EbookCollectionExecutionSummary, ...] = ()
+    findings: tuple[EbookCollectionFindingSummary, ...] = ()
     error_code: str | None = None
 
 
@@ -191,7 +194,8 @@ class EbookCollectionService:
                             quality_status=summary.quality_status,
                             reused_step_count=summary.reused_step_count,
                             executed_step_count=summary.executed_step_count,
-                            finding_count=summary.finding_count,
+                            executions=summary.executions,
+                            findings=summary.findings,
                             error_code=summary.error_code,
                         )
                         processed += 1
@@ -268,7 +272,24 @@ class EbookCollectionService:
                 step.disposition is EbookAnalysisStepDisposition.EXECUTED
                 for step in outcome.steps
             ),
-            finding_count=len(outcome.quality.findings),
+            executions=tuple(
+                EbookCollectionExecutionSummary(
+                    step_name=step.name,
+                    disposition=step.disposition.value,
+                    execution_id=execution.id,
+                )
+                for step in outcome.steps
+                for execution in step.executions
+            ),
+            findings=tuple(
+                EbookCollectionFindingSummary(
+                    code=finding.code,
+                    dimension=finding.dimension.value,
+                    severity=finding.severity.value,
+                    source_execution_ids=finding.source_execution_ids,
+                )
+                for finding in outcome.quality.findings
+            ),
         )
 
     def _release_failed_invocation(self, run_id: EntityId, lease_token: str) -> None:

@@ -31,9 +31,12 @@ E-Book-Qualitätsprofil mit fünf Dimensionen und festen Befundcodes.
 Relation oder Identitätsurteil. `W3-014` ergänzt den vollständig synthetischen
 v2-Edge-Korpus und begrenzte, indexgestützte Evidence-Abfragen. `W3-015`
 ergänzt die fortsetzbare Collection-Analyse über einen persistenten Snapshot-
-Plan, begrenzte Worker und per-File-Fehlerfortsetzung. Auf Benutzerentscheidung
-bleibt die Entwicklung bis zur Reife der E-Book-Pipeline bei E-Books;
-`W3-016` ist als Nächstes vorgesehen, Music W4 ist zurückgestellt.
+Plan, begrenzte Worker und per-File-Fehlerfortsetzung. `W3-016` ergänzt
+deterministische private Collection-Berichte, persistierte Befundprovenance
+und begrenzte Duplicate-/Varianten-Kandidaten ohne Identitätsurteil. Auf
+Benutzerentscheidung bleibt die Entwicklung bis zur Reife der E-Book-Pipeline
+bei E-Books; `W3-017` ist als Nächstes vorgesehen, Music W4 ist
+zurückgestellt.
 
 ## Vor Änderungen lesen
 
@@ -588,6 +591,10 @@ enthält `foliotone/workflows/comparison.py`.
 - Alembic `0007_ebook_collection_batches` ergänzt fortsetzbare Collection-
   Runs und Items mit Root-/Status- und Run-/Status-/Ordinal-Indizes, ohne
   Pfade oder Metadatenwerte in den Batch-Tabellen zu speichern.
+- Alembic `0008_ebook_collection_reports` ergänzt geordnete Item-Ausführungen,
+  Quality-Befunde, deren exakte `ToolExecution`-Quellen und den belegten
+  Fingerprint-Gruppierungsindex, weiterhin ohne Source-Pfade oder Inhalte in
+  den Collection-Tabellen.
 
 ### Begrenzter Evidence-Lesepfad und synthetischer v2-Korpus
 
@@ -657,15 +664,48 @@ Actions Run `31900550819` auf `main` waren erfolgreich. Der anschließend
 versionierte CI-Vertrag führt die Vollsuite nur am PR oder manuell aus; ein
 `main`-Push erhält nur den kurzen Merge-/Whitespace-Vertrag.
 
+### Deterministischer privater Collection-Bericht
+
+- `EbookCollectionReportService`, Profil `ebook-collection-report/v1` und CLI
+  `foliotone ebook-collection-report`;
+- konsistenter read-only Snapshot eines persistierten, nicht mehr `RUNNING`
+  befindlichen Collection-Laufs ohne Source-Media- oder Toolzugriff;
+- vollständige Format-, Analyse-, Quality- und Befundzähler sowie begrenzte,
+  priorisierte Review-Items mit exakten verfügbaren `ToolExecution`-Quellen;
+- Exact-Duplicate-Kandidaten für gleiche vollständige `FILE_SHA256`-Werte und
+  Content-Variant-Kandidaten für gleichen normalisierten Text bei
+  unterschiedlichen vollständigen Datei-Hashes;
+- sortierte Streaming-Abfragen mit `fetchmany(500)`, begrenzte Top-Gruppen und
+  explizite Gesamt-/Truncation-Angaben;
+- byte-stabile private JSON-/CSV-/Checksum-Artefakte in einem
+  inhaltsadressierten Verzeichnis außerhalb des Source Root;
+- keine rohen Fingerprints, keine `Relation`, keine Confidence und keine
+  Identitätsentscheidung.
+
+Der einzelne umfassende Berichtstest bestand nach der finalen
+Projektionsprüfung in 21,33 Sekunden; der direkt
+betroffene Head-Migrationstest bestand in 19,38 Sekunden. Ruff war für die
+geänderten Source-/Testdateien erfolgreich, Mypy für 85 Source-Dateien. Ein
+erneuter vollständiger lokaler Pytest-Lauf wurde bewusst nicht dupliziert. Der
+CI-Vertrag verlangt genau einen vollständigen `quality`-Lauf am Pull Request
+und nach dem Merge nur den kurzen `post-merge-contract`. Commit
+`0237861bb1a02455fa65d2a5f754e46bb4530d92` wurde über PR #26 als
+`111267f8a3c66e629cfd4b61d006c1731a9d9b12` gemergt; der Main-Lauf
+`31900986647` benötigte für den Post-Merge-Job drei Sekunden.
+
+Das Wheel
+`C:\rep\artifacts\FolioTone\w3-016-wheel-01\foliotone-0.1.0-py3-none-any.whl`
+ist 147.477 Byte groß, hat SHA-256
+`7b69ea169d1f07adfe1780a4acc91ee19ef6298b51237c45dc85142a164a0482`
+und enthält Report-Query, Workflow, CLI-Anbindung und Migration `0008`.
+
 Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 ## Danach weiterarbeiten
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-016` — nachvollziehbare lokale CLI-Sammlungsberichte mit aggregierten
-   Qualitäts-, Analyse-, Duplicate- und Varianten-Review-Sets aufbauen.
-2. `W3-017` — die bestätigte lokale Sammlung zuerst als read-only Pilot und
+1. `W3-017` — die bestätigte lokale Sammlung zuerst als read-only Pilot und
    anschließend vollständig im Host-Kontext analysieren. Der isolierte
    Sandbox-Kontext besitzt die Laufwerkszuordnung nicht. Private Pfade,
    Runtime-Daten und Berichte bleiben außerhalb von Git; Source Media bleibt

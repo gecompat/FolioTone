@@ -47,6 +47,10 @@ def test_status_command_is_non_destructive_bootstrap(
             "Bounded resumable e-book collection analysis is available through "
             "ebook-collection-analyze."
         ),
+        (
+            "Deterministic private collection summaries and review sets are available "
+            "through ebook-collection-report."
+        ),
         "Read-only PDF metadata and text analysis is available through pdf-analyze.",
         "Read-only EPUB conformance evidence is available through epub-validate.",
         "Source-media and external-tool mutation commands are not implemented.",
