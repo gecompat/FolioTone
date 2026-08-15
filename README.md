@@ -59,8 +59,10 @@ synthetischen Multi-Format-/Sparse-/Malformed-Korpus und ersetzt
 collection-weite Vergleichsreads durch begrenzte, indexgestützte Evidence-
 Abfragen. `W3-015` ergänzt den fortsetzbaren CLI-Collection-Batch über einen
 stabilen abgeschlossenen Scan-Snapshot, begrenzte Worker, per-File-
-Fehlerfortsetzung und exakte Evidence-Wiederverwendung. Als Nächstes folgen
-lokale Sammlungsberichte; die Music-Toolchain bleibt zurückgestellt.
+Fehlerfortsetzung und exakte Evidence-Wiederverwendung. `W3-016` ergänzt den
+deterministischen privaten CLI-Sammlungsbericht ohne erneuten Source-Zugriff
+und ohne Identitätsurteil. Als Nächstes folgt der read-only Pilot an der
+bestätigten lokalen Sammlung; die Music-Toolchain bleibt zurückgestellt.
 
 W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 
@@ -101,6 +103,10 @@ Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
 - `ebook-collection-analysis/v1` und CLI `ebook-collection-analyze` mit
   persistentem Plan, Lease, kontrollierter Teil-Invocation und Resume ohne
   erneute Planung abgeschlossener Items;
+- `ebook-collection-report/v1` und CLI `ebook-collection-report` mit
+  vollständigen Summenzählern, priorisierten Review-Items sowie begrenzten
+  Exact-Duplicate- und Content-Variant-Kandidaten in privaten
+  JSON-/CSV-/Checksum-Artefakten;
 - rohe OPF-Beobachtungen und versionierte, gruppierte Kandidaten für ISBN und
   andere Identifier, Contributors/Rollen/Sortiernamen, Sprache, Verlag,
   Publikationsdatum, Serie und weitere Felder;
@@ -214,7 +220,7 @@ Tool orchestration
 Persistence
   Repository[T] / SQLiteRepository[T]
   SQLAlchemy Core
-  Alembic 0001_initial through 0007_ebook_collection_batches
+  Alembic 0001_initial through 0008_ebook_collection_reports
 ```
 
 ## Repository-Dokumentation
@@ -245,7 +251,11 @@ docker compose build
 docker compose run --rm foliotone status
 ```
 
-GitHub Actions prüft zusätzlich die Migration im gebauten Image, den persistenten `/data`-Write-Vertrag und einen mehrstufigen Incremental-Scan über getrennte Containerläufe.
+GitHub Actions führt die vollständige Prüfung einschließlich Migration im
+gebauten Image, persistentem `/data`-Write-Vertrag und mehrstufigem
+Incremental-Scan genau einmal am Pull Request aus. Nach dem Merge nach `main`
+läuft nur der kurze Merge-/Whitespace-Integritätsvertrag; ein erneuter
+vollständiger Testlauf findet dort nicht statt.
 
 ## Safety Status
 

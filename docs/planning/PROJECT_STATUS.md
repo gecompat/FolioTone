@@ -4,7 +4,7 @@ Stand: 2026-08-15
 
 ## Aktuelle Welle
 
-**W3 E-Book-Vertiefung aktiv — fortsetzbare Collection-Analyse implementiert; lokale Sammlungsberichte als Nächstes**
+**W3 E-Book-Vertiefung aktiv — deterministische private Collection-Berichte implementiert; read-only Sammlungspilot als Nächstes**
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
@@ -35,8 +35,10 @@ Evidence ohne Relation oder Identitätsurteil. Auf Benutzerentscheidung bleibt
 die aktive Entwicklung bei E-Books. `W3-014` ergänzt den synthetischen v2-
 Edge-Korpus sowie begrenzte, indexgestützte Evidence-Abfragen. `W3-015`
 ergänzt einen fortsetzbaren Collection Batch mit persistentem Snapshot-Plan,
-Lease, begrenzten Workern und per-File-Fehlerfortsetzung. `W3-016` ist `NEXT`;
-die Music-Welle W4 bleibt geplant und zurückgestellt.
+Lease, begrenzten Workern und per-File-Fehlerfortsetzung. `W3-016` ergänzt
+deterministische private JSON-/CSV-Sammlungsberichte, persistierte
+Befundprovenance und begrenzte Duplicate-/Varianten-Review-Kandidaten.
+`W3-017` ist `NEXT`; die Music-Welle W4 bleibt geplant und zurückgestellt.
 
 ## Implementierter W2-Slice
 
@@ -145,7 +147,7 @@ fpcalc-, beets-, SongKong- oder Picard-Adapter sind noch nicht implementiert.
 
 ### Persistence
 
-Die W1-Persistence wurde bisher über sechs zusätzliche Alembic-Revisionen erweitert. Bereits gemergte Migrationen werden nicht rückwirkend verändert.
+Die W1-Persistence wurde bisher über sieben zusätzliche Alembic-Revisionen erweitert. Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 `0002_incremental_index` ergänzt insbesondere `file_scan_events`, `tool_artifacts`, Scan-/Tool-relevante Indizes und eindeutige logische `ScanRoot.name`-Werte.
 
@@ -163,6 +165,11 @@ E-Book-Paarvergleichs. Bestehende Domain-Datensätze werden nicht umgeschrieben.
 `ebook_collection_items` sowie Indizes für Root-/Status- und
 Run-/Status-/Ordinal-Abfragen. Die Batch-Tabellen speichern Observation-IDs,
 Lifecycle und begrenzte Zähler, aber keine Pfade oder Metadatenwerte.
+
+`0008_ebook_collection_reports` ergänzt geordnete Item-Ausführungs- und
+Quality-Befundprojektionen einschließlich exakter `ToolExecution`-Quellen
+sowie den belegten Fingerprint-Gruppierungsindex. Die Tabellen speichern keine
+Source-Pfade, Metadatenwerte oder extrahierten Inhalte.
 
 Beim Upgrade einer bestehenden `0002`-Datenbank wird keine historische Abwesenheitsdauer oder Bestätigungsserie erfunden. Bestehende Datensätze beginnen konservativ mit `missing_since_at = NULL` und `consecutive_missing_scans = 0`; erst nachfolgende erfolgreiche Scans bauen neue Bestätigungsevidenz auf.
 
@@ -814,19 +821,52 @@ Vollausführung durch Branch-Push, Pull Request und Main-Push wird im
 nachfolgenden CI-Vertrag auf einen autoritativen PR-Gate plus kurzen
 Post-Merge-Vertrag reduziert.
 
+**CI-Ausführungsvertrag:** Commit
+`0237861bb1a02455fa65d2a5f754e46bb4530d92` bestand als PR #26 genau einen
+vollständigen `quality`-Lauf. Merge-Commit
+`111267f8a3c66e629cfd4b61d006c1731a9d9b12` löste auf `main` nur den
+dreisekündigen `post-merge-contract` in GitHub Actions Run `31900986647` aus;
+der vollständige Job wurde dort übersprungen.
+
+**Empirisch für W3-016:** `ebook-collection-report/v1` erzeugt für einen
+persistierten nicht aktiven Collection-Lauf byte-stabile private JSON-,
+Review-CSV-, Exact-Duplicate-CSV-, Content-Variant-CSV- und Checksum-
+Artefakte. Der Bericht enthält vollständige Format-/Analyse-/Quality-/Befund-
+Summen, eine begrenzte priorisierte Review-Liste und getrennte technische
+Kandidatengruppen. Rohe Fingerprints werden nicht ausgegeben; Findings
+behalten ihre exakten verfügbaren `ToolExecution`-Quellen. Der Befehl öffnet
+keine Source Media und erzeugt keine `Relation` oder Identitätsentscheidung.
+
+Der gezielte Berichtstest bestand nach der finalen Projektionsprüfung in 21,33
+Sekunden und prüft unter anderem
+Determinismus, Begrenzung/Truncation, Provenance, Checksum-Integrität,
+CSV-Formelneutralisierung, path-freie CLI-Ausgabe und unveränderte
+synthetische Source-Dateien. Der direkt betroffene Head-Migrationstest bestand
+in 19,38 Sekunden. Ruff war für die geänderten Source-/Testdateien
+erfolgreich; Mypy prüfte 85 Source-Dateien ohne Befund. Ein weiterer
+vollständiger lokaler Pytest-Lauf wurde gemäß dem schlanken Prüfvertrag nicht
+wiederholt; der vollständige Gate läuft einmal am Pull Request.
+
+Das Wheel
+`C:\rep\artifacts\FolioTone\w3-016-wheel-01\foliotone-0.1.0-py3-none-any.whl`
+ist 147.477 Byte groß, hat SHA-256
+`7b69ea169d1f07adfe1780a4acc91ee19ef6298b51237c45dc85142a164a0482`
+und enthält Report-Query, Workflow, CLI-Anbindung und Alembic
+`0008_ebook_collection_reports`.
+
 ## Aktiver W3-Stand und nächster Schritt
 
-W2 ist abgeschlossen; `W3-001` bis `W3-015` sind abgeschlossen. W3-015 stellt
-`ebook-collection-analysis/v1`, die CLI `ebook-collection-analyze` und die
-additive Migration `0007_ebook_collection_batches` bereit. Ein Lauf bindet
-einen unveränderlichen Plan an den neuesten abgeschlossenen EBOOK-`ScanRun`,
-verarbeitet ihn in begrenzten Workerwellen und setzt denselben Plan nach einer
-kontrollierten oder unerwarteten Unterbrechung fort. Exakte Evidence-
-Wiederverwendung bleibt pro Observation erhalten.
+W2 ist abgeschlossen; `W3-001` bis `W3-016` sind abgeschlossen. W3-015 stellt
+den fortsetzbaren Collection-Plan bereit. W3-016 ergänzt
+`ebook-collection-report/v1`, die CLI `ebook-collection-report`, persistierte
+Item-Ausführungs-/Befundprovenance und Alembic
+`0008_ebook_collection_reports`. Berichtabfragen streamen sortierte
+Kandidatendaten, halten nur begrenzte Detailmengen und weisen vollständige
+Gesamtzahlen sowie Kürzungen aus.
 
-`W3-016` ist `NEXT`: Lokale CLI-Sammlungsberichte sollen Analyse-, Quality-
-und Befundzustände aggregieren und priorisierte Review-Sets erzeugen. Music W4
-bleibt geplant, aber bis zur E-Book-Reife zurückgestellt. Die
+`W3-017` ist `NEXT`: Die bestätigte lokale E-Book-Sammlung wird zuerst in
+einem read-only Pilotlauf und danach vollständig analysiert und berichtet.
+Music W4 bleibt geplant, aber bis zur E-Book-Reife zurückgestellt. Die
 Produktoberfläche bleibt ausschließlich die CLI.
 
 ## Nicht implementiert
@@ -840,7 +880,7 @@ Noch nicht vorhanden sind unter anderem:
 - externe Knowledge Provider und Provider Cache;
 - Classification Engine;
 - Matching Engine;
-- Sammlungsreports und zusätzliche qpdf-Struktur-Evidence;
+- vollständiger realer Sammlungslauf und zusätzliche qpdf-Struktur-Evidence;
 - Review System;
 - Consolidation Planning und Execution;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.

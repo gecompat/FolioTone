@@ -89,6 +89,9 @@ Material specialist-tool evidence keeps a link to the exact execution identity a
 
 - `ebook_collection_runs`
 - `ebook_collection_items`
+- `ebook_collection_item_executions`
+- `ebook_collection_findings`
+- `ebook_collection_finding_executions`
 
 Ein `EbookCollectionRun` verweist auf genau einen `ScanRoot` und einen
 abgeschlossenen Source-`ScanRun`. Die zugehörigen Items verweisen auf exakte
@@ -96,6 +99,11 @@ abgeschlossenen Source-`ScanRun`. Die zugehörigen Items verweisen auf exakte
 und `(run_id, ordinal)` verhindern doppelte Planpositionen. Die Tabellen
 enthalten Lifecycle, Lease, Versuchszahl und begrenzte Ergebniszähler, aber
 keine Pfade oder Metadatenwerte.
+
+Die drei Projektions-/Zuordnungstabellen binden den terminalen Item-Zustand an
+geordnete Workflow-Schritte, Quality-Befundcodes und deren exakte
+`ToolExecution`-Quellen. Sie speichern weiterhin keine Source-Pfade,
+Metadatenwerte oder extrahierten Inhalte.
 
 ### Classification / matching evidence
 
@@ -173,6 +181,24 @@ Heartbeat, kontrolliertes `INTERRUPTED` und stale Claim Recovery laufen in
 kurzen expliziten Transaktionen. Toolausführungen bleiben davon getrennte,
 provenance-erhaltende Records.
 
+### Deterministischer Collection-Bericht
+
+`SQLiteEbookCollectionReportStore` liest einen nicht mehr `RUNNING`
+befindlichen Collection-Lauf in einer Transaktion. Vollständige Summenzähler
+werden getrennt von begrenzten Review-Items und Kandidatengruppen berechnet.
+Die Review-Abfrage behält Befundreihenfolge und exakte `ToolExecution`-
+Referenzen. Die Duplicate-/Varianten-Abfragen streamen sortierte
+Fingerprint-Gruppen mit `fetchmany(500)` und halten nur die begrenzten größten
+Gruppen im Speicher.
+
+Alembic `0008_ebook_collection_reports` ergänzt die drei
+Collection-Projektionstabellen, ihre Foreign Keys und Indizes sowie
+`ix_fingerprints_kind_algorithm_version_value_target` für den belegten
+Gruppierungspfad. Ein Bericht wird abgelehnt, wenn `finding_count` und
+persistierte Befundprojektion oder die Schrittzähler und
+Ausführungsprojektion auseinanderfallen. Rohe Fingerprint-Werte verlassen die
+Query-Schicht nicht.
+
 ## Current constraints and deferred integrity
 
 Implemented SQL constraints include:
@@ -184,6 +210,8 @@ Implemented SQL constraints include:
 - unique catalog designation per music work/system/value.
 - eindeutige Observation und Ordinalposition innerhalb eines
   `EbookCollectionRun`.
+- eindeutige Ausführungs- und Befundordinale je `EbookCollectionItem` sowie
+  eindeutige `ToolExecution`-Referenzen innerhalb ihrer jeweiligen Projektion.
 
 Cross-table polymorphic target validation, allgemeine Query-Repositories,
 Bulk-Write-Pfade und Transaction Orchestration bleiben zurückgestellt, bis
@@ -208,5 +236,7 @@ W1 persistence integration tests cover:
   nicht angeforderten collection-weiten Records.
 - fortsetzbare Collection-Zustände, Lease-Konflikte, stale Claim Recovery und
   einen einzelnen gestreamten Plan-Read mit begrenzten Insert-Batches.
+- transaktionale Item-Ausführungs-/Befundprovenance sowie begrenzte,
+  deterministische Collection-Berichtabfragen.
 
 No real collection data is used in tests.

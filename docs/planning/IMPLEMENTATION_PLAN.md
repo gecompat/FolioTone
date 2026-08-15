@@ -188,6 +188,15 @@ Implemented sequence and decisions through `W3-010`:
     replanning or repeating completed items. Reuse exact Evidence through
     `ebook-analysis-workflow/v3`, keep batch summaries path-free and preserve
     read-only Source Media.
+16. add `ebook-collection-report/v1` and CLI
+    `foliotone ebook-collection-report`. Read one persisted non-running
+    Collection snapshot without reopening Source Media, aggregate complete
+    format/analysis/quality/finding counts, retain exact finding-to-execution
+    provenance and emit bounded prioritized review items. Produce separate
+    exact-file and same-normalized-text/different-file candidate groups as
+    deterministic private JSON/CSV/checksum artifacts. Expose truncation,
+    suppress raw fingerprints, and produce no Relation, confidence or
+    identity verdict.
 
 Current execution priority is intentionally e-book-first. Music W4 remains in
 the architecture and backlog but is deferred until the e-book completion track
@@ -205,7 +214,7 @@ Planned evidence includes:
 - optional embedded-cover facts and versioned perceptual fingerprint;
 - EPUB structural validation Evidence;
 - versioned multi-dimensional E-Book quality findings;
-- later provider-neutral content comparison and collection-level reports.
+- provider-neutral content comparison and collection-level reports.
 
 OCR is out of the first implementation. Scanned PDFs without text should be represented explicitly rather than silently OCRed.
 

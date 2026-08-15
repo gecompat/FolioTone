@@ -66,7 +66,7 @@ def test_collection_plan_is_stable_filtered_and_resumable(tmp_path: Path) -> Non
     def analyze(observation: FileObservation, fresh: bool) -> EbookAnalysisOutcome:
         assert not fresh
         analyzed.append(observation.id)
-        return _success_outcome(observation)
+        return _persisted_success_outcome(engine, observation)
 
     service = EbookCollectionService(
         SQLiteEbookCollectionStore(engine),
@@ -198,7 +198,7 @@ def test_collection_continues_after_private_per_file_exception(tmp_path: Path) -
     def analyze(observation: FileObservation, _fresh: bool) -> EbookAnalysisOutcome:
         if observation.id == rejected:
             raise RuntimeError(r"private failure at Q:\synthetic-library\b.epub")
-        return _success_outcome(observation)
+        return _persisted_success_outcome(engine, observation)
 
     outcome = EbookCollectionService(
         SQLiteEbookCollectionStore(engine),
@@ -233,7 +233,7 @@ def test_collection_worker_concurrency_is_bounded(tmp_path: Path) -> None:
         time.sleep(0.02)
         with lock:
             active -= 1
-        return _success_outcome(observation)
+        return _persisted_success_outcome(engine, observation)
 
     outcome = EbookCollectionService(
         SQLiteEbookCollectionStore(engine),
@@ -321,7 +321,7 @@ def test_keyboard_interrupt_releases_run_for_exact_resume(tmp_path: Path) -> Non
 
     resumed = EbookCollectionService(
         store,
-        _success_analyzer,
+        lambda observation, _fresh: _persisted_success_outcome(engine, observation),
         clock=lambda: NOW,
     ).resume(interrupted.id)
 
@@ -346,7 +346,9 @@ def test_latest_scan_must_be_completed_before_planning(tmp_path: Path) -> None:
     with pytest.raises(EbookCollectionStoreError, match="latest ScanRun"):
         EbookCollectionService(
             SQLiteEbookCollectionStore(engine),
-            _success_analyzer,
+            lambda observation, _fresh: _persisted_success_outcome(
+                engine, observation
+            ),
             clock=lambda: NOW + timedelta(minutes=2),
         ).start(root.id)
 
@@ -396,13 +398,6 @@ def _environment(
     return engine, root, observations
 
 
-def _success_analyzer(
-    observation: FileObservation,
-    _fresh: bool,
-) -> EbookAnalysisOutcome:
-    return _success_outcome(observation)
-
-
 def _success_outcome(
     observation: FileObservation,
     *,
@@ -443,3 +438,14 @@ def _success_outcome(
         ),
         quality=quality,
     )
+
+
+def _persisted_success_outcome(
+    engine: Engine,
+    observation: FileObservation,
+) -> EbookAnalysisOutcome:
+    outcome = _success_outcome(observation)
+    for step in outcome.steps:
+        for execution in step.executions:
+            repository(engine, ToolExecution).save(execution)
+    return outcome

@@ -44,7 +44,9 @@ from foliotone.index import (
     SQLiteIndexStore,
 )
 from foliotone.persistence import (
+    EbookCollectionReportStoreError,
     EbookCollectionStoreError,
+    SQLiteEbookCollectionReportStore,
     SQLiteEbookCollectionStore,
     create_sqlite_engine,
     migrate,
@@ -52,6 +54,9 @@ from foliotone.persistence import (
 )
 from foliotone.tooling.runtime import ToolRuntime
 from foliotone.workflows import (
+    DEFAULT_COLLECTION_REPORT_GROUP_LIMIT,
+    DEFAULT_COLLECTION_REPORT_MEMBER_LIMIT,
+    DEFAULT_COLLECTION_REPORT_REVIEW_LIMIT,
     EbookAnalysisError,
     EbookAnalysisOrchestrator,
     EbookAnalysisReuseService,
@@ -59,6 +64,9 @@ from foliotone.workflows import (
     EbookAnalysisTools,
     EbookCollectionError,
     EbookCollectionInterrupted,
+    EbookCollectionReportError,
+    EbookCollectionReportLimits,
+    EbookCollectionReportService,
     EbookCollectionService,
     EbookComparisonError,
     EbookComparisonService,
@@ -476,6 +484,61 @@ def build_parser() -> argparse.ArgumentParser:
         help="EPUBCheck JAR path; defaults to epubcheck.jar.",
     )
 
+    ebook_collection_report = subparsers.add_parser(
+        "ebook-collection-report",
+        help=(
+            "Write deterministic private JSON/CSV summaries and review sets for a "
+            "persisted e-book collection run."
+        ),
+    )
+    ebook_collection_report.add_argument(
+        "--run",
+        required=True,
+        type=EntityId.parse,
+        help="Persisted EbookCollectionRun ID to report.",
+    )
+    ebook_collection_report.add_argument(
+        "--source-root",
+        required=True,
+        type=Path,
+        help="Source root used only to enforce separate writable report storage.",
+    )
+    ebook_collection_report.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="SQLite database path; defaults to /data/foliotone.db.",
+    )
+    ebook_collection_report.add_argument(
+        "--report-root",
+        type=Path,
+        default=Path(
+            os.environ.get(
+                "FOLIOTONE_COLLECTION_REPORT_ROOT",
+                "/data/collection-reports",
+            )
+        ),
+        help="Durable private report root; defaults to /data/collection-reports.",
+    )
+    ebook_collection_report.add_argument(
+        "--review-limit",
+        type=int,
+        default=DEFAULT_COLLECTION_REPORT_REVIEW_LIMIT,
+        help="Maximum prioritized review items emitted; totals remain complete.",
+    )
+    ebook_collection_report.add_argument(
+        "--group-limit",
+        type=int,
+        default=DEFAULT_COLLECTION_REPORT_GROUP_LIMIT,
+        help="Maximum exact-duplicate and content-variant groups emitted per basis.",
+    )
+    ebook_collection_report.add_argument(
+        "--group-member-limit",
+        type=int,
+        default=DEFAULT_COLLECTION_REPORT_MEMBER_LIMIT,
+        help="Maximum members emitted for each candidate group.",
+    )
+
     ebook_compare = subparsers.add_parser(
         "ebook-compare",
         help=(
@@ -636,6 +699,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Bounded resumable e-book collection analysis is available through "
             "ebook-collection-analyze."
         )
+        print(
+            "Deterministic private collection summaries and review sets are available "
+            "through ebook-collection-report."
+        )
         print("Read-only PDF metadata and text analysis is available through pdf-analyze.")
         print("Read-only EPUB conformance evidence is available through epub-validate.")
         print("Source-media and external-tool mutation commands are not implemented.")
@@ -659,6 +726,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-collection-analyze":
         return _run_ebook_collection_analyze(args)
+
+    if args.command == "ebook-collection-report":
+        return _run_ebook_collection_report(args)
 
     if args.command == "ebook-compare":
         return _run_ebook_compare(args)
@@ -950,6 +1020,55 @@ def _run_ebook_collection_analyze(args: argparse.Namespace) -> int:
     return 2
 
 
+def _run_ebook_collection_report(args: argparse.Namespace) -> int:
+    try:
+        _validate_collection_report_paths(
+            args.source_root,
+            args.database,
+            args.report_root,
+        )
+        limits = EbookCollectionReportLimits(
+            review_items=args.review_limit,
+            candidate_groups=args.group_limit,
+            members_per_group=args.group_member_limit,
+        )
+        migrate(args.database)
+        engine = create_sqlite_engine(args.database)
+        outcome = EbookCollectionReportService(
+            SQLiteEbookCollectionReportStore(engine)
+        ).generate(
+            args.run,
+            args.report_root,
+            limits=limits,
+        )
+    except (
+        EbookCollectionReportError,
+        EbookCollectionReportStoreError,
+        ValueError,
+    ) as error:
+        print(f"E-book collection report failed: {error}")
+        return 2
+    except OSError:
+        print("E-book collection report failed: runtime storage is unavailable.")
+        return 2
+    except Exception:
+        print("E-book collection report failed: internal persistence error.")
+        return 2
+
+    print(f"E-book collection run: {outcome.run_id}")
+    print(f"Report profile: {outcome.profile}")
+    print(f"Report SHA-256: {outcome.report_sha256}")
+    print(f"Report files: {len(outcome.files)}")
+    print(f"Review items: {outcome.review_item_total}")
+    print(f"Review items emitted: {outcome.review_item_emitted}")
+    print(f"Exact duplicate groups: {outcome.exact_duplicate_groups}")
+    print(f"Content variant groups: {outcome.content_variant_groups}")
+    print(f"Report directory: {outcome.report_directory}")
+    print("Identity verdict: NOT_PRODUCED")
+    print("Relation records written: 0")
+    return 0
+
+
 def _ebook_analysis_orchestrator(
     engine: Engine,
     runtime: ToolRuntime,
@@ -1024,6 +1143,17 @@ def _validate_collection_storage_paths(
     for destination in (database, artifact_root, work_root):
         if destination.resolve().is_relative_to(source):
             raise ValueError("database, artifact, and work paths must be outside source root")
+
+
+def _validate_collection_report_paths(
+    source_root: Path,
+    database: Path,
+    report_root: Path,
+) -> None:
+    source = source_root.resolve()
+    for destination in (database, report_root):
+        if destination.resolve().is_relative_to(source):
+            raise ValueError("database and report paths must be outside source root")
 
 
 def _run_ebook_compare(args: argparse.Namespace) -> int:
