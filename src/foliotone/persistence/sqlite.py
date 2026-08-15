@@ -26,6 +26,7 @@ def create_sqlite_engine(database: Path | str) -> Engine:
         cursor = dbapi_connection.cursor()  # type: ignore[attr-defined]
         try:
             cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA busy_timeout=30000")
         finally:
             cursor.close()
 

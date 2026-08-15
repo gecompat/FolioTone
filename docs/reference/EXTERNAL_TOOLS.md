@@ -25,6 +25,14 @@ Through W9, source media remains read-only. Tool write/delete/move/retag capabil
 - `LOCAL_LIBRARY` — integrate a library only behind an adapter when process isolation is not preferable.
 - `INTERACTIVE_VALIDATOR` — optional human-facing specialist tool; not required for the automated pipeline.
 
+Für `ebook-collection-analysis/v1` kann die Runtime identische lokale
+Versionsprobes innerhalb genau einer Prozess-Invocation thread-sicher
+wiederverwenden. Der Cache persistiert nichts, öffnet keine Source Media und
+ersetzt weder ToolExecution-Provenance noch die exakte Evidence-
+Wiederverwendungsprüfung. Verschiedene Toolbefehle und Version Policies bleiben
+getrennte Cache-Identitäten; Einzeldatei-Kommandos aktivieren diese Optimierung
+nicht standardmäßig.
+
 ## E-book tools
 
 ### calibre

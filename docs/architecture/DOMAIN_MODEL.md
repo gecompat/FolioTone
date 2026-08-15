@@ -192,6 +192,24 @@ Series positions must allow non-integer and uncertain representations because re
 
 One Edition may be represented by one or more files/formats. Identical bytes are a file-level relation; same edition is a bibliographic/content relation.
 
+### EbookCollectionRun / EbookCollectionItem
+
+`EbookCollectionRun` beschreibt einen fortsetzbaren Analyse-Lauf über einen
+unveränderlichen Plan aus genau einem abgeschlossenen `ScanRun`. Der Lauf hält
+das Collection- und Analyseprofil, die Evidence-Policy, eine begrenzte
+Workerzahl sowie die Lease für eine aktive Invocation.
+
+`EbookCollectionItem` bindet genau eine geplante `FileObservation` an einen
+stabilen Ordinalwert und hält Versuchszahl, technischen Zustand,
+Quality-Gesamtzustand und begrenzte Ergebniszähler. Relative oder absolute
+Pfade, Metadatenwerte und extrahierte Inhalte gehören nicht in diese
+Batch-Modelle. Die Observation-ID verbindet den Status mit der lokalen
+Runtime-Persistenz.
+
+Ein Batch-Ergebnis beschreibt Ausführung und Analyseabdeckung. Es ist keine
+`Relation`, kein Duplicate-Verdict und keine `Work`-/`Edition`-
+Identitätsentscheidung.
+
 ## Music layer
 
 ### MusicWork

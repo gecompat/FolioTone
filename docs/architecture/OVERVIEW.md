@@ -205,6 +205,23 @@ Evidence-Historien; eine Überschreitung bricht technisch ab. Alembic
 `0006_ebook_evidence_lookup_indexes` stellt die zugehörigen SQLite-Indizes
 bereit. Der fachliche Vertrag von `ebook-comparison/v1` bleibt unverändert.
 
+Der vierzehnte W3-Slice ergänzt `ebook-collection-analysis/v1` und den CLI-
+Befehl `foliotone ebook-collection-analyze`. Ein neuer Lauf bindet einen
+unveränderlichen Plan aktueller EPUB/MOBI/AZW/AZW3/PDF-Beobachtungen an den
+neuesten abgeschlossenen EBOOK-`ScanRun`. Die Planung verwendet einen
+gestreamten Read und persistiert höchstens 500 Items je Schreibbatch. Eine
+Lease verhindert konkurrierendes Resume desselben Laufs; 1 bis 8 Worker
+beanspruchen höchstens zwei Workerwellen gleichzeitig.
+
+Jedes Item verwendet den vorhandenen formatbewussten Workflow und dessen
+exakte Evidence-Wiederverwendung. Per-File-Fehler bleiben path-freie,
+begrenzte Statuswerte und blockieren andere Items nicht. `--max-items`
+ermöglicht kontrollierte Teil-Invocations, `--resume-run` setzt denselben Plan
+fort, und `--plan-limit` begrenzt einen neuen Pilotplan deterministisch. Die
+Batch-Persistenz enthält keine Source-Pfade, Metadatenwerte oder Inhalte und
+erzeugt keine `Relation` oder Identitätsentscheidung. ADR-0021 dokumentiert
+den Lifecycle und die Sicherheitsgrenzen.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.

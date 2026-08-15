@@ -52,6 +52,10 @@ from foliotone.persistence.w2_schema import (
     file_scan_events,
     tool_artifacts,
 )
+from foliotone.persistence.w3_schema import (
+    ebook_collection_items,
+    ebook_collection_runs,
+)
 from foliotone.tooling import ToolExecution, ToolResult
 
 NOW = datetime(2026, 8, 8, 20, 0, tzinfo=UTC)
@@ -84,6 +88,8 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
         file_scan_events.name,
         file_relocation_candidates.name,
         tool_artifacts.name,
+        ebook_collection_runs.name,
+        ebook_collection_items.name,
     }
     assert table_names == expected
     file_columns = {column["name"] for column in inspector.get_columns("file_records")}
@@ -96,6 +102,10 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
         },
         "tool_results": {"ix_tool_results_target_execution"},
         "fingerprints": {"ix_fingerprints_target_kind_execution"},
+        "ebook_collection_runs": {"ix_ebook_collection_runs_root_status"},
+        "ebook_collection_items": {
+            "ix_ebook_collection_items_run_status_ordinal"
+        },
     }
     for table_name, names in expected_indexes.items():
         assert names <= {
@@ -104,7 +114,7 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
 
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0006_ebook_evidence_lookup_indexes"
+    assert revision == "0007_ebook_collection_batches"
 
 
 def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) -> None:
@@ -158,7 +168,7 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0006_ebook_evidence_lookup_indexes"
+    assert revision == "0007_ebook_collection_batches"
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:

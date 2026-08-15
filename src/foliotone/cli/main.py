@@ -10,6 +10,8 @@ from collections.abc import Sequence
 from datetime import timedelta
 from pathlib import Path
 
+from sqlalchemy import Engine
+
 from foliotone import __version__
 from foliotone.adapters.calibre import (
     CalibreCoverAnalyzer,
@@ -22,11 +24,14 @@ from foliotone.adapters.calibre import (
 from foliotone.adapters.epubcheck import EpubCheckAnalyzer, EpubCheckError
 from foliotone.adapters.poppler import PopplerPdfAnalyzer, PopplerPdfError
 from foliotone.core import (
+    MAX_EBOOK_COLLECTION_WORKERS,
+    EbookCollectionRunStatus,
     EntityId,
     FileChangeState,
     FileObservation,
     MediaType,
     RelocationCandidateKind,
+    ScanRoot,
     ToolExecutionStatus,
 )
 from foliotone.index import (
@@ -38,7 +43,13 @@ from foliotone.index import (
     ScanRootBinding,
     SQLiteIndexStore,
 )
-from foliotone.persistence import create_sqlite_engine, migrate, repository
+from foliotone.persistence import (
+    EbookCollectionStoreError,
+    SQLiteEbookCollectionStore,
+    create_sqlite_engine,
+    migrate,
+    repository,
+)
 from foliotone.tooling.runtime import ToolRuntime
 from foliotone.workflows import (
     EbookAnalysisError,
@@ -46,6 +57,9 @@ from foliotone.workflows import (
     EbookAnalysisReuseService,
     EbookAnalysisStatus,
     EbookAnalysisTools,
+    EbookCollectionError,
+    EbookCollectionInterrupted,
+    EbookCollectionService,
     EbookComparisonError,
     EbookComparisonService,
     ebook_analysis_format,
@@ -353,6 +367,115 @@ def build_parser() -> argparse.ArgumentParser:
         help="EPUBCheck JAR path; defaults to epubcheck.jar.",
     )
 
+    ebook_collection = subparsers.add_parser(
+        "ebook-collection-analyze",
+        help=(
+            "Analyze a stable completed e-book scan in bounded, resumable, "
+            "read-only batches."
+        ),
+    )
+    ebook_collection.add_argument(
+        "--root",
+        required=True,
+        type=Path,
+        help="Runtime source root for the persisted e-book observations.",
+    )
+    ebook_collection.add_argument(
+        "--scan-root",
+        required=True,
+        help="Existing logical EBOOK ScanRoot name whose latest scan defines the plan.",
+    )
+    ebook_collection.add_argument(
+        "--resume-run",
+        type=EntityId.parse,
+        default=None,
+        help="Resume an interrupted collection run without replanning its snapshot.",
+    )
+    ebook_collection.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Bypass exact successful evidence reuse for a newly planned run.",
+    )
+    ebook_collection.add_argument(
+        "--workers",
+        type=int,
+        choices=range(1, MAX_EBOOK_COLLECTION_WORKERS + 1),
+        default=None,
+        metavar=f"1..{MAX_EBOOK_COLLECTION_WORKERS}",
+        help=(
+            "Bounded analyzer worker count for a new run; defaults to 1 and is "
+            "preserved on resume."
+        ),
+    )
+    ebook_collection.add_argument(
+        "--max-items",
+        type=int,
+        default=None,
+        help="Process at most this many planned observations in this invocation.",
+    )
+    ebook_collection.add_argument(
+        "--plan-limit",
+        type=int,
+        default=None,
+        help="New runs only: deterministically plan at most this many observations.",
+    )
+    ebook_collection.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="SQLite database path; defaults to /data/foliotone.db.",
+    )
+    ebook_collection.add_argument(
+        "--artifact-root",
+        type=Path,
+        default=Path(
+            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
+        ),
+        help="Durable private tool-artifact root; defaults to /data/tool-artifacts.",
+    )
+    ebook_collection.add_argument(
+        "--work-root",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_TOOL_WORK_ROOT", "/tmp/foliotone-tools")),
+        help="Ephemeral isolated tool-work root; defaults to /tmp/foliotone-tools.",
+    )
+    ebook_collection.add_argument(
+        "--ebook-meta-executable",
+        default=os.environ.get("FOLIOTONE_EBOOK_META", "ebook-meta"),
+        help="ebook-meta executable or absolute executable path.",
+    )
+    ebook_collection.add_argument(
+        "--ebook-convert-executable",
+        default=os.environ.get("FOLIOTONE_EBOOK_CONVERT", "ebook-convert"),
+        help="ebook-convert executable or absolute executable path.",
+    )
+    ebook_collection.add_argument(
+        "--calibre-debug-executable",
+        default=os.environ.get("FOLIOTONE_CALIBRE_DEBUG", "calibre-debug"),
+        help="calibre-debug executable or absolute executable path.",
+    )
+    ebook_collection.add_argument(
+        "--pdfinfo-executable",
+        default=os.environ.get("FOLIOTONE_PDFINFO", "pdfinfo"),
+        help="pdfinfo executable or absolute executable path.",
+    )
+    ebook_collection.add_argument(
+        "--pdftotext-executable",
+        default=os.environ.get("FOLIOTONE_PDFTOTEXT", "pdftotext"),
+        help="pdftotext executable or absolute executable path.",
+    )
+    ebook_collection.add_argument(
+        "--java-executable",
+        default=os.environ.get("FOLIOTONE_JAVA", "java"),
+        help="Java executable or absolute executable path.",
+    )
+    ebook_collection.add_argument(
+        "--epubcheck-jar",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_EPUBCHECK_JAR", "epubcheck.jar")),
+        help="EPUBCheck JAR path; defaults to epubcheck.jar.",
+    )
+
     ebook_compare = subparsers.add_parser(
         "ebook-compare",
         help=(
@@ -509,6 +632,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Provider-neutral persisted e-book Evidence comparison is available through "
             "ebook-compare."
         )
+        print(
+            "Bounded resumable e-book collection analysis is available through "
+            "ebook-collection-analyze."
+        )
         print("Read-only PDF metadata and text analysis is available through pdf-analyze.")
         print("Read-only EPUB conformance evidence is available through epub-validate.")
         print("Source-media and external-tool mutation commands are not implemented.")
@@ -529,6 +656,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-analyze":
         return _run_ebook_analyze(args)
+
+    if args.command == "ebook-collection-analyze":
+        return _run_ebook_collection_analyze(args)
 
     if args.command == "ebook-compare":
         return _run_ebook_compare(args)
@@ -632,86 +762,13 @@ def _run_ebook_analyze(args: argparse.Namespace) -> int:
         return 2
 
     try:
-        format_name = ebook_analysis_format(observation.relative_path)
+        ebook_analysis_format(observation.relative_path)
         runtime = ToolRuntime(
             engine,
             args.artifact_root,
             work_root=args.work_root,
         )
-        reuse = EbookAnalysisReuseService(engine, runtime)
-        if format_name == "PDF":
-            pdf_analyzer = PopplerPdfAnalyzer(
-                engine,
-                runtime,
-                pdfinfo_executable=args.pdfinfo_executable,
-                pdftotext_executable=args.pdftotext_executable,
-            )
-            tools = EbookAnalysisTools(
-                pdf=pdf_analyzer.analyze,
-                pdf_reuse=lambda _root, current: reuse.pdf(
-                    pdf_analyzer.reuse_requests(current),
-                    current,
-                ),
-            )
-        else:
-            metadata_analyzer = CalibreMetadataAnalyzer(
-                engine,
-                runtime,
-                executable=args.ebook_meta_executable,
-            )
-            text_analyzer = CalibreTextAnalyzer(
-                engine,
-                runtime,
-                executable=args.ebook_convert_executable,
-            )
-            cover_analyzer = CalibreCoverAnalyzer(
-                engine,
-                runtime,
-                executable=args.calibre_debug_executable,
-            )
-            validation_analyzer = (
-                EpubCheckAnalyzer(
-                    engine,
-                    runtime,
-                    java_executable=args.java_executable,
-                    epubcheck_jar=args.epubcheck_jar,
-                )
-                if format_name == "EPUB"
-                else None
-            )
-            tools = EbookAnalysisTools(
-                metadata=metadata_analyzer.analyze,
-                text=text_analyzer.analyze,
-                cover=cover_analyzer.analyze,
-                validation=(
-                    validation_analyzer.analyze
-                    if validation_analyzer is not None
-                    else None
-                ),
-                metadata_reuse=lambda _root, current: reuse.metadata(
-                    metadata_analyzer.reuse_request(current),
-                    current,
-                ),
-                text_reuse=lambda _root, current: reuse.text(
-                    text_analyzer.reuse_request(current),
-                    current,
-                ),
-                cover_reuse=lambda _root, current: reuse.cover(
-                    cover_analyzer.reuse_request(current),
-                    current,
-                ),
-                validation_reuse=(
-                    (
-                        lambda _root, current: reuse.validation(
-                            validation_analyzer.reuse_request(current),
-                            current,
-                        )
-                    )
-                    if validation_analyzer is not None
-                    else None
-                ),
-            )
-        outcome = EbookAnalysisOrchestrator(tools).analyze(
+        outcome = _ebook_analysis_orchestrator(engine, runtime, args).analyze(
             args.root,
             observation,
             fresh=args.fresh,
@@ -760,6 +817,213 @@ def _run_ebook_analyze(args: argparse.Namespace) -> int:
         )
     print(f"Overall status: {outcome.status.value}")
     return 0 if outcome.status is EbookAnalysisStatus.SUCCEEDED else 1
+
+
+def _run_ebook_collection_analyze(args: argparse.Namespace) -> int:
+    if not args.root.is_dir():
+        print("E-book collection analysis failed: source root is unavailable.")
+        return 2
+    try:
+        _validate_collection_storage_paths(
+            args.root,
+            args.database,
+            args.artifact_root,
+            args.work_root,
+        )
+    except ValueError as error:
+        print(f"E-book collection analysis failed: {error}")
+        return 2
+
+    if args.resume_run is not None and (
+        args.fresh or args.workers is not None or args.plan_limit is not None
+    ):
+        print(
+            "E-book collection analysis failed: --fresh, --workers, and --plan-limit "
+            "cannot change a resumed run."
+        )
+        return 2
+
+    database: Path = args.database
+    try:
+        migrate(database)
+        engine = create_sqlite_engine(database)
+        roots = tuple(
+            root
+            for root in repository(engine, ScanRoot).list_all()
+            if root.name == args.scan_root.strip()
+        )
+        if len(roots) != 1:
+            print(
+                "E-book collection analysis failed: logical ScanRoot does not exist."
+            )
+            return 2
+        root = roots[0]
+        if root.media_type is not MediaType.EBOOK or not root.enabled:
+            print(
+                "E-book collection analysis failed: ScanRoot must be an enabled "
+                "EBOOK root."
+            )
+            return 2
+
+        store = SQLiteEbookCollectionStore(engine)
+        if args.resume_run is not None:
+            persisted = store.get_run(args.resume_run)
+            if persisted is None or persisted.scan_root_id != root.id:
+                print(
+                    "E-book collection analysis failed: resume run does not belong "
+                    "to the requested ScanRoot."
+                )
+                return 2
+
+        runtime = ToolRuntime(
+            engine,
+            args.artifact_root,
+            work_root=args.work_root,
+            cache_local_probes=True,
+        )
+        orchestrator = _ebook_analysis_orchestrator(engine, runtime, args)
+        service = EbookCollectionService(
+            store,
+            lambda observation, fresh: orchestrator.analyze(
+                args.root,
+                observation,
+                fresh=fresh,
+            ),
+        )
+        if args.resume_run is None:
+            outcome = service.start(
+                root.id,
+                fresh=args.fresh,
+                worker_count=args.workers or 1,
+                max_items=args.max_items,
+                plan_limit=args.plan_limit,
+            )
+        else:
+            outcome = service.resume(
+                args.resume_run,
+                max_items=args.max_items,
+            )
+    except EbookCollectionInterrupted as error:
+        print(f"E-book collection run: {error.run_id}")
+        print("Status: INTERRUPTED")
+        print("Resume is safe with --resume-run and the same logical ScanRoot.")
+        return 130
+    except (EbookCollectionError, EbookCollectionStoreError, ValueError) as error:
+        print(f"E-book collection analysis failed: {error}")
+        if isinstance(error, EbookCollectionError) and error.run_id is not None:
+            print(f"E-book collection run: {error.run_id}")
+        return 2
+    except OSError:
+        print("E-book collection analysis failed: runtime storage is unavailable.")
+        return 2
+    except KeyboardInterrupt:
+        print("E-book collection analysis interrupted before a run was acquired.")
+        return 130
+    except Exception:
+        print("E-book collection analysis failed: internal persistence error.")
+        return 2
+
+    print(f"ScanRoot: {root.name}")
+    print(f"E-book collection run: {outcome.run.id}")
+    print(f"Source ScanRun: {outcome.run.source_scan_run_id}")
+    print(f"Collection profile: {outcome.profile}")
+    print(f"Analysis profile: {outcome.run.analysis_profile}")
+    print(f"Evidence policy: {'FRESH' if outcome.run.fresh else 'REUSE_EXACT'}")
+    print(f"Workers: {outcome.run.worker_count}")
+    print(f"Processed this invocation: {outcome.processed_this_invocation}")
+    print(f"Planned: {outcome.counts.planned}")
+    print(f"Pending: {outcome.counts.pending}")
+    print(f"Succeeded: {outcome.counts.succeeded}")
+    print(f"Partial failures: {outcome.counts.partial_failure}")
+    print(f"Failed: {outcome.counts.failed}")
+    print(f"Errors: {outcome.counts.error}")
+    print(f"Reused steps: {outcome.counts.reused_steps}")
+    print(f"Executed steps: {outcome.counts.executed_steps}")
+    print(f"Quality findings: {outcome.counts.findings}")
+    print(f"Status: {outcome.run.status.value}")
+    if outcome.run.status is EbookCollectionRunStatus.COMPLETED:
+        return 0
+    if outcome.run.status is EbookCollectionRunStatus.COMPLETED_WITH_FAILURES:
+        return 1
+    if outcome.run.status is EbookCollectionRunStatus.INTERRUPTED:
+        return 3
+    return 2
+
+
+def _ebook_analysis_orchestrator(
+    engine: Engine,
+    runtime: ToolRuntime,
+    args: argparse.Namespace,
+) -> EbookAnalysisOrchestrator:
+    reuse = EbookAnalysisReuseService(engine, runtime)
+    metadata_analyzer = CalibreMetadataAnalyzer(
+        engine,
+        runtime,
+        executable=args.ebook_meta_executable,
+    )
+    text_analyzer = CalibreTextAnalyzer(
+        engine,
+        runtime,
+        executable=args.ebook_convert_executable,
+    )
+    cover_analyzer = CalibreCoverAnalyzer(
+        engine,
+        runtime,
+        executable=args.calibre_debug_executable,
+    )
+    validation_analyzer = EpubCheckAnalyzer(
+        engine,
+        runtime,
+        java_executable=args.java_executable,
+        epubcheck_jar=args.epubcheck_jar,
+    )
+    pdf_analyzer = PopplerPdfAnalyzer(
+        engine,
+        runtime,
+        pdfinfo_executable=args.pdfinfo_executable,
+        pdftotext_executable=args.pdftotext_executable,
+    )
+    return EbookAnalysisOrchestrator(
+        EbookAnalysisTools(
+            metadata=metadata_analyzer.analyze,
+            text=text_analyzer.analyze,
+            cover=cover_analyzer.analyze,
+            validation=validation_analyzer.analyze,
+            pdf=pdf_analyzer.analyze,
+            metadata_reuse=lambda _root, current: reuse.metadata(
+                metadata_analyzer.reuse_request(current),
+                current,
+            ),
+            text_reuse=lambda _root, current: reuse.text(
+                text_analyzer.reuse_request(current),
+                current,
+            ),
+            cover_reuse=lambda _root, current: reuse.cover(
+                cover_analyzer.reuse_request(current),
+                current,
+            ),
+            validation_reuse=lambda _root, current: reuse.validation(
+                validation_analyzer.reuse_request(current),
+                current,
+            ),
+            pdf_reuse=lambda _root, current: reuse.pdf(
+                pdf_analyzer.reuse_requests(current),
+                current,
+            ),
+        )
+    )
+
+
+def _validate_collection_storage_paths(
+    source_root: Path,
+    database: Path,
+    artifact_root: Path,
+    work_root: Path,
+) -> None:
+    source = source_root.resolve()
+    for destination in (database, artifact_root, work_root):
+        if destination.resolve().is_relative_to(source):
+            raise ValueError("database, artifact, and work paths must be outside source root")
 
 
 def _run_ebook_compare(args: argparse.Namespace) -> int:

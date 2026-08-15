@@ -16,6 +16,8 @@ from foliotone.core import (
     CatalogDesignation,
     ClassificationAssertion,
     Contribution,
+    EbookCollectionItem,
+    EbookCollectionRun,
     Edition,
     EntityId,
     Evidence,
@@ -40,7 +42,7 @@ from foliotone.core import (
     ValueAssertion,
     Work,
 )
-from foliotone.persistence import schema, w2_schema
+from foliotone.persistence import schema, w2_schema, w3_schema
 from foliotone.persistence._mapping import (
     datetime_to_db,
     provenance_from_row,
@@ -154,6 +156,8 @@ _MODEL_TABLES: dict[type[Any], Table] = {
     Fingerprint: schema.fingerprints,
     Relation: schema.relations,
     Evidence: schema.evidence,
+    EbookCollectionRun: w3_schema.ebook_collection_runs,
+    EbookCollectionItem: w3_schema.ebook_collection_items,
 }
 
 

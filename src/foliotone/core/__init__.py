@@ -1,11 +1,19 @@
 """Shared domain models and core contracts."""
 
 from foliotone.core.authority_models import Agent, AgentName, Contribution, ExternalIdentifier
+from foliotone.core.collection_models import (
+    EBOOK_COLLECTION_FORMATS,
+    MAX_EBOOK_COLLECTION_WORKERS,
+    EbookCollectionItem,
+    EbookCollectionRun,
+)
 from foliotone.core.common import Provenance, ValueAssertion
 from foliotone.core.ebook_models import Edition, Series, SeriesMembership, Work
 from foliotone.core.enums import (
     AgentNameType,
     AgentType,
+    EbookCollectionItemStatus,
+    EbookCollectionRunStatus,
     EntityKind,
     FileChangeState,
     MatchStatus,
@@ -42,6 +50,12 @@ __all__ = [
     "ClassificationAssertion",
     "Contribution",
     "Edition",
+    "EBOOK_COLLECTION_FORMATS",
+    "MAX_EBOOK_COLLECTION_WORKERS",
+    "EbookCollectionItem",
+    "EbookCollectionItemStatus",
+    "EbookCollectionRun",
+    "EbookCollectionRunStatus",
     "EntityId",
     "EntityKind",
     "Evidence",

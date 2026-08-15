@@ -57,8 +57,10 @@ Zugriff, rohe Werte, Relation oder Identitätsurteil. Auf Benutzerentscheidung
 bleibt die Entwicklung zunächst bei E-Books. `W3-014` ergänzt einen
 synthetischen Multi-Format-/Sparse-/Malformed-Korpus und ersetzt
 collection-weite Vergleichsreads durch begrenzte, indexgestützte Evidence-
-Abfragen. Als Nächstes folgt die fortsetzbare Collection-Batch-Analyse; die
-Music-Toolchain bleibt zurückgestellt.
+Abfragen. `W3-015` ergänzt den fortsetzbaren CLI-Collection-Batch über einen
+stabilen abgeschlossenen Scan-Snapshot, begrenzte Worker, per-File-
+Fehlerfortsetzung und exakte Evidence-Wiederverwendung. Als Nächstes folgen
+lokale Sammlungsberichte; die Music-Toolchain bleibt zurückgestellt.
 
 W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 
@@ -96,6 +98,9 @@ Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
   und Cover, ausdrücklich ohne Match- oder Identitätsentscheidung;
 - begrenzte, indexgestützte Observation-Evidence-Abfragen mit festen
   Historiengrenzen statt collection-weiter Vorabladung;
+- `ebook-collection-analysis/v1` und CLI `ebook-collection-analyze` mit
+  persistentem Plan, Lease, kontrollierter Teil-Invocation und Resume ohne
+  erneute Planung abgeschlossener Items;
 - rohe OPF-Beobachtungen und versionierte, gruppierte Kandidaten für ISBN und
   andere Identifier, Contributors/Rollen/Sortiernamen, Sprache, Verlag,
   Publikationsdatum, Serie und weitere Felder;
@@ -209,7 +214,7 @@ Tool orchestration
 Persistence
   Repository[T] / SQLiteRepository[T]
   SQLAlchemy Core
-  Alembic 0001_initial through 0006_ebook_evidence_lookup_indexes
+  Alembic 0001_initial through 0007_ebook_collection_batches
 ```
 
 ## Repository-Dokumentation
