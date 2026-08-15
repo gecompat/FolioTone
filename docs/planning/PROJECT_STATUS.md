@@ -486,6 +486,12 @@ Der vollständige W3-008-Stand bestand anschließend mit Python 3.12.10 lokal
 `ruff check .`, Mypy für 66 Source-Dateien und alle 175 Pytest-Tests in
 9 Minuten 23 Sekunden.
 
+**Remote für W3-008:** Der Implementierungscommit
+`e80b1d9cba28e2d883daaa2627b4fc0ef795d11c` von PR #18 bestand die durch Push
+und Pull Request ausgelösten GitHub-Actions-Runs `31866746326` und
+`31866764769`. Beide `quality`-Jobs waren nach 58 beziehungsweise 50 Sekunden
+erfolgreich.
+
 ## W3-Stand und nächster Schritt
 
 In W2 verbleibt kein offener Backlog-Eintrag. `W3-001` bis `W3-008` sind

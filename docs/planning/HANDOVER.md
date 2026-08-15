@@ -201,6 +201,10 @@ fehlerfrei.
 Der vollständige W3-008-Stand bestand mit Python 3.12.10 lokal `ruff check .`,
 Mypy für 66 Source-Dateien und alle 175 Pytest-Tests in 9 Minuten 23 Sekunden.
 
+Der Implementierungscommit `e80b1d9cba28e2d883daaa2627b4fc0ef795d11c`
+von PR #18 bestand die GitHub-Actions-Runs `31866746326` und `31866764769`;
+beide `quality`-Jobs waren nach 58 beziehungsweise 50 Sekunden erfolgreich.
+
 Calibres dokumentiertes `calibre-debug --diff` startet ein GUI-Modul ohne
 headless JSON-/Reportvertrag und wurde deshalb nicht adaptiert. Ein späterer
 provider-neutraler Book-Diff soll persistierte Datei-, Text-, Metadaten-,
