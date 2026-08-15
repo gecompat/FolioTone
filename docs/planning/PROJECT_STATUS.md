@@ -4,7 +4,7 @@ Stand: 2026-08-15
 
 ## Aktuelle Welle
 
-**W3 E-Book-Vertiefung aktiv — versioniertes Qualitätsprofil implementiert; provider-neutraler Vergleich als Nächstes**
+**W3 E-Book-Vertiefung aktiv — provider-neutraler Evidence-Vergleich implementiert; Edge- und Performance-Korpus als Nächstes**
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
@@ -29,9 +29,11 @@ formatbewussten CLI-Workflow `ebook-analyze` mit getrennten Schritt- und
 Gesamtzuständen. `W3-011` ergänzt exakte, integritätsgeprüfte Evidence-
 Wiederverwendung, gezielten Schritt-Retry und `--fresh`. `W3-012` ergänzt die
 separate, mehrdimensionale Projektion `ebook-quality/v1` mit festen
-Befundcodes. Auf Benutzerentscheidung bleibt die aktive Entwicklung bei
-E-Books; `W3-013` ist `NEXT`, die Music-Welle W4 bleibt geplant und
-zurückgestellt.
+Befundcodes. `W3-013` ergänzt `ebook-comparison/v1` und den read-only CLI-
+Paarvergleich persistierter Datei-, Text-, Metadaten-, Struktur- und Cover-
+Evidence ohne Relation oder Identitätsurteil. Auf Benutzerentscheidung bleibt
+die aktive Entwicklung bei E-Books; `W3-014` ist `NEXT`, die Music-Welle W4
+bleibt geplant und zurückgestellt.
 
 ## Implementierter W2-Slice
 
@@ -711,21 +713,44 @@ hat SHA-256
 `a02e033db35e6e2acfe0d374961597e257e3070198bb3f503854425a17a95457` und
 enthält das neue Workflow-Modul `quality.py`.
 
+**Empirisch für W3-013:** Der vorhandene vollständig synthetische Korpus prüft
+exakte Dateikopien, reine Metadatenänderung, EPUB/MOBI-Formatvariante,
+Übersetzung, Cover-dHash-Distanz, EPUB-Strukturunterschiede und gleichzeitig
+erhaltene Provider-Disagreement-Evidence. Ein neuerer fehlgeschlagener
+Textprovider-Lauf macht ältere Text-Evidence korrekt `INDETERMINATE`. Die fünf
+gezielten Vergleichs-/CLI-/Bootstrap-Tests waren erfolgreich; Ruff und Mypy
+für 75 Source-Dateien waren ebenfalls erfolgreich. Der vollständige Stand
+bestand alle 225 Pytest-Tests in 13 Minuten 27 Sekunden.
+
+Der echte CLI-Smoke unter `C:\rep\tmp\FolioTone\w3-013-smoke-01` verwendete
+zwei bytegleiche Kopien einer ausschließlich synthetischen EPUB. Acht
+ToolExecutions analysierten beide Beobachtungen erfolgreich. `ebook-compare`
+meldete `COMPLETE` und in allen fünf Dimensionen `SAME`; ein von calibre pro
+Extraktion neu erzeugter interner `identifier.calibre` wurde nach empirischer
+Gegenprüfung nicht als bibliografischer Unterschied verwendet. Beide Source-
+SHA-256 blieben
+`41070cdea56904647215b069f15af3f6e46d6d94b81795974e247a337464b6ea`, der
+Work-Ordner blieb leer und die Relation-Tabelle enthielt null Datensätze.
+
+Das Wheel
+`C:\rep\artifacts\FolioTone\w3-013-wheel-01\foliotone-0.1.0-py3-none-any.whl`
+hat SHA-256
+`985e84dbf06e8bcad2e23468af3cd096a6ef9c0469300ae357a016854da669fe` und
+enthält `foliotone/workflows/comparison.py`.
+
 ## Aktiver W3-Stand und nächster Schritt
 
-W2 ist abgeschlossen; `W3-001` bis `W3-012` sind abgeschlossen. W3-012 stellt
-`ebook-analysis-workflow/v3` und die separate Projektion `ebook-quality/v1`
-bereit. Die fünf Dimensionen `METADATA`, `TEXT`, `COVER`, `STRUCTURE` und
-`FORMAT_RISK` unterscheiden technische Unvollständigkeit von Review- und
-Maßnahmenbefunden, verwenden feste Codes und behalten die exakte verfügbare
-ToolExecution-Provenance. Es gibt keinen skalaren Score und keine
-Identitätsableitung.
+W2 ist abgeschlossen; `W3-001` bis `W3-013` sind abgeschlossen. W3-013 stellt
+`ebook-comparison/v1` und CLI `ebook-compare` bereit. Der Paarvergleich trennt
+Dimensionszustand und Evidence-Coverage, verwendet ausschließlich persistierte
+Evidence, öffnet keine Source Media, unterdrückt rohe Werte und erzeugt keine
+Relation, Confidence oder Identitätsableitung.
 
-`W3-013` ist `NEXT`: Der provider-neutrale Book-Diff soll persistierte Datei-,
-Text-, Metadaten-, Struktur- und Cover-Evidence vergleichen. Danach folgen die
-Erweiterung des synthetischen Korpus, resumierbare Batch-Orchestrierung und
-lokale Sammlungsberichte. Music W4 bleibt geplant, aber bis zur E-Book-Reife
-zurückgestellt. Die Produktoberfläche bleibt ausschließlich die CLI.
+`W3-014` ist `NEXT`: Der synthetische Korpus soll um Malformed-, Sparse-,
+Multi-Format-, Cover-Distanz- und Performance-Fälle erweitert werden. Danach
+folgen resumierbare Batch-Orchestrierung und lokale Sammlungsberichte. Music W4
+bleibt geplant, aber bis zur E-Book-Reife zurückgestellt. Die
+Produktoberfläche bleibt ausschließlich die CLI.
 
 ## Nicht implementiert
 
@@ -738,8 +763,8 @@ Noch nicht vorhanden sind unter anderem:
 - externe Knowledge Provider und Provider Cache;
 - Classification Engine;
 - Matching Engine;
-- automatisierter provider-neutraler Book-Diff, Collection-Batch-Analyse,
-  Sammlungsreports und zusätzliche qpdf-Struktur-Evidence;
+- Collection-Batch-Analyse, Sammlungsreports und zusätzliche qpdf-Struktur-
+  Evidence;
 - Review System;
 - Consolidation Planning und Execution;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.

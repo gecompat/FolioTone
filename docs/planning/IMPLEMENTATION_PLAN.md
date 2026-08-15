@@ -168,6 +168,11 @@ Implemented sequence and decisions through `W3-010`:
     separate dimensions with stable finding codes and exact available
     ToolExecution provenance. Keep `INCOMPLETE` evidence separate from media
     findings, omit a scalar score and retain the technical CLI exit semantics.
+13. add the read-only `ebook-comparison/v1` projection and `ebook-compare` CLI
+    over persisted full-file, normalized-text, metadata-candidate, EPUB-
+    structure and embedded-cover Evidence. Keep dimension state separate from
+    coverage, retain exact Evidence and ToolExecution provenance, suppress raw
+    values and paths, and produce no Relation, confidence or identity verdict.
 
 Current execution priority is intentionally e-book-first. Music W4 remains in
 the architecture and backlog but is deferred until the e-book completion track

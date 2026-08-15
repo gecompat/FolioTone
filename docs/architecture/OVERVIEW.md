@@ -178,6 +178,17 @@ file, `Edition` or `Work` identity. Because the projection uses existing
 Evidence, changing its rules requires a new quality-profile version but no
 automatic tool rerun.
 
+The twelfth W3 vertical slice adds the read-only `ebook-comparison/v1`
+projection and CLI command `foliotone ebook-compare`. It loads two exact
+FileObservations and their persisted full-file, normalized-text, metadata-
+candidate, EPUB-structure and embedded-cover Evidence without opening Source
+Media or invoking another tool. Each dimension reports comparison state and
+Evidence coverage independently, retains bounded Evidence and ToolExecution
+provenance and emits only safe field or diagnostic keys. Compatible cover
+dHash values expose their raw Hamming distance without applying a similarity
+threshold. The projection explicitly writes no Relation, confidence, review
+decision or identity verdict; those contracts remain later Matching work.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.

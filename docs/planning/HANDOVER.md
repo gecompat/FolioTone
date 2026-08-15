@@ -26,9 +26,11 @@ EPUB/MOBI/AZW/AZW3-Embedded-Cover-Extraktion, explizites
 den formatbewussten, einheitlichen CLI-Workflow `ebook-analyze`. `W3-011`
 ergänzt dessen konservative exakte Evidence-Wiederverwendung, gezielten
 Schritt-Retry und `--fresh`. `W3-012` ergänzt das separate versionierte
-E-Book-Qualitätsprofil mit fünf Dimensionen und festen Befundcodes. Auf
-Benutzerentscheidung bleibt die Entwicklung bis zur Reife der E-Book-Pipeline
-bei E-Books; `W3-013` ist als Nächstes vorgesehen, Music W4 ist zurückgestellt.
+E-Book-Qualitätsprofil mit fünf Dimensionen und festen Befundcodes.
+`W3-013` ergänzt den provider-neutralen read-only Evidence-Paarvergleich ohne
+Relation oder Identitätsurteil. Auf Benutzerentscheidung bleibt die
+Entwicklung bis zur Reife der E-Book-Pipeline bei E-Books; `W3-014` ist als
+Nächstes vorgesehen, Music W4 ist zurückgestellt.
 
 ## Vor Änderungen lesen
 
@@ -535,6 +537,44 @@ hat SHA-256
 `a02e033db35e6e2acfe0d374961597e257e3070198bb3f503854425a17a95457` und
 enthält `foliotone/workflows/quality.py`.
 
+### Provider-neutraler E-Book-Evidence-Vergleich
+
+- `EbookComparisonService`, Profil `ebook-comparison/v1` und CLI
+  `foliotone ebook-compare`;
+- ausschließlich persistierte Evidence zweier expliziter FileObservation-IDs,
+  ohne Source Root, Medienzugriff oder neuen Toollauf;
+- stabil geordnete Dimensionen `FILE_BYTES`, `NORMALIZED_TEXT`, `METADATA`,
+  `STRUCTURE` und `COVER`;
+- getrennte Dimension States und Evidence-Coverage statt Matchscore oder
+  Identitätsentscheidung;
+- vollständige Datei-SHA-256 und kompatible versionierte Text-/Cover-
+  Fingerprints; `QUICK_FILE` genügt nicht für Bytegleichheit;
+- Metadatenvergleich über provider-neutrale Feldkandidaten, mit Feldpfaden und
+  Counts statt rohen Werten;
+- Ausschluss des empirisch volatilen internen `identifier.calibre` aus dem
+  bibliografischen Vergleich bei unveränderter Raw-Evidence;
+- EPUB-Strukturvergleich über Konformität, Severity-Counts und Diagnostic-
+  Codes; Cover-dHash-Distanz ohne Ähnlichkeitsschwelle;
+- neueste Ausführung je Provider/Capability; ein neuerer fehlgeschlagener Lauf
+  verhindert die Verwendung älterer Evidence desselben Providers;
+- keine persistierte `Relation`, Confidence, Review-Entscheidung oder
+  kanonische Metadaten.
+
+**Empirisch für W3-013:** Die fünf gezielten Korpus-, CLI- und Bootstrap-Tests
+waren erfolgreich; Ruff und Mypy für 75 Source-Dateien waren ebenfalls
+erfolgreich. Der vollständige Stand bestand alle 225 Pytest-Tests in
+13 Minuten 27 Sekunden. Der echte CLI-Smoke unter
+`C:\rep\tmp\FolioTone\w3-013-smoke-01` analysierte zwei bytegleiche
+synthetische EPUB-Kopien in insgesamt acht erfolgreichen ToolExecutions.
+`ebook-compare` meldete `COMPLETE` und fünfmal `SAME`. Beide Source-SHA-256
+blieben
+`41070cdea56904647215b069f15af3f6e46d6d94b81795974e247a337464b6ea`, der
+Work-Ordner blieb leer und es wurde keine Relation persistiert. Das Wheel unter
+`C:\rep\artifacts\FolioTone\w3-013-wheel-01\foliotone-0.1.0-py3-none-any.whl`
+hat SHA-256
+`985e84dbf06e8bcad2e23468af3cd096a6ef9c0469300ae357a016854da669fe` und
+enthält `foliotone/workflows/comparison.py`.
+
 ### Persistence
 
 - Alembic `0002_incremental_index` ergänzt Scan-Events, Tool-Artefakte und W2-Indizes;
@@ -548,13 +588,11 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-013` — den provider-neutralen Book-Diff über persistierte Datei-, Text-,
-   Metadaten-, Struktur- und Cover-Evidence implementieren.
-2. `W3-014` — synthetische Malformed-, Sparse-, Multi-Format-, Distanz- und
+1. `W3-014` — synthetische Malformed-, Sparse-, Multi-Format-, Distanz- und
    Performance-Fälle ergänzen und Grenzen kalibrieren.
-3. `W3-015` und `W3-016` — resumierbare Collection-Batch-Analyse und
+2. `W3-015` und `W3-016` — resumierbare Collection-Batch-Analyse und
    nachvollziehbare lokale CLI-Sammlungsberichte aufbauen.
-4. `W3-017` — die echte Sammlung unter `Z:\NAS\E-Book` zuerst als read-only
+3. `W3-017` — die echte Sammlung unter `Z:\NAS\E-Book` zuerst als read-only
    Pilot und anschließend vollständig analysieren, sobald die Quelle für den
    Codex-Prozess sichtbar ist. Am 2026-08-15 war weder das Laufwerk `Z:` noch
    eine dazugehörige SMB-Zuordnung im Prozesskontext verfügbar.
