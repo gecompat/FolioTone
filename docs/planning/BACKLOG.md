@@ -64,12 +64,20 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W3-007 | DONE | Add a versioned synthetic comparison corpus covering identical file, changed metadata, same Edition, different Edition/translation and provenance-preserving tool disagreement without implementing matching. |
 | W3-008 | DONE | Implement fixed read-only EPUBCheck 5.3.0 JSON validation with bounded conformance/severity/diagnostic Evidence and provider-accepted exit-code semantics; retain the private raw report and defer calibre's GUI-only book diff plus qpdf until a machine-readable comparison/structural gap exists. |
 | W3-009 | DONE | Implement optional embedded-cover Evidence for EPUB/MOBI/AZW/AZW3: fixed `calibre-debug -e` helper with private source staging and rendered-cover suppression, explicit `NO_EMBEDDED_COVER`, bounded private raster artifact, Pillow-backed image guards and a versioned FolioTone `EBOOK_COVER_DHASH`; do not treat visual similarity as identity proof. |
+| W3-010 | DONE | Implement unified CLI-only `ebook-analyze` orchestration: route EPUB to metadata/text/cover/EPUBCheck, MOBI/AZW/AZW3 to metadata/text/cover and PDF to Poppler; keep fresh ToolExecutions, bounded summaries, independent step continuation and explicit `SUCCEEDED`/`PARTIAL_FAILURE`/`FAILED` aggregate semantics. |
+| W3-011 | NEXT | Add conservative step planning for `ebook-analyze`: reuse only exact successful evidence when provider/tool/adapter/input/config versions and required artifact integrity still match; retry missing/failed/stale steps and provide an explicit fresh-run override. |
+| W3-012 | PLANNED | Implement a versioned e-book quality Evidence profile, separate from identity, covering structural conformance, metadata completeness, readable text, cover presence and format-specific risk indicators. |
+| W3-013 | PLANNED | Implement provider-neutral e-book comparison over persisted file, text, metadata, structure and cover Evidence; do not depend on calibre's GUI-only diff and do not turn similarity into canonical identity. |
+| W3-014 | PLANNED | Expand the fully synthetic e-book corpus with malformed, sparse, multi-format and visual-distance cases; calibrate bounded behavior and performance without using private media. |
 
 ## W4 — Music Analysis / Tool Orchestration
 
+These items remain planned but are deliberately deferred while the user-directed
+e-book completion track and the book-only slices of W5 through W8 are active.
+
 | ID | Status | Item |
 |---|---|---|
-| W4-001 | NEXT | Evaluate current ffprobe, Chromaprint/fpcalc, beets, SongKong and Picard interfaces/licensing; define which capabilities are reused vs. FolioTone-native. |
+| W4-001 | PLANNED | Evaluate current ffprobe, Chromaprint/fpcalc, beets, SongKong and Picard interfaces/licensing; define which capabilities are reused vs. FolioTone-native. |
 | W4-002 | PLANNED | Implement `ffprobe` ToolProvider for machine-readable technical audio/container observations and probe/integrity failures. |
 | W4-003 | PLANNED | Implement Chromaprint/`fpcalc` ToolProvider behind `AudioFingerprintProvider`; persist algorithm/tool version and fingerprint provenance. |
 | W4-004 | PLANNED | Implement a read-only beets analysis adapter for useful matching/duplicate/completeness evidence without file/library mutation. |

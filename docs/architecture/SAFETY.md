@@ -97,4 +97,13 @@ the staged Source SHA-256 after execution. The optional raster is limited to
 40-megapixel and Decompression-Bomb boundary. The CLI emits only status, format,
 dimensions and the versioned dHash, never the raw cover or an absolute path.
 
+The unified `ebook-analyze` workflow does not add a generic command surface.
+It can only select the existing fixed calibre, EPUBCheck and Poppler adapters
+for the explicit EPUB/MOBI/AZW/AZW3/PDF allowlist. Adapter configuration is
+preflighted before source analysis. Expected failure in one independent step
+does not hide or relabel later Evidence, while the aggregate CLI result remains
+non-zero unless every applicable technical step succeeds. Its bounded summary
+excludes raw metadata, text, cover bytes, validation messages, artifact paths
+and absolute source paths.
+
 Imported/local provider datasets and external tool reports derived from a private collection must also stay out of Git unless a future explicit decision establishes that a specific redistributable artifact belongs in the repository.

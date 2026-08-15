@@ -124,7 +124,7 @@ Do **not** start by writing EPUB/PDF/MOBI parsers from scratch.
 
 First evaluate maintained specialist capabilities, especially calibre CLI, plus targeted format validators/tools where appropriate. Document reuse/rejection decisions with current maintenance/licensing/security information.
 
-Implemented sequence and decisions through `W3-009`:
+Implemented sequence and decisions through `W3-010`:
 
 1. calibre `ebook-meta` as a fixed read-only metadata extraction vertical slice;
 2. fixed calibre `ebook-convert` EPUB text plus a FolioTone-owned fingerprint;
@@ -148,6 +148,17 @@ Implemented sequence and decisions through `W3-009`:
    `calibre-debug -e` helper that stages source privately, disables rendered
    EPUB fallback covers and distinguishes `NO_EMBEDDED_COVER`; use bounded
    Pillow decoding and a FolioTone-owned, versioned 64-bit horizontal dHash.
+10. add `ebook-analysis-workflow/v1` and the unified CLI command
+    `foliotone ebook-analyze`: route EPUB through metadata, text, cover and
+    structural validation; route MOBI/AZW/AZW3 through metadata, text and
+    cover; route PDF through both Poppler executions. Continue independent
+    steps after expected adapter/tool failures, emit only bounded summary
+    facts and return explicit aggregate failure semantics.
+
+Current execution priority is intentionally e-book-first. Music W4 remains in
+the architecture and backlog but is deferred until the e-book completion track
+and the book-only portions of authority resolution, matching, review and
+Calibre-library reconciliation have reached a mature end-to-end state.
 
 Separate raw tool/analyzer observations, normalized/derived assertions and canonical domain entities.
 
