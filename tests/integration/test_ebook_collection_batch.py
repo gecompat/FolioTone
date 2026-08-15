@@ -188,6 +188,67 @@ def test_large_plan_uses_one_streamed_select_and_bounded_insert_batches(
     assert insert_sizes == [500, 500, 201]
 
 
+def test_collection_plan_per_format_is_bounded_and_deterministic(
+    tmp_path: Path,
+) -> None:
+    engine, root, observations = _environment(
+        tmp_path,
+        (
+            "epub/z.epub",
+            "epub/a.epub",
+            "pdf/z.pdf",
+            "pdf/a.pdf",
+            "kindle/book.azw3",
+            "legacy/z.mobi",
+            "legacy/a.mobi",
+            "ignored/readme.txt",
+        ),
+    )
+
+    created = SQLiteEbookCollectionStore(engine).create_run(
+        root.id,
+        profile="ebook-collection-analysis/v1",
+        analysis_profile=EBOOK_ANALYSIS_PROFILE,
+        fresh=False,
+        worker_count=1,
+        started_at=NOW,
+        lease_token="format-plan",
+        lease_expires_at=NOW + timedelta(minutes=30),
+        plan_per_format=1,
+    )
+
+    items = sorted(
+        repository(engine, EbookCollectionItem).list_all(),
+        key=lambda item: item.ordinal,
+    )
+    assert created.planned_count == 4
+    assert [item.format_name for item in items] == ["AZW3", "EPUB", "MOBI", "PDF"]
+    assert [item.observation_id for item in items] == [
+        observations["kindle/book.azw3"].id,
+        observations["epub/a.epub"].id,
+        observations["legacy/a.mobi"].id,
+        observations["pdf/a.pdf"].id,
+    ]
+
+
+def test_collection_plan_limits_are_mutually_exclusive(tmp_path: Path) -> None:
+    engine, root, _observations = _environment(tmp_path, ("book.epub",))
+
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        SQLiteEbookCollectionStore(engine).create_run(
+            root.id,
+            profile="ebook-collection-analysis/v1",
+            analysis_profile=EBOOK_ANALYSIS_PROFILE,
+            fresh=False,
+            worker_count=1,
+            started_at=NOW,
+            lease_token="invalid-plan",
+            lease_expires_at=NOW + timedelta(minutes=30),
+            plan_limit=1,
+            plan_per_format=1,
+        )
+
+
 def test_collection_continues_after_private_per_file_exception(tmp_path: Path) -> None:
     engine, root, observations = _environment(
         tmp_path,

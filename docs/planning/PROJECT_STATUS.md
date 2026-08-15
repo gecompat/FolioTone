@@ -4,7 +4,7 @@ Stand: 2026-08-15
 
 ## Aktuelle Welle
 
-**W3 E-Book-Vertiefung aktiv — deterministische private Collection-Berichte implementiert; read-only Sammlungspilot als Nächstes**
+**W3 E-Book-Vertiefung aktiv — reale read-only Collection-Härtung und selektive Duplikatbestätigung in Arbeit**
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
@@ -38,7 +38,10 @@ ergänzt einen fortsetzbaren Collection Batch mit persistentem Snapshot-Plan,
 Lease, begrenzten Workern und per-File-Fehlerfortsetzung. `W3-016` ergänzt
 deterministische private JSON-/CSV-Sammlungsberichte, persistierte
 Befundprovenance und begrenzte Duplicate-/Varianten-Review-Kandidaten.
-`W3-017` ist `NEXT`; die Music-Welle W4 bleibt geplant und zurückgestellt.
+`W3-017` ist `IN PROGRESS`: inkrementelle Scan-/Hash-Persistenz wurde aus dem
+realen Pilot gehärtet, heterogene Pilotpläne und selektives vollständiges
+Hashing von Quick-Duplikatkandidaten sind implementiert. Die Music-Welle W4
+bleibt geplant und zurückgestellt.
 
 ## Implementierter W2-Slice
 
@@ -864,10 +867,21 @@ Item-Ausführungs-/Befundprovenance und Alembic
 Kandidatendaten, halten nur begrenzte Detailmengen und weisen vollständige
 Gesamtzahlen sowie Kürzungen aus.
 
-`W3-017` ist `NEXT`: Die bestätigte lokale E-Book-Sammlung wird zuerst in
-einem read-only Pilotlauf und danach vollständig analysiert und berichtet.
-Music W4 bleibt geplant, aber bis zur E-Book-Reife zurückgestellt. Die
-Produktoberfläche bleibt ausschließlich die CLI.
+`W3-017` ist `IN PROGRESS`: Der reale read-only Vierformat-Pilot ist technisch
+erfolgreich. Normale Wiederholungen verwenden exakte Evidence, ohne externe
+Analyzer erneut zu starten. Der reale Collection-Pilot deckte dabei einen
+collection-weiten `Fingerprint.list_all()`-Engpass im Reuse-Lesepfad auf; der
+Lookup ist nun observation-spezifisch, begrenzt und indexgestützt.
+`--plan-per-format` erzeugt begrenzte heterogene
+Collection-Pläne; `ebook-hash-candidates` bestätigt nur mehrfach belegte
+Quick-Gruppen mit vollständigem SHA-256 und ist durch denselben Aufruf
+fortsetzbar. `ebook-inventory-report/v1` erzeugt aus einem abgeschlossenen Scan
+bereits ohne Tiefenanalyse vollständige Format-/Byte-Summen, Hash-Abdeckung,
+offene Quick-Kandidaten und begrenzte Exact-Duplicate-Details als
+deterministische private Artefakte. Der vollständige private Inventar-/
+Collection-Lauf und Bericht werden noch abgeschlossen. Music W4 bleibt bis zur
+E-Book-Reife
+zurückgestellt. Die Produktoberfläche bleibt ausschließlich die CLI.
 
 ## Nicht implementiert
 

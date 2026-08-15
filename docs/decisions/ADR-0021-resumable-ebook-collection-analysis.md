@@ -26,10 +26,15 @@ EPUB/MOBI/AZW/AZW3/PDF-Beobachtungen dieses Scans, deren aktueller
 `FileRecord` weiterhin `PRESENT` ist und bei relativem Pfad, Größe und
 Änderungszeitpunkt exakt mit der Beobachtung übereinstimmt.
 
-Die Planung liest den Snapshot einmal in stabiler Pfad-/ID-Reihenfolge und
-übernimmt ihn mit `fetchmany(500)` in begrenzten Schreibbatches. `--plan-limit`
-kann für einen deterministischen Pilotlauf den neuen Plan begrenzen. Nach der
-Anlage bleibt der Plan unverändert; ein Resume plant nicht erneut.
+Die vollständige Planung liest den Snapshot einmal in stabiler
+Pfad-/ID-Reihenfolge und übernimmt ihn mit `fetchmany(500)` in begrenzten
+Schreibbatches. `--plan-limit` kann einen deterministischen Pilotlauf global
+begrenzen. `--plan-per-format` plant alternativ höchstens die angegebene Zahl
+je vorhandenem EPUB/MOBI/AZW/AZW3/PDF-Format und verhindert dadurch, dass ein
+kleiner heterogener Pilot nur vom alphabetisch dominierenden Format belegt
+wird. Beide Begrenzungen sind gegenseitig exklusiv. Nach der Anlage bleibt der
+Plan unverändert; ein Resume plant nicht erneut und kann die Planstrategie
+nicht ändern.
 
 Alembic `0007_ebook_collection_batches` führt zwei Tabellen ein:
 
@@ -78,6 +83,8 @@ verschoben, umbenannt oder gelöscht.
 
 - Ein unterbrochener oder zeitlich begrenzter Lauf kann ohne neuen Snapshot und
   ohne Wiederholung abgeschlossener Items fortgesetzt werden.
+- Kleine reale Piloten können alle vorhandenen unterstützten Formate begrenzt
+  abdecken, ohne eine collection-weite Python-Liste aufzubauen.
 - Änderungen zwischen Planung und Analyse werden nicht stillschweigend
   übernommen; die exakte Observation-Prüfung erzeugt stattdessen einen
   begrenzten per-File-Fehler.

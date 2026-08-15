@@ -25,7 +25,28 @@ Die CLI stellt dafür `foliotone scan --resume-run <ScanRunId>` bereit. Ohne die
 
 Resume führt die Filesystem Discovery erneut vollständig und streaming-basiert aus. Es wird kein persistenter `os.scandir`-Cursor verwendet.
 
-Bereits vor dem Interrupt erfolgreich verarbeitete Dateien haben ihren aktuellen `FileRecord` und gegebenenfalls Fingerprints bereits persistent gespeichert. Wenn dieselben Dateien beim Resume unverändert beobachtet werden, klassifiziert der bestehende Incremental-Vergleich sie als `UNCHANGED`. Der Hashing-Schritt verarbeitet `UNCHANGED` nicht erneut. Dadurch werden bereits berechnete Fingerprints nicht noch einmal erzeugt.
+Bereits vor dem Interrupt erfolgreich verarbeitete Dateien haben ihren aktuellen
+`FileRecord` und gegebenenfalls Fingerprints bereits persistent gespeichert.
+Wenn dieselben Dateien beim Resume unverändert beobachtet werden, klassifiziert
+der bestehende Incremental-Vergleich sie als `UNCHANGED`. FolioTone öffnet diese
+Quelldateien nicht erneut, sondern projiziert die vollständigen versionierten
+Hashwerte der jeweils jüngsten vorherigen `FileObservation` auf die neue
+Observation. Ein älterer Hash darf nicht über eine jüngere unvollständige
+Observation hinweg wiederverwendet werden. Fehlt der erforderliche Hash gerade
+in der jüngsten Observation, wird ausschließlich dieses unvollständige Objekt
+nachgehasht.
+
+Berechnung und Persistenz bleiben begrenzt: Die CLI verwendet standardmäßig
+einen Hash-Worker und kann ausdrücklich mit `--hash-workers 1..8` begrenzt
+parallelisiert werden. Alle Fingerprints eines Discovery-Batches werden erst
+nach der Berechnungsphase gemeinsam in einer Transaktion gespeichert. Ein
+interner Abbruch hinterlässt deshalb keine neue partielle Fingerprintmenge. Ein
+Discovery-Batch persistiert außerdem seine `FileRecord`-, `FileObservation`-
+und `FileEvent`-Änderungen set-orientiert in einer Store-Transaktion. Ein
+objektspezifischer `OSError` bleibt dagegen auf das betroffene Objekt begrenzt:
+Der vollständige Discovery-Run kann beendet werden, die CLI meldet eine
+Teilfehlermenge und ein Folgescan versucht nur die fehlende jüngste Hash-
+Evidence erneut.
 
 Dateien, die vor dem Interrupt noch nicht erreicht wurden, werden beim Resume entsprechend ihrem realen aktuellen Zustand normal verarbeitet. Auf diese Weise entsteht ein vollständiger neuer erfolgreicher Scan, ohne den alten partiellen Run inhaltlich umzuschreiben.
 
@@ -50,6 +71,11 @@ Der Resume-Run besitzt eine eigene ID, eigene Zeitstempel, eigene `FileObservati
 - einzelne Scanversuche bleiben unveränderlich nachvollziehbar;
 - ein Resume benötigt keinen nicht-portablen Directory-Cursor;
 - Discovery-I/O wird erneut durchgeführt, teures Rehashing unveränderter bereits verarbeiteter Dateien wird jedoch vermieden;
+- die aktuelle Observation erhält wiederverwendete Hash-Evidence, ohne die Source erneut zu öffnen;
+- nur fehlende jüngste Hash-Evidence wird gezielt ergänzt; stale ältere Evidence wird nicht als vollständig behandelt;
+- Hashberechnung ist ausdrücklich begrenzt parallelisierbar und Persistenz bleibt pro Batch atomar;
+- Zustandsänderungen eines Discovery-Batches werden set-orientiert statt objektweise geschrieben;
+- objektspezifische Hash-I/O-Fehler brechen die übrige Sammlung nicht ab und werden im Folgescan selektiv erneut versucht;
 - partielle `FileRecord`-/Fingerprint-Arbeit bleibt nutzbar;
 - Abwesenheitsentscheidungen bleiben an einen vollständigen erfolgreichen Scan gebunden;
 - das Verfahren bleibt bounded-memory und benötigt keine collection-weite Pfadliste;

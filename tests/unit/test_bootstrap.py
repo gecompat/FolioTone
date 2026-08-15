@@ -51,6 +51,14 @@ def test_status_command_is_non_destructive_bootstrap(
             "Deterministic private collection summaries and review sets are available "
             "through ebook-collection-report."
         ),
+        (
+            "Quick duplicate candidates can be selectively confirmed with full SHA-256 "
+            "through ebook-hash-candidates."
+        ),
+        (
+            "Scan-wide format, size, hash-coverage, and exact-duplicate reports are "
+            "available through ebook-inventory-report."
+        ),
         "Read-only PDF metadata and text analysis is available through pdf-analyze.",
         "Read-only EPUB conformance evidence is available through epub-validate.",
         "Source-media and external-tool mutation commands are not implemented.",

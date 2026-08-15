@@ -26,6 +26,8 @@ def test_scan_cli_reports_incremental_states(tmp_path: Path, capsys) -> None:
         str(database),
         "--hash",
         "quick",
+        "--hash-workers",
+        "2",
         "--suffix",
         "epub",
     ]

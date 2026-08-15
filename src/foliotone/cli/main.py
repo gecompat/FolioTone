@@ -35,7 +35,12 @@ from foliotone.core import (
     ToolExecutionStatus,
 )
 from foliotone.index import (
+    MAX_DUPLICATE_HASH_BATCH_SIZE,
+    MAX_DUPLICATE_HASH_WORKERS,
+    MAX_SCAN_HASH_WORKERS,
     DeletionConfirmationPolicy,
+    DuplicateHashCandidateError,
+    DuplicateHashCandidateService,
     FingerprintWriter,
     HashMode,
     IncrementalScanner,
@@ -46,8 +51,10 @@ from foliotone.index import (
 from foliotone.persistence import (
     EbookCollectionReportStoreError,
     EbookCollectionStoreError,
+    EbookInventoryReportStoreError,
     SQLiteEbookCollectionReportStore,
     SQLiteEbookCollectionStore,
+    SQLiteEbookInventoryReportStore,
     create_sqlite_engine,
     migrate,
     repository,
@@ -70,6 +77,9 @@ from foliotone.workflows import (
     EbookCollectionService,
     EbookComparisonError,
     EbookComparisonService,
+    EbookInventoryReportError,
+    EbookInventoryReportLimits,
+    EbookInventoryReportService,
     ebook_analysis_format,
 )
 
@@ -120,7 +130,21 @@ def build_parser() -> argparse.ArgumentParser:
         dest="hash_mode",
         choices=tuple(_HASH_MODES),
         default="quick",
-        help="Hashing level for new/modified/reappeared files.",
+        help=(
+            "Required hashing level. Unchanged files reuse complete latest evidence "
+            "and are opened only when that evidence is missing."
+        ),
+    )
+    scan.add_argument(
+        "--hash-workers",
+        type=int,
+        choices=range(1, MAX_SCAN_HASH_WORKERS + 1),
+        default=1,
+        metavar=f"1..{MAX_SCAN_HASH_WORKERS}",
+        help=(
+            "Bounded file-hash worker count; defaults to 1. Fingerprints are "
+            "persisted atomically per discovery batch."
+        ),
     )
     scan.add_argument(
         "--suffix",
@@ -428,6 +452,65 @@ def build_parser() -> argparse.ArgumentParser:
         help="New runs only: deterministically plan at most this many observations.",
     )
     ebook_collection.add_argument(
+        "--plan-per-format",
+        type=int,
+        default=None,
+        help=(
+            "New runs only: deterministically plan at most this many observations "
+            "from each supported e-book format."
+        ),
+    )
+
+    duplicate_hash = subparsers.add_parser(
+        "ebook-hash-candidates",
+        help=(
+            "Confirm quick duplicate candidates with bounded full SHA-256 hashing."
+        ),
+    )
+    duplicate_hash.add_argument(
+        "--root",
+        required=True,
+        type=Path,
+        help="Runtime source root for the persisted e-book observations.",
+    )
+    duplicate_hash.add_argument(
+        "--scan-root",
+        required=True,
+        help="Existing logical EBOOK ScanRoot name whose latest scan defines candidates.",
+    )
+    duplicate_hash.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="SQLite database path; defaults to /data/foliotone.db.",
+    )
+    duplicate_hash.add_argument(
+        "--workers",
+        type=int,
+        choices=range(1, MAX_DUPLICATE_HASH_WORKERS + 1),
+        default=1,
+        metavar=f"1..{MAX_DUPLICATE_HASH_WORKERS}",
+        help="Bounded full-hash worker count; defaults to 1.",
+    )
+    duplicate_hash.add_argument(
+        "--batch-size",
+        type=int,
+        default=64,
+        help=(
+            "Atomic fingerprint batch size; must be between 1 and "
+            f"{MAX_DUPLICATE_HASH_BATCH_SIZE}."
+        ),
+    )
+    duplicate_hash.add_argument(
+        "--max-items",
+        type=int,
+        default=None,
+        help=(
+            "Attempt at most this many pending candidates; rerun the same command "
+            "to continue."
+        ),
+    )
+    ebook_collection.add_argument(
         "--database",
         type=Path,
         default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
@@ -537,6 +620,54 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=DEFAULT_COLLECTION_REPORT_MEMBER_LIMIT,
         help="Maximum members emitted for each candidate group.",
+    )
+
+    ebook_inventory_report = subparsers.add_parser(
+        "ebook-inventory-report",
+        help=(
+            "Write a deterministic private scan-wide format, size, hash-coverage, "
+            "and exact-duplicate report."
+        ),
+    )
+    ebook_inventory_report.add_argument(
+        "--scan-root",
+        required=True,
+        help="Existing logical EBOOK ScanRoot name whose latest scan is reported.",
+    )
+    ebook_inventory_report.add_argument(
+        "--source-root",
+        required=True,
+        type=Path,
+        help="Source root used only to enforce separate writable report storage.",
+    )
+    ebook_inventory_report.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="SQLite database path; defaults to /data/foliotone.db.",
+    )
+    ebook_inventory_report.add_argument(
+        "--report-root",
+        type=Path,
+        default=Path(
+            os.environ.get(
+                "FOLIOTONE_INVENTORY_REPORT_ROOT",
+                "/data/inventory-reports",
+            )
+        ),
+        help="Durable private report root; defaults to /data/inventory-reports.",
+    )
+    ebook_inventory_report.add_argument(
+        "--group-limit",
+        type=int,
+        default=DEFAULT_COLLECTION_REPORT_GROUP_LIMIT,
+        help="Maximum exact-duplicate groups emitted; totals remain complete.",
+    )
+    ebook_inventory_report.add_argument(
+        "--group-member-limit",
+        type=int,
+        default=DEFAULT_COLLECTION_REPORT_MEMBER_LIMIT,
+        help="Maximum members emitted for each exact-duplicate group.",
     )
 
     ebook_compare = subparsers.add_parser(
@@ -703,6 +834,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Deterministic private collection summaries and review sets are available "
             "through ebook-collection-report."
         )
+        print(
+            "Quick duplicate candidates can be selectively confirmed with full SHA-256 "
+            "through ebook-hash-candidates."
+        )
+        print(
+            "Scan-wide format, size, hash-coverage, and exact-duplicate reports are "
+            "available through ebook-inventory-report."
+        )
         print("Read-only PDF metadata and text analysis is available through pdf-analyze.")
         print("Read-only EPUB conformance evidence is available through epub-validate.")
         print("Source-media and external-tool mutation commands are not implemented.")
@@ -711,6 +850,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "scan":
         deletion_policy = _deletion_policy(parser, args)
         return _run_scan(args, deletion_policy)
+
+    if args.command == "ebook-hash-candidates":
+        return _run_ebook_hash_candidates(args)
 
     if args.command == "ebook-metadata":
         return _run_ebook_metadata(args)
@@ -729,6 +871,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-collection-report":
         return _run_ebook_collection_report(args)
+
+    if args.command == "ebook-inventory-report":
+        return _run_ebook_inventory_report(args)
 
     if args.command == "ebook-compare":
         return _run_ebook_compare(args)
@@ -791,6 +936,7 @@ def _run_scan(
         store,
         batch_size=args.batch_size,
         hash_mode=hash_mode,
+        hash_workers=args.hash_workers,
         fingerprint_writer=fingerprint_writer,
         deletion_policy=deletion_policy,
         relocation_detector=relocation_detector,
@@ -819,6 +965,67 @@ def _run_scan(
             count = candidate_counts.get(kind, 0)
             if count:
                 print(f"{kind.value}_CANDIDATE: {count}")
+    if summary.hash_failures:
+        print(f"Hash failures: {summary.hash_failures}")
+        return 1
+    return 0
+
+
+def _run_ebook_hash_candidates(args: argparse.Namespace) -> int:
+    if not args.root.is_dir():
+        print("E-book candidate hashing failed: source root is unavailable.")
+        return 2
+    try:
+        _validate_hash_candidate_paths(args.root, args.database)
+        migrate(args.database)
+        engine = create_sqlite_engine(args.database)
+        roots = tuple(
+            root
+            for root in repository(engine, ScanRoot).list_all()
+            if root.name == args.scan_root.strip()
+        )
+        if len(roots) != 1:
+            print("E-book candidate hashing failed: logical ScanRoot does not exist.")
+            return 2
+        root = roots[0]
+        summary = DuplicateHashCandidateService(engine).enrich(
+            root,
+            args.root,
+            worker_count=args.workers,
+            batch_size=args.batch_size,
+            max_items=args.max_items,
+        )
+    except (DuplicateHashCandidateError, ValueError) as error:
+        print(f"E-book candidate hashing failed: {error}")
+        return 2
+    except OSError:
+        print("E-book candidate hashing failed: runtime storage is unavailable.")
+        return 2
+    except KeyboardInterrupt:
+        print(
+            "E-book candidate hashing interrupted; rerun the same command to continue."
+        )
+        return 130
+    except Exception:
+        print("E-book candidate hashing failed: internal persistence error.")
+        return 2
+
+    print(f"ScanRoot: {root.name}")
+    print(f"Source ScanRun: {summary.scan_run_id}")
+    print(f"Candidate hash profile: {summary.profile}")
+    print(f"Quick candidate groups: {summary.candidate_groups}")
+    print(f"Quick candidate observations: {summary.candidate_observations}")
+    print(f"Already full-hashed: {summary.already_hashed}")
+    print(f"Full-hashed this invocation: {summary.hashed_this_invocation}")
+    print(f"Hash failures: {summary.hash_failures}")
+    print(f"Remaining candidates: {summary.remaining}")
+    if summary.hash_failures:
+        print("Status: COMPLETED_WITH_FAILURES")
+        return 1
+    if summary.remaining:
+        print("Status: INTERRUPTED")
+        return 3
+    print("Status: COMPLETED")
     return 0
 
 
@@ -904,12 +1111,22 @@ def _run_ebook_collection_analyze(args: argparse.Namespace) -> int:
         print(f"E-book collection analysis failed: {error}")
         return 2
 
+    if args.plan_limit is not None and args.plan_per_format is not None:
+        print(
+            "E-book collection analysis failed: --plan-limit and "
+            "--plan-per-format are mutually exclusive."
+        )
+        return 2
+
     if args.resume_run is not None and (
-        args.fresh or args.workers is not None or args.plan_limit is not None
+        args.fresh
+        or args.workers is not None
+        or args.plan_limit is not None
+        or args.plan_per_format is not None
     ):
         print(
-            "E-book collection analysis failed: --fresh, --workers, and --plan-limit "
-            "cannot change a resumed run."
+            "E-book collection analysis failed: --fresh, --workers, --plan-limit, "
+            "and --plan-per-format cannot change a resumed run."
         )
         return 2
 
@@ -967,6 +1184,7 @@ def _run_ebook_collection_analyze(args: argparse.Namespace) -> int:
                 worker_count=args.workers or 1,
                 max_items=args.max_items,
                 plan_limit=args.plan_limit,
+                plan_per_format=args.plan_per_format,
             )
         else:
             outcome = service.resume(
@@ -1069,6 +1287,86 @@ def _run_ebook_collection_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_ebook_inventory_report(args: argparse.Namespace) -> int:
+    try:
+        _validate_collection_report_paths(
+            args.source_root,
+            args.database,
+            args.report_root,
+        )
+        limits = EbookInventoryReportLimits(
+            candidate_groups=args.group_limit,
+            members_per_group=args.group_member_limit,
+        )
+        migrate(args.database)
+        engine = create_sqlite_engine(args.database)
+        roots = tuple(
+            root
+            for root in repository(engine, ScanRoot).list_all()
+            if root.name == args.scan_root.strip()
+        )
+        if len(roots) != 1:
+            print("E-book inventory report failed: logical ScanRoot does not exist.")
+            return 2
+        root = roots[0]
+        if root.media_type is not MediaType.EBOOK or not root.enabled:
+            print(
+                "E-book inventory report failed: ScanRoot must be an enabled "
+                "EBOOK root."
+            )
+            return 2
+        outcome = EbookInventoryReportService(
+            SQLiteEbookInventoryReportStore(engine)
+        ).generate(
+            root.id,
+            args.report_root,
+            limits=limits,
+        )
+    except (
+        EbookInventoryReportError,
+        EbookInventoryReportStoreError,
+        ValueError,
+    ) as error:
+        print(f"E-book inventory report failed: {error}")
+        return 2
+    except OSError:
+        print("E-book inventory report failed: runtime storage is unavailable.")
+        return 2
+    except Exception:
+        print("E-book inventory report failed: internal persistence error.")
+        return 2
+
+    print(f"ScanRoot: {root.name}")
+    print(f"Source ScanRun: {outcome.scan_run_id}")
+    print(f"Report profile: {outcome.profile}")
+    print(f"Observations: {outcome.observations}")
+    print(f"Total bytes: {outcome.total_bytes}")
+    for aggregate in outcome.formats:
+        observation_label = (
+            "observation" if aggregate.observations == 1 else "observations"
+        )
+        print(
+            f"Format {aggregate.format_name}: {aggregate.observations} "
+            f"{observation_label}, {aggregate.total_bytes} bytes"
+        )
+    print(f"Full-hash observations: {outcome.full_hash_observations}")
+    print(f"Quick candidate groups: {outcome.quick_candidate_groups}")
+    print(f"Quick candidate observations: {outcome.quick_candidate_observations}")
+    print(
+        "Quick candidates missing full hash: "
+        f"{outcome.quick_candidates_missing_full_hash}"
+    )
+    print(f"Exact duplicate groups: {outcome.exact_duplicate_groups}")
+    print(f"Exact duplicate observations: {outcome.exact_duplicate_members}")
+    print(f"Potential redundant bytes: {outcome.redundant_bytes}")
+    print(f"Report SHA-256: {outcome.report_sha256}")
+    print(f"Report files: {len(outcome.files)}")
+    print(f"Report directory: {outcome.report_directory}")
+    print("Identity verdict: NOT_PRODUCED")
+    print("Relation records written: 0")
+    return 0
+
+
 def _ebook_analysis_orchestrator(
     engine: Engine,
     runtime: ToolRuntime,
@@ -1143,6 +1441,11 @@ def _validate_collection_storage_paths(
     for destination in (database, artifact_root, work_root):
         if destination.resolve().is_relative_to(source):
             raise ValueError("database, artifact, and work paths must be outside source root")
+
+
+def _validate_hash_candidate_paths(source_root: Path, database: Path) -> None:
+    if database.resolve().is_relative_to(source_root.resolve()):
+        raise ValueError("database path must be outside source root")
 
 
 def _validate_collection_report_paths(

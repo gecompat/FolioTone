@@ -104,6 +104,7 @@ class EbookCollectionService:
         worker_count: int = 1,
         max_items: int | None = None,
         plan_limit: int | None = None,
+        plan_per_format: int | None = None,
     ) -> EbookCollectionOutcome:
         """Create a plan from the latest completed scan and execute a bounded slice."""
         _validate_invocation_limits(worker_count, max_items)
@@ -119,6 +120,7 @@ class EbookCollectionService:
             lease_token=lease_token,
             lease_expires_at=now + self._lease_duration,
             plan_limit=plan_limit,
+            plan_per_format=plan_per_format,
         )
         return self._execute(created.run, lease_token, max_items=max_items)
 

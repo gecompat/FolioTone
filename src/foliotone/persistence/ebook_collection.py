@@ -6,8 +6,9 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import Connection, Engine, func, insert, or_, select, update
+from sqlalchemy import Connection, Engine, Select, func, insert, or_, select, update
 
 from foliotone.core import (
     EBOOK_COLLECTION_FORMATS,
@@ -145,9 +146,14 @@ class SQLiteEbookCollectionStore:
         lease_token: str,
         lease_expires_at: datetime,
         plan_limit: int | None = None,
+        plan_per_format: int | None = None,
     ) -> CreatedEbookCollectionRun:
+        if plan_limit is not None and plan_per_format is not None:
+            raise ValueError("plan_limit and plan_per_format are mutually exclusive")
         if plan_limit is not None and plan_limit <= 0:
             raise ValueError("plan_limit must be positive when provided")
+        if plan_per_format is not None and plan_per_format <= 0:
+            raise ValueError("plan_per_format must be positive when provided")
         with self._engine.begin() as connection:
             source_scan = self._latest_scan(connection, scan_root_id)
             if source_scan is None:
@@ -172,7 +178,12 @@ class SQLiteEbookCollectionStore:
             connection.execute(insert(w3_schema.ebook_collection_runs).values(
                 **self._run_codec.encode(run)
             ))
-            planned_count = self._insert_plan(connection, run, plan_limit=plan_limit)
+            planned_count = self._insert_plan(
+                connection,
+                run,
+                plan_limit=plan_limit,
+                plan_per_format=plan_per_format,
+            )
         return CreatedEbookCollectionRun(run=run, planned_count=planned_count)
 
     def acquire_resume(
@@ -469,9 +480,10 @@ class SQLiteEbookCollectionStore:
         run: EbookCollectionRun,
         *,
         plan_limit: int | None,
+        plan_per_format: int | None,
     ) -> int:
         planned = 0
-        statement = (
+        base_statement = (
             select(schema.file_observations)
             .join(
                 schema.file_records,
@@ -487,40 +499,63 @@ class SQLiteEbookCollectionStore:
                 schema.file_records.c.size_bytes == schema.file_observations.c.size_bytes,
                 schema.file_records.c.modified_at
                 == schema.file_observations.c.modified_at,
-                or_(
-                    *(
-                        func.lower(schema.file_records.c.relative_path).like(
-                            f"%.{format_name.lower()}"
-                        )
-                        for format_name in sorted(EBOOK_COLLECTION_FORMATS)
-                    )
-                ),
-            )
-            .order_by(
-                schema.file_records.c.relative_path,
-                schema.file_records.c.id,
             )
         )
-        if plan_limit is not None:
-            statement = statement.limit(plan_limit)
-        result = connection.execution_options(stream_results=True).execute(statement)
-        mappings = result.mappings()
-        while rows := mappings.fetchmany(EBOOK_COLLECTION_PLAN_BATCH_SIZE):
-            items: list[Mapping[str, object]] = []
-            for row in rows:
-                observation = self._observation_codec.decode(row)
-                format_name = observation.relative_path.rsplit(".", 1)[-1].upper()
-                item = EbookCollectionItem(
-                    id=EntityId.new(),
-                    run_id=run.id,
-                    observation_id=observation.id,
-                    ordinal=planned,
-                    format_name=format_name,
-                    status=EbookCollectionItemStatus.PENDING,
+        statements: tuple[Select[Any], ...]
+        if plan_per_format is None:
+            statement = (
+                base_statement.where(
+                    or_(
+                        *(
+                            func.lower(schema.file_records.c.relative_path).like(
+                                f"%.{format_name.lower()}"
+                            )
+                            for format_name in sorted(EBOOK_COLLECTION_FORMATS)
+                        )
+                    )
                 )
-                items.append(self._item_codec.encode(item))
-                planned += 1
-            connection.execute(insert(w3_schema.ebook_collection_items), items)
+                .order_by(
+                    schema.file_records.c.relative_path,
+                    schema.file_records.c.id,
+                )
+            )
+            if plan_limit is not None:
+                statement = statement.limit(plan_limit)
+            statements = (statement,)
+        else:
+            statements = tuple(
+                base_statement.where(
+                    func.lower(schema.file_records.c.relative_path).like(
+                        f"%.{format_name.lower()}"
+                    )
+                )
+                .order_by(
+                    schema.file_records.c.relative_path,
+                    schema.file_records.c.id,
+                )
+                .limit(plan_per_format)
+                for format_name in sorted(EBOOK_COLLECTION_FORMATS)
+            )
+
+        for statement in statements:
+            result = connection.execution_options(stream_results=True).execute(statement)
+            mappings = result.mappings()
+            while rows := mappings.fetchmany(EBOOK_COLLECTION_PLAN_BATCH_SIZE):
+                items: list[Mapping[str, object]] = []
+                for row in rows:
+                    observation = self._observation_codec.decode(row)
+                    format_name = observation.relative_path.rsplit(".", 1)[-1].upper()
+                    item = EbookCollectionItem(
+                        id=EntityId.new(),
+                        run_id=run.id,
+                        observation_id=observation.id,
+                        ordinal=planned,
+                        format_name=format_name,
+                        status=EbookCollectionItemStatus.PENDING,
+                    )
+                    items.append(self._item_codec.encode(item))
+                    planned += 1
+                connection.execute(insert(w3_schema.ebook_collection_items), items)
         return planned
 
     def _require_lease(

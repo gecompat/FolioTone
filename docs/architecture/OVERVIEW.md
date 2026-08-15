@@ -217,10 +217,12 @@ Jedes Item verwendet den vorhandenen formatbewussten Workflow und dessen
 exakte Evidence-Wiederverwendung. Per-File-Fehler bleiben path-freie,
 begrenzte Statuswerte und blockieren andere Items nicht. `--max-items`
 ermöglicht kontrollierte Teil-Invocations, `--resume-run` setzt denselben Plan
-fort, und `--plan-limit` begrenzt einen neuen Pilotplan deterministisch. Die
-Batch-Persistenz enthält keine Source-Pfade, Metadatenwerte oder Inhalte und
-erzeugt keine `Relation` oder Identitätsentscheidung. ADR-0021 dokumentiert
-den Lifecycle und die Sicherheitsgrenzen.
+fort, `--plan-limit` begrenzt einen neuen Pilotplan global und das gegenseitig
+exklusive `--plan-per-format` deckt jedes vorhandene unterstützte Format
+begrenzt und deterministisch ab. Die Batch-Persistenz enthält keine
+Source-Pfade, Metadatenwerte oder Inhalte und erzeugt keine `Relation` oder
+Identitätsentscheidung. ADR-0021 dokumentiert den Lifecycle und die
+Sicherheitsgrenzen.
 
 Der fünfzehnte W3-Slice ergänzt `ebook-collection-report/v1` und den CLI-
 Befehl `foliotone ebook-collection-report`. Die Projektion liest einen
@@ -238,6 +240,26 @@ begrenzt. Private JSON-/CSV-/Checksum-Artefakte enthalten keine rohen
 Fingerprints und werden byte-stabil außerhalb des Source Root gespeichert.
 Die Kandidaten erzeugen keine `Relation`, Confidence oder
 Identitätsentscheidung. ADR-0022 dokumentiert diesen Vertrag.
+
+Der siebzehnte W3-Slice ergänzt `ebook-duplicate-hash/v1` und den CLI-Befehl
+`foliotone ebook-hash-candidates`. Vollständiges SHA-256 wird nur für aktuelle
+Mitglieder mehrfach belegter Quick-Fingerprint-Gruppen berechnet, denen dieser
+Nachweis noch fehlt. Stabile Keyset-Batches, 1 bis 8 Worker, atomare
+Fingerprint-Batches und `--max-items` halten den Lauf begrenzt und durch einen
+erneuten Aufruf fortsetzbar. Die Source-Observation wird vor und nach dem Hash
+validiert; per-File-Fehler bleiben isoliert und path-frei. ADR-0023 dokumentiert
+den Evidence- und Sicherheitsvertrag.
+
+Der achtzehnte W3-Slice ergänzt `ebook-inventory-report/v1` und den CLI-Befehl
+`foliotone ebook-inventory-report`. Die Projektion liest ausschließlich den
+neuesten abgeschlossenen Scan-Snapshot und öffnet keine Source-Media-Datei. Sie
+aggregiert vollständige Format- und Byte-Summen, Vollhash-Abdeckung, mehrfach
+belegte Quick-Gruppen, noch offene Vollhash-Evidence sowie exakt bestätigte
+Dateiduplikate und deren technisches Speicherpotenzial. Sortierte SQL-Streams
+und Gruppen-/Mitgliederlimits halten nur begrenzte private Details im Speicher;
+rohe Fingerprints verlassen die Query-Schicht nicht. Deterministische private
+JSON-/CSV-/Checksum-Artefakte erzeugen keine Relation, Keep-Präferenz oder
+Identitätsentscheidung. ADR-0024 dokumentiert diesen Vertrag.
 
 ### Music Analysis
 

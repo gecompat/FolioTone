@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 
-from sqlalchemy import Engine, exists, insert, select, update
+from sqlalchemy import Engine, bindparam, exists, insert, select, update
 from sqlalchemy.engine import Connection
 
 from foliotone.core import (
@@ -145,10 +146,15 @@ class SQLiteIndexStore:
 
             observations: list[FileObservation] = []
             events: list[FileScanEvent] = []
+            new_records: list[FileRecord] = []
+            existing_records: list[FileRecord] = []
             for item in discovered:
                 current = existing.get(item.relative_path)
                 record, state = _reconcile_file(root, current, item, observed_at)
-                _upsert(connection, record)
+                if current is None:
+                    new_records.append(record)
+                else:
+                    existing_records.append(record)
 
                 observation = FileObservation(
                     id=EntityId.new(),
@@ -168,10 +174,13 @@ class SQLiteIndexStore:
                     previous_relative_path=None if current is None else current.relative_path,
                     current_relative_path=record.relative_path,
                 )
-                _insert(connection, observation)
-                _insert(connection, event)
                 observations.append(observation)
                 events.append(event)
+
+            _insert_many(connection, new_records)
+            _update_many(connection, existing_records)
+            _insert_many(connection, observations)
+            _insert_many(connection, events)
 
         return BatchOutcome(tuple(observations), tuple(events))
 
@@ -305,6 +314,41 @@ def _reconcile_file(
 def _insert(connection: Connection, value: object) -> None:
     codec = codec_for(type(value))
     connection.execute(insert(codec.table).values(**dict(codec.encode(value))))
+
+
+def _insert_many(connection: Connection, values: Sequence[object]) -> None:
+    if not values:
+        return
+    codec = codec_for(type(values[0]))
+    rows = [dict(codec.encode(value)) for value in values]
+    connection.execute(insert(codec.table), rows)
+
+
+def _update_many(connection: Connection, values: Sequence[object]) -> None:
+    if not values:
+        return
+    codec = codec_for(type(values[0]))
+    table = codec.table
+    rows: list[dict[str, object]] = []
+    for value in values:
+        row = dict(codec.encode(value))
+        entity_id = row.pop("id", None)
+        if not isinstance(entity_id, str):
+            raise TypeError("persistence codec must encode an 'id' string")
+        row["_foliotone_entity_id"] = entity_id
+        rows.append(row)
+    statement = (
+        update(table)
+        .where(table.c.id == bindparam("_foliotone_entity_id"))
+        .values(
+            {
+                column.name: bindparam(column.name)
+                for column in table.c
+                if column.name != "id"
+            }
+        )
+    )
+    connection.execute(statement, rows)
 
 
 def _upsert(connection: Connection, value: object) -> None:

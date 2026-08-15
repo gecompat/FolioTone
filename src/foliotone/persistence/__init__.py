@@ -23,6 +23,15 @@ from foliotone.persistence.ebook_collection_report import (
     EbookCollectionReviewItem,
     SQLiteEbookCollectionReportStore,
 )
+from foliotone.persistence.ebook_inventory_report import (
+    EbookInventoryDuplicateGroup,
+    EbookInventoryDuplicateMember,
+    EbookInventoryDuplicateSet,
+    EbookInventoryFormatAggregate,
+    EbookInventoryReportSnapshot,
+    EbookInventoryReportStoreError,
+    SQLiteEbookInventoryReportStore,
+)
 from foliotone.persistence.evidence_queries import (
     MAX_EVIDENCE_QUERY_EXECUTIONS,
     MAX_EVIDENCE_QUERY_FINGERPRINTS,
@@ -55,6 +64,12 @@ __all__ = [
     "EbookCollectionFindingSummary",
     "EbookCollectionStoreError",
     "EbookCollectionWorkItem",
+    "EbookInventoryDuplicateGroup",
+    "EbookInventoryDuplicateMember",
+    "EbookInventoryDuplicateSet",
+    "EbookInventoryFormatAggregate",
+    "EbookInventoryReportSnapshot",
+    "EbookInventoryReportStoreError",
     "EBOOK_COLLECTION_REPORT_FETCH_SIZE",
     "EbookCollectionCandidateGroup",
     "EbookCollectionCandidateMember",
@@ -67,6 +82,7 @@ __all__ = [
     "ObservationEvidenceRecords",
     "SQLiteRepository",
     "SQLiteEbookCollectionStore",
+    "SQLiteEbookInventoryReportStore",
     "SQLiteEbookCollectionReportStore",
     "alembic_config",
     "create_sqlite_engine",

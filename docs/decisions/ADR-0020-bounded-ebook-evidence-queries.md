@@ -6,11 +6,13 @@
 ## Kontext
 
 `ebook-comparison/v1` benötigt für einen Paarvergleich ausschließlich die
-persistierte Evidence zweier expliziter `FileObservation`-IDs. Die erste
-Implementierung filterte dafür die Ergebnisse von `Repository.list_all()`.
-Der fachliche Output war korrekt, Laufzeit und Speicherbedarf wuchsen jedoch
-mit allen `ToolExecution`-, `ToolResult`- und `Fingerprint`-Datensätzen der
-Sammlung. Dieses Zugriffsverhalten ist für große Sammlungen ungeeignet.
+persistierte Evidence zweier expliziter `FileObservation`-IDs. Auch die exakte
+Evidence-Wiederverwendung benötigt nur die Historie der jeweils bearbeiteten
+Beobachtung. Frühere Implementierungen filterten dafür die Ergebnisse von
+`Repository.list_all()`. Der fachliche Output war korrekt, Laufzeit und
+Speicherbedarf wuchsen jedoch mit allen `ToolExecution`-, `ToolResult`- und
+`Fingerprint`-Datensätzen der Sammlung. Dieses Zugriffsverhalten ist für große
+Sammlungen ungeeignet.
 
 Ein Performance-Test muss ohne private Medien reproduzierbar bleiben. Eine
 reine Laufzeitschwelle genügt außerdem nicht als Skalierungsnachweis, weil sie
@@ -19,11 +21,12 @@ Datenbankabfragen sowie die verwendeten Indizes prüfen.
 
 ## Entscheidung
 
-FolioTone lädt Paarvergleichs-Evidence mit
+FolioTone lädt Paarvergleichs- und Wiederverwendungs-Evidence mit
 `load_observation_evidence()` ausschließlich für eine explizite Menge von
 `FileObservation`-IDs. Eine Anfrage ist auf 16 IDs begrenzt; der aktuelle
-Paarvergleich verwendet genau zwei. Die drei SQL-Abfragen enthalten jeweils
-einen Target-Filter und ein zusätzliches `LIMIT maximum + 1`:
+Paarvergleich verwendet genau zwei, ein Reuse-Lookup genau eine. Die drei
+SQL-Abfragen enthalten jeweils einen Target-Filter und ein zusätzliches
+`LIMIT maximum + 1`:
 
 - höchstens 1.024 `ToolExecution`-Datensätze;
 - höchstens 16.384 `ToolResult`-Datensätze;
@@ -34,6 +37,12 @@ mit einem technischen `EbookComparisonError` ab und fällt nicht auf einen
 collection-weiten Scan zurück. Die Grenzwerte begrenzen die Historie und
 Evidence-Dichte der angeforderten Beobachtungen, nicht die Zahl der Dateien in
 der Sammlung.
+
+`ToolEvidenceReader` verwendet denselben begrenzten Read und lädt anschließend
+höchstens 64 `ToolArtifact`-Datensätze ausschließlich für die ausgewählte
+neueste exakte `ToolExecution`. `ix_tool_artifacts_execution` stützt diesen
+vierten Lookup. Eine Grenzüberschreitung oder inkonsistente Evidence verwirft
+die Wiederverwendung konservativ; es gibt keinen Fallback auf `list_all()`.
 
 Alembic `0006_ebook_evidence_lookup_indexes` ergänzt folgende additive
 Indizes:
@@ -60,11 +69,13 @@ Vertrags.
 
 - Die Kosten eines Paarvergleichs hängen von der Evidence-Historie der beiden
   Beobachtungen ab, nicht von collection-weiten Tabellenzeilen.
+- Die Kosten eines Reuse-Lookups hängen von der Evidence-Historie genau einer
+  Beobachtung ab, nicht von allen Fingerprints früherer Scans.
 - Ungewöhnlich dichte oder beschädigte Evidence führt zu einem begrenzten,
   erklärbaren Fehler statt zu unbeschränktem Speicherverbrauch.
 - Die Migration schreibt keine bestehenden Domain-Datensätze um.
 - `ebook-comparison/v1` und seine fachlichen Zustände bleiben unverändert;
   W3-014 ändert nur den Leseweg und erweitert die kontrollierte Ground Truth.
-- Collection-Batch-Orchestrierung erhält in W3-015 einen eigenen
-  fortsetzbaren Vertrag und darf die Paarabfragegrenzen nicht durch globale
-  Vorabladung umgehen.
+- Die Collection-Batch-Orchestrierung verwendet denselben begrenzten
+  observation-spezifischen Reuse-Pfad und umgeht ihn nicht durch globale
+  Vorabladung.

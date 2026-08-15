@@ -29,6 +29,30 @@ Implemented or reserved observation states include:
 
 Hash/fingerprint values are stored with algorithm and version where the representation can evolve.
 
+Für `UNCHANGED` projiziert der aktuelle Indexer vollständige, exakt profilierte
+Datei-Hashes der jüngsten vorherigen Observation auf die aktuelle Observation,
+ohne die Quelldatei erneut zu öffnen. Fehlt der erforderliche Nachweis in dieser
+jüngsten Observation, wird nur dieses Objekt nachgehasht; ein älterer Hash wird
+nicht über eine unvollständige jüngere Observation hinweg verwendet. Die CLI
+begrenzt Hash-Parallelität mit `--hash-workers 1..8` und speichert die höchstens
+500 Dateien eines Discovery-Batches in einer gemeinsamen Fingerprint-
+Transaktion.
+Die zugehörigen `FileRecord`-, `FileObservation`- und `FileEvent`-Änderungen
+werden je Discovery-Batch set-orientiert in einer Store-Transaktion
+persistiert, statt pro Objekt einzelne Schreibtransaktionen auszuführen.
+Ein objektspezifischer Hash-I/O-Fehler wird gezählt, lässt die übrigen Objekte
+des Scans weiterlaufen und bleibt als fehlende jüngste Evidence beim nächsten
+inkrementellen Scan selektiv wiederholbar.
+
+Für die Exact-Duplicate-Bestätigung hasht
+`foliotone ebook-hash-candidates` nicht blind die gesamte Sammlung. Das Profil
+`ebook-duplicate-hash/v1` wählt ausschließlich aktuelle Mitglieder mehrfach
+belegter, konsistenter `QUICK_FILE`-Gruppen ohne vorhandenes `FILE_SHA256` aus.
+Die Auswahl läuft in stabilen Keyset-Batches, validiert die Observation vor und
+nach dem vollständigen Streaming-Hash und ist über denselben CLI-Aufruf
+fortsetzbar. Quick-Kollisionen bleiben Kandidaten; gleiche vollständige
+SHA-256-Werte liefern erst die exakte Datei-Evidence. ADR-0023 ist verbindlich.
+
 ## Move/rename candidate detection
 
 Path is not file identity. W2 therefore treats possible relocation as a candidate-generation problem rather than rewriting `FileRecord` identity.

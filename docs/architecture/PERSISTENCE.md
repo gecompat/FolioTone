@@ -153,12 +153,18 @@ list_all()
 
 ### Begrenzter Evidence-Lesepfad
 
-Der Paarvergleich verwendet nicht `list_all()`. Die SQLite-spezifische
-Projektion `load_observation_evidence()` lädt ausschließlich
+Paarvergleich und exakte Evidence-Wiederverwendung verwenden nicht
+`list_all()`. Die SQLite-spezifische Projektion
+`load_observation_evidence()` lädt ausschließlich
 `ToolExecution`, `ToolResult` und `Fingerprint` für explizite
 `FileObservation`-IDs. Drei feste `LIMIT maximum + 1`-Grenzen verhindern eine
 unbeschränkte Historienladung. Eine Überschreitung wird als technischer Fehler
 gemeldet; es gibt keinen Fallback auf vollständige Tabellenabfragen.
+
+Der Reuse-Pfad fordert genau eine Observation an und lädt danach höchstens 64
+`ToolArtifact`-Records für die ausgewählte exakte Ausführung über
+`ix_tool_artifacts_execution`. Eine dichte oder inkonsistente Historie führt
+konservativ zur erneuten read-only Ausführung, nicht zu einem Full-Table-Read.
 
 Alembic `0006_ebook_evidence_lookup_indexes` ergänzt zusammengesetzte Indizes
 für `ToolExecution.input_identity` sowie polymorphe Target-/Execution-Abfragen
@@ -172,7 +178,11 @@ je Evidence-Tabelle.
 `COMPLETED`-`ScanRun`. Ein gestreamter, stabil sortierter SELECT wird mit
 `fetchmany(500)` in `ebook_collection_items` übernommen. Der Plan bleibt nach
 der Anlage unverändert und wird beim Resume nicht erneut aus dem aktuellen
-Index abgeleitet.
+Index abgeleitet. Für einen begrenzten heterogenen Pilot kann
+`--plan-per-format N` statt eines globalen `--plan-limit` jeweils höchstens N
+stabil sortierte Beobachtungen pro unterstütztem Format planen. Die beiden
+Begrenzungen sind gegenseitig exklusiv; der Default bleibt der einzelne
+gestreamte Read über den vollständigen Plan.
 
 Alembic `0007_ebook_collection_batches` ergänzt die beiden Batch-Tabellen
 sowie `ix_ebook_collection_runs_root_status` und
@@ -198,6 +208,23 @@ Gruppierungspfad. Ein Bericht wird abgelehnt, wenn `finding_count` und
 persistierte Befundprojektion oder die Schrittzähler und
 Ausführungsprojektion auseinanderfallen. Rohe Fingerprint-Werte verlassen die
 Query-Schicht nicht.
+
+### Deterministischer scanweiter Inventarbericht
+
+`SQLiteEbookInventoryReportStore` bindet sich an den neuesten
+`COMPLETED`-`ScanRun` und berücksichtigt ausschließlich aktuelle
+`PRESENT`-Beobachtungen unterstützter E-Book-Formate, die noch exakt zu ihrem
+`FileRecord` passen. Die Projektion liest keine Source-Media-Dateien und
+benötigt keinen `EbookCollectionRun`.
+
+Format-/Byte-Summen und Hash-Abdeckung werden vollständig aggregiert.
+Mehrfach belegte konsistente `QUICK_FILE`-Gruppen weisen den noch offenen
+Vollhashbedarf aus. Exakte `FILE_SHA256`-Gruppen werden sortiert gestreamt;
+nur die durch Gruppen- und Mitgliederlimits priorisierten Details bleiben im
+Speicher. Vollständige Summen, Kürzungsmarker und das technische potenzielle
+Speicherersparnis bleiben erhalten. Rohe Fingerprint-Werte verlassen die
+Query-Schicht nicht. ADR-0024 definiert Snapshot-, Datenschutz- und
+Nicht-Mutationsvertrag; eine zusätzliche Persistenzmigration ist nicht nötig.
 
 ## Current constraints and deferred integrity
 

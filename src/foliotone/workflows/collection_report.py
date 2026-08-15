@@ -16,11 +16,16 @@ from foliotone.core import EntityId
 from foliotone.persistence import (
     EbookCollectionCandidateSet,
     EbookCollectionReportSnapshot,
+    EbookInventoryDuplicateSet,
+    EbookInventoryFormatAggregate,
+    EbookInventoryReportSnapshot,
     SQLiteEbookCollectionReportStore,
+    SQLiteEbookInventoryReportStore,
 )
 from foliotone.tooling.structured import JsonValue
 
 EBOOK_COLLECTION_REPORT_PROFILE = "ebook-collection-report/v1"
+EBOOK_INVENTORY_REPORT_PROFILE = "ebook-inventory-report/v1"
 DEFAULT_COLLECTION_REPORT_REVIEW_LIMIT = 10_000
 DEFAULT_COLLECTION_REPORT_GROUP_LIMIT = 1_000
 DEFAULT_COLLECTION_REPORT_MEMBER_LIMIT = 100
@@ -33,10 +38,16 @@ _REVIEW_CSV = "review-items.csv"
 _DUPLICATE_CSV = "exact-duplicates.csv"
 _VARIANT_CSV = "content-variants.csv"
 _CHECKSUMS = "checksums.sha256"
+_INVENTORY_REPORT_JSON = "inventory-report.json"
+_INVENTORY_DUPLICATE_CSV = "exact-duplicates.csv"
 
 
 class EbookCollectionReportError(RuntimeError):
     """A private report cannot be generated or persisted safely."""
+
+
+class EbookInventoryReportError(RuntimeError):
+    """A private inventory report cannot be generated or persisted safely."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +85,47 @@ class EbookCollectionReportOutcome:
     exact_duplicate_groups: int
     content_variant_groups: int
     profile: str = EBOOK_COLLECTION_REPORT_PROFILE
+
+
+@dataclass(frozen=True, slots=True)
+class EbookInventoryReportLimits:
+    candidate_groups: int = DEFAULT_COLLECTION_REPORT_GROUP_LIMIT
+    members_per_group: int = DEFAULT_COLLECTION_REPORT_MEMBER_LIMIT
+
+    def __post_init__(self) -> None:
+        for value, maximum, name in (
+            (
+                self.candidate_groups,
+                MAX_COLLECTION_REPORT_GROUP_LIMIT,
+                "candidate_groups",
+            ),
+            (
+                self.members_per_group,
+                MAX_COLLECTION_REPORT_MEMBER_LIMIT,
+                "members_per_group",
+            ),
+        ):
+            if not 1 <= value <= maximum:
+                raise ValueError(f"{name} is outside the supported range")
+
+
+@dataclass(frozen=True, slots=True)
+class EbookInventoryReportOutcome:
+    scan_run_id: EntityId
+    report_directory: Path
+    report_sha256: str
+    files: tuple[str, ...]
+    observations: int
+    total_bytes: int
+    formats: tuple[EbookInventoryFormatAggregate, ...]
+    full_hash_observations: int
+    quick_candidate_groups: int
+    quick_candidate_observations: int
+    quick_candidates_missing_full_hash: int
+    exact_duplicate_groups: int
+    exact_duplicate_members: int
+    redundant_bytes: int
+    profile: str = EBOOK_INVENTORY_REPORT_PROFILE
 
 
 class EbookCollectionReportService:
@@ -136,6 +188,193 @@ class EbookCollectionReportService:
             exact_duplicate_groups=snapshot.exact_duplicates.total_groups,
             content_variant_groups=snapshot.content_variants.total_groups,
         )
+
+
+class EbookInventoryReportService:
+    """Build a scan-wide private inventory report without opening source media."""
+
+    def __init__(self, store: SQLiteEbookInventoryReportStore) -> None:
+        self._store = store
+
+    def generate(
+        self,
+        scan_root_id: EntityId,
+        report_root: Path,
+        *,
+        limits: EbookInventoryReportLimits | None = None,
+    ) -> EbookInventoryReportOutcome:
+        configured = limits or EbookInventoryReportLimits()
+        snapshot = self._store.snapshot(
+            scan_root_id,
+            candidate_group_limit=configured.candidate_groups,
+            candidate_member_limit=configured.members_per_group,
+        )
+        payload = _inventory_report_payload(snapshot, configured)
+        report_bytes = (
+            json.dumps(
+                payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                indent=2,
+                allow_nan=False,
+            )
+            + "\n"
+        ).encode("utf-8")
+        report_sha256 = hashlib.sha256(report_bytes).hexdigest()
+        files = {
+            _INVENTORY_REPORT_JSON: report_bytes,
+            _INVENTORY_DUPLICATE_CSV: _inventory_duplicate_csv(
+                snapshot.exact_duplicates
+            ),
+        }
+        files[_CHECKSUMS] = _checksums(files)
+        try:
+            report_directory = _persist_report(
+                report_root,
+                snapshot.scan.id,
+                report_sha256,
+                files,
+            )
+        except EbookCollectionReportError as error:
+            raise EbookInventoryReportError(str(error)) from error
+        except OSError as error:
+            raise EbookInventoryReportError(
+                "inventory report storage is unavailable"
+            ) from error
+        return EbookInventoryReportOutcome(
+            scan_run_id=snapshot.scan.id,
+            report_directory=report_directory,
+            report_sha256=report_sha256,
+            files=tuple(sorted(files)),
+            observations=snapshot.observations,
+            total_bytes=snapshot.total_bytes,
+            formats=snapshot.formats,
+            full_hash_observations=snapshot.full_hash_observations,
+            quick_candidate_groups=snapshot.quick_candidate_groups,
+            quick_candidate_observations=snapshot.quick_candidate_observations,
+            quick_candidates_missing_full_hash=(
+                snapshot.quick_candidates_missing_full_hash
+            ),
+            exact_duplicate_groups=snapshot.exact_duplicates.total_groups,
+            exact_duplicate_members=snapshot.exact_duplicates.total_members,
+            redundant_bytes=snapshot.exact_duplicates.total_redundant_bytes,
+        )
+
+
+def _inventory_report_payload(
+    snapshot: EbookInventoryReportSnapshot,
+    limits: EbookInventoryReportLimits,
+) -> dict[str, JsonValue]:
+    scan = snapshot.scan
+    duplicates = snapshot.exact_duplicates
+    return {
+        "profile": EBOOK_INVENTORY_REPORT_PROFILE,
+        "scan": {
+            "id": str(scan.id),
+            "scan_root_id": str(scan.scan_root_id),
+            "status": scan.status.value,
+            "started_at": scan.started_at.isoformat(),
+            "completed_at": (
+                None if scan.completed_at is None else scan.completed_at.isoformat()
+            ),
+        },
+        "limits": {
+            "candidate_groups": limits.candidate_groups,
+            "members_per_group": limits.members_per_group,
+        },
+        "aggregate": {
+            "observations": snapshot.observations,
+            "total_bytes": snapshot.total_bytes,
+            "formats": {
+                value.format_name: {
+                    "observations": value.observations,
+                    "total_bytes": value.total_bytes,
+                }
+                for value in snapshot.formats
+            },
+        },
+        "hash_coverage": {
+            "full_hash_observations": snapshot.full_hash_observations,
+            "quick_candidate_groups": snapshot.quick_candidate_groups,
+            "quick_candidate_observations": snapshot.quick_candidate_observations,
+            "quick_candidates_missing_full_hash": (
+                snapshot.quick_candidates_missing_full_hash
+            ),
+        },
+        "exact_duplicates": _inventory_duplicate_payload(duplicates),
+        "identity_verdict": "NOT_PRODUCED",
+        "relation_records_written": 0,
+    }
+
+
+def _inventory_duplicate_payload(
+    values: EbookInventoryDuplicateSet,
+) -> dict[str, JsonValue]:
+    return {
+        "total_groups": values.total_groups,
+        "emitted_groups": len(values.groups),
+        "total_members": values.total_members,
+        "emitted_members": values.emitted_members,
+        "total_redundant_bytes": values.total_redundant_bytes,
+        "groups_truncated": values.groups_truncated,
+        "members_truncated": values.members_truncated,
+        "groups": [
+            {
+                "group_id": group.group_id,
+                "basis": group.basis,
+                "member_count": group.member_count,
+                "total_bytes": group.total_bytes,
+                "redundant_bytes": group.redundant_bytes,
+                "emitted_members": len(group.members),
+                "members_truncated": group.members_truncated,
+                "members": [
+                    {
+                        "observation_id": str(member.observation_id),
+                        "relative_path": member.relative_path,
+                        "format": member.format_name,
+                        "size_bytes": member.size_bytes,
+                    }
+                    for member in group.members
+                ],
+            }
+            for group in values.groups
+        ],
+    }
+
+
+def _inventory_duplicate_csv(values: EbookInventoryDuplicateSet) -> bytes:
+    rows: list[dict[str, str | int]] = []
+    for group in values.groups:
+        for member in group.members:
+            rows.append(
+                {
+                    "group_id": group.group_id,
+                    "basis": group.basis,
+                    "group_member_count": group.member_count,
+                    "group_total_bytes": group.total_bytes,
+                    "group_redundant_bytes": group.redundant_bytes,
+                    "members_truncated": str(group.members_truncated).lower(),
+                    "observation_id": str(member.observation_id),
+                    "relative_path": member.relative_path,
+                    "format": member.format_name,
+                    "size_bytes": member.size_bytes,
+                }
+            )
+    return _csv_bytes(
+        (
+            "group_id",
+            "basis",
+            "group_member_count",
+            "group_total_bytes",
+            "group_redundant_bytes",
+            "members_truncated",
+            "observation_id",
+            "relative_path",
+            "format",
+            "size_bytes",
+        ),
+        rows,
+    )
 
 
 def _report_payload(
