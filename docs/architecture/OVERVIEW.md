@@ -165,6 +165,19 @@ explicit `--fresh` bypasses lookup and probing. The CLI exposes `REUSED` versus
 The combined Poppler PDF adapter remains one atomic workflow step containing
 its separate `pdfinfo` and `pdftotext` executions.
 
+The eleventh W3 vertical slice advances the public result contract to
+`ebook-analysis-workflow/v3` and adds the separately versioned
+`ebook-quality/v1` projection. `EbookQualityAssessment` evaluates the bounded
+workflow facts in the stable dimensions `METADATA`, `TEXT`, `COVER`,
+`STRUCTURE` and `FORMAT_RISK`. Fixed finding codes retain the exact available
+ToolExecution IDs; raw metadata, text, validation messages and local paths do
+not enter the assessment. Technical evidence gaps become `INCOMPLETE`, while
+media findings become `REVIEW` or `ACTION_REQUIRED`. The aggregate is not a
+numeric score, does not change the technical CLI exit code and does not assert
+file, `Edition` or `Work` identity. Because the projection uses existing
+Evidence, changing its rules requires a new quality-profile version but no
+automatic tool rerun.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.

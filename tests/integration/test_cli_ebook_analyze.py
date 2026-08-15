@@ -47,25 +47,25 @@ def test_ebook_analyze_cli_reports_all_missing_tools_without_exposing_paths(
     missing = "foliotone-definitely-missing-executable"
     analyze_args = [
         "ebook-analyze",
-            "--root",
-            str(media),
-            "--observation-id",
-            str(observation.id),
-            "--database",
-            str(database),
-            "--artifact-root",
-            str(artifacts),
-            "--work-root",
-            str(work),
-            "--ebook-meta-executable",
-            missing,
-            "--ebook-convert-executable",
-            missing,
-            "--calibre-debug-executable",
-            missing,
-            "--java-executable",
-            missing,
-            "--epubcheck-jar",
+        "--root",
+        str(media),
+        "--observation-id",
+        str(observation.id),
+        "--database",
+        str(database),
+        "--artifact-root",
+        str(artifacts),
+        "--work-root",
+        str(work),
+        "--ebook-meta-executable",
+        missing,
+        "--ebook-convert-executable",
+        missing,
+        "--calibre-debug-executable",
+        missing,
+        "--java-executable",
+        missing,
+        "--epubcheck-jar",
         str(tmp_path / "missing-epubcheck.jar"),
     ]
     result = main(analyze_args)
@@ -74,13 +74,21 @@ def test_ebook_analyze_cli_reports_all_missing_tools_without_exposing_paths(
     output = capsys.readouterr().out
     assert f"FileObservation: {observation.id}" in output
     assert "Format: EPUB" in output
-    assert "Analysis profile: ebook-analysis-workflow/v2" in output
+    assert "Analysis profile: ebook-analysis-workflow/v3" in output
     assert "Evidence policy: REUSE_EXACT" in output
     assert "metadata status: FAILED" in output
     assert "text status: FAILED" in output
     assert "cover status: FAILED" in output
     assert "structural-validation status: FAILED" in output
     assert output.count("evidence action: EXECUTED") == 4
+    assert "Quality profile: ebook-quality/v1" in output
+    assert "Quality status: INCOMPLETE" in output
+    assert "Quality dimension METADATA: INCOMPLETE" in output
+    assert "Quality dimension TEXT: INCOMPLETE" in output
+    assert "Quality dimension COVER: INCOMPLETE" in output
+    assert "Quality dimension STRUCTURE: INCOMPLETE" in output
+    assert "Quality dimension FORMAT_RISK: OK" in output
+    assert "Quality findings: 4" in output
     assert "Overall status: FAILED" in output
     assert str(media) not in output
     assert str(source) not in output

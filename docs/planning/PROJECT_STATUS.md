@@ -4,7 +4,7 @@ Stand: 2026-08-15
 
 ## Aktuelle Welle
 
-**W3 E-Book-Vertiefung aktiv — konservative Evidence-Wiederverwendung implementiert; versioniertes Qualitätsprofil als Nächstes**
+**W3 E-Book-Vertiefung aktiv — versioniertes Qualitätsprofil implementiert; provider-neutraler Vergleich als Nächstes**
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
@@ -27,9 +27,11 @@ Extraktion für EPUB/MOBI/AZW/AZW3, explizites `NO_EMBEDDED_COVER` und einen
 FolioTone-eigenen versionierten `EBOOK_COVER_DHASH`. `W3-010` ergänzt den
 formatbewussten CLI-Workflow `ebook-analyze` mit getrennten Schritt- und
 Gesamtzuständen. `W3-011` ergänzt exakte, integritätsgeprüfte Evidence-
-Wiederverwendung, gezielten Schritt-Retry und `--fresh`. Auf
-Benutzerentscheidung bleibt die aktive Entwicklung bei E-Books; `W3-012` ist
-`NEXT`, die Music-Welle W4 bleibt geplant und zurückgestellt.
+Wiederverwendung, gezielten Schritt-Retry und `--fresh`. `W3-012` ergänzt die
+separate, mehrdimensionale Projektion `ebook-quality/v1` mit festen
+Befundcodes. Auf Benutzerentscheidung bleibt die aktive Entwicklung bei
+E-Books; `W3-013` ist `NEXT`, die Music-Welle W4 bleibt geplant und
+zurückgestellt.
 
 ## Implementierter W2-Slice
 
@@ -686,16 +688,44 @@ exakten Stand waren die GitHub-Actions-Runs `31874601676` (Push) und
 Ruff, Mypy, Tests und aller Docker-Smoke-Tests liefen 62 beziehungsweise
 59 Sekunden.
 
+**Empirisch für W3-012:** Die gezielten lokalen Tests decken ein vollständiges
+EPUB, metadata-arme und nicht konforme EPUB-Evidence, ein verschlüsseltes
+textloses PDF, fehlgeschlagene Tool-Evidence, widersprüchliche Text-Evidence
+und die begrenzte CLI-Ausgabe ab. Alle 26 gezielten Tests waren erfolgreich;
+der vollständige Stand bestand `ruff check .`, Mypy für 74 Source-Dateien und
+alle 222 Pytest-Tests in 9 Minuten 23 Sekunden.
+
+Der echte CLI-Smoke verwendete ausschließlich die synthetische EPUB unter
+`C:\rep\tmp\FolioTone\w3-011-smoke-01`. Alle vier technischen Schritte wurden
+mit denselben ToolExecution-IDs `REUSED`; der Datenbankzähler blieb bei neun.
+`ebook-quality/v1` meldete wegen 43 normalisierten Zeichen
+`TEXT_VERY_SHORT` und wegen drei EPUBCheck-Errors
+`EPUB_VALIDATION_ERRORS`, insgesamt `ACTION_REQUIRED`, während der technische
+Workflow korrekt `SUCCEEDED` blieb. Die Source-SHA-256 blieb
+`41070cdea56904647215b069f15af3f6e46d6d94b81795974e247a337464b6ea` und
+der Work-Ordner leer.
+
+Das Wheel
+`C:\rep\artifacts\FolioTone\w3-012-wheel-01\foliotone-0.1.0-py3-none-any.whl`
+hat SHA-256
+`a02e033db35e6e2acfe0d374961597e257e3070198bb3f503854425a17a95457` und
+enthält das neue Workflow-Modul `quality.py`.
+
 ## Aktiver W3-Stand und nächster Schritt
 
-W2 ist abgeschlossen; `W3-001` bis `W3-011` sind abgeschlossen. `W3-012` ist
-`NEXT`: Ein versioniertes E-Book-Qualitätsprofil soll Strukturkonformität,
-Metadatenvollständigkeit, lesbaren Text, Coverstatus und formatspezifische
-Risiken als Evidence bewerten, strikt getrennt von Datei-, `Edition`- und
-`Work`-Identität. Danach folgen provider-neutraler Book-Diff und die
-Erweiterung des synthetischen Korpus. Music W4 bleibt geplant, aber bis zur
-E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt ausschließlich die
-CLI.
+W2 ist abgeschlossen; `W3-001` bis `W3-012` sind abgeschlossen. W3-012 stellt
+`ebook-analysis-workflow/v3` und die separate Projektion `ebook-quality/v1`
+bereit. Die fünf Dimensionen `METADATA`, `TEXT`, `COVER`, `STRUCTURE` und
+`FORMAT_RISK` unterscheiden technische Unvollständigkeit von Review- und
+Maßnahmenbefunden, verwenden feste Codes und behalten die exakte verfügbare
+ToolExecution-Provenance. Es gibt keinen skalaren Score und keine
+Identitätsableitung.
+
+`W3-013` ist `NEXT`: Der provider-neutrale Book-Diff soll persistierte Datei-,
+Text-, Metadaten-, Struktur- und Cover-Evidence vergleichen. Danach folgen die
+Erweiterung des synthetischen Korpus, resumierbare Batch-Orchestrierung und
+lokale Sammlungsberichte. Music W4 bleibt geplant, aber bis zur E-Book-Reife
+zurückgestellt. Die Produktoberfläche bleibt ausschließlich die CLI.
 
 ## Nicht implementiert
 
@@ -708,8 +738,8 @@ Noch nicht vorhanden sind unter anderem:
 - externe Knowledge Provider und Provider Cache;
 - Classification Engine;
 - Matching Engine;
-- automatisierter provider-neutraler Book-Diff und zusätzliche qpdf-
-  Struktur-Evidence;
+- automatisierter provider-neutraler Book-Diff, Collection-Batch-Analyse,
+  Sammlungsreports und zusätzliche qpdf-Struktur-Evidence;
 - Review System;
 - Consolidation Planning und Execution;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.

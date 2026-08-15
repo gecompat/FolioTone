@@ -25,9 +25,10 @@ EPUB/MOBI/AZW/AZW3-Embedded-Cover-Extraktion, explizites
 `NO_EMBEDDED_COVER` und einen versionierten FolioTone-dHash. `W3-010` ergänzt
 den formatbewussten, einheitlichen CLI-Workflow `ebook-analyze`. `W3-011`
 ergänzt dessen konservative exakte Evidence-Wiederverwendung, gezielten
-Schritt-Retry und `--fresh`. Auf Benutzerentscheidung bleibt die Entwicklung
-bis zur Reife der E-Book-Pipeline bei E-Books; `W3-012` ist als Nächstes
-vorgesehen, Music W4 ist zurückgestellt.
+Schritt-Retry und `--fresh`. `W3-012` ergänzt das separate versionierte
+E-Book-Qualitätsprofil mit fünf Dimensionen und festen Befundcodes. Auf
+Benutzerentscheidung bleibt die Entwicklung bis zur Reife der E-Book-Pipeline
+bei E-Books; `W3-013` ist als Nächstes vorgesehen, Music W4 ist zurückgestellt.
 
 ## Vor Änderungen lesen
 
@@ -488,7 +489,7 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
 ### Einheitliche E-Book-Analyse
 
 - `EbookAnalysisOrchestrator` und CLI `foliotone ebook-analyze`;
-- aktuelles Profil `ebook-analysis-workflow/v2` und feste Allowlist EPUB/MOBI/AZW/AZW3/PDF;
+- aktuelles Profil `ebook-analysis-workflow/v3` und feste Allowlist EPUB/MOBI/AZW/AZW3/PDF;
 - ausschließlich Komposition der bestehenden calibre-, EPUBCheck- und
   Poppler-Adapter, ohne neue Toolargumente oder Parser;
 - Format-Routing: EPUB vier Schritte, MOBI/AZW/AZW3 drei Schritte, PDF ein
@@ -508,6 +509,31 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
 - `REUSED`/`EXECUTED` je Schritt und `--fresh` zum vollständigen Bypass;
 - atomarer PDF-Workflow-Schritt: Beide getrennten Poppler-Ausführungen werden
   gemeinsam wiederverwendet oder gemeinsam neu ausgeführt.
+- separate, deterministische Projektion `ebook-quality/v1` ohne zusätzlichen
+  Toollauf oder Persistenzmigration;
+- `EbookQualityAssessment` mit stabil geordneten Dimensionen `METADATA`,
+  `TEXT`, `COVER`, `STRUCTURE` und `FORMAT_RISK`;
+- feste Befundcodes mit exakten verfügbaren ToolExecution-IDs sowie getrennte
+  Zustände `INCOMPLETE`, `REVIEW` und `ACTION_REQUIRED`;
+- kein skalarer Quality Score, keine Identitätsableitung und keine Änderung der
+  technischen `ebook-analyze`-Exitcodes durch Qualitätsbefunde.
+
+**Empirisch für W3-012:** Der echte CLI-Smoke mit der synthetischen EPUB unter
+`C:\rep\tmp\FolioTone\w3-011-smoke-01` verwendete alle vier vorhandenen
+ToolExecutions wieder und erzeugte keinen neuen Lauf. `ebook-quality/v1`
+meldete `TEXT_VERY_SHORT` und `EPUB_VALIDATION_ERRORS` als
+`ACTION_REQUIRED`; der technische Workflow blieb `SUCCEEDED`. Die Source-
+SHA-256 blieb
+`41070cdea56904647215b069f15af3f6e46d6d94b81795974e247a337464b6ea`, der
+Work-Ordner blieb leer und der ToolExecution-Zähler blieb bei neun.
+
+Der vollständige W3-012-Stand bestand mit Python 3.12.10 lokal
+`ruff check .`, Mypy für 74 Source-Dateien und alle 222 Pytest-Tests in
+9 Minuten 23 Sekunden. Das Wheel unter
+`C:\rep\artifacts\FolioTone\w3-012-wheel-01\foliotone-0.1.0-py3-none-any.whl`
+hat SHA-256
+`a02e033db35e6e2acfe0d374961597e257e3070198bb3f503854425a17a95457` und
+enthält `foliotone/workflows/quality.py`.
 
 ### Persistence
 
@@ -522,10 +548,16 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-012` — ein versioniertes E-Book-Qualitätsprofil getrennt von
-   Datei-/`Edition`-/`Work`-Identität implementieren.
-2. `W3-013` und `W3-014` — provider-neutralen Book-Diff sowie erweiterte
-   synthetische Edge-/Performance-/Distanz-Fälle umsetzen.
+1. `W3-013` — den provider-neutralen Book-Diff über persistierte Datei-, Text-,
+   Metadaten-, Struktur- und Cover-Evidence implementieren.
+2. `W3-014` — synthetische Malformed-, Sparse-, Multi-Format-, Distanz- und
+   Performance-Fälle ergänzen und Grenzen kalibrieren.
+3. `W3-015` und `W3-016` — resumierbare Collection-Batch-Analyse und
+   nachvollziehbare lokale CLI-Sammlungsberichte aufbauen.
+4. `W3-017` — die echte Sammlung unter `Z:\NAS\E-Book` zuerst als read-only
+   Pilot und anschließend vollständig analysieren, sobald die Quelle für den
+   Codex-Prozess sichtbar ist. Am 2026-08-15 war weder das Laufwerk `Z:` noch
+   eine dazugehörige SMB-Zuordnung im Prozesskontext verfügbar.
 
 Music W4 bleibt geplant, wird aber erst nach der E-Book-Vertiefung und den
 book-spezifischen Teilen von Authority Resolution, Matching, Review und

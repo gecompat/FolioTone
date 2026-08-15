@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING
 
 from foliotone.adapters.calibre import (
     CalibreCoverError,
@@ -21,7 +22,10 @@ from foliotone.analyzers.ebook import ObservedFileError, resolve_observed_file
 from foliotone.core import EntityId, FileObservation, ToolExecutionStatus
 from foliotone.tooling import ToolExecution, ToolResult
 
-EBOOK_ANALYSIS_PROFILE = "ebook-analysis-workflow/v2"
+if TYPE_CHECKING:
+    from foliotone.workflows.quality import EbookQualityAssessment
+
+EBOOK_ANALYSIS_PROFILE = "ebook-analysis-workflow/v3"
 EBOOK_ANALYSIS_FORMATS = ("EPUB", "MOBI", "AZW", "AZW3", "PDF")
 _FORMAT_BY_SUFFIX = {
     f".{format_name.lower()}": format_name for format_name in EBOOK_ANALYSIS_FORMATS
@@ -144,6 +148,7 @@ class EbookAnalysisOutcome:
     observation_id: EntityId
     format_name: str
     steps: tuple[EbookAnalysisStepOutcome, ...]
+    quality: EbookQualityAssessment
     profile: str = EBOOK_ANALYSIS_PROFILE
 
     def __post_init__(self) -> None:
@@ -153,6 +158,10 @@ class EbookAnalysisOutcome:
             raise ValueError("an e-book analysis outcome requires at least one step")
         if not self.profile.strip():
             raise ValueError("analysis profile must not be empty")
+        if self.quality.observation_id != self.observation_id:
+            raise ValueError("quality assessment must target the workflow observation")
+        if self.quality.format_name != self.format_name:
+            raise ValueError("quality assessment must use the workflow format")
         names = [step.name for step in self.steps]
         if len(names) != len(set(names)):
             raise ValueError("e-book analysis step names must be unique")
@@ -300,10 +309,14 @@ class EbookAnalysisOrchestrator:
                 )
             steps = tuple(planned)
 
+        from foliotone.workflows.quality import evaluate_ebook_quality
+
+        quality = evaluate_ebook_quality(observation.id, format_name, steps)
         return EbookAnalysisOutcome(
             observation_id=observation.id,
             format_name=format_name,
             steps=steps,
+            quality=quality,
         )
 
 
@@ -370,7 +383,7 @@ def _metadata_step(
         facts = (
             ("metadata_observation_count", str(len(outcome.results))),
             ("metadata_candidate_count", str(len(outcome.candidates))),
-        )
+        ) + _metadata_presence_facts(outcome.candidates)
     return EbookAnalysisStepOutcome(
         name="metadata",
         executions=(outcome.run.execution,),
@@ -450,6 +463,7 @@ def _pdf_step(
     facts: tuple[tuple[str, str], ...] = ()
     if outcome.info_run.execution.status is ToolExecutionStatus.SUCCEEDED:
         facts = (("metadata_observation_count", str(len(outcome.metadata_results))),)
+        facts += _pdf_metadata_presence_facts(outcome.metadata_results)
         facts += _selected_result_facts(
             outcome.metadata_results,
             ("page_count", "encrypted", "pdf_version", "pdf_subtype"),
@@ -474,3 +488,75 @@ def _selected_result_facts(
 ) -> tuple[tuple[str, str], ...]:
     values = {result.key: result.value for result in results}
     return tuple((key, values[key]) for key in keys if key in values)
+
+
+def _metadata_presence_facts(
+    candidates: tuple[ToolResult, ...],
+) -> tuple[tuple[str, str], ...]:
+    values = {candidate.key: candidate.value for candidate in candidates}
+    contributor_keys = tuple(
+        (key.split("."), value) for key, value in values.items()
+    )
+    contributor_present = any(
+        len(parts) >= 3
+        and parts[0] == "contributor"
+        and parts[2] == "name"
+        and bool(value.strip())
+        for parts, value in contributor_keys
+    )
+    author_present = any(
+        len(parts) >= 3
+        and parts[0] == "contributor"
+        and (
+            (parts[2] == "role" and value.strip().lower() == "author")
+            or (parts[2] == "source_element" and value.strip().lower() == "creator")
+        )
+        for parts, value in contributor_keys
+    )
+    identifier_present = any(
+        len(parts) >= 3
+        and parts[0] == "identifier"
+        and parts[2] == "value"
+        and bool(value.strip())
+        for parts, value in contributor_keys
+    )
+    series_present = any(
+        len(parts) >= 3
+        and parts[0] == "series"
+        and parts[2] == "name"
+        and bool(value.strip())
+        for parts, value in contributor_keys
+    )
+    series_position_present = any(
+        len(parts) >= 3
+        and parts[0] == "series"
+        and parts[2] == "position"
+        and bool(value.strip())
+        for parts, value in contributor_keys
+    )
+    presence = (
+        ("title_present", bool(values.get("title", "").strip())),
+        ("author_present", author_present),
+        ("contributor_present", contributor_present),
+        ("language_present", bool(values.get("language", "").strip())),
+        ("identifier_present", identifier_present),
+        ("publisher_present", bool(values.get("publisher", "").strip())),
+        (
+            "publication_date_present",
+            bool(values.get("publication_date", "").strip()),
+        ),
+        ("series_present", series_present),
+        ("series_position_present", series_position_present),
+    )
+    return tuple((key, "true" if value else "false") for key, value in presence)
+
+
+def _pdf_metadata_presence_facts(
+    results: tuple[ToolResult, ...],
+) -> tuple[tuple[str, str], ...]:
+    values = {result.key: result.value for result in results}
+    presence = (
+        ("title_present", bool(values.get("title", "").strip())),
+        ("author_present", bool(values.get("author", "").strip())),
+    )
+    return tuple((key, "true" if value else "false") for key, value in presence)

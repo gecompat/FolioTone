@@ -118,4 +118,14 @@ falls back to a normal read-only execution. `--fresh` performs no reuse lookup.
 Neither mode changes source media, and neither prints private artifact paths or
 raw artifact content.
 
+`ebook-quality/v1` is a read-only projection over the bounded workflow facts.
+It does not execute another tool, open source media or persist raw metadata,
+text, cover bytes or validation messages. `INCOMPLETE` means that the required
+technical Evidence is unavailable or inconsistent; it must not be counted as
+bad media. Conversely, `REVIEW` and `ACTION_REQUIRED` do not make an otherwise
+successful ToolExecution fail and do not change the `ebook-analyze` exit code.
+Quality dimensions, metadata completeness, text availability, cover presence
+and structural findings are not identity Evidence by themselves and never
+confirm a file-, `Edition`- or `Work`-level duplicate.
+
 Imported/local provider datasets and external tool reports derived from a private collection must also stay out of Git unless a future explicit decision establishes that a specific redistributable artifact belongs in the repository.

@@ -33,6 +33,7 @@ Dieses Glossar definiert die kanonischen fachlichen Kernbegriffe des Projekts. E
 | `ToolResult` | Normalisiertes strukturiertes Ergebnis einer `ToolExecution`. | ToolMetadata als allgemeiner Ersatz |
 | `FieldCandidate` | Nicht kanonischer Feldwert aus Parsing, Metadaten oder anderer Ableitung mit nachvollziehbarer Quelle, Version und Confidence. | CanonicalField, bestätigter Metadatenwert |
 | `EbookMetadataCandidate` | Provider-neutraler E-Book-Feldkandidat, der als `ToolResult` an die exakte `ToolExecution` und `FileObservation` gebunden wird. Gruppierte Feldpfade erhalten Zusammenhänge etwa zwischen Identifier-Namespace/-Wert, Contributor-Feldern oder Series-Name/-Position. | BookMetadata als kanonische Wahrheit |
+| `EbookQualityAssessment` | Versionierte, mehrdimensionale Projektion begrenzter E-Book-Evidence für eine `FileObservation`. Sie trennt unvollständige Analyse von Review- und Maßnahmenbefunden, verwendet keinen skalaren Score und trifft keine Identitätsentscheidung. | QualityScore, DuplicateVerdict |
 | `ToolArtifact` | Persistiertes Runtime-Artefakt einer `ToolExecution`, beispielsweise stdout, stderr oder ein Report. | LogFile als allgemeiner Ersatz |
 | `Knowledge Provider` | Externe strukturierte Wissensquelle wie MusicBrainz, Open Library, GND oder Wikidata. | ToolProvider, wenn keine Toolausführung erfolgt |
 | `ClassificationAssertion` | Provenance-behaftete Zuordnung einer Klassifikationsdimension zu einem Wert. | GenreField als alleinige Klassifikation |
