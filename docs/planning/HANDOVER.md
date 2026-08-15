@@ -283,6 +283,12 @@ Der vollständige W3-010-Stand bestand mit Python 3.12.10 lokal
 `foliotone.workflows`-Module; sein SHA-256 ist
 `3ad24961dc47512721a06053ab40504b2534a8979effb9a43e713c4e501aff24`.
 
+Der veröffentlichte Implementierungscommit
+`2f8cb144617433855f51c39c4525603b9aa1004a` liegt in PR #20. Seine
+GitHub-Actions-Runs `31874601676` (Push) und `31874615476` (Pull Request)
+waren erfolgreich; die `quality`-Jobs einschließlich aller Docker-Smoke-Tests
+liefen 62 beziehungsweise 59 Sekunden.
+
 Calibres dokumentiertes `calibre-debug --diff` startet ein GUI-Modul ohne
 headless JSON-/Reportvertrag und wurde deshalb nicht adaptiert. Ein späterer
 provider-neutraler Book-Diff soll persistierte Datei-, Text-, Metadaten-,

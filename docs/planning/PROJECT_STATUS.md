@@ -620,6 +620,13 @@ hat SHA-256
 `3ad24961dc47512721a06053ab40504b2534a8979effb9a43e713c4e501aff24` und
 enthält beide Dateien des neuen `foliotone.workflows`-Pakets.
 
+Der veröffentlichte Implementierungscommit
+`2f8cb144617433855f51c39c4525603b9aa1004a` liegt in PR #20. Für diesen
+exakten Stand waren die GitHub-Actions-Runs `31874601676` (Push) und
+`31874615476` (Pull Request) erfolgreich; ihre `quality`-Jobs einschließlich
+Ruff, Mypy, Tests und aller Docker-Smoke-Tests liefen 62 beziehungsweise
+59 Sekunden.
+
 ## Aktiver W3-Stand und nächster Schritt
 
 W2 ist abgeschlossen; `W3-001` bis `W3-010` sind abgeschlossen. `W3-011` ist
