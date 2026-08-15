@@ -7,11 +7,13 @@ from foliotone.workflows.ebook import (
     EbookAnalysisOrchestrator,
     EbookAnalysisOutcome,
     EbookAnalysisStatus,
+    EbookAnalysisStepDisposition,
     EbookAnalysisStepOutcome,
     EbookAnalysisStepState,
     EbookAnalysisTools,
     ebook_analysis_format,
 )
+from foliotone.workflows.reuse import EbookAnalysisReuseService
 
 __all__ = [
     "EBOOK_ANALYSIS_FORMATS",
@@ -21,7 +23,9 @@ __all__ = [
     "EbookAnalysisOutcome",
     "EbookAnalysisStatus",
     "EbookAnalysisStepOutcome",
+    "EbookAnalysisStepDisposition",
     "EbookAnalysisStepState",
     "EbookAnalysisTools",
+    "EbookAnalysisReuseService",
     "ebook_analysis_format",
 ]

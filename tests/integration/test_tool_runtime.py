@@ -6,7 +6,12 @@ import pytest
 
 from foliotone.core import ToolCapability, ToolExecutionStatus
 from foliotone.persistence import create_sqlite_engine, migrate, repository
-from foliotone.tooling import StructuredOutputError, ToolArtifact, ToolProviderDescriptor
+from foliotone.tooling import (
+    StructuredOutputError,
+    ToolArtifact,
+    ToolExecution,
+    ToolProviderDescriptor,
+)
 from foliotone.tooling.runtime import (
     ContainerCommand,
     LocalCommand,
@@ -64,6 +69,44 @@ def test_local_tool_success_captures_version_stdout_and_artifacts(tmp_path: Path
     assert (tmp_path / "artifacts" / outcome.artifacts[0].relative_path).read_bytes() == (
         b"hello from tool\r\n" if sys.platform == "win32" else b"hello from tool\n"
     )
+
+
+def test_local_probe_is_read_only_and_applies_version_policy(tmp_path: Path) -> None:
+    database = tmp_path / "foliotone.db"
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    tool_runtime = ToolRuntime(
+        engine,
+        tmp_path / "artifacts",
+        work_root=tmp_path / "work",
+    )
+    command = LocalCommand(
+        executable=sys.executable,
+        args=(),
+        capability=ToolCapability.STATUS_REPORT,
+        version_policy=lambda version: None if version else "missing version",
+    )
+
+    probe = tool_runtime.probe_local(descriptor(), command)
+
+    assert probe.usable
+    assert probe.executable is not None
+    assert probe.tool_version
+    assert probe.error_summary is None
+    assert repository(engine, ToolExecution).list_all() == []
+
+    rejected = tool_runtime.probe_local(
+        descriptor(),
+        LocalCommand(
+            executable=sys.executable,
+            args=(),
+            capability=ToolCapability.STATUS_REPORT,
+            version_policy=lambda _version: "version rejected",
+        ),
+    )
+    assert not rejected.usable
+    assert rejected.error_summary == "version rejected"
+    assert repository(engine, ToolExecution).list_all() == []
 
 
 def test_nonzero_exit_is_persisted_as_failed(tmp_path: Path) -> None:

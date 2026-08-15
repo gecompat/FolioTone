@@ -139,6 +139,33 @@ class ToolRunOutcome:
     stderr_preview: str
 
 
+@dataclass(frozen=True, slots=True)
+class LocalToolProbe:
+    """Non-persisted local executable/version preflight for exact reuse planning."""
+
+    executable: str | None
+    tool_version: str
+    error_summary: str | None = None
+
+    def __post_init__(self) -> None:
+        tool_version = self.tool_version.strip()
+        if not tool_version:
+            raise ValueError("tool_version must not be empty")
+        object.__setattr__(self, "tool_version", tool_version)
+        if self.executable is None and self.error_summary is None:
+            raise ValueError("unavailable local tool probe requires an error summary")
+        if self.error_summary is not None:
+            error_summary = self.error_summary.strip()
+            if not error_summary:
+                raise ValueError("error_summary must not be empty")
+            object.__setattr__(self, "error_summary", error_summary)
+
+    @property
+    def usable(self) -> bool:
+        """Return whether the probed executable may safely analyze source media."""
+        return self.executable is not None and self.error_summary is None
+
+
 class ToolRuntime:
     """Execute read-only specialist tools without using a shell."""
 
@@ -161,6 +188,38 @@ class ToolRuntime:
         self._clock = clock or _utc_now
         self._artifact_root.mkdir(parents=True, exist_ok=True)
         self._work_root.mkdir(parents=True, exist_ok=True)
+
+    def probe_local(
+        self,
+        descriptor: ToolProviderDescriptor,
+        command: LocalCommand,
+    ) -> LocalToolProbe:
+        """Discover an accepted local tool version without persisting an analysis run."""
+        self._validate_descriptor_command(descriptor, command.capability)
+        return self._probe_local(command)
+
+    def verify_artifact(self, artifact: ToolArtifact, *, max_bytes: int) -> None:
+        """Stream-verify one persisted artifact without loading it into memory."""
+        if max_bytes <= 0:
+            raise ValueError("max_bytes must be positive")
+        if artifact.size_bytes > max_bytes:
+            raise StructuredOutputError("tool artifact exceeds the configured size limit")
+        artifact_path = self._resolved_artifact_path(artifact)
+        digest = hashlib.sha256()
+        size = 0
+        try:
+            with artifact_path.open("rb") as stream:
+                while chunk := stream.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > max_bytes:
+                        raise StructuredOutputError(
+                            "tool artifact exceeds the configured size limit"
+                        )
+                    digest.update(chunk)
+        except (OSError, RuntimeError) as error:
+            raise StructuredOutputError("tool artifact is unavailable") from error
+        if size != artifact.size_bytes or digest.hexdigest() != artifact.sha256:
+            raise StructuredOutputError("tool artifact failed its integrity check")
 
     def read_json_stdout(
         self,
@@ -200,10 +259,7 @@ class ToolRuntime:
         if artifact.size_bytes > max_bytes:
             raise StructuredOutputError("tool artifact exceeds the configured size limit")
 
-        artifact_root = self._artifact_root.resolve()
-        artifact_path = (artifact_root / artifact.relative_path).resolve()
-        if not artifact_path.is_relative_to(artifact_root):
-            raise StructuredOutputError("tool artifact escapes the artifact root")
+        artifact_path = self._resolved_artifact_path(artifact)
         try:
             with artifact_path.open("rb") as stream:
                 data = stream.read(max_bytes + 1)
@@ -223,71 +279,29 @@ class ToolRuntime:
     ) -> ToolRunOutcome:
         """Execute a local CLI after discovering and recording its version."""
         self._validate_request(descriptor, command.capability, input_identity)
-        executable = shutil.which(command.executable)
-        if executable is None:
+        probe = self._probe_local(command)
+        if not probe.usable:
             return self._failed_without_process(
                 descriptor,
                 command.capability,
                 input_identity,
                 config_identity,
-                "unavailable",
-                f"executable not found: {command.executable}",
+                probe.tool_version,
+                probe.error_summary or "local tool preflight failed",
             )
+        assert probe.executable is not None
 
         environment = os.environ.copy()
         if command.environment:
             environment.update(command.environment)
-        if command.workspace_environment:
-            version_workspace = Path(
-                tempfile.mkdtemp(prefix="version-", dir=self._work_root)
-            ).resolve()
-            try:
-                version_environment = _apply_workspace_environment(
-                    environment,
-                    command.workspace_environment,
-                    version_workspace,
-                )
-                version = _detect_version(
-                    executable,
-                    command.version_args,
-                    environment=version_environment,
-                )
-            finally:
-                shutil.rmtree(version_workspace, ignore_errors=True)
-        else:
-            version = _detect_version(
-                executable,
-                command.version_args,
-                environment=environment,
-            )
-        if version is None:
-            return self._failed_without_process(
-                descriptor,
-                command.capability,
-                input_identity,
-                config_identity,
-                "unknown",
-                f"could not determine tool version: {command.executable}",
-            )
-        if command.version_policy is not None:
-            policy_error = command.version_policy(version)
-            if policy_error is not None:
-                return self._failed_without_process(
-                    descriptor,
-                    command.capability,
-                    input_identity,
-                    config_identity,
-                    version,
-                    policy_error,
-                )
 
         return self._execute_process(
             descriptor,
             command.capability,
             input_identity,
             config_identity,
-            version,
-            (executable, *command.args),
+            probe.tool_version,
+            (probe.executable, *command.args),
             command.timeout_seconds,
             environment,
             workspace_environment=command.workspace_environment,
@@ -343,14 +357,85 @@ class ToolRuntime:
         capability: ToolCapability,
         input_identity: str,
     ) -> None:
-        if not descriptor.default_read_only:
-            raise ValueError("write-capable ToolProvider is not allowed before W10")
-        if capability not in descriptor.capabilities:
-            raise ValueError(f"provider does not declare capability {capability.value}")
+        self._validate_descriptor_command(descriptor, capability)
         if _looks_like_absolute_path(input_identity):
             raise ValueError("input_identity must not persist an absolute local path")
         if not input_identity.strip():
             raise ValueError("input_identity must not be empty")
+
+    @staticmethod
+    def _validate_descriptor_command(
+        descriptor: ToolProviderDescriptor,
+        capability: ToolCapability,
+    ) -> None:
+        if not descriptor.default_read_only:
+            raise ValueError("write-capable ToolProvider is not allowed before W10")
+        if capability not in descriptor.capabilities:
+            raise ValueError(f"provider does not declare capability {capability.value}")
+
+    def _probe_local(self, command: LocalCommand) -> LocalToolProbe:
+        executable = shutil.which(command.executable)
+        if executable is None:
+            return LocalToolProbe(
+                executable=None,
+                tool_version="unavailable",
+                error_summary=f"executable not found: {command.executable}",
+            )
+
+        environment = os.environ.copy()
+        if command.environment:
+            environment.update(command.environment)
+        if command.workspace_environment:
+            version_workspace = Path(
+                tempfile.mkdtemp(prefix="version-", dir=self._work_root)
+            ).resolve()
+            try:
+                version_environment = _apply_workspace_environment(
+                    environment,
+                    command.workspace_environment,
+                    version_workspace,
+                )
+                version = _detect_version(
+                    executable,
+                    command.version_args,
+                    environment=version_environment,
+                )
+            finally:
+                shutil.rmtree(version_workspace, ignore_errors=True)
+        else:
+            version = _detect_version(
+                executable,
+                command.version_args,
+                environment=environment,
+            )
+        if version is None:
+            return LocalToolProbe(
+                executable=executable,
+                tool_version="unknown",
+                error_summary=f"could not determine tool version: {command.executable}",
+            )
+        if command.version_policy is not None:
+            policy_error = command.version_policy(version)
+            if policy_error is not None:
+                return LocalToolProbe(
+                    executable=executable,
+                    tool_version=version,
+                    error_summary=policy_error,
+                )
+        return LocalToolProbe(executable=executable, tool_version=version)
+
+    def _resolved_artifact_path(self, artifact: ToolArtifact) -> Path:
+        artifact_root = self._artifact_root.resolve()
+        artifact_path = artifact_root / artifact.relative_path
+        try:
+            if artifact_path.is_symlink():
+                raise StructuredOutputError("symbolic-link tool artifacts are not accepted")
+            resolved = artifact_path.resolve(strict=True)
+        except (OSError, RuntimeError) as error:
+            raise StructuredOutputError("tool artifact is unavailable") from error
+        if not resolved.is_relative_to(artifact_root) or not resolved.is_file():
+            raise StructuredOutputError("tool artifact escapes the artifact root")
+        return resolved
 
     def _execute_process(
         self,

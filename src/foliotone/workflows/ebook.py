@@ -17,10 +17,11 @@ from foliotone.adapters.calibre import (
 )
 from foliotone.adapters.epubcheck import EpubCheckError, EpubCheckOutcome
 from foliotone.adapters.poppler import PopplerPdfError, PopplerPdfOutcome
+from foliotone.analyzers.ebook import ObservedFileError, resolve_observed_file
 from foliotone.core import EntityId, FileObservation, ToolExecutionStatus
 from foliotone.tooling import ToolExecution, ToolResult
 
-EBOOK_ANALYSIS_PROFILE = "ebook-analysis-workflow/v1"
+EBOOK_ANALYSIS_PROFILE = "ebook-analysis-workflow/v2"
 EBOOK_ANALYSIS_FORMATS = ("EPUB", "MOBI", "AZW", "AZW3", "PDF")
 _FORMAT_BY_SUFFIX = {
     f".{format_name.lower()}": format_name for format_name in EBOOK_ANALYSIS_FORMATS
@@ -41,6 +42,11 @@ type TextAnalysis = Callable[[Path, FileObservation], CalibreTextOutcome]
 type CoverAnalysis = Callable[[Path, FileObservation], CalibreCoverOutcome]
 type ValidationAnalysis = Callable[[Path, FileObservation], EpubCheckOutcome]
 type PdfAnalysis = Callable[[Path, FileObservation], PopplerPdfOutcome]
+type MetadataReuse = Callable[[Path, FileObservation], CalibreMetadataOutcome | None]
+type TextReuse = Callable[[Path, FileObservation], CalibreTextOutcome | None]
+type CoverReuse = Callable[[Path, FileObservation], CalibreCoverOutcome | None]
+type ValidationReuse = Callable[[Path, FileObservation], EpubCheckOutcome | None]
+type PdfReuse = Callable[[Path, FileObservation], PopplerPdfOutcome | None]
 
 
 class EbookAnalysisError(RuntimeError):
@@ -64,6 +70,13 @@ class EbookAnalysisStatus(StrEnum):
     FAILED = "FAILED"
 
 
+class EbookAnalysisStepDisposition(StrEnum):
+    """Whether a step executed tools or reused exact persisted evidence."""
+
+    EXECUTED = "EXECUTED"
+    REUSED = "REUSED"
+
+
 @dataclass(frozen=True, slots=True)
 class EbookAnalysisStepOutcome:
     """Bounded summary of one adapter step and its exact ToolExecutions."""
@@ -72,6 +85,7 @@ class EbookAnalysisStepOutcome:
     executions: tuple[ToolExecution, ...] = ()
     facts: tuple[tuple[str, str], ...] = ()
     error: str | None = None
+    disposition: EbookAnalysisStepDisposition = EbookAnalysisStepDisposition.EXECUTED
 
     def __post_init__(self) -> None:
         name = self.name.strip()
@@ -166,6 +180,11 @@ class EbookAnalysisTools:
     cover: CoverAnalysis | None = None
     validation: ValidationAnalysis | None = None
     pdf: PdfAnalysis | None = None
+    metadata_reuse: MetadataReuse | None = None
+    text_reuse: TextReuse | None = None
+    cover_reuse: CoverReuse | None = None
+    validation_reuse: ValidationReuse | None = None
+    pdf_reuse: PdfReuse | None = None
 
 
 class EbookAnalysisOrchestrator:
@@ -178,16 +197,28 @@ class EbookAnalysisOrchestrator:
         self,
         source_root: Path,
         observation: FileObservation,
+        *,
+        fresh: bool = False,
     ) -> EbookAnalysisOutcome:
-        """Run a fresh evidence pass selected only from the observation's format."""
+        """Reuse exact evidence or run only the required format-aware steps."""
         format_name = ebook_analysis_format(observation.relative_path)
         steps: tuple[EbookAnalysisStepOutcome, ...]
         if format_name == "PDF":
             pdf = _required_tool(self._tools.pdf, "pdf")
+            if not fresh and self._tools.pdf_reuse is not None:
+                _validate_source(source_root, observation)
             steps = (
                 _capture_step(
                     "pdf-analysis",
-                    lambda: _pdf_step(pdf(source_root, observation)),
+                    lambda: _pdf_step(
+                        *_select_analysis(
+                            pdf,
+                            self._tools.pdf_reuse,
+                            source_root,
+                            observation,
+                            fresh=fresh,
+                        )
+                    ),
                     (PopplerPdfError,),
                 ),
             )
@@ -200,20 +231,54 @@ class EbookAnalysisOrchestrator:
                 if format_name == "EPUB"
                 else None
             )
+            if not fresh and any(
+                reuse is not None
+                for reuse in (
+                    self._tools.metadata_reuse,
+                    self._tools.text_reuse,
+                    self._tools.cover_reuse,
+                    self._tools.validation_reuse if format_name == "EPUB" else None,
+                )
+            ):
+                _validate_source(source_root, observation)
             planned: list[EbookAnalysisStepOutcome] = [
                 _capture_step(
                     "metadata",
-                    lambda: _metadata_step(metadata(source_root, observation)),
+                    lambda: _metadata_step(
+                        *_select_analysis(
+                            metadata,
+                            self._tools.metadata_reuse,
+                            source_root,
+                            observation,
+                            fresh=fresh,
+                        )
+                    ),
                     (CalibreMetadataError,),
                 ),
                 _capture_step(
                     "text",
-                    lambda: _text_step(text(source_root, observation)),
+                    lambda: _text_step(
+                        *_select_analysis(
+                            text,
+                            self._tools.text_reuse,
+                            source_root,
+                            observation,
+                            fresh=fresh,
+                        )
+                    ),
                     (CalibreTextError,),
                 ),
                 _capture_step(
                     "cover",
-                    lambda: _cover_step(cover(source_root, observation)),
+                    lambda: _cover_step(
+                        *_select_analysis(
+                            cover,
+                            self._tools.cover_reuse,
+                            source_root,
+                            observation,
+                            fresh=fresh,
+                        )
+                    ),
                     (CalibreCoverError,),
                 ),
             ]
@@ -221,7 +286,15 @@ class EbookAnalysisOrchestrator:
                 planned.append(
                     _capture_step(
                         "structural-validation",
-                        lambda: _validation_step(validation(source_root, observation)),
+                        lambda: _validation_step(
+                            *_select_analysis(
+                                validation,
+                                self._tools.validation_reuse,
+                                source_root,
+                                observation,
+                                fresh=fresh,
+                            )
+                        ),
                         (EpubCheckError,),
                     )
                 )
@@ -266,7 +339,32 @@ def _capture_step(
         )
 
 
-def _metadata_step(outcome: CalibreMetadataOutcome) -> EbookAnalysisStepOutcome:
+def _select_analysis[T](
+    analyze: Callable[[Path, FileObservation], T],
+    reuse: Callable[[Path, FileObservation], T | None] | None,
+    source_root: Path,
+    observation: FileObservation,
+    *,
+    fresh: bool,
+) -> tuple[T, EbookAnalysisStepDisposition]:
+    if not fresh and reuse is not None:
+        previous = reuse(source_root, observation)
+        if previous is not None:
+            return previous, EbookAnalysisStepDisposition.REUSED
+    return analyze(source_root, observation), EbookAnalysisStepDisposition.EXECUTED
+
+
+def _validate_source(source_root: Path, observation: FileObservation) -> None:
+    try:
+        resolve_observed_file(source_root, observation)
+    except ObservedFileError as error:
+        raise EbookAnalysisError(str(error)) from error
+
+
+def _metadata_step(
+    outcome: CalibreMetadataOutcome,
+    disposition: EbookAnalysisStepDisposition,
+) -> EbookAnalysisStepOutcome:
     facts: tuple[tuple[str, str], ...] = ()
     if outcome.run.execution.status is ToolExecutionStatus.SUCCEEDED:
         facts = (
@@ -277,10 +375,14 @@ def _metadata_step(outcome: CalibreMetadataOutcome) -> EbookAnalysisStepOutcome:
         name="metadata",
         executions=(outcome.run.execution,),
         facts=facts,
+        disposition=disposition,
     )
 
 
-def _text_step(outcome: CalibreTextOutcome) -> EbookAnalysisStepOutcome:
+def _text_step(
+    outcome: CalibreTextOutcome,
+    disposition: EbookAnalysisStepDisposition,
+) -> EbookAnalysisStepOutcome:
     facts = _selected_result_facts(
         outcome.results,
         ("text_status", "normalized_character_count"),
@@ -291,10 +393,14 @@ def _text_step(outcome: CalibreTextOutcome) -> EbookAnalysisStepOutcome:
         name="text",
         executions=(outcome.run.execution,),
         facts=facts,
+        disposition=disposition,
     )
 
 
-def _cover_step(outcome: CalibreCoverOutcome) -> EbookAnalysisStepOutcome:
+def _cover_step(
+    outcome: CalibreCoverOutcome,
+    disposition: EbookAnalysisStepDisposition,
+) -> EbookAnalysisStepOutcome:
     facts = _selected_result_facts(
         outcome.results,
         ("cover_status", "image_format", "display_width", "display_height"),
@@ -305,10 +411,14 @@ def _cover_step(outcome: CalibreCoverOutcome) -> EbookAnalysisStepOutcome:
         name="cover",
         executions=(outcome.run.execution,),
         facts=facts,
+        disposition=disposition,
     )
 
 
-def _validation_step(outcome: EpubCheckOutcome) -> EbookAnalysisStepOutcome:
+def _validation_step(
+    outcome: EpubCheckOutcome,
+    disposition: EbookAnalysisStepDisposition,
+) -> EbookAnalysisStepOutcome:
     facts = _selected_result_facts(
         outcome.results,
         (
@@ -329,10 +439,14 @@ def _validation_step(outcome: EpubCheckOutcome) -> EbookAnalysisStepOutcome:
         name="structural-validation",
         executions=(outcome.run.execution,),
         facts=facts,
+        disposition=disposition,
     )
 
 
-def _pdf_step(outcome: PopplerPdfOutcome) -> EbookAnalysisStepOutcome:
+def _pdf_step(
+    outcome: PopplerPdfOutcome,
+    disposition: EbookAnalysisStepDisposition,
+) -> EbookAnalysisStepOutcome:
     facts: tuple[tuple[str, str], ...] = ()
     if outcome.info_run.execution.status is ToolExecutionStatus.SUCCEEDED:
         facts = (("metadata_observation_count", str(len(outcome.metadata_results))),)
@@ -350,6 +464,7 @@ def _pdf_step(outcome: PopplerPdfOutcome) -> EbookAnalysisStepOutcome:
         name="pdf-analysis",
         executions=(outcome.info_run.execution, outcome.text_run.execution),
         facts=facts,
+        disposition=disposition,
     )
 
 

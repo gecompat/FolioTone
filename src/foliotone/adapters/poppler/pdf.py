@@ -26,7 +26,12 @@ from foliotone.core import (
     ToolExecutionStatus,
 )
 from foliotone.persistence import repository
-from foliotone.tooling import ToolProviderDescriptor, ToolResult
+from foliotone.tooling import (
+    ToolArtifactRequirement,
+    ToolProviderDescriptor,
+    ToolResult,
+    ToolReuseRequest,
+)
 from foliotone.tooling.runtime import (
     LocalCommand,
     ToolRunOutcome,
@@ -149,6 +154,59 @@ class PopplerPdfAnalyzer:
         self._runtime = runtime
         self._pdfinfo_executable = pdfinfo_executable
         self._pdftotext_executable = pdftotext_executable
+
+    def reuse_requests(
+        self,
+        observation: FileObservation,
+    ) -> tuple[ToolReuseRequest, ToolReuseRequest] | None:
+        """Describe the atomic pair of exact reusable Poppler executions."""
+        info_probe = self._runtime.probe_local(
+            POPPLER_INFO_PROVIDER,
+            LocalCommand(
+                executable=self._pdfinfo_executable,
+                args=(),
+                capability=ToolCapability.TECHNICAL_METADATA,
+                version_args=("-v",),
+                environment={"LC_ALL": "C", "LANG": "C"},
+                version_policy=poppler_version_policy,
+            ),
+        )
+        text_probe = self._runtime.probe_local(
+            POPPLER_TEXT_PROVIDER,
+            LocalCommand(
+                executable=self._pdftotext_executable,
+                args=(),
+                capability=ToolCapability.EXTRACT_TEXT,
+                version_args=("-v",),
+                environment={"LC_ALL": "C", "LANG": "C"},
+                version_policy=poppler_version_policy,
+            ),
+        )
+        if not info_probe.usable or not text_probe.usable:
+            return None
+        input_identity = f"file-observation:{observation.id}"
+        return (
+            ToolReuseRequest(
+                descriptor=POPPLER_INFO_PROVIDER,
+                capability=ToolCapability.TECHNICAL_METADATA,
+                tool_version=info_probe.tool_version,
+                input_identity=input_identity,
+                config_identity=POPPLER_INFO_CONFIG_IDENTITY,
+                required_artifacts=(
+                    ToolArtifactRequirement("STDOUT", MAX_PDFINFO_BYTES),
+                ),
+            ),
+            ToolReuseRequest(
+                descriptor=POPPLER_TEXT_PROVIDER,
+                capability=ToolCapability.EXTRACT_TEXT,
+                tool_version=text_probe.tool_version,
+                input_identity=input_identity,
+                config_identity=POPPLER_TEXT_CONFIG_IDENTITY,
+                required_artifacts=(
+                    ToolArtifactRequirement(POPPLER_TEXT_ARTIFACT, MAX_PDF_TEXT_BYTES),
+                ),
+            ),
+        )
 
     def analyze(self, source_root: Path, observation: FileObservation) -> PopplerPdfOutcome:
         """Analyze one unchanged PDF without exposing passwords, OCR, or write options."""

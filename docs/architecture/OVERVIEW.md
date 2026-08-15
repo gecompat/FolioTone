@@ -152,6 +152,19 @@ remain step-local and do not suppress independent later Evidence; aggregate
 The workflow prints only a bounded allowlist of counts, statuses and
 fingerprints and never combines tool Evidence into canonical truth.
 
+The tenth W3 vertical slice advances the public workflow contract to
+`ebook-analysis-workflow/v2`. Each configured adapter first performs only its
+fixed version probe. A prior step is reusable only when the latest execution
+with the exact provider, tool, adapter, capability, FileObservation input and
+configuration identities succeeded. FolioTone then verifies each adapter-
+declared private artifact by bounded size and SHA-256 and deterministically
+reconstructs the persisted results and fingerprints from that artifact. Any
+missing, failed, stale, damaged or inconsistent step is executed again; an
+explicit `--fresh` bypasses lookup and probing. The CLI exposes `REUSED` versus
+`EXECUTED`, while the reused ToolExecution IDs preserve original provenance.
+The combined Poppler PDF adapter remains one atomic workflow step containing
+its separate `pdfinfo` and `pdftotext` executions.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.

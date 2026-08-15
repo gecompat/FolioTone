@@ -43,6 +43,7 @@ from foliotone.tooling.runtime import ToolRuntime
 from foliotone.workflows import (
     EbookAnalysisError,
     EbookAnalysisOrchestrator,
+    EbookAnalysisReuseService,
     EbookAnalysisStatus,
     EbookAnalysisTools,
     ebook_analysis_format,
@@ -284,6 +285,14 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         type=EntityId.parse,
         help="Persisted EPUB/MOBI/AZW/AZW3/PDF FileObservation ID to analyze.",
+    )
+    ebook_analyze.add_argument(
+        "--fresh",
+        action="store_true",
+        help=(
+            "Bypass exact successful evidence reuse and execute every applicable "
+            "analyzer step."
+        ),
     )
     ebook_analyze.add_argument(
         "--database",
@@ -590,44 +599,84 @@ def _run_ebook_analyze(args: argparse.Namespace) -> int:
             args.artifact_root,
             work_root=args.work_root,
         )
+        reuse = EbookAnalysisReuseService(engine, runtime)
         if format_name == "PDF":
+            pdf_analyzer = PopplerPdfAnalyzer(
+                engine,
+                runtime,
+                pdfinfo_executable=args.pdfinfo_executable,
+                pdftotext_executable=args.pdftotext_executable,
+            )
             tools = EbookAnalysisTools(
-                pdf=PopplerPdfAnalyzer(
-                    engine,
-                    runtime,
-                    pdfinfo_executable=args.pdfinfo_executable,
-                    pdftotext_executable=args.pdftotext_executable,
-                ).analyze,
+                pdf=pdf_analyzer.analyze,
+                pdf_reuse=lambda _root, current: reuse.pdf(
+                    pdf_analyzer.reuse_requests(current),
+                    current,
+                ),
             )
         else:
+            metadata_analyzer = CalibreMetadataAnalyzer(
+                engine,
+                runtime,
+                executable=args.ebook_meta_executable,
+            )
+            text_analyzer = CalibreTextAnalyzer(
+                engine,
+                runtime,
+                executable=args.ebook_convert_executable,
+            )
+            cover_analyzer = CalibreCoverAnalyzer(
+                engine,
+                runtime,
+                executable=args.calibre_debug_executable,
+            )
+            validation_analyzer = (
+                EpubCheckAnalyzer(
+                    engine,
+                    runtime,
+                    java_executable=args.java_executable,
+                    epubcheck_jar=args.epubcheck_jar,
+                )
+                if format_name == "EPUB"
+                else None
+            )
             tools = EbookAnalysisTools(
-                metadata=CalibreMetadataAnalyzer(
-                    engine,
-                    runtime,
-                    executable=args.ebook_meta_executable,
-                ).analyze,
-                text=CalibreTextAnalyzer(
-                    engine,
-                    runtime,
-                    executable=args.ebook_convert_executable,
-                ).analyze,
-                cover=CalibreCoverAnalyzer(
-                    engine,
-                    runtime,
-                    executable=args.calibre_debug_executable,
-                ).analyze,
+                metadata=metadata_analyzer.analyze,
+                text=text_analyzer.analyze,
+                cover=cover_analyzer.analyze,
                 validation=(
-                    EpubCheckAnalyzer(
-                        engine,
-                        runtime,
-                        java_executable=args.java_executable,
-                        epubcheck_jar=args.epubcheck_jar,
-                    ).analyze
-                    if format_name == "EPUB"
+                    validation_analyzer.analyze
+                    if validation_analyzer is not None
+                    else None
+                ),
+                metadata_reuse=lambda _root, current: reuse.metadata(
+                    metadata_analyzer.reuse_request(current),
+                    current,
+                ),
+                text_reuse=lambda _root, current: reuse.text(
+                    text_analyzer.reuse_request(current),
+                    current,
+                ),
+                cover_reuse=lambda _root, current: reuse.cover(
+                    cover_analyzer.reuse_request(current),
+                    current,
+                ),
+                validation_reuse=(
+                    (
+                        lambda _root, current: reuse.validation(
+                            validation_analyzer.reuse_request(current),
+                            current,
+                        )
+                    )
+                    if validation_analyzer is not None
                     else None
                 ),
             )
-        outcome = EbookAnalysisOrchestrator(tools).analyze(args.root, observation)
+        outcome = EbookAnalysisOrchestrator(tools).analyze(
+            args.root,
+            observation,
+            fresh=args.fresh,
+        )
     except (EbookAnalysisError, ValueError) as error:
         print(f"E-book analysis failed: {error}")
         return 1
@@ -635,8 +684,10 @@ def _run_ebook_analyze(args: argparse.Namespace) -> int:
     print(f"FileObservation: {outcome.observation_id}")
     print(f"Format: {outcome.format_name}")
     print(f"Analysis profile: {outcome.profile}")
+    print(f"Evidence policy: {'FRESH' if args.fresh else 'REUSE_EXACT'}")
     for step in outcome.steps:
         print(f"{step.name} status: {step.state.value}")
+        print(f"{step.name} evidence action: {step.disposition.value}")
         if step.error is not None:
             print(
                 f"{step.name} adapter error: "

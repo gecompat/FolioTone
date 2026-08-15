@@ -23,9 +23,11 @@ ergänzt feste EPUBCheck-JSON-Strukturvalidierung und provider-spezifische
 akzeptierte Exitcodes. `W3-009` ergänzt eine quellisolierte
 EPUB/MOBI/AZW/AZW3-Embedded-Cover-Extraktion, explizites
 `NO_EMBEDDED_COVER` und einen versionierten FolioTone-dHash. `W3-010` ergänzt
-den formatbewussten, einheitlichen CLI-Workflow `ebook-analyze`. Auf
-Benutzerentscheidung bleibt die Entwicklung bis zur Reife der E-Book-Pipeline
-bei E-Books; `W3-011` ist als Nächstes vorgesehen, Music W4 ist zurückgestellt.
+den formatbewussten, einheitlichen CLI-Workflow `ebook-analyze`. `W3-011`
+ergänzt dessen konservative exakte Evidence-Wiederverwendung, gezielten
+Schritt-Retry und `--fresh`. Auf Benutzerentscheidung bleibt die Entwicklung
+bis zur Reife der E-Book-Pipeline bei E-Books; `W3-012` ist als Nächstes
+vorgesehen, Music W4 ist zurückgestellt.
 
 ## Vor Änderungen lesen
 
@@ -261,10 +263,10 @@ EPUBCheck-Befund innerhalb eines technisch erfolgreichen Schritts.
 
 Die CLI druckt ausschließlich eine begrenzte Allowlist aus Zählern,
 Statuswerten und Fingerprints sowie ToolExecution-ID/-Status/-Version. Rohe
-Artefakte, Diagnosetexte und absolute Source-Pfade bleiben privat. Jeder Aufruf
-erzeugt zunächst frische Evidence; `W3-011` soll nur bei exakter
-Tool-/Adapter-/Input-/Konfigurationsversion und intakten Artefakten selektiv
-wiederverwenden, ansonsten gezielt neu ausführen.
+Artefakte, Diagnosetexte und absolute Source-Pfade bleiben privat. Das
+historische Profil `ebook-analysis-workflow/v1` erzeugt bei jedem Aufruf
+frische Evidence. `W3-011` ersetzt diesen Default durch den nachfolgend
+dokumentierten konservativen `v2`-Planer.
 
 Die gezielte W3-010-Suite aus Workflow-, Bootstrap- und CLI-Integrationstests
 bestand mit 18 Tests; Ruff und Mypy für 71 Source-Dateien waren erfolgreich.
@@ -288,6 +290,24 @@ Der veröffentlichte Implementierungscommit
 GitHub-Actions-Runs `31874601676` (Push) und `31874615476` (Pull Request)
 waren erfolgreich; die `quality`-Jobs einschließlich aller Docker-Smoke-Tests
 liefen 62 beziehungsweise 59 Sekunden.
+
+Der echte W3-011-Smoke unter
+`C:\rep\tmp\FolioTone\w3-011-smoke-01` verwendete ausschließlich ein
+synthetisches EPUB. Der Erstlauf erzeugte vier erfolgreiche ToolExecutions;
+der identische Zweitlauf verwendete alle vier mit unveränderten IDs wieder.
+Nach absichtlicher Beschädigung nur des privaten `CALIBRE_TEXT`-Artefakts lief
+ausschließlich der Textschritt neu. `--fresh` führte danach alle vier Schritte
+neu aus. Die Execution-Zählerfolge war 4, 4, 5, 9. Die Source-SHA-256 blieb
+`41070cdea56904647215b069f15af3f6e46d6d94b81795974e247a337464b6ea`;
+der ephemere Work-Ordner war leer. Verwendet wurden calibre 9.13, EPUBCheck
+5.3.0 und Temurin JRE 21.0.12+8.
+
+Der vollständige W3-011-Stand bestand lokal `ruff check .`, Mypy für 73
+Source-Dateien und alle 216 Pytest-Tests in 11 Minuten 35 Sekunden. Das Wheel
+`C:\rep\artifacts\FolioTone\w3-011-wheel-01\foliotone-0.1.0-py3-none-any.whl`
+hat SHA-256
+`ab6064b05035a8cddd4f033a493c3f9d76ce43b37fe89dba5d790f142ad9e62e`
+und enthält `ebook.py`, `evidence.py` und `reuse.py`.
 
 Calibres dokumentiertes `calibre-debug --diff` startet ein GUI-Modul ohne
 headless JSON-/Reportvertrag und wurde deshalb nicht adaptiert. Ein späterer
@@ -462,7 +482,7 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
 ### Einheitliche E-Book-Analyse
 
 - `EbookAnalysisOrchestrator` und CLI `foliotone ebook-analyze`;
-- Profil `ebook-analysis-workflow/v1` und feste Allowlist EPUB/MOBI/AZW/AZW3/PDF;
+- aktuelles Profil `ebook-analysis-workflow/v2` und feste Allowlist EPUB/MOBI/AZW/AZW3/PDF;
 - ausschließlich Komposition der bestehenden calibre-, EPUBCheck- und
   Poppler-Adapter, ohne neue Toolargumente oder Parser;
 - Format-Routing: EPUB vier Schritte, MOBI/AZW/AZW3 drei Schritte, PDF ein
@@ -472,8 +492,16 @@ Resume wird als neuer `ScanRun` modelliert. `resumed_from_run_id` verweist auf d
   technisch erfolgreicher Analyse;
 - begrenzte CLI-Zusammenfassung ohne rohe Artefakte, Diagnosetexte oder
   absolute Source-Pfade;
-- vorerst frische Evidence pro Aufruf; selektive Wiederverwendung ist
-  `W3-011` und darf nur konservativ erfolgen.
+- nicht persistierender read-only Versionsprobe vor Wiederverwendung;
+- exakter Vergleich von Provider, Tool-Version, Adapter, Capability,
+  FileObservation-Input und Konfigurationsidentität;
+- ausschließlich neuester exakt passender erfolgreicher Lauf; ein neuerer
+  fehlgeschlagener exakter Versuch erzwingt Retry;
+- adapter-spezifische Größen-/SHA-256-Prüfung jedes Pflichtartefakts und
+  deterministische Rekonstruktion der persistierten Ergebnisse/Fingerprints;
+- `REUSED`/`EXECUTED` je Schritt und `--fresh` zum vollständigen Bypass;
+- atomarer PDF-Workflow-Schritt: Beide getrennten Poppler-Ausführungen werden
+  gemeinsam wiederverwendet oder gemeinsam neu ausgeführt.
 
 ### Persistence
 
@@ -488,13 +516,9 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 Die nächste sinnvolle Reihenfolge ist:
 
-1. `W3-011` — exakte erfolgreiche Evidence im einheitlichen Workflow nur bei
-   unveränderten Tool-/Adapter-/Input-/Konfigurationsversionen und intakten
-   Pflichtartefakten wiederverwenden; fehlende, fehlgeschlagene oder veraltete
-   Schritte gezielt erneut ausführen und einen expliziten Fresh-Modus anbieten.
-2. `W3-012` — ein versioniertes E-Book-Qualitätsprofil getrennt von
+1. `W3-012` — ein versioniertes E-Book-Qualitätsprofil getrennt von
    Datei-/`Edition`-/`Work`-Identität implementieren.
-3. `W3-013` und `W3-014` — provider-neutralen Book-Diff sowie erweiterte
+2. `W3-013` und `W3-014` — provider-neutralen Book-Diff sowie erweiterte
    synthetische Edge-/Performance-/Distanz-Fälle umsetzen.
 
 Music W4 bleibt geplant, wird aber erst nach der E-Book-Vertiefung und den

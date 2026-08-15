@@ -25,7 +25,12 @@ from foliotone.core import (
 )
 from foliotone.index import stream_sha256
 from foliotone.persistence import repository
-from foliotone.tooling import ToolProviderDescriptor, ToolResult
+from foliotone.tooling import (
+    ToolArtifactRequirement,
+    ToolProviderDescriptor,
+    ToolResult,
+    ToolReuseRequest,
+)
 from foliotone.tooling.runtime import (
     LocalCommand,
     ToolRunOutcome,
@@ -72,7 +77,9 @@ class CalibreCoverOutcome:
 
 
 @dataclass(frozen=True, slots=True)
-class _CoverExtractionResult:
+class CalibreCoverExtractionResult:
+    """Strict bounded result emitted by the private calibre cover helper."""
+
     status: str
     source_sha256: str
     cover_bytes: int
@@ -103,6 +110,35 @@ class CalibreCoverAnalyzer:
         self._runtime = runtime
         self._executable = executable
         self._script_path = resolved_script
+
+    def reuse_request(self, observation: FileObservation) -> ToolReuseRequest | None:
+        """Describe exact reusable cover evidence after a safe version probe."""
+        probe = self._runtime.probe_local(
+            CALIBRE_COVER_PROVIDER,
+            LocalCommand(
+                executable=self._executable,
+                args=(),
+                capability=ToolCapability.FINGERPRINT,
+                environment={"CALIBRE_ALLOW_PYTHON_TEMPLATES": "0"},
+                workspace_environment={"CALIBRE_CONFIG_DIRECTORY": "calibre-config"},
+                version_policy=calibre_version_policy,
+            ),
+        )
+        if not probe.usable:
+            return None
+        return ToolReuseRequest(
+            descriptor=CALIBRE_COVER_PROVIDER,
+            capability=ToolCapability.FINGERPRINT,
+            tool_version=probe.tool_version,
+            input_identity=f"file-observation:{observation.id}",
+            config_identity=CALIBRE_COVER_CONFIG_IDENTITY,
+            required_artifacts=(
+                ToolArtifactRequirement(
+                    CALIBRE_COVER_RESULT_ARTIFACT,
+                    MAX_COVER_RESULT_BYTES,
+                ),
+            ),
+        )
 
     def analyze(
         self,
@@ -210,7 +246,7 @@ class CalibreCoverAnalyzer:
             fingerprint=fingerprint,
         )
 
-    def _read_extraction_result(self, run: ToolRunOutcome) -> _CoverExtractionResult:
+    def _read_extraction_result(self, run: ToolRunOutcome) -> CalibreCoverExtractionResult:
         artifacts = tuple(
             artifact
             for artifact in run.artifacts
@@ -225,7 +261,7 @@ class CalibreCoverAnalyzer:
             )
         except StructuredOutputError as error:
             raise CalibreCoverError("calibre cover result validation failed") from error
-        return _parse_extraction_result(parsed)
+        return parse_calibre_cover_result(parsed)
 
     @staticmethod
     def _verify_source_unchanged(
@@ -258,7 +294,8 @@ class CalibreCoverAnalyzer:
         )
 
 
-def _parse_extraction_result(value: JsonValue) -> _CoverExtractionResult:
+def parse_calibre_cover_result(value: JsonValue) -> CalibreCoverExtractionResult:
+    """Parse the helper's strict result without exposing private source paths."""
     if not isinstance(value, dict) or set(value) != {
         "cover_bytes",
         "source_sha256",
@@ -274,7 +311,7 @@ def _parse_extraction_result(value: JsonValue) -> _CoverExtractionResult:
         raise CalibreCoverError("calibre cover result has an invalid source digest")
     if isinstance(cover_bytes, bool) or not isinstance(cover_bytes, int) or cover_bytes < 0:
         raise CalibreCoverError("calibre cover result has an invalid byte count")
-    return _CoverExtractionResult(
+    return CalibreCoverExtractionResult(
         status=status,
         source_sha256=source_sha256,
         cover_bytes=cover_bytes,

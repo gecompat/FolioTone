@@ -18,7 +18,14 @@ from foliotone.core import (
     ToolExecutionStatus,
 )
 from foliotone.persistence import repository
-from foliotone.tooling import JsonValue, StructuredOutputError, ToolProviderDescriptor, ToolResult
+from foliotone.tooling import (
+    JsonValue,
+    StructuredOutputError,
+    ToolArtifactRequirement,
+    ToolProviderDescriptor,
+    ToolResult,
+    ToolReuseRequest,
+)
 from foliotone.tooling.runtime import (
     LocalCommand,
     ToolRunOutcome,
@@ -101,6 +108,34 @@ class EpubCheckAnalyzer:
         self._runtime = runtime
         self._java_executable = java_executable
         self._epubcheck_jar = epubcheck_jar.resolve()
+
+    def reuse_request(self, observation: FileObservation) -> ToolReuseRequest | None:
+        """Describe exact reusable EPUBCheck evidence after a safe version probe."""
+        probe = self._runtime.probe_local(
+            EPUBCHECK_PROVIDER,
+            LocalCommand(
+                executable=self._java_executable,
+                args=(),
+                capability=ToolCapability.STRUCTURAL_VALIDATION,
+                version_args=("-jar", str(self._epubcheck_jar), "--version"),
+                version_policy=epubcheck_version_policy,
+            ),
+        )
+        if not probe.usable:
+            return None
+        return ToolReuseRequest(
+            descriptor=EPUBCHECK_PROVIDER,
+            capability=ToolCapability.STRUCTURAL_VALIDATION,
+            tool_version=probe.tool_version,
+            input_identity=f"file-observation:{observation.id}",
+            config_identity=EPUBCHECK_CONFIG_IDENTITY,
+            required_artifacts=(
+                ToolArtifactRequirement(
+                    EPUBCHECK_REPORT_ARTIFACT,
+                    MAX_EPUBCHECK_REPORT_BYTES,
+                ),
+            ),
+        )
 
     def analyze(self, source_root: Path, observation: FileObservation) -> EpubCheckOutcome:
         """Validate one unchanged EPUB without exposing caller-controlled tool options."""

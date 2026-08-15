@@ -26,6 +26,7 @@ from foliotone.workflows import (
     EbookAnalysisError,
     EbookAnalysisOrchestrator,
     EbookAnalysisStatus,
+    EbookAnalysisStepDisposition,
     EbookAnalysisStepOutcome,
     EbookAnalysisStepState,
     EbookAnalysisTools,
@@ -171,6 +172,119 @@ def test_adapter_error_is_bounded_and_does_not_block_independent_steps() -> None
     assert outcome.steps[0].executions == ()
     assert outcome.steps[0].error == "metadata projection failed"
     assert outcome.status is EbookAnalysisStatus.PARTIAL_FAILURE
+
+
+def test_exact_prior_outcomes_are_reused_without_invoking_analyzers(
+    tmp_path: Path,
+) -> None:
+    executed: list[str] = []
+    reused: list[str] = []
+    current = _tools(executed)
+    prior = _tools(reused)
+    source_root, observation = _recorded_observation(tmp_path, "epub")
+    tools = EbookAnalysisTools(
+        metadata=current.metadata,
+        text=current.text,
+        cover=current.cover,
+        validation=current.validation,
+        pdf=current.pdf,
+        metadata_reuse=prior.metadata,
+        text_reuse=prior.text,
+        cover_reuse=prior.cover,
+        validation_reuse=prior.validation,
+        pdf_reuse=prior.pdf,
+    )
+
+    outcome = EbookAnalysisOrchestrator(tools).analyze(source_root, observation)
+
+    assert executed == []
+    assert reused == ["metadata", "text", "cover", "validation"]
+    assert all(
+        step.disposition is EbookAnalysisStepDisposition.REUSED
+        for step in outcome.steps
+    )
+    assert outcome.status is EbookAnalysisStatus.SUCCEEDED
+
+
+def test_only_missing_reusable_step_is_executed(tmp_path: Path) -> None:
+    executed: list[str] = []
+    reused: list[str] = []
+    current = _tools(executed)
+    prior = _tools(reused)
+    source_root, observation = _recorded_observation(tmp_path, "epub")
+    tools = EbookAnalysisTools(
+        metadata=current.metadata,
+        text=current.text,
+        cover=current.cover,
+        validation=current.validation,
+        metadata_reuse=prior.metadata,
+        text_reuse=lambda _root, _observation: None,
+        cover_reuse=prior.cover,
+        validation_reuse=prior.validation,
+    )
+
+    outcome = EbookAnalysisOrchestrator(tools).analyze(source_root, observation)
+
+    assert executed == ["text"]
+    assert reused == ["metadata", "cover", "validation"]
+    assert [step.disposition for step in outcome.steps] == [
+        EbookAnalysisStepDisposition.REUSED,
+        EbookAnalysisStepDisposition.EXECUTED,
+        EbookAnalysisStepDisposition.REUSED,
+        EbookAnalysisStepDisposition.REUSED,
+    ]
+
+
+def test_fresh_mode_bypasses_all_reuse_callbacks() -> None:
+    executed: list[str] = []
+    reused: list[str] = []
+    current = _tools(executed)
+    prior = _tools(reused)
+    tools = EbookAnalysisTools(
+        metadata=current.metadata,
+        text=current.text,
+        cover=current.cover,
+        validation=current.validation,
+        metadata_reuse=prior.metadata,
+        text_reuse=prior.text,
+        cover_reuse=prior.cover,
+        validation_reuse=prior.validation,
+    )
+
+    outcome = EbookAnalysisOrchestrator(tools).analyze(
+        Path("unused"),
+        _observation("books/example.epub"),
+        fresh=True,
+    )
+
+    assert reused == []
+    assert executed == ["metadata", "text", "cover", "validation"]
+    assert all(
+        step.disposition is EbookAnalysisStepDisposition.EXECUTED
+        for step in outcome.steps
+    )
+
+
+def test_reuse_preflight_rejects_changed_source_before_callbacks(tmp_path: Path) -> None:
+    executed: list[str] = []
+    reused: list[str] = []
+    current = _tools(executed)
+    prior = _tools(reused)
+    source_root, observation = _recorded_observation(tmp_path, "epub")
+    (source_root / "books" / "example.epub").write_bytes(b"changed")
+    tools = EbookAnalysisTools(
+        metadata=current.metadata,
+        text=current.text,
+        cover=current.cover,
+        validation=current.validation,
+        metadata_reuse=prior.metadata,
+    )
+
+    with pytest.raises(EbookAnalysisError, match="changed"):
+        EbookAnalysisOrchestrator(tools).analyze(source_root, observation)
+
+    assert executed == []
+    assert reused == []
 
 
 def test_missing_required_tool_is_rejected_before_any_step_runs() -> None:
@@ -361,6 +475,26 @@ def _observation(relative_path: str) -> FileObservation:
         relative_path=relative_path,
         size_bytes=1234,
         modified_at=NOW,
+        observed_at=NOW,
+    )
+
+
+def _recorded_observation(
+    tmp_path: Path,
+    suffix: str,
+) -> tuple[Path, FileObservation]:
+    source_root = tmp_path / "media"
+    source = source_root / "books" / f"example.{suffix}"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"synthetic workflow source")
+    stat = source.stat()
+    return source_root, FileObservation(
+        id=EntityId.new(),
+        file_id=EntityId.new(),
+        scan_run_id=EntityId.new(),
+        relative_path=f"books/example.{suffix}",
+        size_bytes=stat.st_size,
+        modified_at=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
         observed_at=NOW,
     )
 

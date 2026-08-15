@@ -154,6 +154,14 @@ Implemented sequence and decisions through `W3-010`:
     cover; route PDF through both Poppler executions. Continue independent
     steps after expected adapter/tool failures, emit only bounded summary
     facts and return explicit aggregate failure semantics.
+11. advance the unified command to `ebook-analysis-workflow/v2`: probe the
+    currently configured local tool version without persisting a ToolExecution;
+    reuse only the latest exact successful provider/tool/adapter/input/config
+    identity after bounded integrity verification of every required private
+    artifact and deterministic reconstruction of its persisted results and
+    fingerprints. Re-run missing, failed, stale, damaged or inconsistent steps,
+    expose `REUSED`/`EXECUTED`, and let `--fresh` bypass reuse completely. Keep
+    the existing two-execution Poppler PDF adapter atomic at workflow-step level.
 
 Current execution priority is intentionally e-book-first. Music W4 remains in
 the architecture and backlog but is deferred until the e-book completion track

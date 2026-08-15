@@ -106,4 +106,16 @@ non-zero unless every applicable technical step succeeds. Its bounded summary
 excludes raw metadata, text, cover bytes, validation messages, artifact paths
 and absolute source paths.
 
+`ebook-analysis-workflow/v2` treats reuse as a read-only optimization, never as
+an assumption. Before lookup, the exact FileObservation path is checked again
+for root containment, symlinks, size and modification time. Current tool
+versions are probed without opening source media and without persisting a run.
+Reuse requires an explicit configuration identity, the latest exact matching
+execution to be successful, every required private artifact to pass its
+adapter-specific size and SHA-256 checks, and all normalized results and
+fingerprints to be reproducible from those artifacts. Failure of any guard
+falls back to a normal read-only execution. `--fresh` performs no reuse lookup.
+Neither mode changes source media, and neither prints private artifact paths or
+raw artifact content.
+
 Imported/local provider datasets and external tool reports derived from a private collection must also stay out of Git unless a future explicit decision establishes that a specific redistributable artifact belongs in the repository.
