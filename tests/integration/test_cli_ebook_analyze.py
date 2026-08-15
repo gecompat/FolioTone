@@ -1,0 +1,97 @@
+from pathlib import Path
+
+from pytest import CaptureFixture
+
+from foliotone.cli.main import main
+from foliotone.core import FileObservation, ToolExecutionStatus
+from foliotone.persistence import create_sqlite_engine, repository
+from foliotone.tooling import ToolExecution
+
+
+def test_ebook_analyze_cli_reports_all_missing_tools_without_exposing_paths(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    media = tmp_path / "media"
+    data = tmp_path / "data"
+    artifacts = tmp_path / "artifacts"
+    work = tmp_path / "work"
+    media.mkdir()
+    data.mkdir()
+    source = media / "synthetic.epub"
+    source_bytes = b"synthetic orchestrator fixture"
+    source.write_bytes(source_bytes)
+    database = data / "foliotone.db"
+
+    assert main(
+        [
+            "scan",
+            "--name",
+            "ebook-analyze-cli",
+            "--path",
+            str(media),
+            "--media-type",
+            "ebook",
+            "--database",
+            str(database),
+            "--hash",
+            "quick",
+            "--suffix",
+            "epub",
+        ]
+    ) == 0
+    capsys.readouterr()
+
+    engine = create_sqlite_engine(database)
+    (observation,) = repository(engine, FileObservation).list_all()
+    missing = "foliotone-definitely-missing-executable"
+    result = main(
+        [
+            "ebook-analyze",
+            "--root",
+            str(media),
+            "--observation-id",
+            str(observation.id),
+            "--database",
+            str(database),
+            "--artifact-root",
+            str(artifacts),
+            "--work-root",
+            str(work),
+            "--ebook-meta-executable",
+            missing,
+            "--ebook-convert-executable",
+            missing,
+            "--calibre-debug-executable",
+            missing,
+            "--java-executable",
+            missing,
+            "--epubcheck-jar",
+            str(tmp_path / "missing-epubcheck.jar"),
+        ]
+    )
+
+    assert result == 1
+    output = capsys.readouterr().out
+    assert f"FileObservation: {observation.id}" in output
+    assert "Format: EPUB" in output
+    assert "Analysis profile: ebook-analysis-workflow/v1" in output
+    assert "metadata status: FAILED" in output
+    assert "text status: FAILED" in output
+    assert "cover status: FAILED" in output
+    assert "structural-validation status: FAILED" in output
+    assert "Overall status: FAILED" in output
+    assert str(media) not in output
+    assert str(source) not in output
+
+    executions = repository(engine, ToolExecution).list_all()
+    assert len(executions) == 4
+    assert all(
+        execution.status is ToolExecutionStatus.FAILED for execution in executions
+    )
+    assert all(
+        execution.input_identity == f"file-observation:{observation.id}"
+        for execution in executions
+    )
+    assert source.read_bytes() == source_bytes
+    assert list(work.iterdir()) == []

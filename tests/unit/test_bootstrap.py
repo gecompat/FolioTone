@@ -31,6 +31,10 @@ def test_status_command_is_non_destructive_bootstrap(
             "Read-only embedded-cover facts and perceptual fingerprints are available "
             "through ebook-cover."
         ),
+        (
+            "Unified format-aware read-only e-book orchestration is available through "
+            "ebook-analyze."
+        ),
         "Read-only PDF metadata and text analysis is available through pdf-analyze.",
         "Read-only EPUB conformance evidence is available through epub-validate.",
         "Source-media and external-tool mutation commands are not implemented.",

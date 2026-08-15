@@ -40,6 +40,13 @@ from foliotone.index import (
 )
 from foliotone.persistence import create_sqlite_engine, migrate, repository
 from foliotone.tooling.runtime import ToolRuntime
+from foliotone.workflows import (
+    EbookAnalysisError,
+    EbookAnalysisOrchestrator,
+    EbookAnalysisStatus,
+    EbookAnalysisTools,
+    ebook_analysis_format,
+)
 
 _MEDIA_TYPES = {
     "ebook": MediaType.EBOOK,
@@ -259,6 +266,82 @@ def build_parser() -> argparse.ArgumentParser:
         help="calibre-debug executable or absolute executable path.",
     )
 
+    ebook_analyze = subparsers.add_parser(
+        "ebook-analyze",
+        help=(
+            "Run every applicable read-only analyzer for one recorded EPUB, MOBI, "
+            "AZW, AZW3, or PDF observation."
+        ),
+    )
+    ebook_analyze.add_argument(
+        "--root",
+        required=True,
+        type=Path,
+        help="Runtime source root containing the recorded e-book observation.",
+    )
+    ebook_analyze.add_argument(
+        "--observation-id",
+        required=True,
+        type=EntityId.parse,
+        help="Persisted EPUB/MOBI/AZW/AZW3/PDF FileObservation ID to analyze.",
+    )
+    ebook_analyze.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="SQLite database path; defaults to /data/foliotone.db.",
+    )
+    ebook_analyze.add_argument(
+        "--artifact-root",
+        type=Path,
+        default=Path(
+            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
+        ),
+        help="Durable private tool-artifact root; defaults to /data/tool-artifacts.",
+    )
+    ebook_analyze.add_argument(
+        "--work-root",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_TOOL_WORK_ROOT", "/tmp/foliotone-tools")),
+        help="Ephemeral isolated tool-work root; defaults to /tmp/foliotone-tools.",
+    )
+    ebook_analyze.add_argument(
+        "--ebook-meta-executable",
+        default=os.environ.get("FOLIOTONE_EBOOK_META", "ebook-meta"),
+        help="ebook-meta executable or absolute executable path.",
+    )
+    ebook_analyze.add_argument(
+        "--ebook-convert-executable",
+        default=os.environ.get("FOLIOTONE_EBOOK_CONVERT", "ebook-convert"),
+        help="ebook-convert executable or absolute executable path.",
+    )
+    ebook_analyze.add_argument(
+        "--calibre-debug-executable",
+        default=os.environ.get("FOLIOTONE_CALIBRE_DEBUG", "calibre-debug"),
+        help="calibre-debug executable or absolute executable path.",
+    )
+    ebook_analyze.add_argument(
+        "--pdfinfo-executable",
+        default=os.environ.get("FOLIOTONE_PDFINFO", "pdfinfo"),
+        help="pdfinfo executable or absolute executable path.",
+    )
+    ebook_analyze.add_argument(
+        "--pdftotext-executable",
+        default=os.environ.get("FOLIOTONE_PDFTOTEXT", "pdftotext"),
+        help="pdftotext executable or absolute executable path.",
+    )
+    ebook_analyze.add_argument(
+        "--java-executable",
+        default=os.environ.get("FOLIOTONE_JAVA", "java"),
+        help="Java executable or absolute executable path.",
+    )
+    ebook_analyze.add_argument(
+        "--epubcheck-jar",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_EPUBCHECK_JAR", "epubcheck.jar")),
+        help="EPUBCheck JAR path; defaults to epubcheck.jar.",
+    )
+
     pdf_analyze = subparsers.add_parser(
         "pdf-analyze",
         help="Analyze PDF metadata, page count, and text read-only with Poppler.",
@@ -377,6 +460,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Read-only embedded-cover facts and perceptual fingerprints are available "
             "through ebook-cover."
         )
+        print(
+            "Unified format-aware read-only e-book orchestration is available through "
+            "ebook-analyze."
+        )
         print("Read-only PDF metadata and text analysis is available through pdf-analyze.")
         print("Read-only EPUB conformance evidence is available through epub-validate.")
         print("Source-media and external-tool mutation commands are not implemented.")
@@ -394,6 +481,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-cover":
         return _run_ebook_cover(args)
+
+    if args.command == "ebook-analyze":
+        return _run_ebook_analyze(args)
 
     if args.command == "pdf-analyze":
         return _run_pdf_analyze(args)
@@ -482,6 +572,93 @@ def _run_scan(
             if count:
                 print(f"{kind.value}_CANDIDATE: {count}")
     return 0
+
+
+def _run_ebook_analyze(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    observation = repository(engine, FileObservation).get(args.observation_id)
+    if observation is None:
+        print("E-book analysis failed: FileObservation does not exist.")
+        return 2
+
+    try:
+        format_name = ebook_analysis_format(observation.relative_path)
+        runtime = ToolRuntime(
+            engine,
+            args.artifact_root,
+            work_root=args.work_root,
+        )
+        if format_name == "PDF":
+            tools = EbookAnalysisTools(
+                pdf=PopplerPdfAnalyzer(
+                    engine,
+                    runtime,
+                    pdfinfo_executable=args.pdfinfo_executable,
+                    pdftotext_executable=args.pdftotext_executable,
+                ).analyze,
+            )
+        else:
+            tools = EbookAnalysisTools(
+                metadata=CalibreMetadataAnalyzer(
+                    engine,
+                    runtime,
+                    executable=args.ebook_meta_executable,
+                ).analyze,
+                text=CalibreTextAnalyzer(
+                    engine,
+                    runtime,
+                    executable=args.ebook_convert_executable,
+                ).analyze,
+                cover=CalibreCoverAnalyzer(
+                    engine,
+                    runtime,
+                    executable=args.calibre_debug_executable,
+                ).analyze,
+                validation=(
+                    EpubCheckAnalyzer(
+                        engine,
+                        runtime,
+                        java_executable=args.java_executable,
+                        epubcheck_jar=args.epubcheck_jar,
+                    ).analyze
+                    if format_name == "EPUB"
+                    else None
+                ),
+            )
+        outcome = EbookAnalysisOrchestrator(tools).analyze(args.root, observation)
+    except (EbookAnalysisError, ValueError) as error:
+        print(f"E-book analysis failed: {error}")
+        return 1
+
+    print(f"FileObservation: {outcome.observation_id}")
+    print(f"Format: {outcome.format_name}")
+    print(f"Analysis profile: {outcome.profile}")
+    for step in outcome.steps:
+        print(f"{step.name} status: {step.state.value}")
+        if step.error is not None:
+            print(
+                f"{step.name} adapter error: "
+                f"{json.dumps(step.error, ensure_ascii=False)}"
+            )
+        for index, execution in enumerate(step.executions, start=1):
+            label = step.name if len(step.executions) == 1 else f"{step.name}.{index}"
+            print(f"{label} ToolExecution: {execution.id}")
+            print(f"{label} execution status: {execution.status.value}")
+            print(
+                f"{label} tool version: "
+                f"{json.dumps(execution.tool_version, ensure_ascii=False)}"
+            )
+            if execution.error_summary is not None:
+                print(
+                    f"{label} execution error: "
+                    f"{json.dumps(execution.error_summary, ensure_ascii=False)}"
+                )
+        for key, value in step.facts:
+            print(f"{step.name}.{key}: {json.dumps(value, ensure_ascii=False)}")
+    print(f"Overall status: {outcome.status.value}")
+    return 0 if outcome.status is EbookAnalysisStatus.SUCCEEDED else 1
 
 
 def _run_ebook_metadata(args: argparse.Namespace) -> int:

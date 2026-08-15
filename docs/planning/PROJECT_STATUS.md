@@ -4,7 +4,7 @@ Stand: 2026-08-15
 
 ## Aktuelle Welle
 
-**W3 abgeschlossen — optionale Embedded-Cover-Evidence implementiert; W4-Toolbewertung als Nächstes**
+**W3 E-Book-Vertiefung aktiv — einheitliche read-only Analyse implementiert; selektive Schrittplanung als Nächstes**
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
@@ -24,8 +24,11 @@ Datei-, Inhalts-, `Edition`-, `Work`- und Tool-Disagreement-Ground-Truth.
 `STRUCTURAL_VALIDATION`-Evidence-Vertrag und provider-spezifische akzeptierte
 Exitcodes. `W3-009` ergänzt optionale, quellisolierte Embedded-Cover-
 Extraktion für EPUB/MOBI/AZW/AZW3, explizites `NO_EMBEDDED_COVER` und einen
-FolioTone-eigenen versionierten `EBOOK_COVER_DHASH`. W3 ist damit vollständig;
-`W4-001` ist `NEXT`.
+FolioTone-eigenen versionierten `EBOOK_COVER_DHASH`. `W3-010` ergänzt den
+formatbewussten CLI-Workflow `ebook-analyze` mit getrennten Schritt- und
+Gesamtzuständen. Auf Benutzerentscheidung bleibt die aktive Entwicklung bei
+E-Books; `W3-011` ist `NEXT`, die Music-Welle W4 bleibt geplant und
+zurückgestellt.
 
 ## Implementierter W2-Slice
 
@@ -358,6 +361,37 @@ SciPy und PyWavelets einzieht. Coverähnlichkeit bleibt unterstützende Evidence
 sie beweist weder gleiche Datei noch gleiche `Edition` oder gleiches `Work`.
 PDF-Seitenrendering und Music-Release-Artwork gehören nicht zu diesem Slice.
 
+### Einheitlicher formatbewusster E-Book-Workflow
+
+`W3-010` implementiert `ebook-analysis-workflow/v1` und den CLI-Befehl
+`foliotone ebook-analyze`. Die Workflow-Schicht enthält keinen neuen Parser und
+keine eigene Toolausführung. Sie ruft ausschließlich die bereits gehärteten
+Adapter in fester, formatabhängiger Reihenfolge auf:
+
+- EPUB: calibre-Metadaten, normalisierter Text, Embedded-Cover und EPUBCheck;
+- MOBI/AZW/AZW3: calibre-Metadaten, normalisierter Text und Embedded-Cover;
+- PDF: die bestehenden `pdfinfo`- und `pdftotext`-Ausführungen von Poppler.
+
+Vor dem ersten Schritt wird geprüft, ob alle für das konkrete Format nötigen
+Adapter konfiguriert sind. Erwartete Adapterfehler und fehlgeschlagene oder
+abgebrochene ToolExecutions blockieren unabhängige Folgeschritte nicht. Jeder
+Schritt bleibt separat als `SUCCEEDED`, `FAILED`, `CANCELLED` oder `ERROR`
+sichtbar. Der Workflow fasst dies zu `SUCCEEDED`, `PARTIAL_FAILURE` oder
+`FAILED` zusammen; nur vollständiger technischer Erfolg liefert CLI-Exitcode
+0. Ein EPUBCheck-Befund `NONCONFORMANT` bleibt dabei ein erfolgreich erzeugter
+fachlicher Befund und wird nicht als Prozessfehler umgedeutet.
+
+Jeder Aufruf erzeugt zunächst bewusst frische versions- und
+konfigurationsgebundene ToolExecutions. Unsichere Wiederverwendung wird nicht
+implizit eingeführt. `W3-011` soll auf der konservativen W2-Entscheidungslogik
+aufbauen und ausschließlich exakt passende, erfolgreiche und weiterhin
+integritätsprüfbare Evidence wiederverwenden.
+
+Die CLI-Zusammenfassung ist begrenzt und druckt nur Format, Workflow-Profil,
+ToolExecution-ID/-Status/-Version sowie allowlist-basierte Zähler, Statuswerte
+und Fingerprints. Rohe OPF-, Text-, Cover- und EPUBCheck-Artefakte,
+Diagnosetexte und absolute Source-Pfade werden nicht ausgegeben.
+
 ## Lizenz und Dokumentations-Governance
 
 Die Lizenz- und Dokumentationsentscheidungen bleiben unverändert:
@@ -559,14 +593,50 @@ von PR #19 bestand die GitHub-Actions-Runs `31871971678` und `31871990590`;
 die beiden `quality`-Jobs waren nach 58 beziehungsweise 63 Sekunden
 erfolgreich.
 
-## W3-Abschluss und nächster Schritt
+**Empirisch für W3-010:** Die gezielte Suite aus Workflow-, Bootstrap- und
+CLI-Integrationstests bestand mit 18 Tests. Ruff war erfolgreich; Mypy prüfte
+71 Source-Dateien ohne Befund. Der CLI-Integrationstest bestätigt, dass vier
+fehlende EPUB-Werkzeuge als vier getrennte fehlgeschlagene
+ToolExecutions sichtbar bleiben, alle Schritte ausgeführt werden und weder
+Source- noch absolute Runtime-Pfade in der Zusammenfassung erscheinen.
 
-In W2 und W3 verbleibt kein offener Backlog-Eintrag. `W3-001` bis `W3-009`
-sind abgeschlossen. `W4-001` ist `NEXT`: Die aktuelle Music-Toolchain aus
-ffprobe, Chromaprint/`fpcalc`, beets, SongKong und Picard wird anhand ihrer
-CLI-/Service-Schnittstellen, Wartung, Lizenzen und Sicherheitsgrenzen bewertet,
-bevor ein Music-Adapter implementiert wird. Die Produktoberfläche bleibt
-ausschließlich die CLI.
+Der echte CLI-Smoke-Test unter
+`C:\rep\tmp\FolioTone\w3-010-smoke-01` verwendete ausschließlich die beiden
+synthetischen EPUBs mit und ohne eingebettetes Cover. Beide einheitlichen
+Analysen endeten mit Exitcode 0 und jeweils vier erfolgreichen ToolExecutions.
+Persistiert wurden insgesamt acht erfolgreiche ToolExecutions, 79 ToolResults
+und sieben Fingerprints. Metadaten, Text und EPUBCheck waren für beide Dateien
+erfolgreich; das Cover-Ergebnis blieb korrekt `COVER_EXTRACTED` beziehungsweise
+`NO_EMBEDDED_COVER`. Die synthetisch unvollständigen EPUBs lieferten erwartbar
+`NONCONFORMANT` mit je drei Fehlercodes, ohne den technischen Workflowstatus zu
+verfälschen. Beide Source-SHA-256 blieben unverändert, und der ephemere
+Work-Ordner war nach den Läufen leer.
+
+Der vollständige W3-010-Stand bestand mit Python 3.12.10 lokal
+`ruff check .`, Mypy für 71 Source-Dateien und alle 204 Pytest-Tests in
+11 Minuten 16 Sekunden. Das Wheel
+`C:\rep\artifacts\FolioTone\w3-010-wheel-01\foliotone-0.1.0-py3-none-any.whl`
+hat SHA-256
+`3ad24961dc47512721a06053ab40504b2534a8979effb9a43e713c4e501aff24` und
+enthält beide Dateien des neuen `foliotone.workflows`-Pakets.
+
+Der veröffentlichte Implementierungscommit
+`2f8cb144617433855f51c39c4525603b9aa1004a` liegt in PR #20. Für diesen
+exakten Stand waren die GitHub-Actions-Runs `31874601676` (Push) und
+`31874615476` (Pull Request) erfolgreich; ihre `quality`-Jobs einschließlich
+Ruff, Mypy, Tests und aller Docker-Smoke-Tests liefen 62 beziehungsweise
+59 Sekunden.
+
+## Aktiver W3-Stand und nächster Schritt
+
+W2 ist abgeschlossen; `W3-001` bis `W3-010` sind abgeschlossen. `W3-011` ist
+`NEXT`: Der einheitliche Workflow soll nur exakt passende erfolgreiche
+Evidence wiederverwenden, fehlende/fehlgeschlagene/veraltete Schritte gezielt
+erneuern und einen expliziten frischen Gesamtlauf anbieten. Danach folgen das
+versionierte E-Book-Qualitätsprofil, provider-neutraler Book-Diff und die
+Erweiterung des synthetischen Korpus. Music W4 bleibt geplant, aber bis zur
+E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt ausschließlich die
+CLI.
 
 ## Nicht implementiert
 
@@ -581,6 +651,8 @@ Noch nicht vorhanden sind unter anderem:
 - Matching Engine;
 - automatisierter provider-neutraler Book-Diff und zusätzliche qpdf-
   Struktur-Evidence;
+- selektive Wiederverwendung und gezieltes Retry im einheitlichen
+  E-Book-Workflow;
 - Review System;
 - Consolidation Planning und Execution;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.

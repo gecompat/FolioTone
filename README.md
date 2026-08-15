@@ -41,9 +41,11 @@ Provenance-erhaltende OPF2-/OPF3-Metadatenprojektion und ein versionierter,
 synthetischer E-Book-Vergleichskorpus umgesetzt. `W3-008` ergänzt feste
 read-only EPUBCheck-Konformitäts-Evidence. `W3-009` ergänzt optionale,
 quellisolierte Embedded-Cover-Extraktion und einen versionierten
-FolioTone-dHash; calibre Book-Diff bleibt wegen der GUI-only-Schnittstelle
-zurückgestellt. W3 ist damit abgeschlossen, `W4-001` zur Bewertung der
-Music-Toolchain ist als Nächstes vorgesehen.
+FolioTone-dHash. `W3-010` bündelt die vorhandenen Adapter formatabhängig im
+read-only CLI-Befehl `ebook-analyze`, ohne Teilfehler oder Provenance zu
+verdecken. Auf Benutzerentscheidung bleibt die Entwicklung zunächst bei
+E-Books: `W3-011` zur selektiven Wiederverwendung und zum gezielten Retry ist
+als Nächstes vorgesehen; die Music-Toolchain bleibt zurückgestellt.
 
 W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 
@@ -61,7 +63,7 @@ W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 - Custom Community & Attribution License;
 - verbindliche Dokumentations-, Sprach- und Terminologieregeln.
 
-Der abgeschlossene W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
+Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
 
 - feste read-only calibre-Metadaten- und Textpfade für EPUB/MOBI/AZW/AZW3;
 - feste Poppler-PDF-Metadaten-, Seiten- und Textanalyse;
@@ -69,6 +71,8 @@ Der abgeschlossene W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
 - einen FolioTone-eigenen normalisierten E-Book-Textfingerprint;
 - optionale Embedded-Cover-Fakten und einen FolioTone-eigenen, versionierten
   `EBOOK_COVER_DHASH` für EPUB/MOBI/AZW/AZW3;
+- einen einheitlichen, formatbewussten `ebook-analyze`-Workflow für EPUB,
+  MOBI, AZW, AZW3 und PDF mit explizitem `PARTIAL_FAILURE`;
 - rohe OPF-Beobachtungen und versionierte, gruppierte Kandidaten für ISBN und
   andere Identifier, Contributors/Rollen/Sortiernamen, Sprache, Verlag,
   Publikationsdatum, Serie und weitere Felder;

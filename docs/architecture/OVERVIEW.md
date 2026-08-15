@@ -142,6 +142,16 @@ private artifact. FolioTone uses bounded Pillow decoding and owns the
 versioned 64-bit horizontal `EBOOK_COVER_DHASH`; visual similarity is
 supporting Evidence and never an identity decision.
 
+The ninth W3 vertical slice adds `ebook-analysis-workflow/v1` and the unified
+CLI command `foliotone ebook-analyze`. It selects only the already implemented
+read-only adapters required by the observation format: calibre plus EPUBCheck
+for EPUB, calibre for MOBI/AZW/AZW3, and Poppler for PDF. Required adapters are
+preflighted before the first step. Expected adapter or ToolExecution failures
+remain step-local and do not suppress independent later Evidence; aggregate
+`PARTIAL_FAILURE` and `FAILED` states still produce a non-zero CLI exit code.
+The workflow prints only a bounded allowlist of counts, statuses and
+fingerprints and never combines tool Evidence into canonical truth.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.
