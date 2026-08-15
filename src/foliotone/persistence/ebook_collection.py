@@ -243,6 +243,28 @@ class SQLiteEbookCollectionStore:
         with self._engine.connect() as connection:
             return self._get_run(connection, run_id)
 
+    def latest_interrupted_run(
+        self,
+        scan_root_id: EntityId,
+    ) -> EbookCollectionRun | None:
+        with self._engine.connect() as connection:
+            row = connection.execute(
+                select(w3_schema.ebook_collection_runs)
+                .where(
+                    w3_schema.ebook_collection_runs.c.scan_root_id == str(scan_root_id),
+                    w3_schema.ebook_collection_runs.c.status
+                    == EbookCollectionRunStatus.INTERRUPTED.value,
+                )
+                .order_by(
+                    w3_schema.ebook_collection_runs.c.started_at.desc(),
+                    w3_schema.ebook_collection_runs.c.id.desc(),
+                )
+                .limit(1)
+            ).mappings().one_or_none()
+        if row is None:
+            return None
+        return self._run_codec.decode(row)
+
     def heartbeat(
         self,
         run_id: EntityId,

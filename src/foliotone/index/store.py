@@ -76,6 +76,37 @@ class SQLiteIndexStore:
         self._validate_resume_source(root, run)
         return run
 
+    def latest_run(self, root: ScanRoot) -> ScanRun | None:
+        """Resolve the latest persisted scan for this root, if any."""
+        codec = codec_for(ScanRun)
+        with self._engine.connect() as connection:
+            row = connection.execute(
+                select(schema.scan_runs)
+                .where(schema.scan_runs.c.scan_root_id == str(root.id))
+                .order_by(schema.scan_runs.c.started_at.desc(), schema.scan_runs.c.id.desc())
+                .limit(1)
+            ).mappings().one_or_none()
+        if row is None:
+            return None
+        return codec.decode(row)
+
+    def latest_interrupted_run(self, root: ScanRoot) -> ScanRun | None:
+        """Resolve the latest interrupted scan for this root, if any."""
+        codec = codec_for(ScanRun)
+        with self._engine.connect() as connection:
+            row = connection.execute(
+                select(schema.scan_runs)
+                .where(
+                    schema.scan_runs.c.scan_root_id == str(root.id),
+                    schema.scan_runs.c.status == ScanRunStatus.INTERRUPTED.value,
+                )
+                .order_by(schema.scan_runs.c.started_at.desc(), schema.scan_runs.c.id.desc())
+                .limit(1)
+            ).mappings().one_or_none()
+        if row is None:
+            return None
+        return codec.decode(row)
+
     def start_scan(
         self,
         root: ScanRoot,
@@ -364,3 +395,4 @@ def _upsert(connection: Connection, value: object) -> None:
         connection.execute(insert(codec.table).values(**row))
     else:
         connection.execute(update(codec.table).where(codec.table.c.id == entity_id).values(**row))
+

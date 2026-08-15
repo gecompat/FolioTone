@@ -158,11 +158,17 @@ def build_parser() -> argparse.ArgumentParser:
         default=256,
         help="Maximum discovery batch size; must be between 1 and 500.",
     )
-    scan.add_argument(
+    resume_group = scan.add_mutually_exclusive_group()
+    resume_group.add_argument(
         "--resume-run",
         type=EntityId.parse,
         default=None,
-        help="Resume from a persisted INTERRUPTED ScanRun ID for the same logical ScanRoot.",
+        help="Resume from a persisted INTERRUPTED ScanRun ID for the same logical ScanRoot."
+    )
+    resume_group.add_argument(
+        "--resume-last-interrupted",
+        action="store_true",
+        help="Resume from the latest persisted INTERRUPTED ScanRun for the same ScanRoot."
     )
     scan.add_argument(
         "--confirm-deleted-after-missing-scans",
@@ -417,11 +423,17 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Existing logical EBOOK ScanRoot name whose latest scan defines the plan.",
     )
-    ebook_collection.add_argument(
+    collection_resume_group = ebook_collection.add_mutually_exclusive_group()
+    collection_resume_group.add_argument(
         "--resume-run",
         type=EntityId.parse,
         default=None,
         help="Resume an interrupted collection run without replanning its snapshot.",
+    )
+    collection_resume_group.add_argument(
+        "--resume-last-interrupted",
+        action="store_true",
+        help="Resume the latest interrupted collection run.",
     )
     ebook_collection.add_argument(
         "--fresh",
@@ -924,9 +936,15 @@ def _run_scan(
     store = SQLiteIndexStore(engine)
     media_type = _MEDIA_TYPES[args.media_type]
     root = store.get_or_create_root(args.name, media_type)
-    resume_from = (
-        None if args.resume_run is None else store.get_resumable_run(root, args.resume_run)
-    )
+    if args.resume_run is not None:
+        resume_from = store.get_resumable_run(root, args.resume_run)
+    elif args.resume_last_interrupted:
+        resume_from = store.latest_interrupted_run(root)
+        if resume_from is None:
+            print("Scan failed: no INTERRUPTED ScanRun exists for this ScanRoot.")
+            return 2
+    else:
+        resume_from = None
     hash_mode = _HASH_MODES[args.hash_mode]
     fingerprint_writer = None if hash_mode is HashMode.NONE else FingerprintWriter(engine)
     relocation_detector = (
@@ -1118,7 +1136,7 @@ def _run_ebook_collection_analyze(args: argparse.Namespace) -> int:
         )
         return 2
 
-    if args.resume_run is not None and (
+    if (args.resume_run is not None or args.resume_last_interrupted) and (
         args.fresh
         or args.workers is not None
         or args.plan_limit is not None
@@ -1161,6 +1179,15 @@ def _run_ebook_collection_analyze(args: argparse.Namespace) -> int:
                     "to the requested ScanRoot."
                 )
                 return 2
+        elif args.resume_last_interrupted:
+            persisted = store.latest_interrupted_run(root.id)
+            if persisted is None:
+                print(
+                    "E-book collection analysis failed: no INTERRUPTED run exists "
+                    "for this ScanRoot."
+                )
+                return 2
+            args.resume_run = persisted.id
 
         runtime = ToolRuntime(
             engine,
@@ -1706,3 +1733,4 @@ def _run_epub_validate(args: argparse.Namespace) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

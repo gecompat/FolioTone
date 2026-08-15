@@ -123,6 +123,15 @@ def test_collection_cli_stops_and_resumes_without_exposing_source_paths(
     assert all(str(path) not in resumed_output for path in sources)
     assert all(str(observation.id) not in resumed_output for observation in observations)
 
+    resumed_last_result = main([*base_args, "--resume-last-interrupted"])
+    resumed_last_output = capsys.readouterr().out
+
+    assert resumed_last_result == 1
+    assert f"E-book collection run: {run.id}" in resumed_last_output
+    assert "Processed this invocation: 0" in resumed_last_output
+    assert "Pending: 0" in resumed_last_output
+    assert "Status: COMPLETED_WITH_FAILURES" in resumed_last_output
+
     items = repository(engine, EbookCollectionItem).list_all()
     assert len(items) == 2
     assert all(item.status is EbookCollectionItemStatus.FAILED for item in items)

@@ -19,3 +19,23 @@ def test_scan_cli_parses_resume_run_as_entity_id() -> None:
     )
 
     assert args.resume_run == run_id
+
+
+def test_collection_cli_parses_resume_last_interrupted_flag() -> None:
+    args = build_parser().parse_args(
+        [
+            "ebook-collection-analyze",
+            "--root",
+            "/media/ebooks",
+            "--scan-root",
+            "resume-test",
+            "--database",
+            "/tmp/foliotone.db",
+            "--resume-last-interrupted",
+            "--workers",
+            "2",
+        ]
+    )
+
+    assert args.resume_last_interrupted is True
+    assert args.resume_run is None
