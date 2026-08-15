@@ -132,6 +132,16 @@ paths and publication fields are not projected or printed. calibre's GUI-only
 diff interface and qpdf remain deferred until a machine-readable comparison or
 additional PDF-structure gap exists.
 
+The eighth W3 vertical slice adds optional embedded-cover Evidence for an exact
+EPUB/MOBI/AZW/AZW3 observation. A fixed `calibre-debug -e` helper stages the
+source inside the private workspace before invoking calibre and disables
+rendered EPUB fallback covers. A bounded JSON contract distinguishes
+`COVER_EXTRACTED` from `NO_EMBEDDED_COVER` and carries the staged Source
+SHA-256 for a post-run equality check. The optional raster remains a bounded
+private artifact. FolioTone uses bounded Pillow decoding and owns the
+versioned 64-bit horizontal `EBOOK_COVER_DHASH`; visual similarity is
+supporting Evidence and never an identity decision.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.

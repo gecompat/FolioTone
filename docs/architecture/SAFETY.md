@@ -89,4 +89,12 @@ runtime data. Normalized `ToolResult` Evidence contains only the conformance
 verdict, bounded severity counts and diagnostic-code counts; message text and
 local paths are not emitted by the CLI.
 
+Embedded e-book covers are also private runtime data. The fixed calibre helper
+copies an exact EPUB/MOBI/AZW/AZW3 observation into the ephemeral workspace
+before calibre opens it, disables rendered EPUB fallback covers and verifies
+the staged Source SHA-256 after execution. The optional raster is limited to
+32 MiB and decoded only through a JPEG/PNG/WebP/GIF allowlist with a
+40-megapixel and Decompression-Bomb boundary. The CLI emits only status, format,
+dimensions and the versioned dHash, never the raw cover or an absolute path.
+
 Imported/local provider datasets and external tool reports derived from a private collection must also stay out of Git unless a future explicit decision establishes that a specific redistributable artifact belongs in the repository.

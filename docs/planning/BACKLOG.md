@@ -63,13 +63,13 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W3-006 | DONE | Extract ISBN, contributors, language, publisher, series and other fields as observations/candidates with ToolExecution/provenance links. |
 | W3-007 | DONE | Add a versioned synthetic comparison corpus covering identical file, changed metadata, same Edition, different Edition/translation and provenance-preserving tool disagreement without implementing matching. |
 | W3-008 | DONE | Implement fixed read-only EPUBCheck 5.3.0 JSON validation with bounded conformance/severity/diagnostic Evidence and provider-accepted exit-code semantics; retain the private raw report and defer calibre's GUI-only book diff plus qpdf until a machine-readable comparison/structural gap exists. |
-| W3-009 | NEXT | Evaluate cover-image extraction/perceptual fingerprint as optional future evidence; do not block initial analyzer. |
+| W3-009 | DONE | Implement optional embedded-cover Evidence for EPUB/MOBI/AZW/AZW3: fixed `calibre-debug -e` helper with private source staging and rendered-cover suppression, explicit `NO_EMBEDDED_COVER`, bounded private raster artifact, Pillow-backed image guards and a versioned FolioTone `EBOOK_COVER_DHASH`; do not treat visual similarity as identity proof. |
 
 ## W4 — Music Analysis / Tool Orchestration
 
 | ID | Status | Item |
 |---|---|---|
-| W4-001 | PLANNED | Evaluate current ffprobe, Chromaprint/fpcalc, beets, SongKong and Picard interfaces/licensing; define which capabilities are reused vs. FolioTone-native. |
+| W4-001 | NEXT | Evaluate current ffprobe, Chromaprint/fpcalc, beets, SongKong and Picard interfaces/licensing; define which capabilities are reused vs. FolioTone-native. |
 | W4-002 | PLANNED | Implement `ffprobe` ToolProvider for machine-readable technical audio/container observations and probe/integrity failures. |
 | W4-003 | PLANNED | Implement Chromaprint/`fpcalc` ToolProvider behind `AudioFingerprintProvider`; persist algorithm/tool version and fingerprint provenance. |
 | W4-004 | PLANNED | Implement a read-only beets analysis adapter for useful matching/duplicate/completeness evidence without file/library mutation. |
@@ -159,7 +159,7 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 
 | ID | Status | Item |
 |---|---|---|
-| FUT-001 | PLANNED | Cover/image perceptual fingerprints as supporting evidence for book editions/music releases. |
+| FUT-001 | PLANNED | Extend the implemented e-book cover Evidence to music-release artwork and later calibrate cross-item visual-distance use; perceptual hashes remain supporting Evidence only. |
 | FUT-002 | PLANNED | E-book structural/quality assessment, separate from identity; reuse EPUB validation tools where suitable. |
 | FUT-003 | PLANNED | Audio quality/corruption assessment, separate from identity; reuse ffmpeg/ffprobe or specialist tools where suitable. |
 | FUT-004 | PLANNED | Research further authority/catalog providers (e.g. VIAF, ISNI, national libraries, Cover Art Archive, Discogs) only after current access/license review. |

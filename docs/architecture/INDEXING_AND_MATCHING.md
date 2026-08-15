@@ -116,7 +116,7 @@ E-books:
 - normalized author/title keys;
 - series context;
 - text/content fingerprint buckets;
-- later cover-image fingerprint buckets.
+- versioned cover-image fingerprint buckets after W6 calibrates a Hamming-distance contract.
 
 Music:
 - exact hashes;

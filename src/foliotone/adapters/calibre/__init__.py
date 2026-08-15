@@ -1,6 +1,14 @@
 """Read-only calibre adapter package."""
 
 from foliotone.adapters.calibre.common import calibre_version_policy
+from foliotone.adapters.calibre.cover import (
+    CALIBRE_COVER_FORMATS,
+    CALIBRE_COVER_PROVIDER,
+    CALIBRE_COVER_SUFFIXES,
+    CalibreCoverAnalyzer,
+    CalibreCoverError,
+    CalibreCoverOutcome,
+)
 from foliotone.adapters.calibre.metadata import (
     CALIBRE_PROVIDER,
     CalibreMetadataAnalyzer,
@@ -26,12 +34,18 @@ from foliotone.analyzers.ebook import (
 )
 
 __all__ = [
+    "CALIBRE_COVER_FORMATS",
+    "CALIBRE_COVER_PROVIDER",
+    "CALIBRE_COVER_SUFFIXES",
     "CALIBRE_PROVIDER",
     "CALIBRE_TEXT_FORMATS",
     "CALIBRE_TEXT_PROVIDER",
     "CALIBRE_TEXT_SUFFIXES",
     "EBOOK_METADATA_CANDIDATE_PROFILE",
     "EBOOK_METADATA_CANDIDATE_RESULT",
+    "CalibreCoverAnalyzer",
+    "CalibreCoverError",
+    "CalibreCoverOutcome",
     "CalibreMetadataAnalyzer",
     "CalibreMetadataError",
     "CalibreMetadataOutcome",

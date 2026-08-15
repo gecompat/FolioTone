@@ -360,7 +360,14 @@ Resolved authority identities and specialist tool results are evidence inputs to
 
 ### Fingerprint
 
-A fingerprint is versioned by kind/algorithm. Planned levels include full file SHA-256, fast/partial file fingerprint, normalized e-book text/content fingerprint, audio-stream fingerprint, acoustic fingerprint (for example via Chromaprint), and later cover/image perceptual fingerprint.
+A fingerprint is versioned by kind/algorithm. Implemented levels include full
+file SHA-256, fast/partial file fingerprint, normalized e-book text/content
+fingerprint and the optional `EBOOK_COVER_DHASH` against an exact
+`FileObservation` plus `ToolExecution`. Planned levels include audio-stream and
+acoustic fingerprints (for example via Chromaprint) and later music-release
+artwork Evidence. A perceptual cover hash is supporting visual similarity
+Evidence; it does not establish file, `Edition`, `Work`, `Release` or other
+canonical identity by itself.
 
 ## Review layer
 

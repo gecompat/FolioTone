@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.18,<2",
+  "Pillow>=12.3,<13",
   "SQLAlchemy>=2.0,<2.1",
 ]
 
