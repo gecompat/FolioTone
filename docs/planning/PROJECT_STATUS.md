@@ -672,6 +672,13 @@ hat SHA-256
 `ab6064b05035a8cddd4f033a493c3f9d76ce43b37fe89dba5d790f142ad9e62e`
 und enthält die Workflow-Module `ebook.py`, `evidence.py` und `reuse.py`.
 
+Der W3-011-Implementierungscommit
+`2f08bcc4f3b13517ec70e92e3eb25416ce56e6e4` liegt in PR #21. Für diesen
+exakten Stand waren die GitHub-Actions-Runs `31886119562` (Push) und
+`31886140176` (Pull Request) erfolgreich. Ihre `quality`-Jobs einschließlich
+Ruff, Mypy, Tests, Docker-Build, Migration, persistentem `/data`,
+Incremental-Scan-Smoke und Bootstrap liefen 56 beziehungsweise 63 Sekunden.
+
 Der veröffentlichte Implementierungscommit
 `2f8cb144617433855f51c39c4525603b9aa1004a` liegt in PR #20. Für diesen
 exakten Stand waren die GitHub-Actions-Runs `31874601676` (Push) und

@@ -309,6 +309,12 @@ hat SHA-256
 `ab6064b05035a8cddd4f033a493c3f9d76ce43b37fe89dba5d790f142ad9e62e`
 und enthält `ebook.py`, `evidence.py` und `reuse.py`.
 
+Der W3-011-Implementierungscommit
+`2f08bcc4f3b13517ec70e92e3eb25416ce56e6e4` liegt in PR #21. Seine
+GitHub-Actions-Runs `31886119562` (Push) und `31886140176` (Pull Request)
+waren erfolgreich; die `quality`-Jobs einschließlich aller Docker-Smoke-Tests
+liefen 56 beziehungsweise 63 Sekunden.
+
 Calibres dokumentiertes `calibre-debug --diff` startet ein GUI-Modul ohne
 headless JSON-/Reportvertrag und wurde deshalb nicht adaptiert. Ein späterer
 provider-neutraler Book-Diff soll persistierte Datei-, Text-, Metadaten-,
