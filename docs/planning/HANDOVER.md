@@ -767,7 +767,9 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
   gefenceten Transaktion persistiert; ein stale übernommener Vorgänger kann
   keine nachträgliche Evidence schreiben;
 - `foliotone ebook-hash-status` liest Run-ID, Phase, Heartbeat, Lease-Ablauf
-  und Zähler pfadfrei und migriert die Datenbank ausdrücklich nicht;
+  und Zähler pfadfrei über SQLite `mode=ro`, erzeugt keine Verzeichnisse und
+  migriert die Datenbank ausdrücklich nicht; der optionale JSON-Vertrag gibt
+  nur freigegebene IDs, Zeitpunkte, Lease-Zustand und Zähler aus;
 - Observation-Prüfung vor und nach dem Hash verhindert, dass inzwischen
   veränderte Source-Dateien falsche Evidence erhalten;
 - ein privater read-only Vierformat-Pilot bestätigte reale EPUB-, PDF-, AZW3-
@@ -780,6 +782,10 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 - Gruppen-/Mitgliederlimits begrenzen private Pfaddetails, während vollständige
   Summen und Kürzungsmarker erhalten bleiben; rohe Hashwerte, Relation,
   Keep-Präferenz und Identitätsurteil werden nicht ausgegeben.
+- `foliotone ebook-postscan-verify` prüft den paketierten Alembic-Head,
+  Source-Scan- und Kandidaten-Hash-Lineage, bytegenaue Inventarartefakte sowie
+  die begrenzte Formatabdeckung eines expliziten `EbookCollectionRun` über
+  dieselbe echte Read-only-Verbindung und öffnet keine Source Media;
 - 25 gezielte CLI-, Resume-, Lease-, Migrations-, Persistenz- und
   Dokumentationsvertrags-Tests bestanden; Ruff und der gezielte Mypy-Lauf waren
   ohne Befund. Der vollständige Gate bleibt dem Pull Request vorbehalten.
@@ -788,6 +794,14 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
   konkurrierende Besitzer, root-parallele Läufe, stale Takeover, atomaren
   Batch-Rollback und die read-only Statusabfrage ab; Ruff und der gezielte
   Mypy-Lauf waren ohne Befund.
+- 30 gezielte Persistenz-, Lease-, Kandidaten-Hash-, Collection- und
+  Postscan-Verifikationstests bestanden in 7 Minuten 2 Sekunden. Sie decken
+  echte Read-only-Verbindungen, lange Einzelhashes, Keeper-Ausfall,
+  `KeyboardInterrupt`, harten synthetischen Prozessabbruch und die
+  Abschlusszustände `COMPLETE`, `PENDING`, `DEGRADED` und `INVALID` ab. Nach
+  der dynamischen Bindung an den paketierten Alembic-Head bestanden die fünf
+  direkt betroffenen Tests erneut in 43,48 Sekunden; Ruff und Mypy waren ohne
+  Befund.
 
 ADR-0015, ADR-0021, ADR-0023, ADR-0024 und ADR-0025 dokumentieren die
 verbindlichen Resume-, Lease-, Plan-, Hash- und Inventarverträge. Die
@@ -813,7 +827,9 @@ Die nächste sinnvolle Reihenfolge ist:
    privaten Inventarbericht erzeugen und einen formatabdeckenden Collection-
    Lauf bis zum Qualitäts-/Duplicate-Bericht fortsetzen. Private Pfade,
    Runtime-Daten, Kennzahlen und Berichte bleiben außerhalb von Git; Source
-   Media bleibt unverändert.
+   Media bleibt unverändert. Der kontrollierte Cutover und die anschließende
+   book-only Folgeplanung stehen in `W3_017_EBOOK_ROADMAP.md`; der direkt
+   verwendbare Auftrag steht in `W3_017_EBOOK_ROADMAP_PROMPT.md`.
 
 Music W4 bleibt geplant, wird aber erst nach der E-Book-Vertiefung und den
 book-spezifischen Teilen von Authority Resolution, Matching, Review und

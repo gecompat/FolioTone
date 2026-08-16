@@ -934,6 +934,18 @@ Source und betroffene Tests erfolgreich; Mypy prüfte die vier geänderten
 Kern-/CLI-Module ohne Befund. Der vollständige Gate läuft genau einmal am Pull
 Request.
 
+**Empirisch für W3-017 Runtime-Beobachtbarkeit und Abschlussprüfung:** Ein
+kombinierter gezielter Lauf bestand 30 Persistenz-, Lease-, Kandidaten-Hash-,
+Collection- und Postscan-Verifikationstests in 7 Minuten 2 Sekunden. Er deckt
+echte SQLite-Read-only-Verbindungen, Keeper-Ausfall und Lease-Erneuerung bei
+blockiertem Einzelhash, `KeyboardInterrupt`, einen harten synthetischen
+Child-Prozessabbruch, bytegenaue Inventarprüfung und vollständige,
+degradierte, ausstehende sowie ungültige Abschlusszustände ab. Nach der
+dynamischen Bindung des Abschlussprüfers an den paketierten Alembic-Head
+bestanden die fünf direkt betroffenen Unit-/Integrationstests erneut in 43,48
+Sekunden; Ruff und Mypy waren für die betroffenen Dateien ohne Befund. Der
+vollständige Gate läuft genau einmal am Pull Request.
+
 ## Aktiver W3-Stand und nächster Schritt
 
 W2 ist abgeschlossen; `W3-001` bis `W3-016` sind abgeschlossen. W3-015 stellt
@@ -964,14 +976,19 @@ pfadfreie Phasen- und Batch-Fortschritte sofort aus. Rootweite persistente
 Run-Leases verhindern parallele Kandidaten-Hashläufe; gefencete atomare
 Batch-Writes und ein separater Lease-Keeper schließen Writes eines stale
 Vorgängers aus. `ebook-hash-status` macht Phase, Heartbeat und Zähler ohne
-Source-Pfad sichtbar.
+Source-Pfad sichtbar. Der Statusbefehl verwendet SQLite `mode=ro`, erzeugt
+keine Verzeichnisse und bietet zusätzlich einen stabilen pfadfreien
+JSON-Vertrag.
 `ebook-inventory-report/v1` erzeugt aus einem abgeschlossenen Scan
 bereits ohne Tiefenanalyse vollständige Format-/Byte-Summen, Hash-Abdeckung,
 offene Quick-Kandidaten und begrenzte Exact-Duplicate-Details als
-deterministische private Artefakte. Der vollständige private Inventar-/
-Collection-Lauf und Bericht werden noch abgeschlossen. Music W4 bleibt bis zur
-E-Book-Reife
-zurückgestellt. Die Produktoberfläche bleibt ausschließlich die CLI.
+deterministische private Artefakte. `ebook-postscan-verify` prüft den
+paketierten Schema-Head, die gemeinsame Scan-/Hash-/Collection-Lineage, die
+Inventarartefakte bytegenau und die begrenzte Formatabdeckung über dieselbe
+echte Read-only-Verbindung, ohne Source Media zu öffnen. Der vollständige
+private Inventar-/Collection-Lauf und Bericht werden noch abgeschlossen.
+Music W4 bleibt bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche
+bleibt ausschließlich die CLI.
 
 ## Nicht implementiert
 
