@@ -262,6 +262,25 @@ und noch nicht abgelaufene Lease gefencet. Ein stale Vorgänger kann nach einer
 `fingerprints`-Tabelle erhält bewusst keine neue Eindeutigkeitsregel, weil
 mehrere provenance-behaftete Fingerprints desselben Targets legitim bleiben.
 
+### Read-only Runtime- und Abschlussprüfung
+
+Status- und Abschlussabfragen verwenden eine eigene SQLite-Engine mit URI-
+Parameter `mode=ro` und `PRAGMA query_only=ON`. Dieser Pfad erzeugt weder das
+Datenbankverzeichnis noch die Datenbankdatei, führt keine Migration aus und
+setzt keine schreibenden Runtime-PRAGMAs. `immutable=1` wird nicht verwendet,
+damit ein laufendes WAL nicht als unveränderlicher, möglicherweise veralteter
+Snapshot behandelt wird.
+
+`ebook-hash-status` projiziert den neuesten `EbookCandidateHashRun` als
+pfadfreien Text- oder JSON-Status. `ebook-postscan-verify` vergleicht die
+persistierte Revision mit dem paketierten Alembic-Head und prüft die
+kritischen Tabellen und Indizes. Anschließend validiert der Befehl die
+Source-Scan-, Kandidaten-Hash-, Inventar- und Collection-Lineage. Erwartete
+Inventardateien werden ausschließlich im Speicher erneut gerendert und im
+explizit adressierten privaten Artefaktverzeichnis bytegenau geprüft. Der
+Verifier öffnet keine Source Media und schreibt weder Datenbank noch
+Artefakte.
+
 ### Deterministischer scanweiter Inventarbericht
 
 `SQLiteEbookInventoryReportStore` bindet sich an den neuesten

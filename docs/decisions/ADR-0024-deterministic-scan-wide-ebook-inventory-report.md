@@ -53,12 +53,24 @@ Zusammenfassung gibt keine Mitgliederpfade oder rohen Hashwerte aus. Der
 Bericht erzeugt keine `Relation`, Confidence, Identitätsentscheidung,
 Keep-Präferenz oder ausführbare Konsolidierungsaktion.
 
+Die CLI `foliotone ebook-postscan-verify` rendert die erwarteten
+Inventardateien für einen explizit adressierten Report-Identifier erneut im
+Speicher und prüft Zielverzeichnis, Dateimenge, Checksummen und Bytes. Sie
+verbindet diese Prüfung mit dem paketierten Schema-Head, dem neuesten
+abgeschlossenen `ScanRun`, dem zugehörigen terminalen
+`EbookCandidateHashRun` und einem expliziten begrenzten
+`EbookCollectionRun`. Der Befehl verwendet SQLite `mode=ro`, öffnet keine
+Source Media und gibt weder Artefaktpfade noch Report-Identifier, Dateinamen,
+Fingerprint-Werte oder Lease-Token aus.
+
 ## Konsequenzen
 
 - Ein abgeschlossener Scan liefert bereits vor einer vollständigen tiefen
   Collection-Analyse verwertbare Bestands-, Format-, Hash- und
   Speicherpotenzialübersichten.
 - Der Bericht bleibt byte-stabil für denselben Snapshot und dieselben Limits.
+- Die vollständige Postscan-Lineage kann ohne Source-Zugriff und ohne
+  Datenbank-/Artefaktänderung maschinenlesbar verifiziert werden.
 - Ein laufender Scan muss zuerst abgeschlossen oder als konsistenter
   abgeschlossener Snapshot bereitgestellt werden.
 - Quick-Gruppen bleiben Kandidaten; nur gleiche vollständige SHA-256-Werte
