@@ -2,8 +2,8 @@ from datetime import UTC, datetime
 
 from foliotone.authority import (
     DEFAULT_AUTHOR_RESOLUTION_VERSION,
-    NAME_NORMALIZATION_PROFILE,
     IDENTIFIER_NORMALIZATION_PROFILE,
+    NAME_NORMALIZATION_PROFILE,
     BibliographicEntityProfile,
     NormalizedIdentifier,
     NormalizedName,
@@ -17,10 +17,9 @@ from foliotone.authority import (
     normalize_agent_name,
     normalize_agent_name_text,
     normalize_identifier,
-    normalize_identifier_text,
     normalize_identifier_for_profile,
+    normalize_identifier_text,
 )
-
 
 NOW = datetime(2026, 8, 16, 9, 0, tzinfo=UTC)
 
@@ -28,7 +27,10 @@ NOW = datetime(2026, 8, 16, 9, 0, tzinfo=UTC)
 def test_author_name_candidate_plan_is_versioned_and_homonym_safe() -> None:
     candidates = generate_agent_name_candidates("Doe, John A. (Mark Twain)", observed_at=NOW)
     assert candidates
-    assert all(candidate.provenance.source_version == DEFAULT_AUTHOR_RESOLUTION_VERSION for candidate in candidates)
+    assert all(
+        candidate.provenance.source_version == DEFAULT_AUTHOR_RESOLUTION_VERSION
+        for candidate in candidates
+    )
     assert {candidate.field_name for candidate in candidates} == {
         "agent.name.canonical",
         "agent.name.normalized",
@@ -65,7 +67,9 @@ def test_identifier_normalization_removes_noise_for_versioning() -> None:
 
 def test_work_edition_and_series_candidates_emit_stable_normalized_aliases() -> None:
     work_candidates = generate_work_candidates("The Great Tale", observed_at=NOW)
-    edition_candidates = generate_edition_candidates("The Great Tale: Signed Edition", observed_at=NOW)
+    edition_candidates = generate_edition_candidates(
+        "The Great Tale: Signed Edition", observed_at=NOW
+    )
     series_candidates = generate_series_candidates("Saga 1", observed_at=NOW)
 
     work_fields = {candidate.field_name for candidate in work_candidates}

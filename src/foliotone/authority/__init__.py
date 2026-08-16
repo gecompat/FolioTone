@@ -5,18 +5,21 @@ from foliotone.authority.normalization import (
     NAME_NORMALIZATION_PROFILE,
     NormalizedIdentifier,
     NormalizedName,
+)
+from foliotone.authority.normalization import (
     normalize_agent_name as _normalize_agent_name,
+)
+from foliotone.authority.normalization import (
     normalize_identifier as _normalize_identifier,
 )
-
 from foliotone.authority.resolution import (
-    DEFAULT_AUTHOR_RESOLUTION_VERSION,
     DEFAULT_AGENT_NAME_CONFIDENCE,
+    DEFAULT_AUTHOR_RESOLUTION_VERSION,
     DEFAULT_IDENTIFIER_CONFIDENCE,
     DEFAULT_IDENTIFIER_RESOLUTION_VERSION,
     DEFAULT_METADATA_RESOLUTION_VERSION,
-    DEFAULT_TITLE_RESOLUTION_VERSION,
     DEFAULT_TITLE_CONFIDENCE,
+    DEFAULT_TITLE_RESOLUTION_VERSION,
     AuthorityNameProfile,
     BibliographicEntityProfile,
     TitleProfile,

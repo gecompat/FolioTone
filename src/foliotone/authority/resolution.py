@@ -304,21 +304,41 @@ def generate_metadata_entity_candidates(
 
     profile = profile or BibliographicEntityProfile(version=DEFAULT_METADATA_RESOLUTION_VERSION)
     title_profile = title_profile or TitleProfile(version=DEFAULT_TITLE_RESOLUTION_VERSION)
-    author_profile = author_profile or AuthorityNameProfile(version=DEFAULT_AUTHOR_RESOLUTION_VERSION)
+    author_profile = author_profile or AuthorityNameProfile(
+        version=DEFAULT_AUTHOR_RESOLUTION_VERSION
+    )
 
     candidates: list[FieldCandidate] = []
 
     if work_title is not None:
-        candidates.extend(generate_work_candidates(work_title, observed_at=observed_at, profile=title_profile))
+        candidates.extend(
+            generate_work_candidates(
+                work_title, observed_at=observed_at, profile=title_profile
+            )
+        )
     if edition_title is not None:
-        candidates.extend(generate_edition_candidates(edition_title, observed_at=observed_at, profile=title_profile))
+        candidates.extend(
+            generate_edition_candidates(
+                edition_title, observed_at=observed_at, profile=title_profile
+            )
+        )
     if series_name is not None:
-        candidates.extend(generate_series_candidates(series_name, observed_at=observed_at, profile=title_profile))
+        candidates.extend(
+            generate_series_candidates(
+                series_name, observed_at=observed_at, profile=title_profile
+            )
+        )
 
     for name in contributor_names:
-        candidates.extend(generate_agent_name_candidates(name, observed_at=observed_at, profile=author_profile))
+        candidates.extend(
+            generate_agent_name_candidates(name, observed_at=observed_at, profile=author_profile)
+        )
     if profile.include_translator_as_agent and translator is not None and translator.strip():
-        candidates.extend(generate_agent_name_candidates(translator, observed_at=observed_at, profile=author_profile))
+        candidates.extend(
+            generate_agent_name_candidates(
+                translator, observed_at=observed_at, profile=author_profile
+            )
+        )
 
     if language is not None:
         normalized_language = _collapse_spaces(language.strip().lower())

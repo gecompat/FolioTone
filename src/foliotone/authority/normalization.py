@@ -65,7 +65,9 @@ def normalize_agent_name(name: str, *, profile: str = NAME_NORMALIZATION_PROFILE
     return _normalize_name_or_identity(name, profile=profile)
 
 
-def normalize_identifier(identifier: str, *, profile: str = IDENTIFIER_NORMALIZATION_PROFILE) -> NormalizedIdentifier:
+def normalize_identifier(
+    identifier: str, *, profile: str = IDENTIFIER_NORMALIZATION_PROFILE
+) -> NormalizedIdentifier:
     """
     Return a canonical, non-destructive identifier form.
 
@@ -74,7 +76,9 @@ def normalize_identifier(identifier: str, *, profile: str = IDENTIFIER_NORMALIZA
     """
     original = require_non_empty(identifier, "identifier")
     normalized = unicodedata.normalize("NFKC", original).strip().casefold()
-    normalized = "".join(char for char in normalized if not unicodedata.category(char).startswith("M"))
+    normalized = "".join(
+        char for char in normalized if not unicodedata.category(char).startswith("M")
+    )
     normalized = "".join(_collapse_identifier_char(char) for char in normalized)
     normalized = " ".join(normalized.split())
 
