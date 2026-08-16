@@ -236,7 +236,7 @@ Tool orchestration
 Persistence
   Repository[T] / SQLiteRepository[T]
   SQLAlchemy Core
-  Alembic 0001_initial through 0009_scan_run_leases
+  Alembic 0001_initial through 0010_candidate_hash_lookup_index
 ```
 
 ## Repository-Dokumentation

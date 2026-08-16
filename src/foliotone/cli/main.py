@@ -985,6 +985,10 @@ def _run_ebook_hash_candidates(args: argparse.Namespace) -> int:
         return 2
     try:
         _validate_hash_candidate_paths(args.root, args.database)
+        print(
+            "Candidate hashing progress: preparing database schema.",
+            flush=True,
+        )
         migrate(args.database)
         engine = create_sqlite_engine(args.database)
         roots = tuple(
@@ -1002,6 +1006,10 @@ def _run_ebook_hash_candidates(args: argparse.Namespace) -> int:
             worker_count=args.workers,
             batch_size=args.batch_size,
             max_items=args.max_items,
+            progress=lambda message: print(
+                f"Candidate hashing progress: {message}.",
+                flush=True,
+            ),
         )
     except (DuplicateHashCandidateError, ValueError) as error:
         print(f"E-book candidate hashing failed: {error}")

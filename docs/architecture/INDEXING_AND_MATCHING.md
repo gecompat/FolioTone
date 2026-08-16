@@ -48,10 +48,15 @@ Für die Exact-Duplicate-Bestätigung hasht
 `foliotone ebook-hash-candidates` nicht blind die gesamte Sammlung. Das Profil
 `ebook-duplicate-hash/v1` wählt ausschließlich aktuelle Mitglieder mehrfach
 belegter, konsistenter `QUICK_FILE`-Gruppen ohne vorhandenes `FILE_SHA256` aus.
-Die Auswahl läuft in stabilen Keyset-Batches, validiert die Observation vor und
-nach dem vollständigen Streaming-Hash und ist über denselben CLI-Aufruf
-fortsetzbar. Quick-Kollisionen bleiben Kandidaten; gleiche vollständige
-SHA-256-Werte liefern erst die exakte Datei-Evidence. ADR-0023 ist verbindlich.
+Die Auswahl schränkt zuerst auf Beobachtungen des aktuellen Scans ein und
+materialisiert den stabilen Kandidaten-Snapshot einmal pro Invocation in einer
+verbindungslokalen SQLite-Temp-Tabelle. Keyset-Batches lesen danach nur noch
+diesen Snapshot. Ein gezielter Fingerprint-Index unterstützt den profilierten
+Lookup, ohne historische Scan-Generationen für jeden Batch erneut zu
+aggregieren. Der Lauf validiert die Observation vor und nach dem vollständigen
+Streaming-Hash und ist über denselben CLI-Aufruf fortsetzbar.
+Quick-Kollisionen bleiben Kandidaten; gleiche vollständige SHA-256-Werte
+liefern erst die exakte Datei-Evidence. ADR-0023 ist verbindlich.
 
 ## Move/rename candidate detection
 

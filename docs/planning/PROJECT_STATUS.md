@@ -161,7 +161,8 @@ fpcalc-, beets-, SongKong- oder Picard-Adapter sind noch nicht implementiert.
 
 ### Persistence
 
-Die W1-Persistence wurde bisher über sieben zusätzliche Alembic-Revisionen erweitert. Bereits gemergte Migrationen werden nicht rückwirkend verändert.
+Die W1-Persistence wurde bisher über neun zusätzliche Alembic-Revisionen
+erweitert. Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 
 `0002_incremental_index` ergänzt insbesondere `file_scan_events`, `tool_artifacts`, Scan-/Tool-relevante Indizes und eindeutige logische `ScanRoot.name`-Werte.
 
@@ -189,6 +190,13 @@ Source-Pfade, Metadatenwerte oder extrahierten Inhalte.
 `scan_runs.lease_expires_at` und den Root-/Status-/Lease-Index. Bestehende
 terminale Läufe bleiben nullable; ein vor der Migration verwaister
 `RUNNING`-Lauf wird dadurch ausdrücklich wiederherstellbar.
+
+`0010_candidate_hash_lookup_index` ergänzt den gemessenen profilierten
+Fingerprint-Lookup für das selektive Vollhashing. Die Kandidatenabfrage
+schränkt zuerst auf den aktuellen Scan ein und materialisiert die konsistenten
+Quick-Gruppen einmal pro Invocation in einer verbindungslokalen Temp-Tabelle,
+statt die historische Fingerprint-Tabelle für Statistik, jeden Batch und den
+Abschluss erneut zu aggregieren.
 
 Beim Upgrade einer bestehenden `0002`-Datenbank wird keine historische Abwesenheitsdauer oder Bestätigungsserie erfunden. Bestehende Datensätze beginnen konservativ mit `missing_since_at = NULL` und `consecutive_missing_scans = 0`; erst nachfolgende erfolgreiche Scans bauen neue Bestätigungsevidenz auf.
 
@@ -883,6 +891,22 @@ und unveränderte synthetische Source-Dateien. Ruff war für Source und direkt
 betroffene Tests erfolgreich; Mypy prüfte die vier geänderten Kern-/CLI-Module
 ohne Befund. Der vollständige Gate läuft genau einmal am Pull Request.
 
+**Empirisch für W3-017 Kandidaten-Hash-Performance:** 13 gezielte Kandidaten-,
+Migrations-, Query-Plan- und Dokumentationsvertrags-Tests bestanden in 1 Minute
+28 Sekunden. Sie prüfen drei historische Scan-Generationen, genau eine schwere
+Snapshot-Materialisierung trotz Batchgröße 1, widersprüchliche Quick-Evidence,
+Resume, per-File-Fehler, das Upgrade von `0009` auf `0010` und die tatsächliche
+Verwendung des neuen Lookup-Index. Ruff war für alle geänderten Source- und
+Testdateien erfolgreich; Mypy prüfte die drei betroffenen Source-Module ohne
+Befund.
+
+Ein zusätzlicher ausschließlich synthetischer lokaler Skalierungscheck mit
+100.000 historischen Quick-Fingerprint-Zeilen und drei aktuellen Dateien
+benötigte 0,395 Sekunden für Kandidatenauswahl sowie zwei begrenzte
+Hash-Batches. Die Projektion lieferte genau eine aktuelle Gruppe mit zwei
+Beobachtungen und keinen Rest. Der vollständige Gate bleibt dem Pull Request
+vorbehalten.
+
 ## Aktiver W3-Stand und nächster Schritt
 
 W2 ist abgeschlossen; `W3-001` bis `W3-016` sind abgeschlossen. W3-015 stellt
@@ -905,7 +929,12 @@ Wiederherstellung abgelaufener oder älterer ungeleaster Läufe.
 `--plan-per-format` erzeugt begrenzte heterogene
 Collection-Pläne; `ebook-hash-candidates` bestätigt nur mehrfach belegte
 Quick-Gruppen mit vollständigem SHA-256 und ist durch denselben Aufruf
-fortsetzbar. `ebook-inventory-report/v1` erzeugt aus einem abgeschlossenen Scan
+fortsetzbar. Der reale Vollhashlauf belegte zusätzlich einen mehrstündigen
+SQL-Engpass vor und nach dem Datei-I/O. Die aktuelle Implementierung
+materialisiert deshalb den current-scan-first Kandidaten-Snapshot einmalig,
+verwendet danach nur noch indexgestützte Temp-Keyset-Batches und gibt
+pfadfreie Phasen- und Batch-Fortschritte sofort aus.
+`ebook-inventory-report/v1` erzeugt aus einem abgeschlossenen Scan
 bereits ohne Tiefenanalyse vollständige Format-/Byte-Summen, Hash-Abdeckung,
 offene Quick-Kandidaten und begrenzte Exact-Duplicate-Details als
 deterministische private Artefakte. Der vollständige private Inventar-/
