@@ -1518,10 +1518,13 @@ def _run_ebook_collection_analyze(args: argparse.Namespace) -> int:
         print("Status: INTERRUPTED")
         print("Resume is safe with --resume-run and the same logical ScanRoot.")
         return 130
-    except (EbookCollectionError, EbookCollectionStoreError) as error:
+    except EbookCollectionError as error:
         print(f"E-book collection analysis failed: {error}")
         if error.run_id is not None:
             print(f"E-book collection run: {error.run_id}")
+        return 2
+    except EbookCollectionStoreError as error:
+        print(f"E-book collection analysis failed: {error}")
         return 2
     except OSError:
         print("E-book collection analysis failed: runtime storage is unavailable.")
@@ -1572,10 +1575,13 @@ def _run_ebook_collection_maintain(args: argparse.Namespace) -> int:
         print("Resume is safe with --resume-run and the same logical ScanRoot.")
         _run_ebook_collection_maintain_auxiliary(args, outcome=None)
         return 130
-    except (EbookCollectionError, EbookCollectionStoreError) as error:
+    except EbookCollectionError as error:
         print(f"E-book collection maintain failed: {error}")
         if error.run_id is not None:
             print(f"E-book collection run: {error.run_id}")
+        return 2
+    except EbookCollectionStoreError as error:
+        print(f"E-book collection maintain failed: {error}")
         return 2
     except OSError:
         print("E-book collection maintain failed: runtime storage is unavailable.")
