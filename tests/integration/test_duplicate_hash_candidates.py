@@ -344,6 +344,41 @@ def test_candidate_hash_materializes_only_the_current_snapshot_once(
     assert len(quick_hashes) == 9
 
 
+def test_candidate_hash_counts_multiple_existing_full_hashes(tmp_path: Path) -> None:
+    media, engine, root = _candidate_case(tmp_path, "already-full-hashed")
+    writer = FingerprintWriter(engine)
+    observations = repository(engine, FileObservation).list_all()
+    writer.save_many(
+        tuple(
+            writer.calculate_full(
+                observation,
+                media / observation.relative_path,
+                NOW,
+            )
+            for observation in observations
+        )
+    )
+
+    summary = DuplicateHashCandidateService(engine).enrich(root, media)
+
+    assert summary.candidate_groups == 1
+    assert summary.candidate_observations == 2
+    assert summary.already_hashed == 2
+    assert summary.hashed_this_invocation == 0
+    assert summary.hash_failures == 0
+    assert summary.remaining == 0
+    latest = SQLiteEbookCandidateHashRunStore(engine).latest(root.id)
+    assert latest is not None
+    assert latest.status is EbookCandidateHashRunStatus.COMPLETED
+    assert latest.remaining_count == 0
+    full_hashes = [
+        fingerprint
+        for fingerprint in repository(engine, Fingerprint).list_all()
+        if fingerprint.kind == "FILE_SHA256"
+    ]
+    assert len(full_hashes) == 2
+
+
 def test_candidate_hash_excludes_inconsistent_current_quick_evidence(
     tmp_path: Path,
 ) -> None:
