@@ -31,25 +31,28 @@ def test_collection_cli_stops_and_resumes_without_exposing_source_paths(
         path.write_bytes(content)
     database = data / "foliotone.db"
 
-    assert main(
-        [
-            "scan",
-            "--name",
-            "collection-cli",
-            "--path",
-            str(media),
-            "--media-type",
-            "ebook",
-            "--database",
-            str(database),
-            "--hash",
-            "quick",
-            "--suffix",
-            "epub",
-            "--suffix",
-            "pdf",
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "scan",
+                "--name",
+                "collection-cli",
+                "--path",
+                str(media),
+                "--media-type",
+                "ebook",
+                "--database",
+                str(database),
+                "--hash",
+                "quick",
+                "--suffix",
+                "epub",
+                "--suffix",
+                "pdf",
+            ]
+        )
+        == 0
+    )
     capsys.readouterr()
 
     missing = "foliotone-definitely-missing-executable"
@@ -110,7 +113,7 @@ def test_collection_cli_stops_and_resumes_without_exposing_source_paths(
     observations = repository(engine, FileObservation).list_all()
     assert all(str(observation.id) not in first_output for observation in observations)
 
-    resumed_result = main([*base_args, "--resume-run", str(run.id)])
+    resumed_result = main([*base_args, "--resume-last-interrupted"])
     resumed_output = capsys.readouterr().out
 
     assert resumed_result == 1
@@ -123,14 +126,11 @@ def test_collection_cli_stops_and_resumes_without_exposing_source_paths(
     assert all(str(path) not in resumed_output for path in sources)
     assert all(str(observation.id) not in resumed_output for observation in observations)
 
-    resumed_last_result = main([*base_args, "--resume-last-interrupted"])
-    resumed_last_output = capsys.readouterr().out
+    terminal_resume_result = main([*base_args, "--resume-last-interrupted"])
+    terminal_resume_output = capsys.readouterr().out
 
-    assert resumed_last_result == 1
-    assert f"E-book collection run: {run.id}" in resumed_last_output
-    assert "Processed this invocation: 0" in resumed_last_output
-    assert "Pending: 0" in resumed_last_output
-    assert "Status: COMPLETED_WITH_FAILURES" in resumed_last_output
+    assert terminal_resume_result == 2
+    assert "no INTERRUPTED run exists for this ScanRoot" in terminal_resume_output
 
     items = repository(engine, EbookCollectionItem).list_all()
     assert len(items) == 2
