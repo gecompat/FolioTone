@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Barrier, Lock, Thread
@@ -311,3 +312,32 @@ def test_candidate_hash_status_is_read_only_on_an_older_schema(
             text("SELECT version_num FROM alembic_version")
         ).scalar_one()
     assert revision == "0010_candidate_hash_lookup_index"
+
+
+def test_candidate_hash_json_status_returns_path_free_schema_error(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    database = tmp_path / "older-json-status.db"
+    migrate(database, "0010_candidate_hash_lookup_index")
+    _completed_scan(database, "older-json-status")
+
+    assert main(
+        [
+            "ebook-hash-status",
+            "--scan-root",
+            "older-json-status",
+            "--database",
+            str(database),
+            "--output",
+            "json",
+        ]
+    ) == 2
+    output = capsys.readouterr().out
+    assert json.loads(output) == {
+        "schema_version": 1,
+        "command": "ebook-hash-status",
+        "ok": False,
+        "error": {"code": "SCHEMA_UNAVAILABLE"},
+    }
+    assert str(tmp_path) not in output

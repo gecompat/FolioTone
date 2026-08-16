@@ -60,6 +60,7 @@ from foliotone.persistence import (
     SQLiteEbookCollectionStore,
     SQLiteEbookInventoryReportStore,
     create_sqlite_engine,
+    create_sqlite_read_only_engine,
     migrate,
     repository,
 )
@@ -84,6 +85,8 @@ from foliotone.workflows import (
     EbookInventoryReportError,
     EbookInventoryReportLimits,
     EbookInventoryReportService,
+    PostscanCompletionVerifier,
+    candidate_hash_status_payload,
     ebook_analysis_format,
 )
 
@@ -528,6 +531,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
         help="Existing SQLite database path; defaults to /data/foliotone.db.",
     )
+    duplicate_hash_status.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format; defaults to text.",
+    )
     ebook_collection.add_argument(
         "--database",
         type=Path,
@@ -684,6 +693,66 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=DEFAULT_COLLECTION_REPORT_MEMBER_LIMIT,
         help="Maximum members emitted for each exact-duplicate group.",
+    )
+
+    postscan_verify = subparsers.add_parser(
+        "ebook-postscan-verify",
+        help=(
+            "Verify the completed hash, inventory, and bounded collection chain "
+            "without opening source media."
+        ),
+    )
+    postscan_verify.add_argument(
+        "--scan-root",
+        required=True,
+        help="Existing logical EBOOK ScanRoot name to verify.",
+    )
+    postscan_verify.add_argument(
+        "--database",
+        required=True,
+        type=Path,
+        help="Existing SQLite database path opened strictly read-only.",
+    )
+    postscan_verify.add_argument(
+        "--inventory-report-root",
+        required=True,
+        type=Path,
+        help="Existing private inventory report root.",
+    )
+    postscan_verify.add_argument(
+        "--inventory-report-sha256",
+        required=True,
+        help="Expected deterministic inventory report identifier.",
+    )
+    postscan_verify.add_argument(
+        "--inventory-group-limit",
+        type=int,
+        default=DEFAULT_COLLECTION_REPORT_GROUP_LIMIT,
+        help="Candidate-group limit used when the inventory report was rendered.",
+    )
+    postscan_verify.add_argument(
+        "--inventory-member-limit",
+        type=int,
+        default=DEFAULT_COLLECTION_REPORT_MEMBER_LIMIT,
+        help="Members-per-group limit used when the inventory report was rendered.",
+    )
+    postscan_verify.add_argument(
+        "--collection-run",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque bounded collection run identifier to verify.",
+    )
+    postscan_verify.add_argument(
+        "--plan-per-format",
+        required=True,
+        type=int,
+        help="Bound applied independently to every supported e-book format.",
+    )
+    postscan_verify.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format; defaults to text.",
     )
 
     ebook_compare = subparsers.add_parser(
@@ -855,6 +924,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Scan-wide format, size, hash-coverage, and exact-duplicate reports are "
             "available through ebook-inventory-report."
         )
+        print(
+            "The bounded postscan lineage can be verified read-only through "
+            "ebook-postscan-verify."
+        )
         print("Read-only PDF metadata and text analysis is available through pdf-analyze.")
         print("Read-only EPUB conformance evidence is available through epub-validate.")
         print("Source-media and external-tool mutation commands are not implemented.")
@@ -890,6 +963,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-inventory-report":
         return _run_ebook_inventory_report(args)
+
+    if args.command == "ebook-postscan-verify":
+        return _run_ebook_postscan_verify(args)
 
     if args.command == "ebook-compare":
         return _run_ebook_compare(args)
@@ -1071,22 +1147,45 @@ def _run_ebook_hash_candidates(args: argparse.Namespace) -> int:
 def _run_ebook_hash_status(args: argparse.Namespace) -> int:
     database: Path = args.database
     if not database.is_file():
-        print("E-book candidate hash status failed: database is unavailable.")
-        return 2
-    engine = create_sqlite_engine(database)
-    try:
-        roots = tuple(
-            root
-            for root in repository(engine, ScanRoot).list_all()
-            if root.name == args.scan_root.strip()
+        return _ebook_hash_status_error(
+            args,
+            "DATABASE_UNAVAILABLE",
+            "E-book candidate hash status failed: database is unavailable.",
         )
-        if len(roots) != 1:
-            print("E-book candidate hash status failed: logical ScanRoot does not exist.")
-            return 2
-        run = SQLiteEbookCandidateHashRunStore(engine).latest(roots[0].id)
-    except OperationalError:
-        print("E-book candidate hash status failed: database schema is unavailable.")
-        return 2
+    engine = create_sqlite_read_only_engine(database)
+    try:
+        try:
+            roots = tuple(
+                root
+                for root in repository(engine, ScanRoot).list_all()
+                if root.name == args.scan_root.strip()
+            )
+            if len(roots) != 1:
+                return _ebook_hash_status_error(
+                    args,
+                    "SCAN_ROOT_NOT_FOUND",
+                    "E-book candidate hash status failed: logical ScanRoot does not exist.",
+                )
+            run = SQLiteEbookCandidateHashRunStore(engine).latest(roots[0].id)
+        except OperationalError:
+            return _ebook_hash_status_error(
+                args,
+                "SCHEMA_UNAVAILABLE",
+                "E-book candidate hash status failed: database schema is unavailable.",
+            )
+    finally:
+        engine.dispose()
+    if args.output == "json":
+        print(
+            json.dumps(
+                candidate_hash_status_payload(roots[0].name, run, datetime.now(UTC)),
+                allow_nan=False,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+        return 0
     if run is None:
         print(f"ScanRoot: {roots[0].name}")
         print("Candidate hash run: NONE")
@@ -1111,6 +1210,30 @@ def _run_ebook_hash_status(args: argparse.Namespace) -> int:
         print(f"Hash failures: {run.failure_count}")
         print(f"Remaining candidates: {run.remaining_count}")
     return 0
+
+
+def _ebook_hash_status_error(
+    args: argparse.Namespace,
+    error_code: str,
+    message: str,
+) -> int:
+    if args.output == "json":
+        print(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "command": "ebook-hash-status",
+                    "ok": False,
+                    "error": {"code": error_code},
+                },
+                allow_nan=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+    else:
+        print(message)
+    return 2
 
 
 def _run_ebook_analyze(args: argparse.Namespace) -> int:
@@ -1435,6 +1558,73 @@ def _run_ebook_inventory_report(args: argparse.Namespace) -> int:
     print("Identity verdict: NOT_PRODUCED")
     print("Relation records written: 0")
     return 0
+
+
+def _run_ebook_postscan_verify(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    if not database.is_file():
+        return _ebook_postscan_verify_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        limits = EbookInventoryReportLimits(
+            candidate_groups=args.inventory_group_limit,
+            members_per_group=args.inventory_member_limit,
+        )
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            report = PostscanCompletionVerifier(engine).verify(
+                args.scan_root.strip(),
+                inventory_report_root=args.inventory_report_root,
+                inventory_report_sha256=args.inventory_report_sha256,
+                inventory_limits=limits,
+                collection_run_id=args.collection_run,
+                plan_per_format=args.plan_per_format,
+            )
+        finally:
+            engine.dispose()
+    except KeyboardInterrupt:
+        return 130
+    except (OperationalError, OSError, ValueError):
+        return _ebook_postscan_verify_error(args, "INTERNAL_READ_ERROR")
+
+    if args.output == "json":
+        print(
+            json.dumps(
+                report.payload(),
+                allow_nan=False,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+    else:
+        print(f"ScanRoot: {report.scan_root}")
+        print(f"Overall: {report.overall.value}")
+        for name, check in report.checks.items():
+            print(f"{name}: {check.state.value} ({check.code})")
+    return report.exit_code
+
+
+def _ebook_postscan_verify_error(
+    args: argparse.Namespace,
+    error_code: str,
+) -> int:
+    if args.output == "json":
+        print(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "command": "ebook-postscan-verify",
+                    "overall": "INVALID",
+                    "error": {"code": error_code},
+                },
+                allow_nan=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+    else:
+        print("E-book postscan verification failed: read-only state is unavailable.")
+    return 2
 
 
 def _ebook_analysis_orchestrator(

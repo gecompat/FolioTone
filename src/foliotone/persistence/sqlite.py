@@ -33,6 +33,27 @@ def create_sqlite_engine(database: Path | str) -> Engine:
     return engine
 
 
+def create_sqlite_read_only_engine(database: Path | str) -> Engine:
+    """Open an existing SQLite database without creating or mutating storage."""
+
+    path = Path(database)
+    if not path.is_file():
+        raise FileNotFoundError("SQLite database is unavailable")
+    database_uri = f"file:{path.resolve().as_posix()}?mode=ro&uri=true"
+    engine = create_engine(f"sqlite+pysqlite:///{database_uri}")
+
+    @event.listens_for(engine, "connect")
+    def _enforce_read_only(dbapi_connection: object, _connection_record: object) -> None:
+        cursor = dbapi_connection.cursor()  # type: ignore[attr-defined]
+        try:
+            cursor.execute("PRAGMA query_only=ON")
+            cursor.execute("PRAGMA busy_timeout=30000")
+        finally:
+            cursor.close()
+
+    return engine
+
+
 def alembic_config(database: Path | str) -> Config:
     """Create an Alembic configuration for FolioTone's packaged migration environment."""
     migration_dir = Path(__file__).with_name("alembic")
