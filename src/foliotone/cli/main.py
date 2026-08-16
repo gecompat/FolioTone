@@ -76,6 +76,7 @@ from foliotone.workflows import (
     EbookAnalysisTools,
     EbookCollectionError,
     EbookCollectionInterrupted,
+    EbookCollectionOutcome,
     EbookCollectionReportError,
     EbookCollectionReportLimits,
     EbookCollectionReportService,
@@ -537,6 +538,209 @@ def build_parser() -> argparse.ArgumentParser:
         default="text",
         help="Output format; defaults to text.",
     )
+
+    ebook_collection_maintain = subparsers.add_parser(
+        "ebook-collection-maintain",
+        help=(
+            "Run resumable collection analysis and optional duplicate hashing and "
+            "inventory reporting against one EBOOK ScanRoot."
+        ),
+    )
+    ebook_collection_maintain.add_argument(
+        "--root",
+        required=True,
+        type=Path,
+        help="Source root used for collection analysis and duplicate hashing.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--scan-root",
+        required=True,
+        help="Existing logical EBOOK ScanRoot name.",
+    )
+    maintain_resume_group = ebook_collection_maintain.add_mutually_exclusive_group()
+    maintain_resume_group.add_argument(
+        "--resume-run",
+        type=EntityId.parse,
+        default=None,
+        help="Resume an interrupted collection run without replanning its snapshot.",
+    )
+    maintain_resume_group.add_argument(
+        "--resume-last-interrupted",
+        action="store_true",
+        help="Resume the latest interrupted collection run for this ScanRoot.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Bypass exact successful evidence reuse for a newly planned run.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--workers",
+        type=int,
+        choices=range(1, MAX_EBOOK_COLLECTION_WORKERS + 1),
+        default=None,
+        metavar=f"1..{MAX_EBOOK_COLLECTION_WORKERS}",
+        help=(
+            "Bounded analyzer worker count for a new run; defaults to 1 and is "
+            "preserved on resume."
+        ),
+    )
+    ebook_collection_maintain.add_argument(
+        "--max-items",
+        type=int,
+        default=None,
+        help="Process at most this many planned observations.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--plan-limit",
+        type=int,
+        default=None,
+        help="New runs only: deterministically plan at most this many observations.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--plan-per-format",
+        type=int,
+        default=None,
+        help=(
+            "New runs only: deterministically plan at most this many observations "
+            "from each supported format."
+        ),
+    )
+    ebook_collection_maintain.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="SQLite database path; defaults to /data/foliotone.db.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--artifact-root",
+        type=Path,
+        default=Path(
+            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
+        ),
+        help="Durable private tool-artifact root; defaults to /data/tool-artifacts.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--work-root",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_TOOL_WORK_ROOT", "/tmp/foliotone-tools")),
+        help="Ephemeral isolated tool-work root; defaults to /tmp/foliotone-tools.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--ebook-meta-executable",
+        default=os.environ.get("FOLIOTONE_EBOOK_META", "ebook-meta"),
+        help="ebook-meta executable or absolute executable path.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--ebook-convert-executable",
+        default=os.environ.get("FOLIOTONE_EBOOK_CONVERT", "ebook-convert"),
+        help="ebook-convert executable or absolute executable path.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--calibre-debug-executable",
+        default=os.environ.get("FOLIOTONE_CALIBRE_DEBUG", "calibre-debug"),
+        help="calibre-debug executable or absolute executable path.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--pdfinfo-executable",
+        default=os.environ.get("FOLIOTONE_PDFINFO", "pdfinfo"),
+        help="pdfinfo executable or absolute executable path.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--pdftotext-executable",
+        default=os.environ.get("FOLIOTONE_PDFTOTEXT", "pdftotext"),
+        help="pdftotext executable or absolute executable path.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--java-executable",
+        default=os.environ.get("FOLIOTONE_JAVA", "java"),
+        help="Java executable or absolute executable path.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--epubcheck-jar",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_EPUBCHECK_JAR", "epubcheck.jar")),
+        help="EPUBCheck JAR path; defaults to epubcheck.jar.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--run-hash-candidates",
+        action="store_true",
+        help="Run bounded full-SHA duplicate-hash candidates after collection analysis.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--hash-workers",
+        type=int,
+        choices=range(1, MAX_DUPLICATE_HASH_WORKERS + 1),
+        default=1,
+        metavar=f"1..{MAX_DUPLICATE_HASH_WORKERS}",
+        help="Bounded full-hash worker count for duplicate candidates.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--hash-batch-size",
+        type=int,
+        default=64,
+        help=(
+            "Atomic hash batch size for duplicate candidates; must be between 1 and "
+            f"{MAX_DUPLICATE_HASH_BATCH_SIZE}."
+        ),
+    )
+    ebook_collection_maintain.add_argument(
+        "--hash-max-items",
+        type=int,
+        default=None,
+        help="Attempt at most this many candidate hashes; rerun to continue.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--run-inventory-report",
+        action="store_true",
+        help="Generate a deterministic inventory report after analysis.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--inventory-report-root",
+        type=Path,
+        default=Path(
+            os.environ.get(
+                "FOLIOTONE_INVENTORY_REPORT_ROOT",
+                "/data/inventory-reports",
+            )
+        ),
+        help="Durable private inventory report root.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--run-collection-report",
+        action="store_true",
+        help="Generate a deterministic collection report after successful collection run.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--collection-report-root",
+        type=Path,
+        default=Path(
+            os.environ.get(
+                "FOLIOTONE_COLLECTION_REPORT_ROOT",
+                "/data/collection-reports",
+            )
+        ),
+        help="Durable private collection report root.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--review-limit",
+        type=int,
+        default=DEFAULT_COLLECTION_REPORT_REVIEW_LIMIT,
+        help="Maximum prioritized review items emitted; totals remain complete.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--report-group-limit",
+        type=int,
+        default=DEFAULT_COLLECTION_REPORT_GROUP_LIMIT,
+        help="Maximum exact-duplicate/content-variant/group and inventory groups emitted.",
+    )
+    ebook_collection_maintain.add_argument(
+        "--report-member-limit",
+        type=int,
+        default=DEFAULT_COLLECTION_REPORT_MEMBER_LIMIT,
+        help="Maximum members emitted for each candidate group.",
+    )
+
     ebook_collection.add_argument(
         "--database",
         type=Path,
@@ -913,6 +1117,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "through ebook-collection-report."
         )
         print(
+            "Read-only resumable collection maintenance (analyze + optional hash/enhance "
+            "reports) is available through ebook-collection-maintain."
+        )
+        print(
             "Quick duplicate candidates can be selectively confirmed with full SHA-256 "
             "through ebook-hash-candidates."
         )
@@ -936,6 +1144,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "scan":
         deletion_policy = _deletion_policy(parser, args)
         return _run_scan(args, deletion_policy)
+
+    if args.command == "ebook-collection-maintain":
+        return _run_ebook_collection_maintain(args)
 
     if args.command == "ebook-hash-candidates":
         return _run_ebook_hash_candidates(args)
@@ -1298,113 +1509,23 @@ def _run_ebook_analyze(args: argparse.Namespace) -> int:
 
 
 def _run_ebook_collection_analyze(args: argparse.Namespace) -> int:
-    if not args.root.is_dir():
-        print("E-book collection analysis failed: source root is unavailable.")
-        return 2
     try:
-        _validate_collection_storage_paths(
-            args.root,
-            args.database,
-            args.artifact_root,
-            args.work_root,
-        )
+        outcome, root = _run_ebook_collection_analysis(args)
     except ValueError as error:
         print(f"E-book collection analysis failed: {error}")
         return 2
-
-    if args.plan_limit is not None and args.plan_per_format is not None:
-        print(
-            "E-book collection analysis failed: --plan-limit and "
-            "--plan-per-format are mutually exclusive."
-        )
-        return 2
-
-    if (args.resume_run is not None or args.resume_last_interrupted) and (
-        args.fresh
-        or args.workers is not None
-        or args.plan_limit is not None
-        or args.plan_per_format is not None
-    ):
-        print(
-            "E-book collection analysis failed: --fresh, --workers, --plan-limit, "
-            "and --plan-per-format cannot change a resumed run."
-        )
-        return 2
-
-    database: Path = args.database
-    try:
-        migrate(database)
-        engine = create_sqlite_engine(database)
-        roots = tuple(
-            root
-            for root in repository(engine, ScanRoot).list_all()
-            if root.name == args.scan_root.strip()
-        )
-        if len(roots) != 1:
-            print("E-book collection analysis failed: logical ScanRoot does not exist.")
-            return 2
-        root = roots[0]
-        if root.media_type is not MediaType.EBOOK or not root.enabled:
-            print("E-book collection analysis failed: ScanRoot must be an enabled EBOOK root.")
-            return 2
-
-        store = SQLiteEbookCollectionStore(engine)
-        if args.resume_run is not None:
-            persisted = store.get_run(args.resume_run)
-            if persisted is None or persisted.scan_root_id != root.id:
-                print(
-                    "E-book collection analysis failed: resume run does not belong "
-                    "to the requested ScanRoot."
-                )
-                return 2
-        elif args.resume_last_interrupted:
-            persisted = store.latest_interrupted_run(root.id)
-            if persisted is None:
-                print(
-                    "E-book collection analysis failed: no INTERRUPTED run exists "
-                    "for this ScanRoot."
-                )
-                return 2
-            args.resume_run = persisted.id
-
-        runtime = ToolRuntime(
-            engine,
-            args.artifact_root,
-            work_root=args.work_root,
-            cache_local_probes=True,
-        )
-        orchestrator = _ebook_analysis_orchestrator(engine, runtime, args)
-        service = EbookCollectionService(
-            store,
-            lambda observation, fresh: orchestrator.analyze(
-                args.root,
-                observation,
-                fresh=fresh,
-            ),
-        )
-        if args.resume_run is None:
-            outcome = service.start(
-                root.id,
-                fresh=args.fresh,
-                worker_count=args.workers or 1,
-                max_items=args.max_items,
-                plan_limit=args.plan_limit,
-                plan_per_format=args.plan_per_format,
-            )
-        else:
-            outcome = service.resume(
-                args.resume_run,
-                max_items=args.max_items,
-            )
     except EbookCollectionInterrupted as error:
         print(f"E-book collection run: {error.run_id}")
         print("Status: INTERRUPTED")
         print("Resume is safe with --resume-run and the same logical ScanRoot.")
         return 130
-    except (EbookCollectionError, EbookCollectionStoreError, ValueError) as error:
+    except EbookCollectionError as error:
         print(f"E-book collection analysis failed: {error}")
-        if isinstance(error, EbookCollectionError) and error.run_id is not None:
+        if error.run_id is not None:
             print(f"E-book collection run: {error.run_id}")
+        return 2
+    except EbookCollectionStoreError as error:
+        print(f"E-book collection analysis failed: {error}")
         return 2
     except OSError:
         print("E-book collection analysis failed: runtime storage is unavailable.")
@@ -1416,6 +1537,304 @@ def _run_ebook_collection_analyze(args: argparse.Namespace) -> int:
         print("E-book collection analysis failed: internal persistence error.")
         return 2
 
+    _print_ebook_collection_outcome(outcome, root)
+    if outcome.run.status is EbookCollectionRunStatus.COMPLETED:
+        return 0
+    if outcome.run.status is EbookCollectionRunStatus.COMPLETED_WITH_FAILURES:
+        return 1
+    if outcome.run.status is EbookCollectionRunStatus.INTERRUPTED:
+        return 3
+    return 2
+
+
+def _run_ebook_collection_maintain(args: argparse.Namespace) -> int:
+    try:
+        if args.run_inventory_report:
+            _validate_collection_report_paths(
+                args.root,
+                args.database,
+                args.inventory_report_root,
+            )
+        if args.run_collection_report:
+            _validate_collection_report_paths(
+                args.root,
+                args.database,
+                args.collection_report_root,
+            )
+    except ValueError as error:
+        print(f"E-book collection maintain failed: {error}")
+        return 2
+
+    try:
+        outcome, root = _run_ebook_collection_analysis(args)
+    except ValueError as error:
+        print(f"E-book collection maintain failed: {error}")
+        return 2
+    except EbookCollectionInterrupted as error:
+        print(f"E-book collection run: {error.run_id}")
+        print("Status: INTERRUPTED")
+        print("Resume is safe with --resume-run and the same logical ScanRoot.")
+        _run_ebook_collection_maintain_auxiliary(args, outcome=None)
+        return 130
+    except EbookCollectionError as error:
+        print(f"E-book collection maintain failed: {error}")
+        if error.run_id is not None:
+            print(f"E-book collection run: {error.run_id}")
+        return 2
+    except EbookCollectionStoreError as error:
+        print(f"E-book collection maintain failed: {error}")
+        return 2
+    except OSError:
+        print("E-book collection maintain failed: runtime storage is unavailable.")
+        return 2
+    except KeyboardInterrupt:
+        print("E-book collection maintain interrupted before a run was acquired.")
+        return 130
+    except Exception:
+        print("E-book collection maintain failed: internal persistence error.")
+        return 2
+
+    _print_ebook_collection_outcome(outcome, root)
+    _run_ebook_collection_maintain_auxiliary(
+        args,
+        outcome=outcome,
+    )
+    if outcome.run.status is EbookCollectionRunStatus.COMPLETED:
+        return 0
+    if outcome.run.status is EbookCollectionRunStatus.COMPLETED_WITH_FAILURES:
+        return 1
+    if outcome.run.status is EbookCollectionRunStatus.INTERRUPTED:
+        return 3
+    return 2
+
+
+def _run_ebook_collection_maintain_auxiliary(
+    args: argparse.Namespace,
+    outcome: EbookCollectionOutcome | None,
+) -> None:
+    if args.run_hash_candidates:
+        hash_args = argparse.Namespace(
+            root=args.root,
+            scan_root=args.scan_root,
+            database=args.database,
+            workers=args.hash_workers,
+            batch_size=args.hash_batch_size,
+            max_items=args.hash_max_items,
+        )
+        hash_result = _run_ebook_hash_candidates(hash_args)
+        if hash_result != 0 and hash_result != 1:
+            print(
+                "E-book collection maintain warning: hash candidate maintenance "
+                f"did not complete successfully: {hash_result}"
+            )
+
+    if args.run_inventory_report:
+        inventory_result = _run_ebook_collection_inventory_report(
+            args.root,
+            args.scan_root,
+            args.database,
+            args.inventory_report_root,
+            args.report_group_limit,
+            args.report_member_limit,
+        )
+        if inventory_result != 0:
+            print(
+                "E-book collection maintain warning: inventory report generation "
+                f"did not complete successfully: {inventory_result}"
+            )
+
+    if args.run_collection_report:
+        if outcome is None or outcome.run.status is EbookCollectionRunStatus.INTERRUPTED:
+            print(
+                "E-book collection maintain warning: collection report is "
+                "available only after a non-interrupted collection run."
+            )
+            return
+        report_args = argparse.Namespace(
+            run=outcome.run.id,
+            source_root=args.root,
+            database=args.database,
+            report_root=args.collection_report_root,
+            review_limit=args.review_limit,
+            group_limit=args.report_group_limit,
+            group_member_limit=args.report_member_limit,
+        )
+        report_result = _run_ebook_collection_report(report_args)
+        if report_result != 0:
+            print(
+                "E-book collection maintain warning: collection report generation "
+                f"did not complete successfully: {report_result}"
+            )
+
+
+def _run_ebook_collection_inventory_report(
+    source_root: Path,
+    scan_root: str,
+    database: Path,
+    report_root: Path,
+    group_limit: int,
+    group_member_limit: int,
+) -> int:
+    try:
+        _validate_collection_report_paths(source_root, database, report_root)
+        limits = EbookInventoryReportLimits(
+            candidate_groups=group_limit,
+            members_per_group=group_member_limit,
+        )
+        migrate(database)
+        engine = create_sqlite_engine(database)
+        roots = tuple(
+            root
+            for root in repository(engine, ScanRoot).list_all()
+            if root.name == scan_root.strip()
+        )
+        if len(roots) != 1:
+            print("E-book inventory report failed: logical ScanRoot does not exist.")
+            return 2
+        root = roots[0]
+        if root.media_type is not MediaType.EBOOK or not root.enabled:
+            print(
+                "E-book inventory report failed: ScanRoot must be an enabled "
+                "EBOOK root."
+            )
+            return 2
+        outcome = EbookInventoryReportService(
+            SQLiteEbookInventoryReportStore(engine)
+        ).generate(
+            root.id,
+            report_root,
+            limits=limits,
+        )
+    except (
+        EbookInventoryReportError,
+        EbookInventoryReportStoreError,
+        ValueError,
+    ) as error:
+        print(f"E-book inventory report failed: {error}")
+        return 2
+    except OSError:
+        print("E-book inventory report failed: runtime storage is unavailable.")
+        return 2
+    except Exception:
+        print("E-book inventory report failed: internal persistence error.")
+        return 2
+
+    print(f"ScanRoot: {root.name}")
+    print(f"Source ScanRun: {outcome.scan_run_id}")
+    print(f"Report profile: {outcome.profile}")
+    print(f"Observations: {outcome.observations}")
+    print(f"Total bytes: {outcome.total_bytes}")
+    for aggregate in outcome.formats:
+        observation_label = (
+            "observation" if aggregate.observations == 1 else "observations"
+        )
+        print(
+            f"Format {aggregate.format_name}: {aggregate.observations} "
+            f"{observation_label}, {aggregate.total_bytes} bytes"
+        )
+    print(f"Full-hash observations: {outcome.full_hash_observations}")
+    print(f"Quick candidate groups: {outcome.quick_candidate_groups}")
+    print(f"Quick candidate observations: {outcome.quick_candidate_observations}")
+    print(
+        "Quick candidates missing full hash: "
+        f"{outcome.quick_candidates_missing_full_hash}"
+    )
+    print(f"Exact duplicate groups: {outcome.exact_duplicate_groups}")
+    print(f"Exact duplicate observations: {outcome.exact_duplicate_members}")
+    print(f"Potential redundant bytes: {outcome.redundant_bytes}")
+    print(f"Report SHA-256: {outcome.report_sha256}")
+    print(f"Report files: {len(outcome.files)}")
+    print(f"Report directory: {outcome.report_directory}")
+    print("Identity verdict: NOT_PRODUCED")
+    print("Relation records written: 0")
+    return 0
+
+
+def _run_ebook_collection_analysis(
+    args: argparse.Namespace,
+) -> tuple[EbookCollectionOutcome, ScanRoot]:
+    if not args.root.is_dir():
+        raise ValueError("source root is unavailable.")
+
+    _validate_collection_storage_paths(
+        args.root,
+        args.database,
+        args.artifact_root,
+        args.work_root,
+    )
+    if args.plan_limit is not None and args.plan_per_format is not None:
+        raise ValueError("--plan-limit and --plan-per-format are mutually exclusive.")
+    if (args.resume_run is not None or args.resume_last_interrupted) and (
+        args.fresh
+        or args.workers is not None
+        or args.plan_limit is not None
+        or args.plan_per_format is not None
+    ):
+        raise ValueError(
+            "--fresh, --workers, --plan-limit, and --plan-per-format cannot "
+            "change a resumed run."
+        )
+
+    migrate(args.database)
+    engine = create_sqlite_engine(args.database)
+    roots = tuple(
+        root
+        for root in repository(engine, ScanRoot).list_all()
+        if root.name == args.scan_root.strip()
+    )
+    if len(roots) != 1:
+        raise ValueError("logical ScanRoot does not exist.")
+    root = roots[0]
+    if root.media_type is not MediaType.EBOOK or not root.enabled:
+        raise ValueError("ScanRoot must be an enabled EBOOK root.")
+
+    store = SQLiteEbookCollectionStore(engine)
+    if args.resume_run is not None:
+        persisted = store.get_run(args.resume_run)
+        if persisted is None or persisted.scan_root_id != root.id:
+            raise ValueError("resume run does not belong to the requested ScanRoot.")
+    elif args.resume_last_interrupted:
+        persisted = store.latest_interrupted_run(root.id)
+        if persisted is None:
+            raise ValueError("no INTERRUPTED run exists for this ScanRoot.")
+        args.resume_run = persisted.id
+
+    runtime = ToolRuntime(
+        engine,
+        args.artifact_root,
+        work_root=args.work_root,
+        cache_local_probes=True,
+    )
+    orchestrator = _ebook_analysis_orchestrator(engine, runtime, args)
+    service = EbookCollectionService(
+        store,
+        lambda observation, fresh: orchestrator.analyze(
+            args.root,
+            observation,
+            fresh=fresh,
+        ),
+    )
+    if args.resume_run is None:
+        outcome = service.start(
+            root.id,
+            fresh=args.fresh,
+            worker_count=args.workers or 1,
+            max_items=args.max_items,
+            plan_limit=args.plan_limit,
+            plan_per_format=args.plan_per_format,
+        )
+    else:
+        outcome = service.resume(
+            args.resume_run,
+            max_items=args.max_items,
+        )
+    return outcome, root
+
+
+def _print_ebook_collection_outcome(
+    outcome: EbookCollectionOutcome,
+    root: ScanRoot,
+) -> None:
     print(f"ScanRoot: {root.name}")
     print(f"E-book collection run: {outcome.run.id}")
     print(f"Source ScanRun: {outcome.run.source_scan_run_id}")
@@ -1434,13 +1853,6 @@ def _run_ebook_collection_analyze(args: argparse.Namespace) -> int:
     print(f"Executed steps: {outcome.counts.executed_steps}")
     print(f"Quality findings: {outcome.counts.findings}")
     print(f"Status: {outcome.run.status.value}")
-    if outcome.run.status is EbookCollectionRunStatus.COMPLETED:
-        return 0
-    if outcome.run.status is EbookCollectionRunStatus.COMPLETED_WITH_FAILURES:
-        return 1
-    if outcome.run.status is EbookCollectionRunStatus.INTERRUPTED:
-        return 3
-    return 2
 
 
 def _run_ebook_collection_report(args: argparse.Namespace) -> int:

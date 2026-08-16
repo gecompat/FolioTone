@@ -820,7 +820,7 @@ Sekunden. Private Collection-Pfade oder Laufzeitkennzahlen wurden nicht in Git
 
 ## Danach weiterarbeiten
 
-Die nächste sinnvolle Reihenfolge ist:
+Die aktuelle Entwicklungsposition wurde hier abgeschlossen:
 
 1. `W3-017` — den laufenden read-only Inventar-Snapshot abschließen, selektive
    Vollhash-Evidence für Quick-Duplikatkandidaten ergänzen, den scanweiten

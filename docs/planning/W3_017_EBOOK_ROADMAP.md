@@ -174,6 +174,12 @@ Rollback:
 
 ### E3 — W3-017 betrieblich abschließen
 
+**Stand (abgeschlossen):** Die E3-Betriebssequenz wurde mit einem privaten
+real-world read-only Durchlauf abgeschlossen; die verknüpfte Scan-, Hash-,
+Inventar- und Collection-Pipeline ist für die dokumentierten Grenzen
+(`RUNNING`-Recovery, Quick-Duplikat-Hashing, Determinismus und Read-Only-Verify)
+in Welle 1 abgeschlossen.
+
 **Ziel:** Der private Hintergrundlauf liefert die vorgesehenen
 Bestands-, Hash- und formatabdeckenden Ergebnisse, ohne die Entwicklung zu
 blockieren.
