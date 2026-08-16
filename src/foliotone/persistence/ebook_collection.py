@@ -27,6 +27,7 @@ from foliotone.persistence import schema, w3_schema
 from foliotone.persistence.codecs import Codec, codec_for
 
 EBOOK_COLLECTION_PLAN_BATCH_SIZE = 500
+_COLLECTION_FORMAT_ORDER = ("EPUB", "MOBI", "AZW", "AZW3", "PDF")
 _COLLECTION_FINDING_CODE = re.compile(r"[A-Z][A-Z0-9_]{0,63}")
 _COLLECTION_FINDING_DIMENSIONS = frozenset(
     {"METADATA", "TEXT", "COVER", "STRUCTURE", "FORMAT_RISK"}
@@ -482,6 +483,31 @@ class SQLiteEbookCollectionStore:
             if self._get_run(connection, run_id) is None:
                 raise EbookCollectionStoreError("collection run does not exist")
             return self._counts(connection, run_id)
+
+    def format_counts(self, run_id: EntityId) -> tuple[tuple[str, int], ...]:
+        """Aggregate one run into a fixed path-free format vocabulary."""
+
+        with self._engine.connect() as connection:
+            if self._get_run(connection, run_id) is None:
+                raise EbookCollectionStoreError("collection run does not exist")
+            rows = connection.execute(
+                select(
+                    w3_schema.ebook_collection_items.c.format_name,
+                    func.count().label("count"),
+                )
+                .where(w3_schema.ebook_collection_items.c.run_id == str(run_id))
+                .group_by(w3_schema.ebook_collection_items.c.format_name)
+            ).all()
+
+        values = {str(format_name): int(count) for format_name, count in rows}
+        if set(values).difference(_COLLECTION_FORMAT_ORDER):
+            raise EbookCollectionStoreError(
+                "collection format count contains unknown format"
+            )
+        return tuple(
+            (format_name, values.get(format_name, 0))
+            for format_name in _COLLECTION_FORMAT_ORDER
+        )
 
     def _latest_scan(
         self,

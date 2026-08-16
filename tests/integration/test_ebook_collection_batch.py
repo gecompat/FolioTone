@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from sqlalchemy import Engine, event, insert
+from sqlalchemy import Engine, event, insert, update
 
 from foliotone.core import (
     EbookCollectionItem,
@@ -229,6 +229,94 @@ def test_collection_plan_per_format_is_bounded_and_deterministic(
         observations["legacy/a.mobi"].id,
         observations["pdf/a.pdf"].id,
     ]
+
+
+def test_collection_format_counts_are_fixed_path_free_and_read_only(
+    tmp_path: Path,
+) -> None:
+    engine, root, _observations = _environment(
+        tmp_path,
+        (
+            "private/one.epub",
+            "private/two.EPUB",
+            "private/legacy.mobi",
+            "private/kindle.azw3",
+            "private/manual.pdf",
+            "private/ignored.txt",
+        ),
+    )
+    store = SQLiteEbookCollectionStore(engine)
+    created = store.create_run(
+        root.id,
+        profile="ebook-collection-analysis/v1",
+        analysis_profile=EBOOK_ANALYSIS_PROFILE,
+        fresh=False,
+        worker_count=1,
+        started_at=NOW,
+        lease_token="format-counts",
+        lease_expires_at=NOW + timedelta(minutes=30),
+    )
+    statements: list[str] = []
+
+    def observe_statement(
+        _connection: object,
+        _cursor: object,
+        statement: str,
+        _parameters: object,
+        _context: object,
+        _executemany: bool,
+    ) -> None:
+        statements.append(statement.lstrip().upper())
+
+    event.listen(engine, "before_cursor_execute", observe_statement)
+    try:
+        counts = store.format_counts(created.run.id)
+    finally:
+        event.remove(engine, "before_cursor_execute", observe_statement)
+
+    assert counts == (
+        ("EPUB", 2),
+        ("MOBI", 1),
+        ("AZW", 0),
+        ("AZW3", 1),
+        ("PDF", 1),
+    )
+    assert len(statements) == 2
+    assert all(statement.startswith("SELECT") for statement in statements)
+    assert all("PRIVATE/" not in statement for statement in statements)
+
+
+def test_collection_format_counts_reject_unknown_persisted_labels(
+    tmp_path: Path,
+) -> None:
+    engine, root, _observations = _environment(tmp_path, ("book.epub",))
+    store = SQLiteEbookCollectionStore(engine)
+    created = store.create_run(
+        root.id,
+        profile="ebook-collection-analysis/v1",
+        analysis_profile=EBOOK_ANALYSIS_PROFILE,
+        fresh=False,
+        worker_count=1,
+        started_at=NOW,
+        lease_token="unknown-format-count",
+        lease_expires_at=NOW + timedelta(minutes=30),
+    )
+    with engine.begin() as connection:
+        connection.execute(
+            update(w3_schema.ebook_collection_items)
+            .where(w3_schema.ebook_collection_items.c.run_id == str(created.run.id))
+            .values(format_name="CBZ")
+        )
+
+    with pytest.raises(EbookCollectionStoreError, match="unknown format"):
+        store.format_counts(created.run.id)
+
+
+def test_collection_format_counts_require_an_existing_run(tmp_path: Path) -> None:
+    engine, _root, _observations = _environment(tmp_path, ())
+
+    with pytest.raises(EbookCollectionStoreError, match="run does not exist"):
+        SQLiteEbookCollectionStore(engine).format_counts(EntityId.new())
 
 
 def test_collection_plan_limits_are_mutually_exclusive(tmp_path: Path) -> None:
