@@ -208,6 +208,12 @@ Implemented sequence and decisions through the active `W3-017`:
     leases and permit only explicit atomic recovery of unleased or expired
     `RUNNING` attempts. Keep all workflows resumable, path-free and
     non-mutating.
+
+The detailed book-only continuation, including the controlled runtime cutover,
+synthetic development gates, root-wide write coordination and the sequence
+through non-executable W9 planning, is defined in
+[`W3_017_EBOOK_ROADMAP.md`](W3_017_EBOOK_ROADMAP.md). Music W4 remains outside
+that roadmap and stays deferred under the current user-directed E-book focus.
 18. add `ebook-inventory-report/v1` and CLI
     `foliotone ebook-inventory-report`. Read only the newest completed scan
     snapshot without reopening Source Media; aggregate complete format/byte

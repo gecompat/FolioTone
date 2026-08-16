@@ -1,10 +1,16 @@
 # Projektstatus
 
-Stand: 2026-08-15
+Stand: 2026-08-16
 
 ## Aktuelle Welle
 
 **W3 E-Book-Vertiefung aktiv — reale read-only Collection-Härtung und selektive Duplikatbestätigung in Arbeit**
+
+Der kontrollierte Runtime-Cutover, die Trennung zwischen synthetischen
+Entwicklungs-Gates und privatem Hintergrundlauf sowie die langfristige
+book-only Fortsetzung bis W9 sind in
+[`W3_017_EBOOK_ROADMAP.md`](W3_017_EBOOK_ROADMAP.md) geplant. Der Plan ändert
+keinen implementierten Status und autorisiert W10 nicht.
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
