@@ -19,8 +19,11 @@ from foliotone.parsing.contracts import FieldCandidate
 
 DEFAULT_AUTHOR_RESOLUTION_VERSION: Final = "authority-resolution/v1"
 DEFAULT_TITLE_RESOLUTION_VERSION: Final = "title-resolution/v1"
+DEFAULT_IDENTIFIER_RESOLUTION_VERSION: Final = "identifier-resolution/v1"
+DEFAULT_METADATA_RESOLUTION_VERSION: Final = "metadata-resolution/v1"
 DEFAULT_AGENT_NAME_CONFIDENCE: Final = 0.55
 DEFAULT_TITLE_CONFIDENCE: Final = 0.5
+DEFAULT_IDENTIFIER_CONFIDENCE: Final = 0.75
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +42,18 @@ class TitleProfile:
     """Versioned normalization profile for book/work/edition/series titles."""
 
     version: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "version", require_non_empty(self.version, "version"))
+
+
+@dataclass(frozen=True, slots=True)
+class BibliographicEntityProfile:
+    """Versioned profile for metadata-derived bibliographic candidate materialization."""
+
+    version: str
+    include_identifiers: bool = True
+    include_translator_as_agent: bool = True
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "version", require_non_empty(self.version, "version"))
@@ -252,6 +267,140 @@ def disambiguate(name: str, disambiguation: str) -> str:
     if not name_key:
         return f"reject:{require_non_empty(disambiguation, 'disambiguation')}"
     return f"ok:{name_key}"
+
+
+def normalize_agent_name_key(value: str) -> str:
+    """Return a stable agent-name normalization key for matching."""
+
+    return normalize_agent_name(value)
+
+
+def normalize_identifier_key(value: str) -> str:
+    """Return a stable identifier normalization key for matching."""
+
+    return normalize_identifier(value)
+
+
+def generate_metadata_entity_candidates(
+    *,
+    work_title: str | None = None,
+    edition_title: str | None = None,
+    series_name: str | None = None,
+    language: str | None = None,
+    translator: str | None = None,
+    contributor_names: tuple[str, ...] = (),
+    identifiers: tuple[tuple[str, str], ...] = (),
+    profile: BibliographicEntityProfile | None = None,
+    title_profile: TitleProfile | None = None,
+    author_profile: AuthorityNameProfile | None = None,
+    observed_at: datetime,
+) -> tuple[FieldCandidate, ...]:
+    """
+    Generate local bibliographic/authority candidates from synthetic metadata values.
+
+    The candidates are intentionally non-authoritative and designed for
+    deterministic local resolution steps in W5A.
+    """
+
+    profile = profile or BibliographicEntityProfile(version=DEFAULT_METADATA_RESOLUTION_VERSION)
+    title_profile = title_profile or TitleProfile(version=DEFAULT_TITLE_RESOLUTION_VERSION)
+    author_profile = author_profile or AuthorityNameProfile(version=DEFAULT_AUTHOR_RESOLUTION_VERSION)
+
+    candidates: list[FieldCandidate] = []
+
+    if work_title is not None:
+        candidates.extend(generate_work_candidates(work_title, observed_at=observed_at, profile=title_profile))
+    if edition_title is not None:
+        candidates.extend(generate_edition_candidates(edition_title, observed_at=observed_at, profile=title_profile))
+    if series_name is not None:
+        candidates.extend(generate_series_candidates(series_name, observed_at=observed_at, profile=title_profile))
+
+    for name in contributor_names:
+        candidates.extend(generate_agent_name_candidates(name, observed_at=observed_at, profile=author_profile))
+    if profile.include_translator_as_agent and translator is not None and translator.strip():
+        candidates.extend(generate_agent_name_candidates(translator, observed_at=observed_at, profile=author_profile))
+
+    if language is not None:
+        normalized_language = _collapse_spaces(language.strip().lower())
+        if normalized_language:
+            candidates.append(
+                _candidate(
+                    field_name="edition.language",
+                    value=normalized_language,
+                    source_location=f"metadata-profile:{profile.version}.language",
+                    observed_at=observed_at,
+                    profile_version=profile.version,
+                    confidence=0.5,
+                ),
+            )
+
+    if profile.include_identifiers:
+        for namespace, raw_identifier in identifiers:
+            normalized = normalize_identifier_for_profile(namespace, raw_identifier)
+            namespace_key, normalized_value = normalized.split(":", 1)
+            candidates.append(
+                _candidate(
+                    field_name=f"identifier.{namespace_key}",
+                    value=normalized_value,
+                    source_location=f"metadata-profile:{profile.version}.identifier",
+                    observed_at=observed_at,
+                    profile_version=DEFAULT_IDENTIFIER_RESOLUTION_VERSION,
+                    confidence=DEFAULT_IDENTIFIER_CONFIDENCE,
+                ),
+            )
+            candidates.append(
+                _candidate(
+                    field_name=f"identifier.{namespace_key}.normalized",
+                    value=normalized,
+                    source_location=f"metadata-profile:{profile.version}.identifier.normalized",
+                    observed_at=observed_at,
+                    profile_version=DEFAULT_IDENTIFIER_RESOLUTION_VERSION,
+                    confidence=DEFAULT_IDENTIFIER_CONFIDENCE + 0.05,
+                ),
+            )
+
+    # Keep this function deterministic when duplicate metadata appears.
+    seen: set[tuple[str, str, str]] = set()
+    deduped_candidates = []
+    for candidate in candidates:
+        key = (candidate.field_name, candidate.value, candidate.source_location)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped_candidates.append(candidate)
+
+    return tuple(deduped_candidates)
+
+
+def generate_bibliographic_entity_candidates(
+    *,
+    work_title: str | None = None,
+    edition_title: str | None = None,
+    series_name: str | None = None,
+    language: str | None = None,
+    translator: str | None = None,
+    contributor_names: tuple[str, ...] = (),
+    identifiers: tuple[tuple[str, str], ...] = (),
+    observed_at: datetime,
+    profile: BibliographicEntityProfile | None = None,
+    title_profile: TitleProfile | None = None,
+    author_profile: AuthorityNameProfile | None = None,
+) -> tuple[FieldCandidate, ...]:
+    """Compatibility alias for local metadata candidate materialization."""
+
+    return generate_metadata_entity_candidates(
+        work_title=work_title,
+        edition_title=edition_title,
+        series_name=series_name,
+        language=language,
+        translator=translator,
+        contributor_names=contributor_names,
+        identifiers=identifiers,
+        profile=profile,
+        title_profile=title_profile,
+        author_profile=author_profile,
+        observed_at=observed_at,
+    )
 
 
 def _generate_title_candidates(
