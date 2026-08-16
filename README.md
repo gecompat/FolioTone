@@ -255,6 +255,7 @@ Persistence
 - [`docs/reference/EXTERNAL_DATA_SOURCES.md`](docs/reference/EXTERNAL_DATA_SOURCES.md) — externe Knowledge-Provider-Kandidaten.
 - [`docs/planning/PROJECT_STATUS.md`](docs/planning/PROJECT_STATUS.md) — autoritativer aktueller Stand.
 - [`docs/planning/BACKLOG.md`](docs/planning/BACKLOG.md) — Aufgaben und Status nach Welle.
+- [`docs/quality/REAL_COLLECTION_MAINTENANCE.md`](docs/quality/REAL_COLLECTION_MAINTENANCE.md) — realistische, fortsetzbare Pipeline für große private E-Book-Sammlungen.
 
 ## Qualitätstests
 
