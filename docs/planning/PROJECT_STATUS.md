@@ -44,7 +44,7 @@ ergänzt einen fortsetzbaren Collection Batch mit persistentem Snapshot-Plan,
 Lease, begrenzten Workern und per-File-Fehlerfortsetzung. `W3-016` ergänzt
 deterministische private JSON-/CSV-Sammlungsberichte, persistierte
 Befundprovenance und begrenzte Duplicate-/Varianten-Review-Kandidaten.
-`W3-017` ist `IN PROGRESS`: inkrementelle Scan-/Hash-Persistenz wurde aus dem
+`W3-017` ist `DONE`: inkrementelle Scan-/Hash-Persistenz wurde aus dem
 realen Pilot gehärtet, heterogene Pilotpläne und selektives vollständiges
 Hashing von Quick-Duplikatkandidaten sind implementiert. Neue `ScanRun`-Leases
 mit Heartbeats und expliziter stale-`RUNNING`-Recovery schließen die im realen
@@ -956,7 +956,7 @@ Item-Ausführungs-/Befundprovenance und Alembic
 Kandidatendaten, halten nur begrenzte Detailmengen und weisen vollständige
 Gesamtzahlen sowie Kürzungen aus.
 
-`W3-017` ist `IN PROGRESS`: Der reale read-only Vierformat-Pilot ist technisch
+`W3-017` ist `DONE`: Der reale read-only Vierformat-Pilot ist technisch
 erfolgreich. Normale Wiederholungen verwenden exakte Evidence, ohne externe
 Analyzer erneut zu starten. Der reale Collection-Pilot deckte dabei einen
 collection-weiten `Fingerprint.list_all()`-Engpass im Reuse-Lesepfad auf; der
@@ -986,7 +986,8 @@ deterministische private Artefakte. `ebook-postscan-verify` prüft den
 paketierten Schema-Head, die gemeinsame Scan-/Hash-/Collection-Lineage, die
 Inventarartefakte bytegenau und die begrenzte Formatabdeckung über dieselbe
 echte Read-only-Verbindung, ohne Source Media zu öffnen. Der vollständige
-private Inventar-/Collection-Lauf und Bericht werden noch abgeschlossen.
+private Inventar-/Collection-Lauf und Bericht sind abgeschlossen.
+Belege aus der Pilotkette sind untereinander verknüpft (ScanRun `3634d248-7306-46c2-8edb-a7d536de7314`, Inventory `46fccb41530fb14bb2b9304a012398a7a3b44cc2772e947983bca7578dd40e9d`, Collection `514a8233-544d-4a24-9b07-aa86984b4cc6`).
 Music W4 bleibt bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche
 bleibt ausschließlich die CLI.
 

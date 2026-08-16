@@ -820,16 +820,13 @@ Sekunden. Private Collection-Pfade oder Laufzeitkennzahlen wurden nicht in Git
 
 ## Danach weiterarbeiten
 
-Die nächste sinnvolle Reihenfolge ist:
+Die aktuelle Entwicklungsposition wurde hier abgeschlossen:
 
-1. `W3-017` — den laufenden read-only Inventar-Snapshot abschließen, selektive
-   Vollhash-Evidence für Quick-Duplikatkandidaten ergänzen, den scanweiten
-   privaten Inventarbericht erzeugen und einen formatabdeckenden Collection-
-   Lauf bis zum Qualitäts-/Duplicate-Bericht fortsetzen. Private Pfade,
-   Runtime-Daten, Kennzahlen und Berichte bleiben außerhalb von Git; Source
-   Media bleibt unverändert. Der kontrollierte Cutover und die anschließende
-   book-only Folgeplanung stehen in `W3_017_EBOOK_ROADMAP.md`; der direkt
-   verwendbare Auftrag steht in `W3_017_EBOOK_ROADMAP_PROMPT.md`.
+1. `W3-017` — der realen read-only Vierformat-Pilot wurde bis
+   `RUNNING`-Stabilisierung, Scan-Kandidaten-Hashing, Inventarbericht und
+   formatabdeckendem Collection-Lauf geführt; private Artefakte und Lineage sind
+   konsistent verifiziert. Private Pfade, Runtime-Daten, Kennzahlen und Berichte
+   bleiben außerhalb von Git; Source Media bleibt unverändert.
 
 Music W4 bleibt geplant, wird aber erst nach der E-Book-Vertiefung und den
 book-spezifischen Teilen von Authority Resolution, Matching, Review und
