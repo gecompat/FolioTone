@@ -751,9 +751,15 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 - `ebook-duplicate-hash/v1` und `foliotone ebook-hash-candidates` berechnen
   vollständiges SHA-256 nur für aktuelle Mitglieder mehrfach belegter
   `QUICK_FILE`-Gruppen ohne vorhandenen Vollhash;
-- stabile Keyset-Batches, `--max-items`, 1 bis 8 Worker und atomare Writes
-  machen die Duplikatbestätigung begrenzt und durch denselben Aufruf
-  fortsetzbar;
+- der reale Vollhashlauf belegte eine wiederholte historische
+  Fingerprint-Aggregation als mehrstündigen SQL-Engpass; die Auswahl schränkt
+  nun zuerst auf den aktuellen Scan ein und materialisiert genau einen
+  verbindungslokalen Temp-Snapshot pro Invocation;
+- der gemessene Index `ix_fingerprints_target_profile_id_value`, stabile
+  Temp-Keyset-Batches, `--max-items`, 1 bis 8 Worker und atomare Writes machen
+  die Duplikatbestätigung begrenzt und durch denselben Aufruf fortsetzbar;
+- pfadfreie, sofort geleerte Phasen- und Batch-Ausgaben machen auch die
+  Kandidatenauswahl und den Migrationsschritt beobachtbar;
 - Observation-Prüfung vor und nach dem Hash verhindert, dass inzwischen
   veränderte Source-Dateien falsche Evidence erhalten;
 - ein privater read-only Vierformat-Pilot bestätigte reale EPUB-, PDF-, AZW3-
@@ -776,6 +782,14 @@ vollständige lokale Testsuite wird nicht während jeder Iteration wiederholt;
 gezielte Source-/
 Integrationstests laufen während der Entwicklung, der vollständige Gate genau
 einmal am Pull Request.
+
+Die gezielte Performance-Verifikation bestand 13 Kandidaten-, Migrations-,
+Query-Plan- und Dokumentationsvertrags-Tests in 1 Minute 28 Sekunden. Ruff und
+der gezielte Mypy-Lauf waren ohne Befund. Ein zusätzlicher synthetischer Lauf
+mit 100.000 historischen Quick-Fingerprint-Zeilen materialisierte genau eine
+aktuelle Gruppe und verarbeitete zwei Batchgrößen-1-Kandidaten in 0,395
+Sekunden. Private Collection-Pfade oder Laufzeitkennzahlen wurden nicht in Git
+übernommen.
 
 ## Danach weiterarbeiten
 

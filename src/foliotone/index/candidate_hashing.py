@@ -9,7 +9,23 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Engine, and_, exists, func, or_, select
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Connection,
+    Engine,
+    Index,
+    MetaData,
+    String,
+    Table,
+    Text,
+    and_,
+    case,
+    func,
+    insert,
+    or_,
+    select,
+)
 
 from foliotone.analyzers.ebook.observations import (
     ObservedFileError,
@@ -39,6 +55,9 @@ MAX_DUPLICATE_HASH_WORKERS = 8
 MAX_DUPLICATE_HASH_BATCH_SIZE = 500
 
 type Clock = Callable[[], datetime]
+type ProgressReporter = Callable[[str], None]
+
+_CANDIDATE_SNAPSHOT_TABLE = "_foliotone_duplicate_hash_candidates"
 
 
 class DuplicateHashCandidateError(RuntimeError):
@@ -109,6 +128,7 @@ class DuplicateHashCandidateService:
         worker_count: int = 1,
         batch_size: int = 64,
         max_items: int | None = None,
+        progress: ProgressReporter | None = None,
     ) -> DuplicateHashCandidateSummary:
         """Hash pending quick-collision members in bounded restartable batches."""
 
@@ -136,38 +156,69 @@ class DuplicateHashCandidateService:
             raise DuplicateHashCandidateError("source root is not a directory")
 
         scan = self._latest_scan(root)
-        groups, observations, pending = self._candidate_stats(root, scan)
-        already_hashed = observations - pending
+        self._report(progress, "candidate selection started")
         processed = 0
         hashed = 0
         failures = 0
         cursor: tuple[str, str] | None = None
+        snapshot = self._candidate_snapshot_table()
 
-        while max_items is None or processed < max_items:
-            limit = batch_size
-            if max_items is not None:
-                limit = min(limit, max_items - processed)
-            candidates = self._next_candidates(
-                root,
-                scan,
-                after=cursor,
-                limit=limit,
-            )
-            if not candidates:
-                break
-            succeeded, failed = self._hash_batch(
-                resolved_root,
-                candidates,
-                worker_count=worker_count,
-                created_at=self._clock(),
-            )
-            self._fingerprints.save_many(succeeded)
-            hashed += len(succeeded)
-            failures += failed
-            processed += len(candidates)
-            cursor = candidates[-1].sort_key
+        with self._engine.connect() as snapshot_connection:
+            try:
+                self._prepare_candidate_snapshot(
+                    snapshot_connection,
+                    snapshot,
+                    root,
+                    scan,
+                )
+                groups, observations, already_hashed = self._snapshot_stats(
+                    snapshot_connection,
+                    snapshot,
+                )
+                snapshot_connection.rollback()
+                pending = observations - already_hashed
+                self._report(
+                    progress,
+                    "candidate selection completed: "
+                    f"groups={groups}, observations={observations}, pending={pending}",
+                )
 
-        remaining = self._pending_count(root, scan)
+                while max_items is None or processed < max_items:
+                    limit = batch_size
+                    if max_items is not None:
+                        limit = min(limit, max_items - processed)
+                    candidates = self._next_candidates(
+                        snapshot_connection,
+                        snapshot,
+                        after=cursor,
+                        limit=limit,
+                    )
+                    snapshot_connection.rollback()
+                    if not candidates:
+                        break
+                    succeeded, failed = self._hash_batch(
+                        resolved_root,
+                        candidates,
+                        worker_count=worker_count,
+                        created_at=self._clock(),
+                    )
+                    self._fingerprints.save_many(succeeded)
+                    hashed += len(succeeded)
+                    failures += failed
+                    processed += len(candidates)
+                    cursor = candidates[-1].sort_key
+                    self._report(
+                        progress,
+                        "full hashing: "
+                        f"processed={processed}/{pending}, hashed={hashed}, "
+                        f"failures={failures}, remaining={pending - hashed}",
+                    )
+            finally:
+                snapshot_connection.rollback()
+                self._drop_candidate_snapshot(snapshot_connection)
+                snapshot_connection.commit()
+
+        remaining = pending - hashed
         return DuplicateHashCandidateSummary(
             scan_run_id=scan.id,
             candidate_groups=groups,
@@ -198,75 +249,117 @@ class DuplicateHashCandidateService:
             )
         return scan
 
-    def _candidate_stats(
+    @staticmethod
+    def _report(progress: ProgressReporter | None, message: str) -> None:
+        if progress is not None:
+            progress(message)
+
+    @staticmethod
+    def _candidate_snapshot_table() -> Table:
+        metadata = MetaData()
+        snapshot = Table(
+            _CANDIDATE_SNAPSHOT_TABLE,
+            metadata,
+            Column("observation_id", String(36), primary_key=True),
+            Column("quick_value", Text, nullable=False),
+            Column("full_hashed", Boolean, nullable=False),
+            prefixes=["TEMPORARY"],
+        )
+        Index(
+            "_ix_foliotone_duplicate_hash_candidates_pending",
+            snapshot.c.full_hashed,
+            snapshot.c.quick_value,
+            snapshot.c.observation_id,
+        )
+        Index(
+            "_ix_foliotone_duplicate_hash_candidates_group",
+            snapshot.c.quick_value,
+            snapshot.c.observation_id,
+        )
+        return snapshot
+
+    def _prepare_candidate_snapshot(
         self,
+        connection: Connection,
+        snapshot: Table,
         root: ScanRoot,
         scan: ScanRun,
-    ) -> tuple[int, int, int]:
-        current, groups = self._candidate_tables(root, scan)
-        pending = current.join(
-            groups,
-            groups.c.quick_value == current.c.quick_value,
+    ) -> None:
+        self._drop_candidate_snapshot(connection)
+        snapshot.create(connection)
+        current, groups, full_hash_targets = self._candidate_tables(root, scan)
+        rows = (
+            select(
+                current.c.observation_id,
+                current.c.quick_value,
+                case(
+                    (full_hash_targets.c.observation_id.is_not(None), True),
+                    else_=False,
+                ).label("full_hashed"),
+            )
+            .select_from(
+                current.join(
+                    groups,
+                    groups.c.quick_value == current.c.quick_value,
+                ).outerjoin(
+                    full_hash_targets,
+                    full_hash_targets.c.observation_id == current.c.observation_id,
+                )
+            )
         )
-        with self._engine.connect() as connection:
-            totals = connection.execute(
-                select(
-                    func.count(groups.c.quick_value),
-                    func.coalesce(func.sum(groups.c.member_count), 0),
-                )
-            ).one()
-            pending_count = connection.execute(
-                select(func.count())
-                .select_from(pending)
-                .where(~self._full_hash_exists(current.c.observation_id))
-            ).scalar_one()
-        return int(totals[0]), int(totals[1]), int(pending_count)
+        connection.execute(
+            insert(snapshot).from_select(
+                [
+                    snapshot.c.observation_id,
+                    snapshot.c.quick_value,
+                    snapshot.c.full_hashed,
+                ],
+                rows,
+            )
+        )
+        connection.commit()
 
-    def _pending_count(self, root: ScanRoot, scan: ScanRun) -> int:
-        current, groups = self._candidate_tables(root, scan)
-        with self._engine.connect() as connection:
-            value = connection.execute(
-                select(func.count())
-                .select_from(
-                    current.join(
-                        groups,
-                        groups.c.quick_value == current.c.quick_value,
-                    )
-                )
-                .where(~self._full_hash_exists(current.c.observation_id))
-            ).scalar_one()
-        return int(value)
+    @staticmethod
+    def _snapshot_stats(
+        connection: Connection,
+        snapshot: Table,
+    ) -> tuple[int, int, int]:
+        groups, observations, already_hashed = connection.execute(
+            select(
+                func.count(func.distinct(snapshot.c.quick_value)),
+                func.count(),
+                func.coalesce(func.sum(snapshot.c.full_hashed), 0),
+            ).select_from(snapshot)
+        ).one()
+        return int(groups), int(observations), int(already_hashed)
 
     def _next_candidates(
         self,
-        root: ScanRoot,
-        scan: ScanRun,
+        connection: Connection,
+        snapshot: Table,
         *,
         after: tuple[str, str] | None,
         limit: int,
     ) -> tuple[_HashCandidate, ...]:
-        current, groups = self._candidate_tables(root, scan)
         observation = schema.file_observations
         statement = (
-            select(observation, current.c.quick_value)
-            .join(current, current.c.observation_id == observation.c.id)
-            .join(groups, groups.c.quick_value == current.c.quick_value)
-            .where(~self._full_hash_exists(observation.c.id))
-            .order_by(current.c.quick_value, observation.c.id)
+            select(observation, snapshot.c.quick_value)
+            .join(snapshot, snapshot.c.observation_id == observation.c.id)
+            .where(snapshot.c.full_hashed.is_(False))
+            .order_by(snapshot.c.quick_value, observation.c.id)
             .limit(limit)
         )
         if after is not None:
             statement = statement.where(
                 or_(
-                    current.c.quick_value > after[0],
+                    snapshot.c.quick_value > after[0],
                     and_(
-                        current.c.quick_value == after[0],
+                        snapshot.c.quick_value == after[0],
                         observation.c.id > after[1],
                     ),
                 )
             )
-        with self._engine.connect() as connection:
-            rows = connection.execute(statement).mappings().all()
+        rows = connection.execute(statement).mappings().all()
         return tuple(
             _HashCandidate(
                 quick_value=str(row["quick_value"]),
@@ -279,34 +372,26 @@ class DuplicateHashCandidateService:
         self,
         root: ScanRoot,
         scan: ScanRun,
-    ) -> tuple[Any, Any]:
+    ) -> tuple[Any, Any, Any]:
         fingerprint = schema.fingerprints
         observation = schema.file_observations
         record = schema.file_records
-        quick_values = (
-            select(
-                fingerprint.c.target_id.label("observation_id"),
-                func.min(fingerprint.c.value).label("quick_value"),
-            )
-            .where(
-                fingerprint.c.target_kind == EntityKind.FILE_OBSERVATION.value,
-                fingerprint.c.kind == QUICK_FILE_PROFILE[0],
-                fingerprint.c.algorithm == QUICK_FILE_PROFILE[1],
-                fingerprint.c.algorithm_version == QUICK_FILE_PROFILE[2],
-            )
-            .group_by(fingerprint.c.target_id)
-            .having(func.count(func.distinct(fingerprint.c.value)) == 1)
-            .subquery("quick_values")
-        )
         current = (
             select(
                 observation.c.id.label("observation_id"),
-                quick_values.c.quick_value,
+                func.min(fingerprint.c.value).label("quick_value"),
             )
             .select_from(
                 observation.join(record, record.c.id == observation.c.file_id).join(
-                    quick_values,
-                    quick_values.c.observation_id == observation.c.id,
+                    fingerprint,
+                    and_(
+                        fingerprint.c.target_kind
+                        == EntityKind.FILE_OBSERVATION.value,
+                        fingerprint.c.kind == QUICK_FILE_PROFILE[0],
+                        fingerprint.c.algorithm == QUICK_FILE_PROFILE[1],
+                        fingerprint.c.algorithm_version == QUICK_FILE_PROFILE[2],
+                        fingerprint.c.target_id == observation.c.id,
+                    ),
                 )
             )
             .where(
@@ -318,7 +403,9 @@ class DuplicateHashCandidateService:
                 record.c.size_bytes == observation.c.size_bytes,
                 record.c.modified_at == observation.c.modified_at,
             )
-            .subquery("current_quick_observations")
+            .group_by(observation.c.id)
+            .having(func.count(func.distinct(fingerprint.c.value)) == 1)
+            .cte("current_quick_observations")
         )
         groups = (
             select(
@@ -327,21 +414,25 @@ class DuplicateHashCandidateService:
             )
             .group_by(current.c.quick_value)
             .having(func.count() > 1)
-            .subquery("quick_duplicate_groups")
+            .cte("quick_duplicate_groups")
         )
-        return current, groups
-
-    @staticmethod
-    def _full_hash_exists(observation_id: object) -> Any:
-        fingerprint = schema.fingerprints
-        return exists(
-            select(fingerprint.c.id).where(
+        full_hash_targets = (
+            select(fingerprint.c.target_id.label("observation_id"))
+            .where(
                 fingerprint.c.target_kind == EntityKind.FILE_OBSERVATION.value,
-                fingerprint.c.target_id == observation_id,
                 fingerprint.c.kind == FULL_FILE_PROFILE[0],
                 fingerprint.c.algorithm == FULL_FILE_PROFILE[1],
                 fingerprint.c.algorithm_version == FULL_FILE_PROFILE[2],
             )
+            .group_by(fingerprint.c.target_id)
+            .cte("full_hash_targets")
+        )
+        return current, groups, full_hash_targets
+
+    @staticmethod
+    def _drop_candidate_snapshot(connection: Connection) -> None:
+        connection.exec_driver_sql(
+            f"DROP TABLE IF EXISTS temp.{_CANDIDATE_SNAPSHOT_TABLE}"
         )
 
     def _hash_batch(

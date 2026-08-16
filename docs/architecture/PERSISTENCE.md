@@ -229,6 +229,24 @@ Lauf bleibt lesbar und kann nach externer Prozessprüfung ausdrücklich
 wiederhergestellt werden. Die Recovery verändert keine Source Media und führt
 den Resume-Vertrag aus ADR-0015 unverändert über einen neuen `ScanRun` fort.
 
+### Selektiver Kandidaten-Hash-Lookup
+
+`DuplicateHashCandidateService` schränkt die Quick-Evidence zuerst auf die
+aktuellen, weiterhin passenden Beobachtungen des neuesten abgeschlossenen
+Scans ein. Die konsistenten mehrfach belegten Quick-Gruppen werden genau einmal
+pro Invocation in einer verbindungslokalen Temp-Tabelle materialisiert.
+Statistik und Keyset-Batches lesen anschließend nur diesen Snapshot. Zwischen
+einem vollständig gelesenen Temp-Batch und dem atomaren Fingerprint-Write wird
+die Read-Transaktion ausdrücklich beendet, damit SQLite keine Writer-Sperre
+behält.
+
+Alembic `0010_candidate_hash_lookup_index` ergänzt
+`ix_fingerprints_target_profile_id_value` auf `target_kind`, Hashprofil,
+`target_id` und `value`. Der Index unterstützt sowohl den aktuellen
+Observation-Lookup als auch die Konsistenzprüfung mehrerer Fingerprint-Werte.
+Die Temp-Tabelle bleibt flüchtiger Invocation-Zustand und verändert weder den
+Evidence-Vertrag noch die persistierte Resume-Semantik aus ADR-0023.
+
 ### Deterministischer scanweiter Inventarbericht
 
 `SQLiteEbookInventoryReportStore` bindet sich an den neuesten

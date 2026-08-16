@@ -109,6 +109,7 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
         "fingerprints": {
             "ix_fingerprints_target_kind_execution",
             "ix_fingerprints_kind_algorithm_version_value_target",
+            "ix_fingerprints_target_profile_id_value",
         },
         "ebook_collection_runs": {"ix_ebook_collection_runs_root_status"},
         "ebook_collection_items": {"ix_ebook_collection_items_run_status_ordinal"},
@@ -123,7 +124,26 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
 
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0009_scan_run_leases"
+        query_plan = connection.execute(
+            text(
+                "EXPLAIN QUERY PLAN SELECT value FROM fingerprints "
+                "WHERE target_kind = :target_kind AND kind = :kind "
+                "AND algorithm = :algorithm AND algorithm_version = :version "
+                "AND target_id = :target_id"
+            ),
+            {
+                "target_kind": "FILE_OBSERVATION",
+                "kind": "QUICK_FILE",
+                "algorithm": "sha256-head-tail",
+                "version": "1",
+                "target_id": "00000000-0000-0000-0000-000000000001",
+            },
+        ).all()
+    assert revision == "0010_candidate_hash_lookup_index"
+    assert any(
+        "ix_fingerprints_target_profile_id_value" in str(row[-1])
+        for row in query_plan
+    )
 
 
 def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) -> None:
@@ -181,7 +201,34 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0009_scan_run_leases"
+    assert revision == "0010_candidate_hash_lookup_index"
+
+
+def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "candidate-index-upgrade.db"
+    migrate(path, "0009_scan_run_leases")
+    legacy = create_sqlite_engine(path)
+    assert "ix_fingerprints_target_profile_id_value" not in {
+        str(index["name"])
+        for index in inspect(legacy).get_indexes("fingerprints")
+    }
+    legacy.dispose()
+
+    migrate(path)
+    upgraded = create_sqlite_engine(path)
+    indexes = {
+        str(index["name"])
+        for index in inspect(upgraded).get_indexes("fingerprints")
+    }
+    with upgraded.connect() as connection:
+        revision = connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
+
+    assert "ix_fingerprints_target_profile_id_value" in indexes
+    assert revision == "0010_candidate_hash_lookup_index"
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:

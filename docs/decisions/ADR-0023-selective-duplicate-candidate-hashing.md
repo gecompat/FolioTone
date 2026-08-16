@@ -29,11 +29,15 @@ erzeugen damit nur Kandidaten; erst gleiche vollständige SHA-256-Werte bilden
 Exact-Duplicate-Evidence.
 
 Die Kandidatenabfrage bleibt bounded-memory und verwendet stabile
-Keyset-Batches statt einer collection-weiten Python-Liste. Ein Lauf verwendet
-1 bis 8 Hash-Worker und persistiert höchstens 500 erfolgreiche Fingerprints
-je Batch atomar. `--max-items` begrenzt eine Invocation. Ein erneuter identischer
-Aufruf setzt implizit fort, weil bereits vollständig gehashte Beobachtungen
-von der nächsten Abfrage ausgeschlossen werden.
+Keyset-Batches statt einer collection-weiten Python-Liste. Die Abfrage
+schränkt vor der Fingerprint-Aggregation auf den aktuellen Scan ein und
+materialisiert den Kandidaten-Snapshot einmal pro Invocation in einer
+verbindungslokalen Temp-Tabelle. Statistik und Batches wiederholen dadurch
+nicht dieselbe historische Fingerprint-Aggregation. Ein Lauf verwendet 1 bis
+8 Hash-Worker und persistiert höchstens 500 erfolgreiche Fingerprints je Batch
+atomar. `--max-items` begrenzt eine Invocation. Ein erneuter identischer Aufruf
+setzt implizit fort, weil bereits vollständig gehashte Beobachtungen von der
+nächsten Abfrage ausgeschlossen werden.
 
 Vor und nach dem Streaming-Hash wird die physische Datei gegen ihre
 persistierte `FileObservation` validiert. Eine nicht verfügbare oder inzwischen

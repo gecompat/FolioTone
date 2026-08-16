@@ -4,9 +4,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from pytest import CaptureFixture
+from sqlalchemy import event
 
 from foliotone.cli.main import main
-from foliotone.core import FileObservation, Fingerprint, MediaType
+from foliotone.core import EntityId, EntityKind, FileObservation, Fingerprint, MediaType
 from foliotone.index import (
     DuplicateHashCandidateService,
     FingerprintWriter,
@@ -71,6 +72,9 @@ def test_candidate_hash_cli_is_selective_path_free_and_restartable(
 
     assert main([*base_args, "--max-items", "1"]) == 3
     first_output = capsys.readouterr().out
+    assert "Candidate hashing progress: candidate selection started." in first_output
+    assert "Candidate hashing progress: candidate selection completed:" in first_output
+    assert "Candidate hashing progress: full hashing:" in first_output
     assert "Quick candidate groups: 1" in first_output
     assert "Quick candidate observations: 2" in first_output
     assert "Full-hashed this invocation: 1" in first_output
@@ -101,6 +105,120 @@ def test_candidate_hash_cli_is_selective_path_free_and_restartable(
     assert {fingerprint.target_id for fingerprint in full_hashes} == duplicate_ids
     assert len({fingerprint.value for fingerprint in full_hashes}) == 1
     assert all(path.read_bytes() == content for path, content in sources.items())
+
+
+def test_candidate_hash_materializes_only_the_current_snapshot_once(
+    tmp_path: Path,
+) -> None:
+    media = tmp_path / "media"
+    media.mkdir()
+    for name, content in {
+        "a.epub": b"same",
+        "b.epub": b"same",
+        "unique.pdf": b"unique",
+    }.items():
+        (media / name).write_bytes(content)
+    database = tmp_path / "foliotone.db"
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    store = SQLiteIndexStore(engine)
+    root = store.get_or_create_root("snapshot-once", MediaType.EBOOK)
+    scanner = IncrementalScanner(
+        store,
+        hash_mode=HashMode.QUICK,
+        fingerprint_writer=FingerprintWriter(engine),
+        clock=lambda: NOW,
+    )
+    for _ in range(3):
+        scanner.scan(root, ScanRootBinding(media))
+
+    materializations: list[str] = []
+
+    def record_statement(
+        _connection: object,
+        _cursor: object,
+        statement: str,
+        _parameters: object,
+        _context: object,
+        _executemany: object,
+    ) -> None:
+        if (
+            "INSERT INTO" in statement.upper()
+            and "_foliotone_duplicate_hash_candidates" in statement
+            and "current_quick_observations" in statement
+        ):
+            materializations.append(statement)
+
+    event.listen(engine, "before_cursor_execute", record_statement)
+    try:
+        summary = DuplicateHashCandidateService(engine).enrich(
+            root,
+            media,
+            batch_size=1,
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", record_statement)
+
+    assert summary.candidate_groups == 1
+    assert summary.candidate_observations == 2
+    assert summary.hashed_this_invocation == 2
+    assert summary.remaining == 0
+    assert len(materializations) == 1
+    quick_hashes = [
+        fingerprint
+        for fingerprint in repository(engine, Fingerprint).list_all()
+        if fingerprint.kind == "QUICK_FILE"
+    ]
+    assert len(quick_hashes) == 9
+
+
+def test_candidate_hash_excludes_inconsistent_current_quick_evidence(
+    tmp_path: Path,
+) -> None:
+    media = tmp_path / "media"
+    media.mkdir()
+    for name in ("a.epub", "b.epub", "conflicting.epub"):
+        (media / name).write_bytes(b"same")
+    database = tmp_path / "foliotone.db"
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    store = SQLiteIndexStore(engine)
+    root = store.get_or_create_root("conflicting-quick", MediaType.EBOOK)
+    IncrementalScanner(
+        store,
+        hash_mode=HashMode.QUICK,
+        fingerprint_writer=FingerprintWriter(engine),
+        clock=lambda: NOW,
+    ).scan(root, ScanRootBinding(media))
+    conflicting = next(
+        observation
+        for observation in repository(engine, FileObservation).list_all()
+        if observation.relative_path == "conflicting.epub"
+    )
+    repository(engine, Fingerprint).save(
+        Fingerprint(
+            id=EntityId.new(),
+            target_kind=EntityKind.FILE_OBSERVATION,
+            target_id=conflicting.id,
+            kind="QUICK_FILE",
+            algorithm="sha256-head-tail",
+            algorithm_version="1",
+            value="0" * 64,
+            created_at=NOW,
+        )
+    )
+
+    summary = DuplicateHashCandidateService(engine).enrich(root, media)
+
+    assert summary.candidate_groups == 1
+    assert summary.candidate_observations == 2
+    assert summary.hashed_this_invocation == 2
+    full_hash_targets = {
+        fingerprint.target_id
+        for fingerprint in repository(engine, Fingerprint).list_all()
+        if fingerprint.kind == "FILE_SHA256"
+    }
+    assert conflicting.id not in full_hash_targets
 
 
 def test_candidate_hash_isolates_a_source_changed_after_scan(tmp_path: Path) -> None:
