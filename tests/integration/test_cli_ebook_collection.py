@@ -139,6 +139,117 @@ def test_collection_cli_stops_and_resumes_without_exposing_source_paths(
     assert list(work.iterdir()) == []
 
 
+def test_collection_maintenance_runs_analysis_and_reports_without_exposing_paths(
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    media = tmp_path / "private-media"
+    data = tmp_path / "data"
+    artifacts = tmp_path / "artifacts"
+    work = tmp_path / "work"
+    reports = tmp_path / "reports"
+    inventory_reports = reports / "inventory"
+    collection_reports = reports / "collection"
+    media.mkdir()
+    data.mkdir()
+    sources = {
+        media / "a.epub": b"synthetic epub",
+        media / "b.epub": b"synthetic epub",
+        media / "c.pdf": b"synthetic pdf",
+    }
+    for path, content in sources.items():
+        path.write_bytes(content)
+    database = data / "foliotone.db"
+
+    assert (
+        main(
+            [
+                "scan",
+                "--name",
+                "collection-maintain-cli",
+                "--path",
+                str(media),
+                "--media-type",
+                "ebook",
+                "--database",
+                str(database),
+                "--hash",
+                "quick",
+                "--suffix",
+                "epub",
+                "--suffix",
+                "pdf",
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+
+    missing = "foliotone-definitely-missing-executable"
+    base_args = [
+        "ebook-collection-maintain",
+        "--root",
+        str(media),
+        "--scan-root",
+        "collection-maintain-cli",
+        "--database",
+        str(database),
+        "--artifact-root",
+        str(artifacts),
+        "--work-root",
+        str(work),
+        "--inventory-report-root",
+        str(inventory_reports),
+        "--collection-report-root",
+        str(collection_reports),
+        "--run-hash-candidates",
+        "--run-inventory-report",
+        "--run-collection-report",
+        "--ebook-meta-executable",
+        missing,
+        "--ebook-convert-executable",
+        missing,
+        "--calibre-debug-executable",
+        missing,
+        "--pdfinfo-executable",
+        missing,
+        "--pdftotext-executable",
+        missing,
+        "--java-executable",
+        missing,
+        "--epubcheck-jar",
+        str(tmp_path / "missing-epubcheck.jar"),
+        "--max-items",
+        "1",
+    ]
+
+    first_result = main(base_args)
+    first_output = capsys.readouterr().out
+
+    assert first_result == 3
+    assert "E-book collection run" in first_output
+    assert "Collection profile: ebook-collection-analysis/v1" in first_output
+    assert "Processed this invocation: 1" in first_output
+    assert "Pending: 2" in first_output
+    assert "Status: INTERRUPTED" in first_output
+    assert "Quick candidate groups:" in first_output
+    assert "Format EPUB" in first_output
+    assert "Report directory:" in first_output
+    assert (
+        "collection report is "
+        "available only after a non-interrupted collection run."
+    ) in first_output
+    assert str(media) not in first_output
+    assert all(str(path) not in first_output for path in sources)
+
+    second_result = main([*base_args, "--resume-last-interrupted", "--max-items", "2"])
+    second_output = capsys.readouterr().out
+
+    assert second_result in (1, 3)
+    assert "source root is unavailable." not in second_output
+    assert str(media) not in second_output
+
+
 def test_collection_cli_rejects_mutable_storage_inside_source_root(
     tmp_path: Path,
     capsys: CaptureFixture[str],
