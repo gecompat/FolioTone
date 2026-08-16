@@ -41,6 +41,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0022](decisions/ADR-0022-deterministic-private-ebook-collection-reports.md) definiert persistierte Befundprovenance, begrenzte Duplicate-/Varianten-Kandidaten und deterministische private Collection-Berichte.
 - [ADR-0023](decisions/ADR-0023-selective-duplicate-candidate-hashing.md) begrenzt vollständiges SHA-256-Hashing auf aktuelle Quick-Duplikatkandidaten und definiert den fortsetzbaren read-only Evidence-Vertrag.
 - [ADR-0024](decisions/ADR-0024-deterministic-scan-wide-ebook-inventory-report.md) definiert den deterministischen scanweiten Bestands-, Hash-Abdeckungs- und Exact-Duplicate-Bericht ohne erneuten Source-Zugriff.
+- [ADR-0025](decisions/ADR-0025-recoverable-scan-run-leases.md) definiert Heartbeats, Konkurrenzschutz und die explizite Recovery verwaister `RUNNING`-Scans ohne Änderung des Resume-I/O-Vertrags.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

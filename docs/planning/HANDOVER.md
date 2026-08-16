@@ -38,6 +38,12 @@ Benutzerentscheidung bleibt die Entwicklung bis zur Reife der E-Book-Pipeline
 bei E-Books; `W3-017` ist als Nächstes vorgesehen, Music W4 ist
 zurückgestellt.
 
+Der reale `W3-017`-Scan zeigte zusätzlich einen Lifecycle-Gap: Ein externer
+harter Prozessabbruch kann den Cleanup umgehen und einen `ScanRun` als
+`RUNNING` hinterlassen. ADR-0025 und Alembic `0009_scan_run_leases` ergänzen
+deshalb 30-Minuten-Leases, Heartbeats und eine explizite atomare Recovery für
+abgelaufene oder aus älteren Versionen stammende ungeleaste Läufe.
+
 ## Vor Änderungen lesen
 
 1. `AGENTS.md`.
@@ -369,6 +375,13 @@ nachgehasht; stale ältere Hashes werden nicht übersprungen. Erst ein vollstän
 erfolgreicher Resume-Run darf `MISSING`/`DELETED` klassifizieren. ADR-0015 ist
 verbindlich.
 
+Neue Scan-Invocations besitzen zusätzlich eine Lease. Der Scanner erneuert sie
+vor und nach begrenzten Discovery-/Hash- und Abschlussphasen. Nach einem
+nachweislich beendeten Prozess setzt `--recover-stale-running` nur den neuesten
+ungeleasten oder abgelaufenen `RUNNING`-Lauf desselben `ScanRoot` atomar auf
+`INTERRUPTED` und startet danach den normalen Resume-Vertrag. Eine aktive Lease
+blockiert die Übernahme. ADR-0025 ist verbindlich.
+
 ### Hashing
 
 - NONE, QUICK und FULL;
@@ -609,6 +622,9 @@ enthält `foliotone/workflows/comparison.py`.
   Quality-Befunde, deren exakte `ToolExecution`-Quellen und den belegten
   Fingerprint-Gruppierungsindex, weiterhin ohne Source-Pfade oder Inhalte in
   den Collection-Tabellen.
+- Alembic `0009_scan_run_leases` ergänzt nullable Lease-Felder und einen
+  Root-/Status-/Lease-Index für sichere Heartbeats und explizite Recovery
+  verwaister Scans.
 
 ### Begrenzter Evidence-Lesepfad und synthetischer v2-Korpus
 
@@ -750,10 +766,14 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 - Gruppen-/Mitgliederlimits begrenzen private Pfaddetails, während vollständige
   Summen und Kürzungsmarker erhalten bleiben; rohe Hashwerte, Relation,
   Keep-Präferenz und Identitätsurteil werden nicht ausgegeben.
+- 25 gezielte CLI-, Resume-, Lease-, Migrations-, Persistenz- und
+  Dokumentationsvertrags-Tests bestanden; Ruff und der gezielte Mypy-Lauf waren
+  ohne Befund. Der vollständige Gate bleibt dem Pull Request vorbehalten.
 
-ADR-0015, ADR-0021, ADR-0023 und ADR-0024 dokumentieren die verbindlichen
-Resume-, Plan-, Hash- und Inventarverträge. Die vollständige lokale Testsuite
-wird nicht während jeder Iteration wiederholt; gezielte Source-/
+ADR-0015, ADR-0021, ADR-0023, ADR-0024 und ADR-0025 dokumentieren die
+verbindlichen Resume-, Lease-, Plan-, Hash- und Inventarverträge. Die
+vollständige lokale Testsuite wird nicht während jeder Iteration wiederholt;
+gezielte Source-/
 Integrationstests laufen während der Entwicklung, der vollständige Gate genau
 einmal am Pull Request.
 

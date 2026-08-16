@@ -37,6 +37,8 @@ class ScanRun:
     status: ScanRunStatus
     completed_at: datetime | None = None
     resumed_from_run_id: EntityId | None = None
+    lease_token: str | None = None
+    lease_expires_at: datetime | None = None
 
     def __post_init__(self) -> None:
         require_aware_datetime(self.started_at, "started_at")
@@ -50,6 +52,20 @@ class ScanRun:
             raise ValueError("a finished scan requires completed_at")
         if self.resumed_from_run_id == self.id:
             raise ValueError("a ScanRun cannot resume itself")
+        if (self.lease_token is None) != (self.lease_expires_at is None):
+            raise ValueError("scan run lease fields must be set together")
+        if self.lease_token is not None:
+            object.__setattr__(
+                self,
+                "lease_token",
+                require_non_empty(self.lease_token, "lease_token"),
+            )
+            if self.status is not ScanRunStatus.RUNNING:
+                raise ValueError("only a running scan may hold a lease")
+            assert self.lease_expires_at is not None
+            require_aware_datetime(self.lease_expires_at, "lease_expires_at")
+            if self.lease_expires_at <= self.started_at:
+                raise ValueError("scan run lease must expire after started_at")
 
 
 @dataclass(frozen=True, slots=True)

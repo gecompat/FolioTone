@@ -51,6 +51,11 @@ This avoids relying on SQLite timezone semantics and keeps round-trip behavior e
 
 `file_records` has a uniqueness constraint on `(scan_root_id, relative_path)`.
 
+`scan_runs` speichert zusätzlich nullable `lease_token` und
+`lease_expires_at`. Neue aktive Scans halten beide Felder gemeinsam; terminale
+Läufe halten keines. Nullable Felder erlauben das konservative Upgrade älterer
+Läufe.
+
 ### Provenance / authority
 
 - `value_assertions`
@@ -208,6 +213,21 @@ Gruppierungspfad. Ein Bericht wird abgelehnt, wenn `finding_count` und
 persistierte Befundprojektion oder die Schrittzähler und
 Ausführungsprojektion auseinanderfallen. Rohe Fingerprint-Werte verlassen die
 Query-Schicht nicht.
+
+### Recoverbare Scan-Lease
+
+`SQLiteIndexStore` startet neue Scans mit einer 30-Minuten-Lease. Heartbeats
+und terminale Übergänge verwenden bedingte Updates gegen Token und
+`RUNNING`-Status. Die explizite Recovery liest den neuesten `RUNNING`-Lauf
+eines `ScanRoot` und setzt ihn nur bei abgelaufener oder fehlender Lease atomar
+auf `INTERRUPTED`. Ein gleichzeitig erneuerter aktiver Lauf wird nicht
+übernommen.
+
+Alembic `0009_scan_run_leases` ergänzt die beiden Lease-Spalten und
+`ix_scan_runs_root_status_lease`. Ein vor dem Upgrade verwaister ungeleaster
+Lauf bleibt lesbar und kann nach externer Prozessprüfung ausdrücklich
+wiederhergestellt werden. Die Recovery verändert keine Source Media und führt
+den Resume-Vertrag aus ADR-0015 unverändert über einen neuen `ScanRun` fort.
 
 ### Deterministischer scanweiter Inventarbericht
 

@@ -7,7 +7,7 @@ import json
 import os
 from collections import Counter
 from collections.abc import Sequence
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import Engine
@@ -32,6 +32,7 @@ from foliotone.core import (
     MediaType,
     RelocationCandidateKind,
     ScanRoot,
+    ScanRun,
     ToolExecutionStatus,
 )
 from foliotone.index import (
@@ -45,6 +46,7 @@ from foliotone.index import (
     HashMode,
     IncrementalScanner,
     RelocationCandidateDetector,
+    ScanLeaseError,
     ScanRootBinding,
     SQLiteIndexStore,
 )
@@ -158,11 +160,25 @@ def build_parser() -> argparse.ArgumentParser:
         default=256,
         help="Maximum discovery batch size; must be between 1 and 500.",
     )
-    scan.add_argument(
+    resume_group = scan.add_mutually_exclusive_group()
+    resume_group.add_argument(
         "--resume-run",
         type=EntityId.parse,
         default=None,
         help="Resume from a persisted INTERRUPTED ScanRun ID for the same logical ScanRoot.",
+    )
+    resume_group.add_argument(
+        "--resume-last-interrupted",
+        action="store_true",
+        help="Resume from the latest persisted INTERRUPTED ScanRun for the same ScanRoot.",
+    )
+    resume_group.add_argument(
+        "--recover-stale-running",
+        action="store_true",
+        help=(
+            "Atomically mark the latest unleased or expired RUNNING ScanRun as "
+            "INTERRUPTED and resume it. Verify that its process is no longer active first."
+        ),
     )
     scan.add_argument(
         "--confirm-deleted-after-missing-scans",
@@ -208,9 +224,7 @@ def build_parser() -> argparse.ArgumentParser:
     ebook_metadata.add_argument(
         "--artifact-root",
         type=Path,
-        default=Path(
-            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
-        ),
+        default=Path(os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")),
         help="Durable tool-artifact root; defaults to /data/tool-artifacts.",
     )
     ebook_metadata.add_argument(
@@ -253,9 +267,7 @@ def build_parser() -> argparse.ArgumentParser:
     ebook_text.add_argument(
         "--artifact-root",
         type=Path,
-        default=Path(
-            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
-        ),
+        default=Path(os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")),
         help="Durable private tool-artifact root; defaults to /data/tool-artifacts.",
     )
     ebook_text.add_argument(
@@ -298,9 +310,7 @@ def build_parser() -> argparse.ArgumentParser:
     ebook_cover.add_argument(
         "--artifact-root",
         type=Path,
-        default=Path(
-            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
-        ),
+        default=Path(os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")),
         help="Durable private tool-artifact root; defaults to /data/tool-artifacts.",
     )
     ebook_cover.add_argument(
@@ -337,10 +347,7 @@ def build_parser() -> argparse.ArgumentParser:
     ebook_analyze.add_argument(
         "--fresh",
         action="store_true",
-        help=(
-            "Bypass exact successful evidence reuse and execute every applicable "
-            "analyzer step."
-        ),
+        help=("Bypass exact successful evidence reuse and execute every applicable analyzer step."),
     )
     ebook_analyze.add_argument(
         "--database",
@@ -351,9 +358,7 @@ def build_parser() -> argparse.ArgumentParser:
     ebook_analyze.add_argument(
         "--artifact-root",
         type=Path,
-        default=Path(
-            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
-        ),
+        default=Path(os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")),
         help="Durable private tool-artifact root; defaults to /data/tool-artifacts.",
     )
     ebook_analyze.add_argument(
@@ -401,10 +406,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     ebook_collection = subparsers.add_parser(
         "ebook-collection-analyze",
-        help=(
-            "Analyze a stable completed e-book scan in bounded, resumable, "
-            "read-only batches."
-        ),
+        help=("Analyze a stable completed e-book scan in bounded, resumable, read-only batches."),
     )
     ebook_collection.add_argument(
         "--root",
@@ -417,11 +419,17 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Existing logical EBOOK ScanRoot name whose latest scan defines the plan.",
     )
-    ebook_collection.add_argument(
+    collection_resume_group = ebook_collection.add_mutually_exclusive_group()
+    collection_resume_group.add_argument(
         "--resume-run",
         type=EntityId.parse,
         default=None,
         help="Resume an interrupted collection run without replanning its snapshot.",
+    )
+    collection_resume_group.add_argument(
+        "--resume-last-interrupted",
+        action="store_true",
+        help="Resume the latest interrupted collection run.",
     )
     ebook_collection.add_argument(
         "--fresh",
@@ -435,8 +443,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar=f"1..{MAX_EBOOK_COLLECTION_WORKERS}",
         help=(
-            "Bounded analyzer worker count for a new run; defaults to 1 and is "
-            "preserved on resume."
+            "Bounded analyzer worker count for a new run; defaults to 1 and is preserved on resume."
         ),
     )
     ebook_collection.add_argument(
@@ -463,9 +470,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     duplicate_hash = subparsers.add_parser(
         "ebook-hash-candidates",
-        help=(
-            "Confirm quick duplicate candidates with bounded full SHA-256 hashing."
-        ),
+        help=("Confirm quick duplicate candidates with bounded full SHA-256 hashing."),
     )
     duplicate_hash.add_argument(
         "--root",
@@ -497,18 +502,14 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=64,
         help=(
-            "Atomic fingerprint batch size; must be between 1 and "
-            f"{MAX_DUPLICATE_HASH_BATCH_SIZE}."
+            f"Atomic fingerprint batch size; must be between 1 and {MAX_DUPLICATE_HASH_BATCH_SIZE}."
         ),
     )
     duplicate_hash.add_argument(
         "--max-items",
         type=int,
         default=None,
-        help=(
-            "Attempt at most this many pending candidates; rerun the same command "
-            "to continue."
-        ),
+        help=("Attempt at most this many pending candidates; rerun the same command to continue."),
     )
     ebook_collection.add_argument(
         "--database",
@@ -519,9 +520,7 @@ def build_parser() -> argparse.ArgumentParser:
     ebook_collection.add_argument(
         "--artifact-root",
         type=Path,
-        default=Path(
-            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
-        ),
+        default=Path(os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")),
         help="Durable private tool-artifact root; defaults to /data/tool-artifacts.",
     )
     ebook_collection.add_argument(
@@ -721,9 +720,7 @@ def build_parser() -> argparse.ArgumentParser:
     pdf_analyze.add_argument(
         "--artifact-root",
         type=Path,
-        default=Path(
-            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
-        ),
+        default=Path(os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")),
         help="Durable private tool-artifact root; defaults to /data/tool-artifacts.",
     )
     pdf_analyze.add_argument(
@@ -768,9 +765,7 @@ def build_parser() -> argparse.ArgumentParser:
     epub_validate.add_argument(
         "--artifact-root",
         type=Path,
-        default=Path(
-            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
-        ),
+        default=Path(os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")),
         help="Durable private tool-artifact root; defaults to /data/tool-artifacts.",
     )
     epub_validate.add_argument(
@@ -806,10 +801,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Read-only calibre metadata observations and versioned candidates are available "
             "through ebook-metadata."
         )
-        print(
-            "Read-only EPUB/MOBI/AZW/AZW3 text fingerprints are available through "
-            "ebook-text."
-        )
+        print("Read-only EPUB/MOBI/AZW/AZW3 text fingerprints are available through ebook-text.")
         print(
             "Read-only embedded-cover facts and perceptual fingerprints are available "
             "through ebook-cover."
@@ -897,8 +889,7 @@ def _deletion_policy(
     if missing_scans is None:
         if missing_hours is not None:
             parser.error(
-                "--confirm-deleted-after-hours requires "
-                "--confirm-deleted-after-missing-scans"
+                "--confirm-deleted-after-hours requires --confirm-deleted-after-missing-scans"
             )
         return None
 
@@ -924,9 +915,24 @@ def _run_scan(
     store = SQLiteIndexStore(engine)
     media_type = _MEDIA_TYPES[args.media_type]
     root = store.get_or_create_root(args.name, media_type)
-    resume_from = (
-        None if args.resume_run is None else store.get_resumable_run(root, args.resume_run)
-    )
+    recovered_run: ScanRun | None = None
+    resume_from: ScanRun | None
+    try:
+        if args.resume_run is not None:
+            resume_from = store.get_resumable_run(root, args.resume_run)
+        elif args.resume_last_interrupted:
+            resume_from = store.latest_interrupted_run(root)
+            if resume_from is None:
+                print("Scan failed: no INTERRUPTED ScanRun exists for this ScanRoot.")
+                return 2
+        elif args.recover_stale_running:
+            recovered_run = store.recover_latest_stale_run(root, datetime.now(UTC))
+            resume_from = recovered_run
+        else:
+            resume_from = None
+    except (ScanLeaseError, ValueError) as error:
+        print(f"Scan failed: {error}")
+        return 2
     hash_mode = _HASH_MODES[args.hash_mode]
     fingerprint_writer = None if hash_mode is HashMode.NONE else FingerprintWriter(engine)
     relocation_detector = (
@@ -949,6 +955,8 @@ def _run_scan(
     )
 
     print(f"ScanRoot: {root.name}")
+    if recovered_run is not None:
+        print(f"Recovered stale ScanRun: {recovered_run.id}")
     print(f"ScanRun: {summary.run.id}")
     if summary.run.resumed_from_run_id is not None:
         print(f"Resumed from: {summary.run.resumed_from_run_id}")
@@ -1002,9 +1010,7 @@ def _run_ebook_hash_candidates(args: argparse.Namespace) -> int:
         print("E-book candidate hashing failed: runtime storage is unavailable.")
         return 2
     except KeyboardInterrupt:
-        print(
-            "E-book candidate hashing interrupted; rerun the same command to continue."
-        )
+        print("E-book candidate hashing interrupted; rerun the same command to continue.")
         return 130
     except Exception:
         print("E-book candidate hashing failed: internal persistence error.")
@@ -1062,18 +1068,12 @@ def _run_ebook_analyze(args: argparse.Namespace) -> int:
         print(f"{step.name} status: {step.state.value}")
         print(f"{step.name} evidence action: {step.disposition.value}")
         if step.error is not None:
-            print(
-                f"{step.name} adapter error: "
-                f"{json.dumps(step.error, ensure_ascii=False)}"
-            )
+            print(f"{step.name} adapter error: {json.dumps(step.error, ensure_ascii=False)}")
         for index, execution in enumerate(step.executions, start=1):
             label = step.name if len(step.executions) == 1 else f"{step.name}.{index}"
             print(f"{label} ToolExecution: {execution.id}")
             print(f"{label} execution status: {execution.status.value}")
-            print(
-                f"{label} tool version: "
-                f"{json.dumps(execution.tool_version, ensure_ascii=False)}"
-            )
+            print(f"{label} tool version: {json.dumps(execution.tool_version, ensure_ascii=False)}")
             if execution.error_summary is not None:
                 print(
                     f"{label} execution error: "
@@ -1118,7 +1118,7 @@ def _run_ebook_collection_analyze(args: argparse.Namespace) -> int:
         )
         return 2
 
-    if args.resume_run is not None and (
+    if (args.resume_run is not None or args.resume_last_interrupted) and (
         args.fresh
         or args.workers is not None
         or args.plan_limit is not None
@@ -1140,16 +1140,11 @@ def _run_ebook_collection_analyze(args: argparse.Namespace) -> int:
             if root.name == args.scan_root.strip()
         )
         if len(roots) != 1:
-            print(
-                "E-book collection analysis failed: logical ScanRoot does not exist."
-            )
+            print("E-book collection analysis failed: logical ScanRoot does not exist.")
             return 2
         root = roots[0]
         if root.media_type is not MediaType.EBOOK or not root.enabled:
-            print(
-                "E-book collection analysis failed: ScanRoot must be an enabled "
-                "EBOOK root."
-            )
+            print("E-book collection analysis failed: ScanRoot must be an enabled EBOOK root.")
             return 2
 
         store = SQLiteEbookCollectionStore(engine)
@@ -1161,6 +1156,15 @@ def _run_ebook_collection_analyze(args: argparse.Namespace) -> int:
                     "to the requested ScanRoot."
                 )
                 return 2
+        elif args.resume_last_interrupted:
+            persisted = store.latest_interrupted_run(root.id)
+            if persisted is None:
+                print(
+                    "E-book collection analysis failed: no INTERRUPTED run exists "
+                    "for this ScanRoot."
+                )
+                return 2
+            args.resume_run = persisted.id
 
         runtime = ToolRuntime(
             engine,
@@ -1252,9 +1256,7 @@ def _run_ebook_collection_report(args: argparse.Namespace) -> int:
         )
         migrate(args.database)
         engine = create_sqlite_engine(args.database)
-        outcome = EbookCollectionReportService(
-            SQLiteEbookCollectionReportStore(engine)
-        ).generate(
+        outcome = EbookCollectionReportService(SQLiteEbookCollectionReportStore(engine)).generate(
             args.run,
             args.report_root,
             limits=limits,
@@ -1310,14 +1312,9 @@ def _run_ebook_inventory_report(args: argparse.Namespace) -> int:
             return 2
         root = roots[0]
         if root.media_type is not MediaType.EBOOK or not root.enabled:
-            print(
-                "E-book inventory report failed: ScanRoot must be an enabled "
-                "EBOOK root."
-            )
+            print("E-book inventory report failed: ScanRoot must be an enabled EBOOK root.")
             return 2
-        outcome = EbookInventoryReportService(
-            SQLiteEbookInventoryReportStore(engine)
-        ).generate(
+        outcome = EbookInventoryReportService(SQLiteEbookInventoryReportStore(engine)).generate(
             root.id,
             args.report_root,
             limits=limits,
@@ -1342,9 +1339,7 @@ def _run_ebook_inventory_report(args: argparse.Namespace) -> int:
     print(f"Observations: {outcome.observations}")
     print(f"Total bytes: {outcome.total_bytes}")
     for aggregate in outcome.formats:
-        observation_label = (
-            "observation" if aggregate.observations == 1 else "observations"
-        )
+        observation_label = "observation" if aggregate.observations == 1 else "observations"
         print(
             f"Format {aggregate.format_name}: {aggregate.observations} "
             f"{observation_label}, {aggregate.total_bytes} bytes"
@@ -1352,10 +1347,7 @@ def _run_ebook_inventory_report(args: argparse.Namespace) -> int:
     print(f"Full-hash observations: {outcome.full_hash_observations}")
     print(f"Quick candidate groups: {outcome.quick_candidate_groups}")
     print(f"Quick candidate observations: {outcome.quick_candidate_observations}")
-    print(
-        "Quick candidates missing full hash: "
-        f"{outcome.quick_candidates_missing_full_hash}"
-    )
+    print(f"Quick candidates missing full hash: {outcome.quick_candidates_missing_full_hash}")
     print(f"Exact duplicate groups: {outcome.exact_duplicate_groups}")
     print(f"Exact duplicate observations: {outcome.exact_duplicate_members}")
     print(f"Potential redundant bytes: {outcome.redundant_bytes}")
@@ -1639,15 +1631,9 @@ def _run_pdf_analyze(args: argparse.Namespace) -> int:
         execution = run.execution
         print(f"{label} ToolExecution: {execution.id}")
         print(f"{label} status: {execution.status.value}")
-        print(
-            f"{label} version: "
-            f"{json.dumps(execution.tool_version, ensure_ascii=False)}"
-        )
+        print(f"{label} version: {json.dumps(execution.tool_version, ensure_ascii=False)}")
         if execution.error_summary is not None:
-            print(
-                f"{label} error: "
-                f"{json.dumps(execution.error_summary, ensure_ascii=False)}"
-            )
+            print(f"{label} error: {json.dumps(execution.error_summary, ensure_ascii=False)}")
 
     print(f"PDF metadata observations: {len(outcome.metadata_results)}")
     for result in outcome.metadata_results:

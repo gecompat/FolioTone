@@ -66,6 +66,11 @@ Der Resume-Run besitzt eine eigene ID, eigene Zeitstempel, eigene `FileObservati
 
 `FAILED`, `COMPLETED` oder noch `RUNNING` befindliche Runs sind keine zulässigen Resume-Quellen. Ebenso kann ein Run eines anderen `ScanRoot` nicht als Resume-Quelle verwendet werden.
 
+ADR-0025 lässt einen `RUNNING`-Lauf weiterhin nicht direkt als Resume-Quelle
+zu. Eine ausdrückliche stale-Run-Recovery muss ihn zuerst unter Lease- und
+Konkurrenzprüfung atomar auf `INTERRUPTED` setzen; erst danach gilt der hier
+definierte Resume-Vertrag.
+
 ## Konsequenzen
 
 - einzelne Scanversuche bleiben unveränderlich nachvollziehbar;

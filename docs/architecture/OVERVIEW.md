@@ -36,6 +36,13 @@ Initially implements SQLite-backed storage for core/index/tooling/authority/enri
 
 Discovers files, records observations, detects incremental changes, and calculates generic hashes/fingerprints that are appropriate to own natively. It does not decide that two works or recordings are equivalent.
 
+Aktive `ScanRun`-Datensätze besitzen eine erneuerbare Lease. Ein expliziter
+Recovery-Pfad kann einen nachweislich verwaisten ungeleasten oder abgelaufenen
+`RUNNING`-Lauf atomar auf `INTERRUPTED` setzen und über die vorhandene Lineage
+fortsetzen; eine aktive Lease blockiert konkurrierende Übernahme. Discovery
+bleibt vollständig streaming-basiert, während unveränderte vollständige
+Hash-Evidence ohne erneuten Source-Read übernommen wird.
+
 ### Filename / Path Context
 
 Parses filenames and directory context into provenance-preserving field candidates. It may infer likely author/artist/title/series/track/year/language tokens but does not set canonical values directly.

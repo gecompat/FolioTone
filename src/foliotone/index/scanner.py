@@ -6,10 +6,11 @@ from collections import Counter
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from itertools import islice
 
 from foliotone.core import (
+    EntityId,
     FileChangeState,
     FileObservation,
     FileRelocationCandidate,
@@ -22,7 +23,11 @@ from foliotone.index.deletion import DeletionConfirmationPolicy
 from foliotone.index.discovery import DiscoveredFile, ScanRootBinding, discover_files
 from foliotone.index.hashing import FingerprintWriter, HashMode
 from foliotone.index.relocation import RelocationCandidateDetector
-from foliotone.index.store import SQLiteIndexStore
+from foliotone.index.store import (
+    DEFAULT_SCAN_LEASE_DURATION,
+    ScanLeaseError,
+    SQLiteIndexStore,
+)
 
 Clock = Callable[[], datetime]
 MAX_SCAN_HASH_WORKERS = 8
@@ -70,16 +75,17 @@ class IncrementalScanner:
         fingerprint_writer: FingerprintWriter | None = None,
         deletion_policy: DeletionConfirmationPolicy | None = None,
         relocation_detector: RelocationCandidateDetector | None = None,
+        lease_duration: timedelta = DEFAULT_SCAN_LEASE_DURATION,
         clock: Clock | None = None,
     ) -> None:
         if batch_size <= 0 or batch_size > 500:
             raise ValueError("batch_size must be between 1 and 500")
         if not 1 <= hash_workers <= MAX_SCAN_HASH_WORKERS:
-            raise ValueError(
-                f"hash_workers must be between 1 and {MAX_SCAN_HASH_WORKERS}"
-            )
+            raise ValueError(f"hash_workers must be between 1 and {MAX_SCAN_HASH_WORKERS}")
         if hash_mode is not HashMode.NONE and fingerprint_writer is None:
             raise ValueError("hashing requires a FingerprintWriter")
+        if lease_duration <= timedelta(0):
+            raise ValueError("lease_duration must be positive")
         self._store = store
         self._batch_size = batch_size
         self._hash_mode = hash_mode
@@ -87,6 +93,7 @@ class IncrementalScanner:
         self._fingerprints = fingerprint_writer
         self._deletion_policy = deletion_policy
         self._relocation_detector = relocation_detector
+        self._lease_duration = lease_duration
         self._clock = clock or _utc_now
 
     def scan(
@@ -98,7 +105,13 @@ class IncrementalScanner:
     ) -> ScanSummary:
         """Run or resume one incremental scan with a distinct auditable ScanRun."""
         started_at = self._clock()
-        run = self._store.start_scan(root, started_at, resume_from=resume_from)
+        run = self._store.start_scan(
+            root,
+            started_at,
+            resume_from=resume_from,
+            lease_token=str(EntityId.new()),
+            lease_expires_at=started_at + self._lease_duration,
+        )
         counts: Counter[FileChangeState] = Counter()
         relocation_candidates: tuple[FileRelocationCandidate, ...] = ()
         hash_failures = 0
@@ -106,6 +119,7 @@ class IncrementalScanner:
         try:
             iterator = discover_files(binding)
             for batch in _batches(iterator, self._batch_size):
+                run = self._heartbeat(run)
                 outcome = self._store.process_batch(root, run, batch, self._clock())
                 counts.update(event.change_state for event in outcome.events)
                 hash_failures += self._hash_changed(
@@ -113,7 +127,9 @@ class IncrementalScanner:
                     outcome.observations,
                     outcome.events,
                 )
+                run = self._heartbeat(run)
 
+            run = self._heartbeat(run)
             missing = self._store.mark_missing(
                 root,
                 run,
@@ -121,14 +137,19 @@ class IncrementalScanner:
                 deletion_policy=self._deletion_policy,
             )
             counts.update(event.change_state for event in missing)
+            run = self._heartbeat(run)
             if self._relocation_detector is not None:
                 relocation_candidates = self._relocation_detector.detect(run, self._clock())
+                run = self._heartbeat(run)
             run = self._store.finish_scan(run, ScanRunStatus.COMPLETED, self._clock())
         except KeyboardInterrupt:
-            self._store.finish_scan(run, ScanRunStatus.INTERRUPTED, self._clock())
+            self._finish_after_error(run, ScanRunStatus.INTERRUPTED)
             raise
         except Exception:
-            self._store.finish_scan(run, ScanRunStatus.FAILED, self._clock())
+            self._finish_after_error(run, ScanRunStatus.FAILED)
+            raise
+        except BaseException:
+            self._finish_after_error(run, ScanRunStatus.INTERRUPTED)
             raise
 
         return ScanSummary(
@@ -137,6 +158,21 @@ class IncrementalScanner:
             relocation_candidates=relocation_candidates,
             hash_failures=hash_failures,
         )
+
+    def _heartbeat(self, run: ScanRun) -> ScanRun:
+        heartbeat_at = self._clock()
+        return self._store.heartbeat_scan(
+            run,
+            heartbeat_at,
+            heartbeat_at + self._lease_duration,
+        )
+
+    def _finish_after_error(self, run: ScanRun, status: ScanRunStatus) -> None:
+        try:
+            self._store.finish_scan(run, status, self._clock())
+        except ScanLeaseError:
+            # A concurrent stale-run recovery already owns the durable transition.
+            pass
 
     def _hash_changed(
         self,
@@ -167,14 +203,9 @@ class IncrementalScanner:
         hash_failures = 0
         calculate = tuple(
             (item, observation)
-            for item, observation, event in zip(
-                discovered, observations, events, strict=True
-            )
+            for item, observation, event in zip(discovered, observations, events, strict=True)
             if event.change_state in _HASH_STATES
-            or (
-                event.change_state is FileChangeState.UNCHANGED
-                and observation.id not in reused
-            )
+            or (event.change_state is FileChangeState.UNCHANGED and observation.id not in reused)
         )
         if self._hash_workers == 1 or len(calculate) <= 1:
             for item, observation in calculate:

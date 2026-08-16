@@ -20,7 +20,7 @@ from foliotone.index.hashing import (
 )
 from foliotone.index.relocation import RelocationCandidateDetector
 from foliotone.index.scanner import MAX_SCAN_HASH_WORKERS, IncrementalScanner, ScanSummary
-from foliotone.index.store import BatchOutcome, SQLiteIndexStore
+from foliotone.index.store import BatchOutcome, ScanLeaseError, SQLiteIndexStore
 
 __all__ = [
     "BatchOutcome",
@@ -39,6 +39,7 @@ __all__ = [
     "MAX_DUPLICATE_HASH_WORKERS",
     "RelocationCandidateDetector",
     "SQLiteIndexStore",
+    "ScanLeaseError",
     "ScanRootBinding",
     "ScanSummary",
     "calculate_hashes",
