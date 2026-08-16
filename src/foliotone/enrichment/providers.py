@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TypedDict
 
 from foliotone.core import EntityId, EntityKind
 from foliotone.enrichment.contracts import (
@@ -14,6 +15,14 @@ from foliotone.enrichment.contracts import (
     KnowledgeProviderMode,
     StructuredKnowledgeBookResult,
 )
+
+
+class SyntheticKnowledgeBookRecord(TypedDict):
+    title: str
+    aliases: tuple[str, ...]
+    authors: tuple[str, ...]
+    author: str
+    identifiers: tuple[tuple[str, str], ...]
 
 
 class SyntheticBookKnowledgeProvider:
@@ -61,59 +70,63 @@ class SyntheticBookKnowledgeProvider:
 
 def _iter_matches(
     query: BookKnowledgeQuery,
-) -> tuple[dict[str, str | tuple[tuple[str, str], ...]], ...]:
+) -> tuple[SyntheticKnowledgeBookRecord, ...]:
     normalized_title = query.normalized_title
     identifier_keys = {
         f"{namespace}:{value}" for namespace, value in query.identifiers
     }
-    matches: list[dict[str, str | tuple[tuple[str, str], ...]]] = []
+    matches: list[SyntheticKnowledgeBookRecord] = []
     for dataset in _SYNTHETIC_BOOKS:
         if _matches_identifier(dataset, identifier_keys):
             matches.append(dataset)
             continue
-        if _matches_title(dataset, normalized_title, query.authors):
+        if _matches_title_and_authors(
+            dataset,
+            normalized_title,
+            query.authors,
+        ):
             matches.append(dataset)
     return tuple(matches)
 
 
 def _matches_identifier(
-    dataset: dict[str, str | tuple[tuple[str, str], ...]],
+    dataset: SyntheticKnowledgeBookRecord,
     identifier_keys: set[str],
 ) -> bool:
     if not identifier_keys:
         return False
     return any(
         f"{namespace}:{value}" in identifier_keys
-        for namespace, value in _extract_identifiers(dataset)
+        for namespace, value in dataset["identifiers"]
     )
 
 
-def _matches_title(
-    dataset: dict[str, str | tuple[str, str],],
+def _matches_title_and_authors(
+    dataset: SyntheticKnowledgeBookRecord,
     normalized_title: str,
     normalized_authors: tuple[str, ...],
 ) -> bool:
-    aliases = set(_coerce_str_tuple(dataset["aliases"]))
-    if normalized_title not in aliases:
+    if normalized_title not in dataset["aliases"]:
         return False
     if not normalized_authors:
         return True
-    authors = set(_coerce_str_tuple(dataset["authors"]))
-    return any(author in authors for author in normalized_authors)
+    return any(author in dataset["authors"] for author in normalized_authors)
 
 
-def _to_dtos(dataset: dict[str, str | tuple[str, ...]]) -> tuple[BookKnowledgeDTO, ...]:
+def _to_dtos(
+    dataset: SyntheticKnowledgeBookRecord,
+) -> tuple[BookKnowledgeDTO, ...]:
     return (
         BookKnowledgeDTO(
             key="work.title",
-            value=dataset["title"],  # type: ignore[index]
+            value=dataset["title"],
             source_field="title",
             confidence=0.95,
             score=0.95,
         ),
         BookKnowledgeDTO(
             key="agent.name",
-            value=dataset["author"],  # type: ignore[index]
+            value=dataset["author"],
             source_field="creator",
             confidence=0.91,
             score=0.91,
@@ -121,22 +134,7 @@ def _to_dtos(dataset: dict[str, str | tuple[str, ...]]) -> tuple[BookKnowledgeDT
     )
 
 
-def _extract_identifiers(
-    dataset: dict[str, str | tuple[tuple[str, str], ...]],
-) -> tuple[tuple[str, str], ...]:
-    identifiers = dataset["identifiers"]
-    if isinstance(identifiers, tuple):
-        return identifiers
-    return ()
-
-
-def _coerce_str_tuple(value: str | tuple[str, ...]) -> tuple[str, ...]:
-    if isinstance(value, tuple):
-        return value
-    return (value,)
-
-
-_SYNTHETIC_BOOKS: tuple[dict[str, str | tuple[str, ...] | tuple[tuple[str, str], ...]], ...] = (
+_SYNTHETIC_BOOKS: tuple[SyntheticKnowledgeBookRecord, ...] = (
     {
         "title": "Project Babel",
         "aliases": ("project babel", "babel"),
