@@ -56,6 +56,10 @@ def test_status_command_is_non_destructive_bootstrap(
             "through ebook-hash-candidates."
         ),
         (
+            "Path-free candidate-hash leases and heartbeats can be inspected through "
+            "ebook-hash-status."
+        ),
+        (
             "Scan-wide format, size, hash-coverage, and exact-duplicate reports are "
             "available through ebook-inventory-report."
         ),

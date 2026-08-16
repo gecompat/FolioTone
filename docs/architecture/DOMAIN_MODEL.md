@@ -210,6 +210,16 @@ Ein Batch-Ergebnis beschreibt Ausführung und Analyseabdeckung. Es ist keine
 `Relation`, kein Duplicate-Verdict und keine `Work`-/`Edition`-
 Identitätsentscheidung.
 
+### EbookCandidateHashRun
+
+`EbookCandidateHashRun` beschreibt eine einzelne, rootweit geleaste
+Invocation zur selektiven Vollhash-Bestätigung. Er bindet sich an genau einen
+abgeschlossenen Source-`ScanRun` und speichert `SELECTING`, `HASHING` oder
+`FINALIZING`, den Heartbeat-/Lease-Zustand sowie begrenzte Zähler. Private
+Pfade, relative Dateinamen und Fingerprint-Werte gehören nicht in dieses
+Modell. Terminale Läufe behalten ihre Historie; nur ein `RUNNING`-Lauf pro
+`ScanRoot` ist zulässig.
+
 ### EbookCollectionReportSnapshot / EbookCollectionCandidateGroup
 
 `EbookCollectionReportSnapshot` ist eine read-only Anwendungsprojektion eines

@@ -117,9 +117,11 @@ Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
   vollständigen Summenzählern, priorisierten Review-Items sowie begrenzten
   Exact-Duplicate- und Content-Variant-Kandidaten in privaten
   JSON-/CSV-/Checksum-Artefakten;
-- `ebook-duplicate-hash/v1` und CLI `ebook-hash-candidates` für begrenztes,
-  fortsetzbares vollständiges SHA-256 ausschließlich bei aktuellen
-  mehrfach belegten Quick-Fingerprint-Gruppen;
+- `ebook-duplicate-hash/v1`, CLI `ebook-hash-candidates` und die read-only
+  Statusabfrage `ebook-hash-status` für begrenztes, fortsetzbares
+  vollständiges SHA-256 ausschließlich bei aktuellen mehrfach belegten
+  Quick-Fingerprint-Gruppen, mit rootweiter Lease, gefenceten Batch-Writes und
+  pfadfreien persistenten Heartbeats;
 - `ebook-inventory-report/v1` und CLI `ebook-inventory-report` für einen
   deterministischen scanweiten Format-, Größen-, Hash-Abdeckungs- und
   Exact-Duplicate-Bericht ohne erneuten Source-Media-Zugriff;
@@ -236,7 +238,7 @@ Tool orchestration
 Persistence
   Repository[T] / SQLiteRepository[T]
   SQLAlchemy Core
-  Alembic 0001_initial through 0010_candidate_hash_lookup_index
+  Alembic 0001_initial through 0011_candidate_hash_run_leases
 ```
 
 ## Repository-Dokumentation

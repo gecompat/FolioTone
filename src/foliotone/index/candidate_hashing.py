@@ -5,8 +5,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from threading import Event, Thread
 from typing import Any
 
 from sqlalchemy import (
@@ -32,6 +33,7 @@ from foliotone.analyzers.ebook.observations import (
     resolve_observed_file,
 )
 from foliotone.core import (
+    EbookCandidateHashRunStatus,
     EntityId,
     EntityKind,
     FileObservation,
@@ -47,12 +49,18 @@ from foliotone.index.hashing import (
     QUICK_FILE_PROFILE,
     FingerprintWriter,
 )
-from foliotone.persistence import schema
+from foliotone.persistence import (
+    EbookCandidateHashLeaseError,
+    SQLiteEbookCandidateHashRunStore,
+    schema,
+)
 from foliotone.persistence.codecs import codec_for
 
 DUPLICATE_HASH_PROFILE = "ebook-duplicate-hash/v1"
 MAX_DUPLICATE_HASH_WORKERS = 8
 MAX_DUPLICATE_HASH_BATCH_SIZE = 500
+DEFAULT_DUPLICATE_HASH_LEASE_DURATION = timedelta(minutes=30)
+MAX_DUPLICATE_HASH_HEARTBEAT_SECONDS = 60.0
 
 type Clock = Callable[[], datetime]
 type ProgressReporter = Callable[[str], None]
@@ -68,6 +76,7 @@ class DuplicateHashCandidateError(RuntimeError):
 class DuplicateHashCandidateSummary:
     """Path-free outcome for one resumable candidate enrichment invocation."""
 
+    run_id: EntityId
     scan_run_id: EntityId
     candidate_groups: int
     candidate_observations: int
@@ -104,6 +113,66 @@ class _HashCandidate:
         return self.quick_value, str(self.observation.id)
 
 
+class _CandidateHashLeaseKeeper:
+    """Renew a candidate-hash lease while one file or SQL step is long-running."""
+
+    def __init__(
+        self,
+        store: SQLiteEbookCandidateHashRunStore,
+        run_id: EntityId,
+        lease_token: str,
+        *,
+        clock: Clock,
+        lease_duration: timedelta,
+    ) -> None:
+        self._store = store
+        self._run_id = run_id
+        self._lease_token = lease_token
+        self._clock = clock
+        self._lease_duration = lease_duration
+        self._interval = min(
+            MAX_DUPLICATE_HASH_HEARTBEAT_SECONDS,
+            lease_duration.total_seconds() / 3,
+        )
+        self._stop = Event()
+        self._thread = Thread(
+            target=self._renew_until_stopped,
+            name="foliotone-candidate-hash-heartbeat",
+            daemon=True,
+        )
+        self._error: Exception | None = None
+
+    def __enter__(self) -> _CandidateHashLeaseKeeper:
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_exception: object) -> None:
+        self._stop.set()
+        self._thread.join()
+
+    def check(self) -> None:
+        """Surface a failed background renewal before the next fenced write."""
+
+        if self._error is not None:
+            raise EbookCandidateHashLeaseError(
+                "candidate-hash heartbeat failed"
+            ) from self._error
+
+    def _renew_until_stopped(self) -> None:
+        while not self._stop.wait(self._interval):
+            heartbeat_at = self._clock()
+            try:
+                self._store.heartbeat(
+                    self._run_id,
+                    self._lease_token,
+                    heartbeat_at=heartbeat_at,
+                    lease_expires_at=heartbeat_at + self._lease_duration,
+                )
+            except Exception as error:
+                self._error = error
+                return
+
+
 class DuplicateHashCandidateService:
     """Confirm only quick-fingerprint collisions with a full SHA-256."""
 
@@ -113,10 +182,16 @@ class DuplicateHashCandidateService:
         *,
         fingerprint_writer: FingerprintWriter | None = None,
         clock: Clock | None = None,
+        run_store: SQLiteEbookCandidateHashRunStore | None = None,
+        lease_duration: timedelta = DEFAULT_DUPLICATE_HASH_LEASE_DURATION,
     ) -> None:
+        if lease_duration <= timedelta(0):
+            raise ValueError("candidate hash lease_duration must be positive")
         self._engine = engine
         self._fingerprints = fingerprint_writer or FingerprintWriter(engine)
         self._clock = clock or _utc_now
+        self._runs = run_store or SQLiteEbookCandidateHashRunStore(engine)
+        self._lease_duration = lease_duration
         self._observation_codec = codec_for(FileObservation)
         self._scan_codec = codec_for(ScanRun)
 
@@ -156,6 +231,98 @@ class DuplicateHashCandidateService:
             raise DuplicateHashCandidateError("source root is not a directory")
 
         scan = self._latest_scan(root)
+        started_at = self._clock()
+        lease_token = str(EntityId.new())
+        try:
+            run = self._runs.acquire(
+                root.id,
+                scan.id,
+                DUPLICATE_HASH_PROFILE,
+                lease_token=lease_token,
+                started_at=started_at,
+                lease_expires_at=started_at + self._lease_duration,
+            )
+        except EbookCandidateHashLeaseError as error:
+            raise DuplicateHashCandidateError(str(error)) from error
+
+        keeper = _CandidateHashLeaseKeeper(
+            self._runs,
+            run.id,
+            lease_token,
+            clock=self._clock,
+            lease_duration=self._lease_duration,
+        )
+        try:
+            with keeper:
+                summary = self._enrich_owned(
+                    run.id,
+                    lease_token,
+                    keeper,
+                    root,
+                    scan,
+                    resolved_root,
+                    worker_count=worker_count,
+                    batch_size=batch_size,
+                    max_items=max_items,
+                    progress=progress,
+                )
+                keeper.check()
+                if summary.hash_failures:
+                    status = EbookCandidateHashRunStatus.COMPLETED_WITH_FAILURES
+                elif summary.remaining:
+                    status = EbookCandidateHashRunStatus.INTERRUPTED
+                else:
+                    status = EbookCandidateHashRunStatus.COMPLETED
+                self._runs.finish(
+                    run.id,
+                    lease_token,
+                    status,
+                    finished_at=self._clock(),
+                )
+                return summary
+        except KeyboardInterrupt:
+            self._runs.abandon_owned(
+                run.id,
+                lease_token,
+                EbookCandidateHashRunStatus.INTERRUPTED,
+                finished_at=self._clock(),
+            )
+            raise
+        except EbookCandidateHashLeaseError as error:
+            self._runs.abandon_owned(
+                run.id,
+                lease_token,
+                EbookCandidateHashRunStatus.FAILED,
+                finished_at=self._clock(),
+            )
+            raise DuplicateHashCandidateError(
+                "candidate-hash lease is unavailable or expired"
+            ) from error
+        except Exception:
+            self._runs.abandon_owned(
+                run.id,
+                lease_token,
+                EbookCandidateHashRunStatus.FAILED,
+                finished_at=self._clock(),
+            )
+            raise
+
+    def _enrich_owned(
+        self,
+        run_id: EntityId,
+        lease_token: str,
+        keeper: _CandidateHashLeaseKeeper,
+        root: ScanRoot,
+        scan: ScanRun,
+        resolved_root: Path,
+        *,
+        worker_count: int,
+        batch_size: int,
+        max_items: int | None,
+        progress: ProgressReporter | None,
+    ) -> DuplicateHashCandidateSummary:
+        """Execute one invocation whose writes are fenced by an owned run lease."""
+
         self._report(progress, "candidate selection started")
         processed = 0
         hashed = 0
@@ -177,6 +344,18 @@ class DuplicateHashCandidateService:
                 )
                 snapshot_connection.rollback()
                 pending = observations - already_hashed
+                heartbeat_at = self._clock()
+                keeper.check()
+                self._runs.record_selection(
+                    run_id,
+                    lease_token,
+                    heartbeat_at=heartbeat_at,
+                    lease_expires_at=heartbeat_at + self._lease_duration,
+                    candidate_groups=groups,
+                    candidate_observations=observations,
+                    already_hashed=already_hashed,
+                    remaining_count=pending,
+                )
                 self._report(
                     progress,
                     "candidate selection completed: "
@@ -184,6 +363,7 @@ class DuplicateHashCandidateService:
                 )
 
                 while max_items is None or processed < max_items:
+                    keeper.check()
                     limit = batch_size
                     if max_items is not None:
                         limit = min(limit, max_items - processed)
@@ -202,7 +382,17 @@ class DuplicateHashCandidateService:
                         worker_count=worker_count,
                         created_at=self._clock(),
                     )
-                    self._fingerprints.save_many(succeeded)
+                    keeper.check()
+                    committed_at = self._clock()
+                    self._runs.commit_batch(
+                        run_id,
+                        lease_token,
+                        succeeded,
+                        committed_at=committed_at,
+                        lease_expires_at=committed_at + self._lease_duration,
+                        processed_delta=len(candidates),
+                        failure_delta=failed,
+                    )
                     hashed += len(succeeded)
                     failures += failed
                     processed += len(candidates)
@@ -220,6 +410,7 @@ class DuplicateHashCandidateService:
 
         remaining = pending - hashed
         return DuplicateHashCandidateSummary(
+            run_id=run_id,
             scan_run_id=scan.id,
             candidate_groups=groups,
             candidate_observations=observations,

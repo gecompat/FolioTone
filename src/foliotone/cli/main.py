@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import Engine
+from sqlalchemy.exc import OperationalError
 
 from foliotone import __version__
 from foliotone.adapters.calibre import (
@@ -54,6 +55,7 @@ from foliotone.persistence import (
     EbookCollectionReportStoreError,
     EbookCollectionStoreError,
     EbookInventoryReportStoreError,
+    SQLiteEbookCandidateHashRunStore,
     SQLiteEbookCollectionReportStore,
     SQLiteEbookCollectionStore,
     SQLiteEbookInventoryReportStore,
@@ -511,6 +513,21 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=("Attempt at most this many pending candidates; rerun the same command to continue."),
     )
+    duplicate_hash_status = subparsers.add_parser(
+        "ebook-hash-status",
+        help="Read the latest path-free candidate-hash heartbeat and progress.",
+    )
+    duplicate_hash_status.add_argument(
+        "--scan-root",
+        required=True,
+        help="Existing logical EBOOK ScanRoot name to inspect.",
+    )
+    duplicate_hash_status.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="Existing SQLite database path; defaults to /data/foliotone.db.",
+    )
     ebook_collection.add_argument(
         "--database",
         type=Path,
@@ -831,6 +848,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "through ebook-hash-candidates."
         )
         print(
+            "Path-free candidate-hash leases and heartbeats can be inspected through "
+            "ebook-hash-status."
+        )
+        print(
             "Scan-wide format, size, hash-coverage, and exact-duplicate reports are "
             "available through ebook-inventory-report."
         )
@@ -845,6 +866,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-hash-candidates":
         return _run_ebook_hash_candidates(args)
+
+    if args.command == "ebook-hash-status":
+        return _run_ebook_hash_status(args)
 
     if args.command == "ebook-metadata":
         return _run_ebook_metadata(args)
@@ -1025,6 +1049,7 @@ def _run_ebook_hash_candidates(args: argparse.Namespace) -> int:
         return 2
 
     print(f"ScanRoot: {root.name}")
+    print(f"Candidate hash run: {summary.run_id}")
     print(f"Source ScanRun: {summary.scan_run_id}")
     print(f"Candidate hash profile: {summary.profile}")
     print(f"Quick candidate groups: {summary.candidate_groups}")
@@ -1040,6 +1065,51 @@ def _run_ebook_hash_candidates(args: argparse.Namespace) -> int:
         print("Status: INTERRUPTED")
         return 3
     print("Status: COMPLETED")
+    return 0
+
+
+def _run_ebook_hash_status(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    if not database.is_file():
+        print("E-book candidate hash status failed: database is unavailable.")
+        return 2
+    engine = create_sqlite_engine(database)
+    try:
+        roots = tuple(
+            root
+            for root in repository(engine, ScanRoot).list_all()
+            if root.name == args.scan_root.strip()
+        )
+        if len(roots) != 1:
+            print("E-book candidate hash status failed: logical ScanRoot does not exist.")
+            return 2
+        run = SQLiteEbookCandidateHashRunStore(engine).latest(roots[0].id)
+    except OperationalError:
+        print("E-book candidate hash status failed: database schema is unavailable.")
+        return 2
+    if run is None:
+        print(f"ScanRoot: {roots[0].name}")
+        print("Candidate hash run: NONE")
+        return 0
+
+    print(f"ScanRoot: {roots[0].name}")
+    print(f"Candidate hash run: {run.id}")
+    print(f"Source ScanRun: {run.source_scan_run_id}")
+    print(f"Status: {run.status.value}")
+    print(f"Phase: {run.phase.value}")
+    print(f"Heartbeat UTC: {run.heartbeat_at.isoformat()}")
+    if run.lease_expires_at is not None:
+        print(f"Lease expires UTC: {run.lease_expires_at.isoformat()}")
+    if run.candidate_groups is None:
+        print("Candidate selection: PENDING")
+    else:
+        print(f"Quick candidate groups: {run.candidate_groups}")
+        print(f"Quick candidate observations: {run.candidate_observations}")
+        print(f"Already full-hashed: {run.already_hashed}")
+        print(f"Processed: {run.processed_count}")
+        print(f"Full-hashed: {run.hashed_count}")
+        print(f"Hash failures: {run.failure_count}")
+        print(f"Remaining candidates: {run.remaining_count}")
     return 0
 
 

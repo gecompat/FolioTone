@@ -49,6 +49,20 @@ Ein späterer normaler Quick-Scan darf vorhandene vollständige Evidence auf die
 neue unveränderte Observation projizieren. Dadurch bleibt die selektive
 Investition über inkrementelle Scans nutzbar, ohne die Datei erneut zu öffnen.
 
+Jede Invocation besitzt einen persistenten `EbookCandidateHashRun`. Eine
+partielle Eindeutigkeitsregel erlaubt pro `ScanRoot` genau einen aktiven
+`RUNNING`-Lauf, unabhängig von der Profilversion. Der Lauf speichert nur
+Source-Scan-ID, Profil, Phase, Heartbeat-/Lease-Zeitpunkte und begrenzte
+Zähler; Pfade, Dateinamen und Hashwerte bleiben ausgeschlossen. Ein separater
+Lease-Keeper erneuert die 30-Minuten-Lease auch während eines langen einzelnen
+Datei-Hashes. Jeder Batch aktualisiert den gefenceten Fortschritt und schreibt
+seine `Fingerprint`-Evidence in derselben Transaktion. Ein Prozess, dessen
+Lease abgelaufen und übernommen wurde, kann dadurch keine spätere Evidence
+mehr persistieren. Ein abgelaufener Vorgänger wird atomar `INTERRUPTED`, der
+neue Lauf verwendet die bereits vorhandenen vollständigen Hashes unverändert
+als Resume-Evidence. `ebook-hash-status` liest den neuesten Run ohne Migration
+oder Source-Zugriff.
+
 ## Konsequenzen
 
 - Vollständiger Datei-I/O skaliert mit plausiblen Quick-Kollisionen statt mit
@@ -57,8 +71,9 @@ Investition über inkrementelle Scans nutzbar, ohne die Datei erneut zu öffnen.
   Batch; ein erneuter Aufruf überspringt abgeschlossene Kandidaten.
 - Quick-Fingerprints bleiben Blocking-Evidence und werden nicht als
   Identitäts- oder Löschentscheidung interpretiert.
-- Konkurrierende Kandidaten-Hashläufe für denselben Snapshot sind nicht Teil
-  des aktuellen CLI-Vertrags; ein Lauf wird operativ einmalig gestartet und
-  bei Bedarf fortgesetzt.
+- Konkurrierende Kandidaten-Hashläufe desselben Roots werden durch eine
+  persistente Lease abgewiesen; verschiedene Roots dürfen parallel laufen.
+- Heartbeats und Batch-Zähler sind auch ohne Zugriff auf private Source-Pfade
+  über `ebook-hash-status` beobachtbar.
 - Private Pfade und Hashwerte werden nicht in die CLI-Zusammenfassung oder das
   Repository geschrieben.

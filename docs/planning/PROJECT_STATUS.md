@@ -198,6 +198,16 @@ Quick-Gruppen einmal pro Invocation in einer verbindungslokalen Temp-Tabelle,
 statt die historische Fingerprint-Tabelle für Statistik, jeden Batch und den
 Abschluss erneut zu aggregieren.
 
+`0011_candidate_hash_run_leases` ergänzt persistente
+`ebook_candidate_hash_runs` mit genau einem aktiven Lauf pro `ScanRoot`.
+Run-ID, Phase, Heartbeat-/Lease-Zeitpunkte und begrenzte Zähler bleiben
+pfadfrei. Ein separater Keeper erneuert die Lease während langer Hashes;
+Fingerprint-Insert und Fortschritt eines Batches werden in derselben durch
+Token, Status und Ablaufzeit gefenceten Transaktion persistiert. Ein stale
+Vorgänger kann nach atomarer Übernahme keine Evidence mehr schreiben. Die
+read-only CLI `ebook-hash-status` liest den neuesten Zustand ohne Migration
+oder Source-Zugriff.
+
 Beim Upgrade einer bestehenden `0002`-Datenbank wird keine historische Abwesenheitsdauer oder Bestätigungsserie erfunden. Bestehende Datensätze beginnen konservativ mit `missing_since_at = NULL` und `consecutive_missing_scans = 0`; erst nachfolgende erfolgreiche Scans bauen neue Bestätigungsevidenz auf.
 
 ## Implementierter W3-Slice
@@ -907,6 +917,17 @@ Hash-Batches. Die Projektion lieferte genau eine aktuelle Gruppe mit zwei
 Beobachtungen und keinen Rest. Der vollständige Gate bleibt dem Pull Request
 vorbehalten.
 
+**Empirisch für W3-017 Kandidaten-Hash-Lease und -Heartbeat:** Der gezielte
+Verbundlauf bestand 26 Lease-, Status-, Kandidaten-, Migrations-, Persistenz-
+und Dokumentationsvertrags-Tests in 3 Minuten 56 Sekunden. Er prüft genau einen
+Besitzer bei konkurrierender Acquisition, root-parallele Läufe, stale Takeover
+mit gefenceten Writes, Lease-Verlängerung, atomaren Rollback von Fingerprints
+und Zählern, pfadfreie read-only Statusabfragen sowie das Upgrade von `0010`
+auf `0011` ohne neue Fingerprint-Eindeutigkeit. Ruff war für Repository,
+Source und betroffene Tests erfolgreich; Mypy prüfte die vier geänderten
+Kern-/CLI-Module ohne Befund. Der vollständige Gate läuft genau einmal am Pull
+Request.
+
 ## Aktiver W3-Stand und nächster Schritt
 
 W2 ist abgeschlossen; `W3-001` bis `W3-016` sind abgeschlossen. W3-015 stellt
@@ -933,7 +954,11 @@ fortsetzbar. Der reale Vollhashlauf belegte zusätzlich einen mehrstündigen
 SQL-Engpass vor und nach dem Datei-I/O. Die aktuelle Implementierung
 materialisiert deshalb den current-scan-first Kandidaten-Snapshot einmalig,
 verwendet danach nur noch indexgestützte Temp-Keyset-Batches und gibt
-pfadfreie Phasen- und Batch-Fortschritte sofort aus.
+pfadfreie Phasen- und Batch-Fortschritte sofort aus. Rootweite persistente
+Run-Leases verhindern parallele Kandidaten-Hashläufe; gefencete atomare
+Batch-Writes und ein separater Lease-Keeper schließen Writes eines stale
+Vorgängers aus. `ebook-hash-status` macht Phase, Heartbeat und Zähler ohne
+Source-Pfad sichtbar.
 `ebook-inventory-report/v1` erzeugt aus einem abgeschlossenen Scan
 bereits ohne Tiefenanalyse vollständige Format-/Byte-Summen, Hash-Abdeckung,
 offene Quick-Kandidaten und begrenzte Exact-Duplicate-Details als

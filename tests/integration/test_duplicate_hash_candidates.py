@@ -7,7 +7,15 @@ from pytest import CaptureFixture
 from sqlalchemy import event
 
 from foliotone.cli.main import main
-from foliotone.core import EntityId, EntityKind, FileObservation, Fingerprint, MediaType
+from foliotone.core import (
+    EbookCandidateHashRunStatus,
+    EntityId,
+    EntityKind,
+    FileObservation,
+    Fingerprint,
+    MediaType,
+    ScanRoot,
+)
 from foliotone.index import (
     DuplicateHashCandidateService,
     FingerprintWriter,
@@ -16,7 +24,12 @@ from foliotone.index import (
     ScanRootBinding,
     SQLiteIndexStore,
 )
-from foliotone.persistence import create_sqlite_engine, migrate, repository
+from foliotone.persistence import (
+    SQLiteEbookCandidateHashRunStore,
+    create_sqlite_engine,
+    migrate,
+    repository,
+)
 
 NOW = datetime(2026, 8, 15, 20, 0, tzinfo=UTC)
 
@@ -78,9 +91,26 @@ def test_candidate_hash_cli_is_selective_path_free_and_restartable(
     assert "Quick candidate groups: 1" in first_output
     assert "Quick candidate observations: 2" in first_output
     assert "Full-hashed this invocation: 1" in first_output
+    assert "Candidate hash run:" in first_output
     assert "Remaining candidates: 1" in first_output
     assert "Status: INTERRUPTED" in first_output
     assert str(media) not in first_output
+
+    status_args = [
+        "ebook-hash-status",
+        "--scan-root",
+        "candidate-hash-cli",
+        "--database",
+        str(database),
+    ]
+    assert main(status_args) == 0
+    first_status = capsys.readouterr().out
+    assert "Status: INTERRUPTED" in first_status
+    assert "Phase: FINALIZING" in first_status
+    assert "Processed: 1" in first_status
+    assert "Full-hashed: 1" in first_status
+    assert "Remaining candidates: 1" in first_status
+    assert str(media) not in first_status
 
     assert main(base_args) == 0
     resumed_output = capsys.readouterr().out
@@ -90,7 +120,29 @@ def test_candidate_hash_cli_is_selective_path_free_and_restartable(
     assert "Status: COMPLETED" in resumed_output
     assert str(media) not in resumed_output
 
+    assert main(status_args) == 0
+    completed_status = capsys.readouterr().out
+    assert "Status: COMPLETED" in completed_status
+    assert "Processed: 1" in completed_status
+    assert "Remaining candidates: 0" in completed_status
+    assert str(media) not in completed_status
+
     engine = create_sqlite_engine(database)
+    root = next(
+        root
+        for root in repository(engine, ScanRoot).list_all()
+        if root.name == "candidate-hash-cli"
+    )
+    latest_run = SQLiteEbookCandidateHashRunStore(engine).latest(root.id)
+    assert latest_run is not None
+    assert latest_run.status is EbookCandidateHashRunStatus.COMPLETED
+    assert latest_run.candidate_groups == 1
+    assert latest_run.candidate_observations == 2
+    assert latest_run.already_hashed == 1
+    assert latest_run.processed_count == 1
+    assert latest_run.hashed_count == 1
+    assert latest_run.failure_count == 0
+    assert latest_run.remaining_count == 0
     observations = repository(engine, FileObservation).list_all()
     duplicate_ids = {
         observation.id

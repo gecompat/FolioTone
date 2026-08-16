@@ -62,6 +62,20 @@ class EbookCollectionItemStatus(StrEnum):
     ERROR = "ERROR"
 
 
+class EbookCandidateHashRunStatus(StrEnum):
+    RUNNING = "RUNNING"
+    INTERRUPTED = "INTERRUPTED"
+    COMPLETED = "COMPLETED"
+    COMPLETED_WITH_FAILURES = "COMPLETED_WITH_FAILURES"
+    FAILED = "FAILED"
+
+
+class EbookCandidateHashPhase(StrEnum):
+    SELECTING = "SELECTING"
+    HASHING = "HASHING"
+    FINALIZING = "FINALIZING"
+
+
 class ValueState(StrEnum):
     OBSERVED = "OBSERVED"
     DERIVED = "DERIVED"

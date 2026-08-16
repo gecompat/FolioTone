@@ -247,6 +247,21 @@ Observation-Lookup als auch die Konsistenzprüfung mehrerer Fingerprint-Werte.
 Die Temp-Tabelle bleibt flüchtiger Invocation-Zustand und verändert weder den
 Evidence-Vertrag noch die persistierte Resume-Semantik aus ADR-0023.
 
+Alembic `0011_candidate_hash_run_leases` ergänzt
+`ebook_candidate_hash_runs`. Ein partieller Unique-Index erlaubt je
+`scan_root_id` höchstens einen `RUNNING`-Lauf; terminale Historie bleibt
+erhalten. Die Tabelle enthält keine Pfade, Dateinamen oder Hashwerte. Während
+`SELECTING` bleiben Kandidatenzahlen `NULL`; danach publizieren `HASHING` und
+`FINALIZING` Heartbeat, Lease-Ablauf sowie verarbeitete, erfolgreiche,
+fehlgeschlagene und verbleibende Kandidaten.
+
+Fingerprint-Insert und Fortschrittsfortschreibung eines Batches liegen in
+derselben Transaktion und werden durch Run-ID, Lease-Token, `RUNNING`-Status
+und noch nicht abgelaufene Lease gefencet. Ein stale Vorgänger kann nach einer
+Übernahme weder seinen Heartbeat noch Fingerprints schreiben. Die allgemeine
+`fingerprints`-Tabelle erhält bewusst keine neue Eindeutigkeitsregel, weil
+mehrere provenance-behaftete Fingerprints desselben Targets legitim bleiben.
+
 ### Deterministischer scanweiter Inventarbericht
 
 `SQLiteEbookInventoryReportStore` bindet sich an den neuesten
