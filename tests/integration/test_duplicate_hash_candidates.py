@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from threading import Event
 
+import pytest
 from pytest import CaptureFixture
-from sqlalchemy import event
+from sqlalchemy import Engine, event
 
 from foliotone.cli.main import main
 from foliotone.core import (
@@ -17,6 +20,7 @@ from foliotone.core import (
     ScanRoot,
 )
 from foliotone.index import (
+    DuplicateHashCandidateError,
     DuplicateHashCandidateService,
     FingerprintWriter,
     HashMode,
@@ -32,6 +36,107 @@ from foliotone.persistence import (
 )
 
 NOW = datetime(2026, 8, 15, 20, 0, tzinfo=UTC)
+
+
+class _BlockingFingerprintWriter(FingerprintWriter):
+    def __init__(self, engine: Engine, hashing_started: Event, release: Event) -> None:
+        super().__init__(engine)
+        self._hashing_started = hashing_started
+        self._release = release
+
+    def calculate_full(
+        self,
+        observation: FileObservation,
+        physical_path: Path,
+        created_at: datetime,
+    ) -> Fingerprint:
+        self._hashing_started.set()
+        if not self._release.wait(timeout=5):
+            raise AssertionError("candidate-hash test release was not signalled")
+        return super().calculate_full(observation, physical_path, created_at)
+
+
+class _KeeperFailureStore(SQLiteEbookCandidateHashRunStore):
+    def __init__(self, engine: Engine, hashing_started: Event, failed: Event) -> None:
+        super().__init__(engine)
+        self._hashing_started = hashing_started
+        self._failed = failed
+
+    def heartbeat(
+        self,
+        run_id: EntityId,
+        lease_token: str,
+        *,
+        heartbeat_at: datetime,
+        lease_expires_at: datetime,
+    ) -> None:
+        if self._hashing_started.is_set():
+            self._failed.set()
+            raise RuntimeError("private sentinel must never reach the operator")
+        super().heartbeat(
+            run_id,
+            lease_token,
+            heartbeat_at=heartbeat_at,
+            lease_expires_at=lease_expires_at,
+        )
+
+
+class _SignallingHeartbeatStore(SQLiteEbookCandidateHashRunStore):
+    def __init__(self, engine: Engine, hashing_started: Event, renewed: Event) -> None:
+        super().__init__(engine)
+        self._hashing_started = hashing_started
+        self._renewed = renewed
+        self.renewed_until: datetime | None = None
+
+    def heartbeat(
+        self,
+        run_id: EntityId,
+        lease_token: str,
+        *,
+        heartbeat_at: datetime,
+        lease_expires_at: datetime,
+    ) -> None:
+        super().heartbeat(
+            run_id,
+            lease_token,
+            heartbeat_at=heartbeat_at,
+            lease_expires_at=lease_expires_at,
+        )
+        if self._hashing_started.is_set():
+            self.renewed_until = lease_expires_at
+            self._renewed.set()
+
+
+class _InterruptingFingerprintWriter(FingerprintWriter):
+    def calculate_full(
+        self,
+        observation: FileObservation,
+        physical_path: Path,
+        created_at: datetime,
+    ) -> Fingerprint:
+        raise KeyboardInterrupt
+
+
+def _candidate_case(
+    tmp_path: Path,
+    name: str,
+) -> tuple[Path, Engine, ScanRoot]:
+    media = tmp_path / name
+    media.mkdir()
+    for filename in ("a.epub", "b.epub"):
+        (media / filename).write_bytes(b"same candidate bytes")
+    database = tmp_path / f"{name}.db"
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    store = SQLiteIndexStore(engine)
+    root = store.get_or_create_root(name, MediaType.EBOOK)
+    IncrementalScanner(
+        store,
+        hash_mode=HashMode.QUICK,
+        fingerprint_writer=FingerprintWriter(engine),
+        clock=lambda: NOW,
+    ).scan(root, ScanRootBinding(media))
+    return media, engine, root
 
 
 def test_candidate_hash_cli_is_selective_path_free_and_restartable(
@@ -111,6 +216,21 @@ def test_candidate_hash_cli_is_selective_path_free_and_restartable(
     assert "Full-hashed: 1" in first_status
     assert "Remaining candidates: 1" in first_status
     assert str(media) not in first_status
+
+    assert main([*status_args, "--output", "json"]) == 0
+    first_json_text = capsys.readouterr().out
+    first_json = json.loads(first_json_text)
+    assert first_json["schema_version"] == 1
+    assert first_json["command"] == "ebook-hash-status"
+    assert first_json["ok"] is True
+    assert first_json["scan_root"] == "candidate-hash-cli"
+    assert first_json["run"]["phase"] == "FINALIZING"
+    assert first_json["run"]["lease_state"] == "NONE"
+    assert first_json["run"]["progress"]["processed"] == 1
+    assert first_json["run"]["progress"]["hashed"] == 1
+    assert first_json["run"]["progress"]["remaining"] == 1
+    assert "lease_token" not in first_json_text
+    assert str(media) not in first_json_text
 
     assert main(base_args) == 0
     resumed_output = capsys.readouterr().out
@@ -316,3 +436,104 @@ def test_candidate_hash_isolates_a_source_changed_after_scan(tmp_path: Path) -> 
         if observation.relative_path == "b.epub"
     )
     assert full_hash.target_id == second_observation.id
+
+
+def test_keeper_failure_during_a_long_hash_is_path_free_and_fences_the_batch(
+    tmp_path: Path,
+) -> None:
+    media, engine, root = _candidate_case(tmp_path, "keeper-failure")
+    hashing_started = Event()
+    keeper_failed = Event()
+    run_store = _KeeperFailureStore(engine, hashing_started, keeper_failed)
+    service = DuplicateHashCandidateService(
+        engine,
+        fingerprint_writer=_BlockingFingerprintWriter(
+            engine,
+            hashing_started,
+            keeper_failed,
+        ),
+        run_store=run_store,
+        lease_duration=timedelta(milliseconds=600),
+    )
+
+    with pytest.raises(
+        DuplicateHashCandidateError,
+        match="candidate-hash lease is unavailable or expired",
+    ) as captured:
+        service.enrich(root, media, batch_size=1)
+
+    assert keeper_failed.is_set()
+    assert "private sentinel" not in str(captured.value)
+    latest = run_store.latest(root.id)
+    assert latest is not None
+    assert latest.status is EbookCandidateHashRunStatus.FAILED
+    assert latest.processed_count == 0
+    assert latest.hashed_count == 0
+    assert latest.lease_token is None
+    assert not [
+        fingerprint
+        for fingerprint in repository(engine, Fingerprint).list_all()
+        if fingerprint.kind == "FILE_SHA256"
+    ]
+
+
+def test_keeper_renews_while_one_full_hash_is_blocked(tmp_path: Path) -> None:
+    media, engine, root = _candidate_case(tmp_path, "long-hash-heartbeat")
+    hashing_started = Event()
+    renewed = Event()
+    run_store = _SignallingHeartbeatStore(engine, hashing_started, renewed)
+    lease_duration = timedelta(milliseconds=600)
+    service = DuplicateHashCandidateService(
+        engine,
+        fingerprint_writer=_BlockingFingerprintWriter(
+            engine,
+            hashing_started,
+            renewed,
+        ),
+        run_store=run_store,
+        lease_duration=lease_duration,
+    )
+
+    summary = service.enrich(root, media, batch_size=1)
+
+    assert renewed.is_set()
+    assert summary.hashed_this_invocation == 2
+    assert summary.remaining == 0
+    assert run_store.renewed_until is not None
+    latest = run_store.latest(root.id)
+    assert latest is not None
+    assert run_store.renewed_until > latest.started_at + lease_duration
+    assert latest.status is EbookCandidateHashRunStatus.COMPLETED
+    assert latest.hashed_count == 2
+    assert latest.remaining_count == 0
+
+
+def test_keyboard_interrupt_releases_the_run_and_rerun_hashes_only_missing(
+    tmp_path: Path,
+) -> None:
+    media, engine, root = _candidate_case(tmp_path, "keyboard-interrupt")
+    run_store = SQLiteEbookCandidateHashRunStore(engine)
+    interrupted_service = DuplicateHashCandidateService(
+        engine,
+        fingerprint_writer=_InterruptingFingerprintWriter(engine),
+        run_store=run_store,
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        interrupted_service.enrich(root, media, batch_size=1)
+
+    interrupted = run_store.latest(root.id)
+    assert interrupted is not None
+    assert interrupted.status is EbookCandidateHashRunStatus.INTERRUPTED
+    assert interrupted.processed_count == 0
+    assert interrupted.lease_token is None
+    assert not [
+        fingerprint
+        for fingerprint in repository(engine, Fingerprint).list_all()
+        if fingerprint.kind == "FILE_SHA256"
+    ]
+
+    summary = DuplicateHashCandidateService(engine).enrich(root, media, batch_size=1)
+    assert summary.already_hashed == 0
+    assert summary.hashed_this_invocation == 2
+    assert summary.remaining == 0

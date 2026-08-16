@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import inspect, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from foliotone.core import (
     Agent,
@@ -45,7 +45,12 @@ from foliotone.core import (
     ValueState,
     Work,
 )
-from foliotone.persistence import create_sqlite_engine, migrate, repository
+from foliotone.persistence import (
+    create_sqlite_engine,
+    create_sqlite_read_only_engine,
+    migrate,
+    repository,
+)
 from foliotone.persistence.schema import ALL_TABLES
 from foliotone.persistence.w2_schema import (
     file_relocation_candidates,
@@ -150,6 +155,34 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
         "ix_fingerprints_target_profile_id_value" in str(row[-1])
         for row in query_plan
     )
+
+
+def test_read_only_engine_cannot_write_or_create_storage(
+    database: Path,
+    tmp_path: Path,
+) -> None:
+    before = database.read_bytes()
+    before_entries = {path.name for path in database.parent.iterdir()}
+    engine = create_sqlite_read_only_engine(database)
+    with engine.connect() as connection:
+        assert connection.execute(text("PRAGMA query_only")).scalar_one() == 1
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+        with pytest.raises(OperationalError, match="readonly|read-only|query_only"):
+            connection.execute(
+                text(
+                    "INSERT INTO scan_roots (id, name, media_type, enabled) "
+                    "VALUES ('00000000-0000-0000-0000-000000000099', "
+                    "'must-not-write', 'EBOOK', 1)"
+                )
+            )
+    engine.dispose()
+    assert database.read_bytes() == before
+    assert {path.name for path in database.parent.iterdir()} == before_entries
+
+    missing = tmp_path / "missing-parent" / "missing.db"
+    with pytest.raises(FileNotFoundError):
+        create_sqlite_read_only_engine(missing)
+    assert not missing.parent.exists()
 
 
 def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) -> None:

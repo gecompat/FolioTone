@@ -125,6 +125,9 @@ Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
 - `ebook-inventory-report/v1` und CLI `ebook-inventory-report` für einen
   deterministischen scanweiten Format-, Größen-, Hash-Abdeckungs- und
   Exact-Duplicate-Bericht ohne erneuten Source-Media-Zugriff;
+- CLI `ebook-postscan-verify` für die echte SQLite-Read-only-Prüfung von
+  Schema, Scan-/Hash-Lineage, bytegenauen Inventarartefakten und begrenzter
+  formatabdeckender Collection-Analyse ohne Source-Media-Zugriff;
 - rohe OPF-Beobachtungen und versionierte, gruppierte Kandidaten für ISBN und
   andere Identifier, Contributors/Rollen/Sortiernamen, Sprache, Verlag,
   Publikationsdatum, Serie und weitere Felder;

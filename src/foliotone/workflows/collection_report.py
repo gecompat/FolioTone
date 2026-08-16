@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import hmac
 import io
 import json
 import os
@@ -48,6 +49,10 @@ class EbookCollectionReportError(RuntimeError):
 
 class EbookInventoryReportError(RuntimeError):
     """A private inventory report cannot be generated or persisted safely."""
+
+
+class EbookInventoryReportMissingError(EbookInventoryReportError):
+    """An expected private inventory report has not been persisted yet."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -209,25 +214,7 @@ class EbookInventoryReportService:
             candidate_group_limit=configured.candidate_groups,
             candidate_member_limit=configured.members_per_group,
         )
-        payload = _inventory_report_payload(snapshot, configured)
-        report_bytes = (
-            json.dumps(
-                payload,
-                ensure_ascii=False,
-                sort_keys=True,
-                indent=2,
-                allow_nan=False,
-            )
-            + "\n"
-        ).encode("utf-8")
-        report_sha256 = hashlib.sha256(report_bytes).hexdigest()
-        files = {
-            _INVENTORY_REPORT_JSON: report_bytes,
-            _INVENTORY_DUPLICATE_CSV: _inventory_duplicate_csv(
-                snapshot.exact_duplicates
-            ),
-        }
-        files[_CHECKSUMS] = _checksums(files)
+        report_sha256, files = render_inventory_report_files(snapshot, configured)
         try:
             report_directory = _persist_report(
                 report_root,
@@ -259,6 +246,76 @@ class EbookInventoryReportService:
             exact_duplicate_members=snapshot.exact_duplicates.total_members,
             redundant_bytes=snapshot.exact_duplicates.total_redundant_bytes,
         )
+
+
+def render_inventory_report_files(
+    snapshot: EbookInventoryReportSnapshot,
+    limits: EbookInventoryReportLimits,
+) -> tuple[str, dict[str, bytes]]:
+    """Render one deterministic inventory report without writing any files."""
+
+    payload = _inventory_report_payload(snapshot, limits)
+    report_bytes = (
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            indent=2,
+            allow_nan=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+    report_sha256 = hashlib.sha256(report_bytes).hexdigest()
+    files = {
+        _INVENTORY_REPORT_JSON: report_bytes,
+        _INVENTORY_DUPLICATE_CSV: _inventory_duplicate_csv(
+            snapshot.exact_duplicates
+        ),
+    }
+    files[_CHECKSUMS] = _checksums(files)
+    return report_sha256, files
+
+
+def verify_inventory_report_files(
+    report_root: Path,
+    expected_sha256: str,
+    snapshot: EbookInventoryReportSnapshot,
+    limits: EbookInventoryReportLimits,
+) -> int:
+    """Verify an existing report byte-for-byte without modifying its storage."""
+
+    rendered_sha256, expected_files = render_inventory_report_files(snapshot, limits)
+    if not hmac.compare_digest(expected_sha256, rendered_sha256):
+        raise EbookInventoryReportError("inventory report lineage is invalid")
+    try:
+        root = report_root.resolve(strict=True)
+    except OSError as error:
+        raise EbookInventoryReportMissingError(
+            "inventory report is not available"
+        ) from error
+    if report_root.is_symlink() or not root.is_dir():
+        raise EbookInventoryReportError("inventory report root is unsafe")
+    run_directory = root / str(snapshot.scan.id)
+    target = run_directory / rendered_sha256
+    if not target.exists():
+        raise EbookInventoryReportMissingError("inventory report is not available")
+    if run_directory.is_symlink():
+        raise EbookInventoryReportError("inventory report run directory is unsafe")
+    try:
+        resolved_run_directory = run_directory.resolve(strict=True)
+    except OSError as error:
+        raise EbookInventoryReportMissingError(
+            "inventory report is not available"
+        ) from error
+    if not resolved_run_directory.is_relative_to(root):
+        raise EbookInventoryReportError("inventory report run directory escapes its root")
+    try:
+        _verify_report_files(target, expected_files, root=resolved_run_directory)
+    except EbookCollectionReportError as error:
+        raise EbookInventoryReportError(
+            "inventory report files are invalid"
+        ) from error
+    return len(expected_files)
 
 
 def _inventory_report_payload(

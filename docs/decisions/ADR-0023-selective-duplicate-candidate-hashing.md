@@ -61,7 +61,10 @@ Lease abgelaufen und übernommen wurde, kann dadurch keine spätere Evidence
 mehr persistieren. Ein abgelaufener Vorgänger wird atomar `INTERRUPTED`, der
 neue Lauf verwendet die bereits vorhandenen vollständigen Hashes unverändert
 als Resume-Evidence. `ebook-hash-status` liest den neuesten Run ohne Migration
-oder Source-Zugriff.
+oder Source-Zugriff über eine SQLite-URI mit `mode=ro`. Die optionale
+JSON-Ausgabe enthält nur freigegebene Run-/Scan-IDs, Profil, Status, Phase,
+Zeitpunkte, Lease-Zustand und Zähler. Pfade, Dateinamen, Hashwerte, Lease-Token
+und rohe Exceptions bleiben ausgeschlossen.
 
 ## Konsequenzen
 
@@ -75,5 +78,8 @@ oder Source-Zugriff.
   persistente Lease abgewiesen; verschiedene Roots dürfen parallel laufen.
 - Heartbeats und Batch-Zähler sind auch ohne Zugriff auf private Source-Pfade
   über `ebook-hash-status` beobachtbar.
+- Ein separater Keeper hält die Lease auch während eines langen Einzelhashes;
+  Keeper-Ausfall, `KeyboardInterrupt` und harter Prozessabbruch besitzen
+  deterministische synthetische Abbruch-/Recovery-Tests.
 - Private Pfade und Hashwerte werden nicht in die CLI-Zusammenfassung oder das
   Repository geschrieben.
