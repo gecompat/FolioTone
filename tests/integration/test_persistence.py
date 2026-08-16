@@ -101,38 +101,29 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
     file_columns = {column["name"] for column in inspector.get_columns("file_records")}
     assert {"missing_since_at", "consecutive_missing_scans"} <= file_columns
     scan_columns = {column["name"] for column in inspector.get_columns("scan_runs")}
-    assert "resumed_from_run_id" in scan_columns
+    assert {"resumed_from_run_id", "lease_token", "lease_expires_at"} <= scan_columns
     expected_indexes = {
-        "tool_executions": {
-            "ix_tool_executions_input_capability_provider_started"
-        },
+        "scan_runs": {"ix_scan_runs_root_status_lease"},
+        "tool_executions": {"ix_tool_executions_input_capability_provider_started"},
         "tool_results": {"ix_tool_results_target_execution"},
         "fingerprints": {
             "ix_fingerprints_target_kind_execution",
             "ix_fingerprints_kind_algorithm_version_value_target",
         },
         "ebook_collection_runs": {"ix_ebook_collection_runs_root_status"},
-        "ebook_collection_items": {
-            "ix_ebook_collection_items_run_status_ordinal"
-        },
-        "ebook_collection_item_executions": {
-            "ix_ebook_collection_item_executions_execution_item"
-        },
-        "ebook_collection_findings": {
-            "ix_ebook_collection_findings_code_item"
-        },
+        "ebook_collection_items": {"ix_ebook_collection_items_run_status_ordinal"},
+        "ebook_collection_item_executions": {"ix_ebook_collection_item_executions_execution_item"},
+        "ebook_collection_findings": {"ix_ebook_collection_findings_code_item"},
         "ebook_collection_finding_executions": {
             "ix_ebook_collection_finding_executions_execution_finding"
         },
     }
     for table_name, names in expected_indexes.items():
-        assert names <= {
-            str(index["name"]) for index in inspector.get_indexes(table_name)
-        }
+        assert names <= {str(index["name"]) for index in inspector.get_indexes(table_name)}
 
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0008_ebook_collection_reports"
+    assert revision == "0009_scan_run_leases"
 
 
 def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) -> None:
@@ -175,18 +166,22 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
     migrate(path)
     upgraded = create_sqlite_engine(path)
     with upgraded.connect() as connection:
-        row = connection.execute(
-            text(
-                "SELECT missing_since_at, consecutive_missing_scans "
-                "FROM file_records WHERE id = :id"
-            ),
-            {"id": file_id},
-        ).mappings().one()
+        row = (
+            connection.execute(
+                text(
+                    "SELECT missing_since_at, consecutive_missing_scans "
+                    "FROM file_records WHERE id = :id"
+                ),
+                {"id": file_id},
+            )
+            .mappings()
+            .one()
+        )
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0008_ebook_collection_reports"
+    assert revision == "0009_scan_run_leases"
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:

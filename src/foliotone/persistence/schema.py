@@ -38,6 +38,8 @@ scan_runs = Table(
     Column("status", ENUM, nullable=False),
     Column("completed_at", DATETIME),
     Column("resumed_from_run_id", ID, ForeignKey("scan_runs.id")),
+    Column("lease_token", Text),
+    Column("lease_expires_at", DATETIME),
 )
 
 file_records = Table(

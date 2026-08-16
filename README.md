@@ -64,8 +64,9 @@ deterministischen privaten CLI-Sammlungsbericht ohne erneuten Source-Zugriff
 und ohne Identitätsurteil. `W3-017` härtet den realen read-only
 Collection-Betrieb: unveränderte Hash-Evidence wird ohne erneuten Source-Read
 übernommen, Scan- und Fingerprint-Batches werden begrenzt parallel und
-set-orientiert persistiert, Pilotpläne können alle vorhandenen Formate
-abdecken, und vollständiges SHA-256 wird selektiv auf Quick-
+set-orientiert persistiert, verwaiste `RUNNING`-Scans sind über eine
+abgesicherte Lease ausdrücklich wiederherstellbar, und Pilotpläne können alle
+vorhandenen Formate abdecken. Vollständiges SHA-256 wird selektiv auf Quick-
 Duplikatkandidaten begrenzt. Ein scanweiter privater Inventarbericht liefert
 Format-/Größenverteilung, Hash-Abdeckung, offene Quick-Kandidaten und exakt
 bestätigte Duplikatgruppen bereits vor der vollständigen Tiefenanalyse. Die
@@ -76,7 +77,8 @@ W0 bis W2 stellen die verifizierte technische Grundlage bereit:
 - persistente logische `ScanRoot`-Identitäten und `ScanRun`-Lifecycle;
 - streaming Filesystem Discovery;
 - NEW, UNCHANGED, MODIFIED, MISSING, REAPPEARED und opt-in DELETED;
-- konservative `FileRelocationCandidate`-Evidence sowie auditable Resume-Lineage;
+- konservative `FileRelocationCandidate`-Evidence, auditable Resume-Lineage
+  und wiederherstellbare `ScanRun`-Leases;
 - gestuftes Quick-/Full-SHA-256-Hashing;
 - Alembic-Migrationen für Incremental Index, Abwesenheitsstatus, Relocation-Kandidaten und Resume-Lineage;
 - versionierte Filename-/Path-Kandidaten und konfigurierbare Regex-Parsing-Profile;
@@ -215,7 +217,7 @@ Core identity
 Physical/index
   ScanRoot / ScanRun / FileRecord / FileObservation / FileScanEvent
   NEW / UNCHANGED / MODIFIED / MISSING / REAPPEARED / opt-in DELETED
-  FileRelocationCandidate / ScanRun resume lineage
+  FileRelocationCandidate / ScanRun resume lineage / recoverable lease
   Quick Fingerprint / streamed SHA-256
 
 Parsing
@@ -234,7 +236,7 @@ Tool orchestration
 Persistence
   Repository[T] / SQLiteRepository[T]
   SQLAlchemy Core
-  Alembic 0001_initial through 0008_ebook_collection_reports
+  Alembic 0001_initial through 0009_scan_run_leases
 ```
 
 ## Repository-Dokumentation

@@ -204,7 +204,9 @@ Implemented sequence and decisions through the active `W3-017`:
     mutually exclusive `--plan-per-format` for heterogeneous pilots and
     `ebook-duplicate-hash/v1` / `ebook-hash-candidates` to compute full
     SHA-256 only for current repeated Quick-fingerprint groups that still lack
-    exact file Evidence. Keep both workflows resumable, path-free and
+    exact file Evidence. Protect active `ScanRun` attempts with renewable
+    leases and permit only explicit atomic recovery of unleased or expired
+    `RUNNING` attempts. Keep all workflows resumable, path-free and
     non-mutating.
 18. add `ebook-inventory-report/v1` and CLI
     `foliotone ebook-inventory-report`. Read only the newest completed scan

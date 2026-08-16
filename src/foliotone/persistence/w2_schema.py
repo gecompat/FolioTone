@@ -57,6 +57,12 @@ Index(
     metadata.tables["scan_runs"].c.resumed_from_run_id,
 )
 Index(
+    "ix_scan_runs_root_status_lease",
+    metadata.tables["scan_runs"].c.scan_root_id,
+    metadata.tables["scan_runs"].c.status,
+    metadata.tables["scan_runs"].c.lease_expires_at,
+)
+Index(
     "ix_file_scan_events_run_state",
     file_scan_events.c.scan_run_id,
     file_scan_events.c.change_state,

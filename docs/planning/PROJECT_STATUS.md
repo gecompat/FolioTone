@@ -40,7 +40,10 @@ deterministische private JSON-/CSV-Sammlungsberichte, persistierte
 Befundprovenance und begrenzte Duplicate-/Varianten-Review-Kandidaten.
 `W3-017` ist `IN PROGRESS`: inkrementelle Scan-/Hash-Persistenz wurde aus dem
 realen Pilot gehärtet, heterogene Pilotpläne und selektives vollständiges
-Hashing von Quick-Duplikatkandidaten sind implementiert. Die Music-Welle W4
+Hashing von Quick-Duplikatkandidaten sind implementiert. Neue `ScanRun`-Leases
+mit Heartbeats und expliziter stale-`RUNNING`-Recovery schließen die im realen
+Lauf beobachtete Lücke nach einem externen harten Prozessabbruch. Die
+Music-Welle W4
 bleibt geplant und zurückgestellt.
 
 ## Implementierter W2-Slice
@@ -100,6 +103,14 @@ Source bleibt `MISSING`, Target bleibt `NEW`; es findet weder ein Identity Merge
 ### Interrupt/Resume
 
 `W2-007` modelliert ein Resume als neuen `ScanRun` mit `resumed_from_run_id`. Ein Run kann nur dann als Resume-Quelle verwendet werden, wenn er persistent existiert, Status `INTERRUPTED` besitzt und zum selben `ScanRoot` gehört. `COMPLETED`, `FAILED`, `RUNNING` oder fremde Roots werden abgelehnt.
+
+ADR-0025 ergänzt den Crash-Recovery-Vertrag. Neue `RUNNING`-Läufe besitzen
+eine 30-Minuten-Lease, die vor und nach begrenzten Scannerphasen erneuert wird.
+`--recover-stale-running` darf ausschließlich den neuesten ungeleasten oder
+abgelaufenen Lauf desselben `ScanRoot` atomar auf `INTERRUPTED` setzen und ihn
+anschließend über einen neuen Run fortsetzen. Eine aktive Lease blockiert die
+Recovery. Vor dem expliziten Aufruf muss betrieblich geprüft sein, dass der
+frühere Prozess nicht mehr aktiv ist.
 
 Resume öffnet den unterbrochenen Run nicht erneut. Der neue Run führt die streaming-basierte Discovery erneut vollständig aus. Das vermeidet einen nicht portablen persistenten `os.scandir`-Cursor. Bereits vor dem Interrupt verarbeitete unveränderte Dateien liegen jedoch als `FileRecord` und Fingerprint persistent vor; beim Resume werden sie als `UNCHANGED` erkannt und deshalb nicht erneut gehasht. Noch nicht erreichte Dateien werden normal verarbeitet.
 
@@ -173,6 +184,11 @@ Lifecycle und begrenzte Zähler, aber keine Pfade oder Metadatenwerte.
 Quality-Befundprojektionen einschließlich exakter `ToolExecution`-Quellen
 sowie den belegten Fingerprint-Gruppierungsindex. Die Tabellen speichern keine
 Source-Pfade, Metadatenwerte oder extrahierten Inhalte.
+
+`0009_scan_run_leases` ergänzt `scan_runs.lease_token`,
+`scan_runs.lease_expires_at` und den Root-/Status-/Lease-Index. Bestehende
+terminale Läufe bleiben nullable; ein vor der Migration verwaister
+`RUNNING`-Lauf wird dadurch ausdrücklich wiederherstellbar.
 
 Beim Upgrade einer bestehenden `0002`-Datenbank wird keine historische Abwesenheitsdauer oder Bestätigungsserie erfunden. Bestehende Datensätze beginnen konservativ mit `missing_since_at = NULL` und `consecutive_missing_scans = 0`; erst nachfolgende erfolgreiche Scans bauen neue Bestätigungsevidenz auf.
 
@@ -857,6 +873,16 @@ ist 147.477 Byte groß, hat SHA-256
 und enthält Report-Query, Workflow, CLI-Anbindung und Alembic
 `0008_ebook_collection_reports`.
 
+**Empirisch für W3-017 Scan-Recovery:** Der abschließende gezielte Verbundlauf
+bestand 25 CLI-, Resume-, Lease-, Migrations-, Persistenz- und
+Dokumentationsvertrags-Tests in 2 Minuten 35 Sekunden. Er prüft insbesondere
+die Blockierung einer aktiven Lease, die einmalige Recovery nach Ablauf, den
+Schutz gegen einen nachträglichen terminalen Write des früheren Besitzers, das
+Upgrade eines ungeleasten `RUNNING`-Laufs aus Revision `0008`, die CLI-Lineage
+und unveränderte synthetische Source-Dateien. Ruff war für Source und direkt
+betroffene Tests erfolgreich; Mypy prüfte die vier geänderten Kern-/CLI-Module
+ohne Befund. Der vollständige Gate läuft genau einmal am Pull Request.
+
 ## Aktiver W3-Stand und nächster Schritt
 
 W2 ist abgeschlossen; `W3-001` bis `W3-016` sind abgeschlossen. W3-015 stellt
@@ -872,6 +898,10 @@ erfolgreich. Normale Wiederholungen verwenden exakte Evidence, ohne externe
 Analyzer erneut zu starten. Der reale Collection-Pilot deckte dabei einen
 collection-weiten `Fingerprint.list_all()`-Engpass im Reuse-Lesepfad auf; der
 Lookup ist nun observation-spezifisch, begrenzt und indexgestützt.
+Ein externer harter Abbruch des realen Scanners hinterließ außerdem einen
+verwaisten `RUNNING`-Datensatz. Die Lease-/Heartbeat-Recovery schützt neue
+Läufe gegen konkurrierende Übernahme und erlaubt die ausdrückliche atomare
+Wiederherstellung abgelaufener oder älterer ungeleaster Läufe.
 `--plan-per-format` erzeugt begrenzte heterogene
 Collection-Pläne; `ebook-hash-candidates` bestätigt nur mehrfach belegte
 Quick-Gruppen mit vollständigem SHA-256 und ist durch denselben Aufruf

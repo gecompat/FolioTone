@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from sqlalchemy import Engine, bindparam, exists, insert, select, update
+from sqlalchemy import Engine, bindparam, exists, insert, or_, select, update
 from sqlalchemy.engine import Connection
 
 from foliotone.core import (
@@ -24,7 +24,14 @@ from foliotone.core import (
 from foliotone.index.deletion import DeletionConfirmationPolicy
 from foliotone.index.discovery import DiscoveredFile
 from foliotone.persistence import repository, schema, w2_schema
+from foliotone.persistence._mapping import datetime_to_db
 from foliotone.persistence.codecs import codec_for
+
+DEFAULT_SCAN_LEASE_DURATION = timedelta(minutes=30)
+
+
+class ScanLeaseError(RuntimeError):
+    """A scan lease is active, expired, or no longer owned by this invocation."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,9 +59,13 @@ class SQLiteIndexStore:
 
         codec = codec_for(ScanRoot)
         with self._engine.connect() as connection:
-            row = connection.execute(
-                select(schema.scan_roots).where(schema.scan_roots.c.name == normalized_name)
-            ).mappings().one_or_none()
+            row = (
+                connection.execute(
+                    select(schema.scan_roots).where(schema.scan_roots.c.name == normalized_name)
+                )
+                .mappings()
+                .one_or_none()
+            )
         if row is not None:
             root = codec.decode(row)
             if root.media_type is not media_type:
@@ -80,12 +91,16 @@ class SQLiteIndexStore:
         """Resolve the latest persisted scan for this root, if any."""
         codec = codec_for(ScanRun)
         with self._engine.connect() as connection:
-            row = connection.execute(
-                select(schema.scan_runs)
-                .where(schema.scan_runs.c.scan_root_id == str(root.id))
-                .order_by(schema.scan_runs.c.started_at.desc(), schema.scan_runs.c.id.desc())
-                .limit(1)
-            ).mappings().one_or_none()
+            row = (
+                connection.execute(
+                    select(schema.scan_runs)
+                    .where(schema.scan_runs.c.scan_root_id == str(root.id))
+                    .order_by(schema.scan_runs.c.started_at.desc(), schema.scan_runs.c.id.desc())
+                    .limit(1)
+                )
+                .mappings()
+                .one_or_none()
+            )
         if row is None:
             return None
         return codec.decode(row)
@@ -94,15 +109,19 @@ class SQLiteIndexStore:
         """Resolve the latest interrupted scan for this root, if any."""
         codec = codec_for(ScanRun)
         with self._engine.connect() as connection:
-            row = connection.execute(
-                select(schema.scan_runs)
-                .where(
-                    schema.scan_runs.c.scan_root_id == str(root.id),
-                    schema.scan_runs.c.status == ScanRunStatus.INTERRUPTED.value,
+            row = (
+                connection.execute(
+                    select(schema.scan_runs)
+                    .where(
+                        schema.scan_runs.c.scan_root_id == str(root.id),
+                        schema.scan_runs.c.status == ScanRunStatus.INTERRUPTED.value,
+                    )
+                    .order_by(schema.scan_runs.c.started_at.desc(), schema.scan_runs.c.id.desc())
+                    .limit(1)
                 )
-                .order_by(schema.scan_runs.c.started_at.desc(), schema.scan_runs.c.id.desc())
-                .limit(1)
-            ).mappings().one_or_none()
+                .mappings()
+                .one_or_none()
+            )
         if row is None:
             return None
         return codec.decode(row)
@@ -113,6 +132,8 @@ class SQLiteIndexStore:
         started_at: datetime,
         *,
         resume_from: ScanRun | None = None,
+        lease_token: str | None = None,
+        lease_expires_at: datetime | None = None,
     ) -> ScanRun:
         self.save_root(root)
         if resume_from is not None:
@@ -121,15 +142,104 @@ class SQLiteIndexStore:
                 raise ValueError(f"resume ScanRun {resume_from.id} does not exist")
             self._validate_resume_source(root, persisted)
             resume_from = persisted
+        if lease_token is None and lease_expires_at is None:
+            lease_token = str(EntityId.new())
+            lease_expires_at = started_at + DEFAULT_SCAN_LEASE_DURATION
         run = ScanRun(
             id=EntityId.new(),
             scan_root_id=root.id,
             started_at=started_at,
             status=ScanRunStatus.RUNNING,
             resumed_from_run_id=None if resume_from is None else resume_from.id,
+            lease_token=lease_token,
+            lease_expires_at=lease_expires_at,
         )
         repository(self._engine, ScanRun).save(run)
         return run
+
+    def recover_latest_stale_run(
+        self,
+        root: ScanRoot,
+        recovered_at: datetime,
+    ) -> ScanRun:
+        """Atomically turn the latest unleased or expired RUNNING run into INTERRUPTED."""
+        encoded_recovered_at = datetime_to_db(recovered_at)
+        if encoded_recovered_at is None:
+            raise AssertionError("non-null recovery time encoded as None")
+        codec = codec_for(ScanRun)
+        with self._engine.begin() as connection:
+            row = (
+                connection.execute(
+                    select(schema.scan_runs)
+                    .where(
+                        schema.scan_runs.c.scan_root_id == str(root.id),
+                        schema.scan_runs.c.status == ScanRunStatus.RUNNING.value,
+                    )
+                    .order_by(schema.scan_runs.c.started_at.desc(), schema.scan_runs.c.id.desc())
+                    .limit(1)
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is None:
+                raise ValueError("no RUNNING ScanRun exists for this ScanRoot")
+            run = codec.decode(row)
+            if run.lease_expires_at is not None and run.lease_expires_at > recovered_at:
+                raise ScanLeaseError("the latest RUNNING ScanRun still has an active lease")
+
+            recovered = replace(
+                run,
+                status=ScanRunStatus.INTERRUPTED,
+                completed_at=recovered_at,
+                lease_token=None,
+                lease_expires_at=None,
+            )
+            encoded = dict(codec.encode(recovered))
+            result = connection.execute(
+                update(schema.scan_runs)
+                .where(
+                    schema.scan_runs.c.id == str(run.id),
+                    schema.scan_runs.c.status == ScanRunStatus.RUNNING.value,
+                    or_(
+                        schema.scan_runs.c.lease_expires_at.is_(None),
+                        schema.scan_runs.c.lease_expires_at <= encoded_recovered_at,
+                    ),
+                )
+                .values(**encoded)
+            )
+            if result.rowcount != 1:
+                raise ScanLeaseError("the RUNNING ScanRun lease changed during recovery")
+            return recovered
+
+    def heartbeat_scan(
+        self,
+        run: ScanRun,
+        heartbeat_at: datetime,
+        lease_expires_at: datetime,
+    ) -> ScanRun:
+        """Extend one still-active lease owned by this scan invocation."""
+        if lease_expires_at <= heartbeat_at:
+            raise ValueError("heartbeat lease must expire after heartbeat_at")
+        if run.lease_token is None or run.lease_expires_at is None:
+            raise ScanLeaseError("the RUNNING ScanRun has no owned lease")
+        renewed = replace(run, lease_expires_at=lease_expires_at)
+        encoded_heartbeat_at = datetime_to_db(heartbeat_at)
+        if encoded_heartbeat_at is None:
+            raise AssertionError("non-null heartbeat time encoded as None")
+        with self._engine.begin() as connection:
+            result = connection.execute(
+                update(schema.scan_runs)
+                .where(
+                    schema.scan_runs.c.id == str(run.id),
+                    schema.scan_runs.c.status == ScanRunStatus.RUNNING.value,
+                    schema.scan_runs.c.lease_token == run.lease_token,
+                    schema.scan_runs.c.lease_expires_at > encoded_heartbeat_at,
+                )
+                .values(lease_expires_at=datetime_to_db(lease_expires_at))
+            )
+        if result.rowcount != 1:
+            raise ScanLeaseError("the RUNNING ScanRun lease is unavailable or expired")
+        return renewed
 
     @staticmethod
     def _validate_resume_source(root: ScanRoot, run: ScanRun) -> None:
@@ -146,8 +256,32 @@ class SQLiteIndexStore:
     ) -> ScanRun:
         if status is ScanRunStatus.RUNNING:
             raise ValueError("finish_scan requires a terminal ScanRunStatus")
-        finished = replace(run, status=status, completed_at=completed_at)
-        repository(self._engine, ScanRun).save(finished)
+        finished = replace(
+            run,
+            status=status,
+            completed_at=completed_at,
+            lease_token=None,
+            lease_expires_at=None,
+        )
+        codec = codec_for(ScanRun)
+        encoded = dict(codec.encode(finished))
+        lease_condition = (
+            schema.scan_runs.c.lease_token.is_(None)
+            if run.lease_token is None
+            else schema.scan_runs.c.lease_token == run.lease_token
+        )
+        with self._engine.begin() as connection:
+            result = connection.execute(
+                update(schema.scan_runs)
+                .where(
+                    schema.scan_runs.c.id == str(run.id),
+                    schema.scan_runs.c.status == ScanRunStatus.RUNNING.value,
+                    lease_condition,
+                )
+                .values(**encoded)
+            )
+        if result.rowcount != 1:
+            raise ScanLeaseError("the RUNNING ScanRun is no longer owned by this invocation")
         return finished
 
     def process_batch(
@@ -321,8 +455,7 @@ def _reconcile_file(
     if current.presence_state is not PresenceState.PRESENT:
         state = FileChangeState.REAPPEARED
     elif (
-        current.size_bytes != discovered.size_bytes
-        or current.modified_at != discovered.modified_at
+        current.size_bytes != discovered.size_bytes or current.modified_at != discovered.modified_at
     ):
         state = FileChangeState.MODIFIED
     else:
@@ -371,13 +504,7 @@ def _update_many(connection: Connection, values: Sequence[object]) -> None:
     statement = (
         update(table)
         .where(table.c.id == bindparam("_foliotone_entity_id"))
-        .values(
-            {
-                column.name: bindparam(column.name)
-                for column in table.c
-                if column.name != "id"
-            }
-        )
+        .values({column.name: bindparam(column.name) for column in table.c if column.name != "id"})
     )
     connection.execute(statement, rows)
 
@@ -395,4 +522,3 @@ def _upsert(connection: Connection, value: object) -> None:
         connection.execute(insert(codec.table).values(**row))
     else:
         connection.execute(update(codec.table).where(codec.table.c.id == entity_id).values(**row))
-
