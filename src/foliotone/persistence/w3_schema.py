@@ -155,6 +155,34 @@ ebook_collection_finding_executions = Table(
     ),
 )
 
+ebook_candidate_hash_runs = Table(
+    "ebook_candidate_hash_runs",
+    metadata,
+    Column("id", ID, primary_key=True),
+    Column("scan_root_id", ID, ForeignKey("scan_roots.id"), nullable=False),
+    Column(
+        "source_scan_run_id",
+        ID,
+        ForeignKey("scan_runs.id"),
+        nullable=False,
+    ),
+    Column("profile", Text, nullable=False),
+    Column("status", ENUM, nullable=False),
+    Column("phase", ENUM, nullable=False),
+    Column("started_at", DATETIME, nullable=False),
+    Column("heartbeat_at", DATETIME, nullable=False),
+    Column("finished_at", DATETIME),
+    Column("lease_token", Text),
+    Column("lease_expires_at", DATETIME),
+    Column("candidate_groups", Integer),
+    Column("candidate_observations", Integer),
+    Column("already_hashed", Integer),
+    Column("processed_count", Integer, nullable=False),
+    Column("hashed_count", Integer, nullable=False),
+    Column("failure_count", Integer, nullable=False),
+    Column("remaining_count", Integer),
+)
+
 Index(
     "ix_ebook_collection_runs_root_status",
     ebook_collection_runs.c.scan_root_id,
@@ -180,4 +208,16 @@ Index(
     "ix_ebook_collection_finding_executions_execution_finding",
     ebook_collection_finding_executions.c.execution_id,
     ebook_collection_finding_executions.c.finding_id,
+)
+Index(
+    "uq_ebook_candidate_hash_runs_active_root",
+    ebook_candidate_hash_runs.c.scan_root_id,
+    unique=True,
+    sqlite_where=ebook_candidate_hash_runs.c.status == "RUNNING",
+)
+Index(
+    "ix_ebook_candidate_hash_runs_root_started",
+    ebook_candidate_hash_runs.c.scan_root_id,
+    ebook_candidate_hash_runs.c.started_at,
+    ebook_candidate_hash_runs.c.id,
 )

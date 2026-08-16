@@ -1,6 +1,7 @@
 """Filesystem indexing, hashing, and incremental scan support."""
 
 from foliotone.index.candidate_hashing import (
+    DEFAULT_DUPLICATE_HASH_LEASE_DURATION,
     DUPLICATE_HASH_PROFILE,
     MAX_DUPLICATE_HASH_BATCH_SIZE,
     MAX_DUPLICATE_HASH_WORKERS,
@@ -27,6 +28,7 @@ __all__ = [
     "DeletionConfirmationPolicy",
     "DiscoveredFile",
     "DUPLICATE_HASH_PROFILE",
+    "DEFAULT_DUPLICATE_HASH_LEASE_DURATION",
     "DuplicateHashCandidateError",
     "DuplicateHashCandidateService",
     "DuplicateHashCandidateSummary",

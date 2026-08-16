@@ -1,6 +1,10 @@
 """Persistence implementations behind provider-independent core contracts."""
 
 from foliotone.persistence.contracts import Repository
+from foliotone.persistence.ebook_candidate_hash import (
+    EbookCandidateHashLeaseError,
+    SQLiteEbookCandidateHashRunStore,
+)
 from foliotone.persistence.ebook_collection import (
     EBOOK_COLLECTION_PLAN_BATCH_SIZE,
     CreatedEbookCollectionRun,
@@ -64,6 +68,7 @@ __all__ = [
     "EbookCollectionFindingSummary",
     "EbookCollectionStoreError",
     "EbookCollectionWorkItem",
+    "EbookCandidateHashLeaseError",
     "EbookInventoryDuplicateGroup",
     "EbookInventoryDuplicateMember",
     "EbookInventoryDuplicateSet",
@@ -82,6 +87,7 @@ __all__ = [
     "ObservationEvidenceRecords",
     "SQLiteRepository",
     "SQLiteEbookCollectionStore",
+    "SQLiteEbookCandidateHashRunStore",
     "SQLiteEbookInventoryReportStore",
     "SQLiteEbookCollectionReportStore",
     "alembic_config",

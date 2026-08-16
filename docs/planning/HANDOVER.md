@@ -760,6 +760,14 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
   die Duplikatbestätigung begrenzt und durch denselben Aufruf fortsetzbar;
 - pfadfreie, sofort geleerte Phasen- und Batch-Ausgaben machen auch die
   Kandidatenauswahl und den Migrationsschritt beobachtbar;
+- `ebook_candidate_hash_runs`, eine rootweite partielle Active-Run-
+  Eindeutigkeit und ein separater Lease-Keeper verhindern konkurrierende
+  Kandidaten-Hashläufe und halten auch lange Einzelhashes lebendig;
+- Fingerprint-Insert und Fortschrittszähler werden pro Batch in derselben
+  gefenceten Transaktion persistiert; ein stale übernommener Vorgänger kann
+  keine nachträgliche Evidence schreiben;
+- `foliotone ebook-hash-status` liest Run-ID, Phase, Heartbeat, Lease-Ablauf
+  und Zähler pfadfrei und migriert die Datenbank ausdrücklich nicht;
 - Observation-Prüfung vor und nach dem Hash verhindert, dass inzwischen
   veränderte Source-Dateien falsche Evidence erhalten;
 - ein privater read-only Vierformat-Pilot bestätigte reale EPUB-, PDF-, AZW3-
@@ -775,6 +783,11 @@ Bereits gemergte Migrationen werden nicht rückwirkend verändert.
 - 25 gezielte CLI-, Resume-, Lease-, Migrations-, Persistenz- und
   Dokumentationsvertrags-Tests bestanden; Ruff und der gezielte Mypy-Lauf waren
   ohne Befund. Der vollständige Gate bleibt dem Pull Request vorbehalten.
+- 26 gezielte Kandidaten-Hash-Lease-, Status-, Migrations-, Persistenz- und
+  Dokumentationsvertrags-Tests bestanden in 3 Minuten 56 Sekunden. Sie decken
+  konkurrierende Besitzer, root-parallele Läufe, stale Takeover, atomaren
+  Batch-Rollback und die read-only Statusabfrage ab; Ruff und der gezielte
+  Mypy-Lauf waren ohne Befund.
 
 ADR-0015, ADR-0021, ADR-0023, ADR-0024 und ADR-0025 dokumentieren die
 verbindlichen Resume-, Lease-, Plan-, Hash- und Inventarverträge. Die

@@ -53,6 +53,7 @@ from foliotone.persistence.w2_schema import (
     tool_artifacts,
 )
 from foliotone.persistence.w3_schema import (
+    ebook_candidate_hash_runs,
     ebook_collection_finding_executions,
     ebook_collection_findings,
     ebook_collection_item_executions,
@@ -96,6 +97,7 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
         ebook_collection_item_executions.name,
         ebook_collection_findings.name,
         ebook_collection_finding_executions.name,
+        ebook_candidate_hash_runs.name,
     }
     assert table_names == expected
     file_columns = {column["name"] for column in inspector.get_columns("file_records")}
@@ -118,6 +120,10 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
         "ebook_collection_finding_executions": {
             "ix_ebook_collection_finding_executions_execution_finding"
         },
+        "ebook_candidate_hash_runs": {
+            "uq_ebook_candidate_hash_runs_active_root",
+            "ix_ebook_candidate_hash_runs_root_started",
+        },
     }
     for table_name, names in expected_indexes.items():
         assert names <= {str(index["name"]) for index in inspector.get_indexes(table_name)}
@@ -139,7 +145,7 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
                 "target_id": "00000000-0000-0000-0000-000000000001",
             },
         ).all()
-    assert revision == "0010_candidate_hash_lookup_index"
+    assert revision == "0011_candidate_hash_run_leases"
     assert any(
         "ix_fingerprints_target_profile_id_value" in str(row[-1])
         for row in query_plan
@@ -201,7 +207,7 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0010_candidate_hash_lookup_index"
+    assert revision == "0011_candidate_hash_run_leases"
 
 
 def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
@@ -228,7 +234,63 @@ def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
         ).scalar_one()
 
     assert "ix_fingerprints_target_profile_id_value" in indexes
-    assert revision == "0010_candidate_hash_lookup_index"
+    assert revision == "0011_candidate_hash_run_leases"
+
+
+def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "candidate-run-upgrade.db"
+    migrate(path, "0010_candidate_hash_lookup_index")
+    legacy = create_sqlite_engine(path)
+    duplicate_profile = {
+        "target_kind": "FILE_OBSERVATION",
+        "target_id": "00000000-0000-0000-0000-000000000001",
+        "kind": "FILE_SHA256",
+        "algorithm": "sha256",
+        "algorithm_version": "1",
+        "value": "same-value",
+        "created_at": NOW.isoformat(),
+        "tool_execution_id": None,
+    }
+    with legacy.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO fingerprints "
+                "(id, target_kind, target_id, kind, algorithm, algorithm_version, "
+                "value, created_at, tool_execution_id) VALUES "
+                "(:id, :target_kind, :target_id, :kind, :algorithm, "
+                ":algorithm_version, :value, :created_at, :tool_execution_id)"
+            ),
+            [
+                {"id": "00000000-0000-0000-0000-000000000010", **duplicate_profile},
+                {"id": "00000000-0000-0000-0000-000000000011", **duplicate_profile},
+            ],
+        )
+    assert ebook_candidate_hash_runs.name not in inspect(legacy).get_table_names()
+    legacy.dispose()
+
+    migrate(path)
+    upgraded = create_sqlite_engine(path)
+    inspector = inspect(upgraded)
+    with upgraded.connect() as connection:
+        revision = connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
+        duplicate_count = connection.execute(
+            text("SELECT count(*) FROM fingerprints WHERE value = 'same-value'")
+        ).scalar_one()
+
+    assert ebook_candidate_hash_runs.name in inspector.get_table_names()
+    assert {
+        "uq_ebook_candidate_hash_runs_active_root",
+        "ix_ebook_candidate_hash_runs_root_started",
+    } <= {
+        str(index["name"])
+        for index in inspector.get_indexes(ebook_candidate_hash_runs.name)
+    }
+    assert duplicate_count == 2
+    assert revision == "0011_candidate_hash_run_leases"
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:
