@@ -52,6 +52,10 @@ def test_status_command_is_non_destructive_bootstrap(
             "through ebook-collection-report."
         ),
         (
+            "Read-only resumable collection maintenance (analyze + optional hash/enhance "
+            "reports) is available through ebook-collection-maintain."
+        ),
+        (
             "Quick duplicate candidates can be selectively confirmed with full SHA-256 "
             "through ebook-hash-candidates."
         ),
