@@ -57,6 +57,14 @@ abgelaufene oder aus älteren Versionen stammende ungeleaste Läufe.
 
 ## Verifizierter aktueller Stand
 
+### `W3-017` (E5 synthetischer Performance-/Restart-Vertrag)
+
+Die E5-Verifikation wurde auf Testebene ergänzt: neue synthetische
+Skalierungs- und Restart-Szenarien prüfen genau eine Kandidatenmaterialisierung
+pro Invocation, den Einsatz des `ix_fingerprints_target_profile_id_value`-Indexes
+in der Kandidatenabfrage sowie deterministisches Fortschreiten mit `max_items`
+und anschließendem Wiederaufnahme-Lauf.
+
 ### Grundlegender W2-Slice
 
 Der finale W2-PR-#5-Head `ef10290da1ed3522e5a261ccb33d5561e32eb497` hat in GitHub Actions Run `31282820586` bestanden. Der automatisierte Docker Incremental Scan Smoke Test bestätigt NEW → UNCHANGED → MODIFIED/MISSING → REAPPEARED über getrennte Containerläufe und persistente SQLite-Daten.
