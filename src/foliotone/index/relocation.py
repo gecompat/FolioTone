@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import PurePosixPath
 
-from sqlalchemy import Engine, and_, select
+from sqlalchemy import Engine, and_, insert, select
 
 from foliotone.core import (
     EntityId,
@@ -17,7 +17,12 @@ from foliotone.core import (
     RelocationCandidateKind,
     ScanRun,
 )
-from foliotone.persistence import repository, schema, w2_schema
+from foliotone.persistence import schema, w2_schema
+from foliotone.persistence.codecs import codec_for
+from foliotone.persistence.scan_root_lease import (
+    OwnedScanRootWriteLease,
+    SQLiteScanRootWriteLeaseStore,
+)
 
 _SUPPORTED_FINGERPRINTS = frozenset({"QUICK_FILE", "FILE_SHA256"})
 _FINGERPRINT_PRIORITY = {"QUICK_FILE": 1, "FILE_SHA256": 2}
@@ -55,12 +60,15 @@ class RelocationCandidateDetector:
 
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
-        self._repository = repository(engine, FileRelocationCandidate)
+        self._codec = codec_for(FileRelocationCandidate)
+        self._write_leases = SQLiteScanRootWriteLeaseStore(engine)
 
     def detect(
         self,
         run: ScanRun,
         created_at: datetime,
+        *,
+        write_lease: OwnedScanRootWriteLease,
     ) -> tuple[FileRelocationCandidate, ...]:
         """Persist unambiguous fingerprint-blocked candidates for one completed scan body."""
         matches = self._load_matches(run)
@@ -82,8 +90,13 @@ class RelocationCandidateDetector:
                 ),
             )
         )
-        for candidate in candidates:
-            self._repository.save(candidate)
+        if candidates:
+            with self._engine.begin() as connection:
+                self._write_leases.fence(connection, write_lease, created_at)
+                connection.execute(
+                    insert(self._codec.table),
+                    [dict(self._codec.encode(candidate)) for candidate in candidates],
+                )
         return candidates
 
     def _load_matches(self, run: ScanRun) -> tuple[_FingerprintMatch, ...]:

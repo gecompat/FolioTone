@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Engine, Table, insert, or_, select, update
-from sqlalchemy.engine import RowMapping
+from sqlalchemy import Engine, Table, insert, select, update
+from sqlalchemy.engine import Connection, RowMapping
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -16,13 +16,19 @@ from foliotone.core import (
     EntityId,
     Fingerprint,
 )
-from foliotone.persistence import w3_schema
+from foliotone.persistence import schema, w3_schema
 from foliotone.persistence._mapping import (
     datetime_to_db,
     required_datetime_from_db,
     required_id_from_db,
 )
 from foliotone.persistence.codecs import codec_for
+from foliotone.persistence.scan_root_lease import (
+    OwnedScanRootWriteLease,
+    ScanRootWriteLeaseError,
+    ScanRootWriteOwnerKind,
+    SQLiteScanRootWriteLeaseStore,
+)
 
 
 class EbookCandidateHashLeaseError(RuntimeError):
@@ -35,6 +41,7 @@ class SQLiteEbookCandidateHashRunStore:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
         self._fingerprint_codec = codec_for(Fingerprint)
+        self._write_leases = SQLiteScanRootWriteLeaseStore(engine)
 
     def acquire(
         self,
@@ -51,7 +58,6 @@ class SQLiteEbookCandidateHashRunStore:
         if lease_expires_at <= started_at:
             raise ValueError("candidate hash lease must expire after acquisition")
         table = w3_schema.ebook_candidate_hash_runs
-        started = _required_datetime_to_db(started_at)
         run = EbookCandidateHashRun(
             id=EntityId.new(),
             scan_root_id=scan_root_id,
@@ -66,27 +72,49 @@ class SQLiteEbookCandidateHashRunStore:
         )
         try:
             with self._engine.begin() as connection:
-                connection.execute(
-                    update(table)
-                    .where(
-                        table.c.scan_root_id == str(scan_root_id),
-                        table.c.status == EbookCandidateHashRunStatus.RUNNING.value,
-                        or_(
-                            table.c.lease_expires_at.is_(None),
-                            table.c.lease_expires_at <= started,
-                        ),
-                    )
-                    .values(
-                        status=EbookCandidateHashRunStatus.INTERRUPTED.value,
-                        finished_at=started,
-                        lease_token=None,
-                        lease_expires_at=None,
-                    )
+                current = self._write_leases.current_in_transaction(
+                    connection,
+                    scan_root_id,
                 )
+                if current is None:
+                    self._write_leases.acquire_in_transaction(
+                        connection,
+                        scan_root_id,
+                        ScanRootWriteOwnerKind.EBOOK_CANDIDATE_HASH_RUN,
+                        run.id,
+                        lease_token=lease_token,
+                        acquired_at=started_at,
+                        lease_expires_at=lease_expires_at,
+                    )
+                else:
+                    self._recover_candidate_owner(
+                        connection,
+                        current,
+                        run,
+                        started_at=started_at,
+                        lease_expires_at=lease_expires_at,
+                    )
+                latest_scan = connection.execute(
+                    select(schema.scan_runs.c.id, schema.scan_runs.c.status)
+                    .where(schema.scan_runs.c.scan_root_id == str(scan_root_id))
+                    .order_by(
+                        schema.scan_runs.c.started_at.desc(),
+                        schema.scan_runs.c.id.desc(),
+                    )
+                    .limit(1)
+                ).one_or_none()
+                if (
+                    latest_scan is None
+                    or latest_scan.id != str(source_scan_run_id)
+                    or latest_scan.status != "COMPLETED"
+                ):
+                    raise EbookCandidateHashLeaseError(
+                        "candidate-hash source ScanRun is no longer current"
+                    )
                 connection.execute(insert(table).values(**_run_to_row(run)))
-        except IntegrityError as error:
+        except (IntegrityError, ScanRootWriteLeaseError) as error:
             raise EbookCandidateHashLeaseError(
-                "active candidate-hash lease exists for this ScanRoot"
+                "another write workflow owns this ScanRoot"
             ) from error
         return run
 
@@ -105,6 +133,17 @@ class SQLiteEbookCandidateHashRunStore:
         table = w3_schema.ebook_candidate_hash_runs
         heartbeat = _required_datetime_to_db(heartbeat_at)
         with self._engine.begin() as connection:
+            root_lease = self._require_root_owner(
+                connection,
+                run_id,
+                lease_token,
+            )
+            self._write_leases.heartbeat_in_transaction(
+                connection,
+                root_lease,
+                heartbeat_at=heartbeat_at,
+                lease_expires_at=lease_expires_at,
+            )
             result = connection.execute(
                 update(table)
                 .where(*_owned_active_conditions(table, run_id, lease_token, heartbeat))
@@ -146,6 +185,17 @@ class SQLiteEbookCandidateHashRunStore:
         table = w3_schema.ebook_candidate_hash_runs
         heartbeat = _required_datetime_to_db(heartbeat_at)
         with self._engine.begin() as connection:
+            root_lease = self._require_root_owner(
+                connection,
+                run_id,
+                lease_token,
+            )
+            self._write_leases.heartbeat_in_transaction(
+                connection,
+                root_lease,
+                heartbeat_at=heartbeat_at,
+                lease_expires_at=lease_expires_at,
+            )
             result = connection.execute(
                 update(table)
                 .where(*_owned_active_conditions(table, run_id, lease_token, heartbeat))
@@ -188,6 +238,17 @@ class SQLiteEbookCandidateHashRunStore:
             for fingerprint in fingerprints
         ]
         with self._engine.begin() as connection:
+            root_lease = self._require_root_owner(
+                connection,
+                run_id,
+                lease_token,
+            )
+            self._write_leases.heartbeat_in_transaction(
+                connection,
+                root_lease,
+                heartbeat_at=committed_at,
+                lease_expires_at=lease_expires_at,
+            )
             result = connection.execute(
                 update(table)
                 .where(*_owned_active_conditions(table, run_id, lease_token, committed))
@@ -223,6 +284,12 @@ class SQLiteEbookCandidateHashRunStore:
         table = w3_schema.ebook_candidate_hash_runs
         finished = _required_datetime_to_db(finished_at)
         with self._engine.begin() as connection:
+            root_lease = self._require_root_owner(
+                connection,
+                run_id,
+                lease_token,
+            )
+            self._write_leases.fence(connection, root_lease, finished_at)
             result = connection.execute(
                 update(table)
                 .where(*_owned_active_conditions(table, run_id, lease_token, finished))
@@ -235,7 +302,12 @@ class SQLiteEbookCandidateHashRunStore:
                     lease_expires_at=None,
                 )
             )
-        _require_owned(result.rowcount)
+            _require_owned(result.rowcount)
+            self._write_leases.release_in_transaction(
+                connection,
+                root_lease,
+                released_at=finished_at,
+            )
 
     def abandon_owned(
         self,
@@ -255,7 +327,16 @@ class SQLiteEbookCandidateHashRunStore:
         table = w3_schema.ebook_candidate_hash_runs
         finished = _required_datetime_to_db(finished_at)
         with self._engine.begin() as connection:
-            connection.execute(
+            try:
+                root_lease = self._require_root_owner(
+                    connection,
+                    run_id,
+                    lease_token,
+                )
+                self._write_leases.fence(connection, root_lease, finished_at)
+            except (EbookCandidateHashLeaseError, ScanRootWriteLeaseError):
+                return
+            result = connection.execute(
                 update(table)
                 .where(
                     *_owned_active_conditions(
@@ -274,6 +355,88 @@ class SQLiteEbookCandidateHashRunStore:
                     lease_expires_at=None,
                 )
             )
+            if result.rowcount == 1:
+                self._write_leases.release_in_transaction(
+                    connection,
+                    root_lease,
+                    released_at=finished_at,
+                )
+
+    def _recover_candidate_owner(
+        self,
+        connection: Connection,
+        current: OwnedScanRootWriteLease,
+        replacement: EbookCandidateHashRun,
+        *,
+        started_at: datetime,
+        lease_expires_at: datetime,
+    ) -> None:
+        if (
+            current.owner_kind
+            is not ScanRootWriteOwnerKind.EBOOK_CANDIDATE_HASH_RUN
+            or current.lease_expires_at > started_at
+        ):
+            raise EbookCandidateHashLeaseError(
+                "another write workflow owns this ScanRoot"
+            )
+        table = w3_schema.ebook_candidate_hash_runs
+        started = _required_datetime_to_db(started_at)
+        result = connection.execute(
+            update(table)
+            .where(
+                table.c.id == str(current.owner_run_id),
+                table.c.scan_root_id == str(current.scan_root_id),
+                table.c.status == EbookCandidateHashRunStatus.RUNNING.value,
+                table.c.lease_token == current.lease_token,
+                table.c.lease_expires_at <= started,
+            )
+            .values(
+                status=EbookCandidateHashRunStatus.INTERRUPTED.value,
+                phase=EbookCandidateHashPhase.FINALIZING.value,
+                heartbeat_at=started,
+                finished_at=started,
+                lease_token=None,
+                lease_expires_at=None,
+            )
+        )
+        _require_owned(result.rowcount)
+        self._write_leases.takeover_expired_in_transaction(
+            connection,
+            current,
+            replacement.id,
+            lease_token=replacement.lease_token or "",
+            acquired_at=started_at,
+            lease_expires_at=lease_expires_at,
+        )
+
+    def _require_root_owner(
+        self,
+        connection: Connection,
+        run_id: EntityId,
+        lease_token: str,
+    ) -> OwnedScanRootWriteLease:
+        root_id = connection.execute(
+            select(w3_schema.ebook_candidate_hash_runs.c.scan_root_id).where(
+                w3_schema.ebook_candidate_hash_runs.c.id == str(run_id)
+            )
+        ).scalar_one_or_none()
+        if root_id is None:
+            raise EbookCandidateHashLeaseError("candidate-hash run does not exist")
+        current = self._write_leases.current_in_transaction(
+            connection,
+            EntityId.parse(str(root_id)),
+        )
+        if (
+            current is None
+            or current.owner_kind
+            is not ScanRootWriteOwnerKind.EBOOK_CANDIDATE_HASH_RUN
+            or current.owner_run_id != run_id
+            or current.lease_token != lease_token
+        ):
+            raise EbookCandidateHashLeaseError(
+                "candidate-hash root ownership is unavailable"
+            )
+        return current
 
     def latest(self, scan_root_id: EntityId) -> EbookCandidateHashRun | None:
         """Load the latest durable path-free candidate-hash run for one root."""

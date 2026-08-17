@@ -551,16 +551,14 @@ def test_candidate_hash_counts_multiple_existing_full_hashes(tmp_path: Path) -> 
     media, engine, root = _candidate_case(tmp_path, "already-full-hashed")
     writer = FingerprintWriter(engine)
     observations = repository(engine, FileObservation).list_all()
-    writer.save_many(
-        tuple(
+    for observation in observations:
+        repository(engine, Fingerprint).save(
             writer.calculate_full(
                 observation,
                 media / observation.relative_path,
                 NOW,
             )
-            for observation in observations
         )
-    )
 
     summary = DuplicateHashCandidateService(engine).enrich(root, media)
 

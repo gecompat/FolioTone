@@ -170,13 +170,13 @@ def test_expired_scan_lease_is_recovered_once_and_can_be_resumed(tmp_path: Path)
         store.recover_latest_stale_run(root, NOW + timedelta(minutes=29))
 
     recovered = store.recover_latest_stale_run(root, NOW + timedelta(minutes=31))
-    assert recovered.id == running.id
+    assert recovered.id == running.run.id
     assert recovered.status is ScanRunStatus.INTERRUPTED
     assert recovered.completed_at == NOW + timedelta(minutes=31)
     assert recovered.lease_token is None
     assert recovered.lease_expires_at is None
 
-    with pytest.raises(ScanLeaseError, match="no longer owned"):
+    with pytest.raises(ScanLeaseError, match="ownership|owned"):
         store.finish_scan(
             running,
             ScanRunStatus.COMPLETED,
@@ -206,15 +206,12 @@ def test_legacy_unleased_running_scan_is_explicitly_recoverable(tmp_path: Path) 
     )
     repository(engine, ScanRun).save(legacy)
 
-    recovered = store.recover_latest_stale_run(root, NOW + timedelta(hours=1))
-
-    assert recovered.id == legacy.id
-    assert recovered.status is ScanRunStatus.INTERRUPTED
-    assert recovered.lease_token is None
-    assert recovered.lease_expires_at is None
+    with pytest.raises(ScanLeaseError, match="not recoverable"):
+        store.recover_latest_stale_run(root, NOW + timedelta(hours=1))
+    assert repository(engine, ScanRun).get(legacy.id) == legacy
 
 
-def test_scan_cli_recovers_stale_running_run_and_preserves_source(
+def test_scan_cli_rejects_unfenced_stale_run_and_preserves_source(
     tmp_path: Path,
     capsys: CaptureFixture[str],
 ) -> None:
@@ -247,13 +244,9 @@ def test_scan_cli_recovers_stale_running_run_and_preserves_source(
     )
     output = capsys.readouterr().out
 
-    assert result == 0
-    assert f"Recovered stale ScanRun: {stale.id}" in output
-    runs = repository(engine, ScanRun).list_all()
-    recovered = next(run for run in runs if run.id == stale.id)
-    resumed = next(run for run in runs if run.resumed_from_run_id == stale.id)
-    assert recovered.status is ScanRunStatus.INTERRUPTED
-    assert resumed.status is ScanRunStatus.COMPLETED
+    assert result == 2
+    assert "ScanRoot writer is not recoverable" in output
+    assert repository(engine, ScanRun).get(stale.id) == stale
     assert source.read_bytes() == b"alpha"
 
 
@@ -272,7 +265,7 @@ def test_scan_resume_migrations_add_lineage_and_lease_contract(tmp_path: Path) -
     assert "ix_scan_runs_root_status_lease" in indexes
 
 
-def test_migration_makes_legacy_running_scan_recoverable(tmp_path: Path) -> None:
+def test_migration_refuses_a_live_legacy_writer_before_ddl(tmp_path: Path) -> None:
     database = tmp_path / "legacy-running.db"
     migrate(database, "0008_ebook_collection_reports")
     engine = create_sqlite_engine(database)
@@ -307,15 +300,19 @@ def test_migration_makes_legacy_running_scan_recoverable(tmp_path: Path) -> None
         )
     engine.dispose()
 
-    migrate(database)
-    upgraded = create_sqlite_engine(database)
-    (root,) = repository(upgraded, ScanRoot).list_all()
-    recovered = SQLiteIndexStore(upgraded).recover_latest_stale_run(
-        root,
-        NOW + timedelta(hours=1),
-    )
+    with pytest.raises(RuntimeError, match="quiescent"):
+        migrate(database)
 
-    assert str(recovered.id) == run_id
-    assert recovered.status is ScanRunStatus.INTERRUPTED
-    assert recovered.lease_token is None
-    assert recovered.lease_expires_at is None
+    upgraded = create_sqlite_engine(database)
+    with upgraded.connect() as connection:
+        revision = connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
+        table_exists = connection.execute(
+            text(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type = 'table' AND name = 'scan_root_write_leases'"
+            )
+        ).scalar_one_or_none()
+    assert revision == "0011_candidate_hash_run_leases"
+    assert table_exists is None

@@ -6,6 +6,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from threading import Event, Thread
 
 from foliotone.core import (
     MAX_EBOOK_COLLECTION_WORKERS,
@@ -19,7 +20,9 @@ from foliotone.persistence import (
     EbookCollectionExecutionSummary,
     EbookCollectionFindingSummary,
     EbookCollectionWorkItem,
+    OwnedScanRootWriteLease,
     SQLiteEbookCollectionStore,
+    scan_root_write_scope,
 )
 from foliotone.workflows.ebook import (
     EBOOK_ANALYSIS_PROFILE,
@@ -32,6 +35,7 @@ from foliotone.workflows.ebook import (
 EBOOK_COLLECTION_PROFILE = "ebook-collection-analysis/v1"
 EBOOK_COLLECTION_LEASE_DURATION = timedelta(minutes=30)
 EBOOK_COLLECTION_CLAIM_FACTOR = 2
+MAX_EBOOK_COLLECTION_HEARTBEAT_SECONDS = 60.0
 
 type Clock = Callable[[], datetime]
 type EbookCollectionAnalysis = Callable[[FileObservation, bool], EbookAnalysisOutcome]
@@ -76,6 +80,62 @@ class _ItemSummary:
     executions: tuple[EbookCollectionExecutionSummary, ...] = ()
     findings: tuple[EbookCollectionFindingSummary, ...] = ()
     error_code: str | None = None
+
+
+class _CollectionLeaseKeeper:
+    """Renew collection and root ownership during long-running analysis."""
+
+    def __init__(
+        self,
+        store: SQLiteEbookCollectionStore,
+        run_id: EntityId,
+        lease_token: str,
+        *,
+        clock: Clock,
+        lease_duration: timedelta,
+    ) -> None:
+        self._store = store
+        self._run_id = run_id
+        self._lease_token = lease_token
+        self._clock = clock
+        self._lease_duration = lease_duration
+        self._interval = min(
+            MAX_EBOOK_COLLECTION_HEARTBEAT_SECONDS,
+            lease_duration.total_seconds() / 3,
+        )
+        self._stop = Event()
+        self._thread = Thread(
+            target=self._renew_until_stopped,
+            name="foliotone-ebook-collection-heartbeat",
+            daemon=True,
+        )
+        self._error: Exception | None = None
+
+    def __enter__(self) -> _CollectionLeaseKeeper:
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_exception: object) -> None:
+        self._stop.set()
+        self._thread.join()
+
+    def check(self) -> None:
+        if self._error is not None:
+            raise EbookCollectionError("collection heartbeat failed") from self._error
+
+    def _renew_until_stopped(self) -> None:
+        while not self._stop.wait(self._interval):
+            now = self._clock()
+            try:
+                self._store.heartbeat(
+                    self._run_id,
+                    self._lease_token,
+                    now,
+                    now + self._lease_duration,
+                )
+            except Exception as error:
+                self._error = error
+                return
 
 
 class EbookCollectionService:
@@ -151,56 +211,74 @@ class EbookCollectionService:
         max_items: int | None,
     ) -> EbookCollectionOutcome:
         processed = 0
+        write_lease = self._store.owned_write_lease(run.id, lease_token)
+        keeper = _CollectionLeaseKeeper(
+            self._store,
+            run.id,
+            lease_token,
+            clock=self._clock,
+            lease_duration=self._lease_duration,
+        )
         try:
-            with ThreadPoolExecutor(
-                max_workers=run.worker_count,
-                thread_name_prefix="foliotone-ebook",
-            ) as executor:
-                while max_items is None or processed < max_items:
-                    remaining = (
-                        run.worker_count * EBOOK_COLLECTION_CLAIM_FACTOR
-                        if max_items is None
-                        else min(
-                            run.worker_count * EBOOK_COLLECTION_CLAIM_FACTOR,
-                            max_items - processed,
+            with keeper:
+                with ThreadPoolExecutor(
+                    max_workers=run.worker_count,
+                    thread_name_prefix="foliotone-ebook",
+                ) as executor:
+                    while max_items is None or processed < max_items:
+                        keeper.check()
+                        remaining = (
+                            run.worker_count * EBOOK_COLLECTION_CLAIM_FACTOR
+                            if max_items is None
+                            else min(
+                                run.worker_count * EBOOK_COLLECTION_CLAIM_FACTOR,
+                                max_items - processed,
+                            )
                         )
-                    )
-                    now = self._clock()
-                    self._store.heartbeat(
-                        run.id,
-                        lease_token,
-                        now,
-                        now + self._lease_duration,
-                    )
-                    work_items = self._store.claim_pending(
-                        run.id,
-                        lease_token,
-                        limit=remaining,
-                        started_at=now,
-                    )
-                    if not work_items:
-                        break
-
-                    futures = {
-                        executor.submit(self._analyze_item, run, work_item): work_item
-                        for work_item in work_items
-                    }
-                    for future in as_completed(futures):
-                        work_item = futures[future]
-                        summary = future.result()
-                        self._store.complete_item(
-                            work_item.item,
+                        now = self._clock()
+                        self._store.heartbeat(
+                            run.id,
                             lease_token,
-                            status=summary.status,
-                            completed_at=self._clock(),
-                            quality_status=summary.quality_status,
-                            reused_step_count=summary.reused_step_count,
-                            executed_step_count=summary.executed_step_count,
-                            executions=summary.executions,
-                            findings=summary.findings,
-                            error_code=summary.error_code,
+                            now,
+                            now + self._lease_duration,
                         )
-                        processed += 1
+                        work_items = self._store.claim_pending(
+                            run.id,
+                            lease_token,
+                            limit=remaining,
+                            started_at=now,
+                        )
+                        if not work_items:
+                            break
+
+                        futures = {
+                            executor.submit(
+                                self._analyze_item,
+                                run,
+                                work_item,
+                                write_lease,
+                            ): work_item
+                            for work_item in work_items
+                        }
+                        for future in as_completed(futures):
+                            keeper.check()
+                            work_item = futures[future]
+                            summary = future.result()
+                            keeper.check()
+                            self._store.complete_item(
+                                work_item.item,
+                                lease_token,
+                                status=summary.status,
+                                completed_at=self._clock(),
+                                quality_status=summary.quality_status,
+                                reused_step_count=summary.reused_step_count,
+                                executed_step_count=summary.executed_step_count,
+                                executions=summary.executions,
+                                findings=summary.findings,
+                                error_code=summary.error_code,
+                            )
+                            processed += 1
+                keeper.check()
 
             finished = self._store.finish_invocation(
                 run.id,
@@ -229,9 +307,11 @@ class EbookCollectionService:
         self,
         run: EbookCollectionRun,
         work_item: EbookCollectionWorkItem,
+        write_lease: OwnedScanRootWriteLease,
     ) -> _ItemSummary:
         try:
-            outcome = self._analyze(work_item.observation, run.fresh)
+            with scan_root_write_scope(write_lease, self._clock):
+                outcome = self._analyze(work_item.observation, run.fresh)
         except EbookAnalysisError:
             return _ItemSummary(
                 status=EbookCollectionItemStatus.ERROR,

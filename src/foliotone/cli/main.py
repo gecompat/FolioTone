@@ -30,6 +30,7 @@ from foliotone.core import (
     EntityId,
     FileChangeState,
     FileObservation,
+    FileRecord,
     MediaType,
     RelocationCandidateKind,
     ScanRoot,
@@ -55,14 +56,18 @@ from foliotone.persistence import (
     EbookCollectionReportStoreError,
     EbookCollectionStoreError,
     EbookInventoryReportStoreError,
+    ScanRootWriteLeaseError,
+    ScanRootWriteOwnerKind,
     SQLiteEbookCandidateHashRunStore,
     SQLiteEbookCollectionReportStore,
     SQLiteEbookCollectionStore,
     SQLiteEbookInventoryReportStore,
+    SQLiteScanRootWriteLeaseStore,
     create_sqlite_engine,
     create_sqlite_read_only_engine,
     migrate,
     repository,
+    scan_root_write_scope,
 )
 from foliotone.tooling.runtime import ToolRuntime
 from foliotone.workflows import (
@@ -1455,6 +1460,26 @@ def _run_ebook_analyze(args: argparse.Namespace) -> int:
     if observation is None:
         print("E-book analysis failed: FileObservation does not exist.")
         return 2
+    record = repository(engine, FileRecord).get(observation.file_id)
+    if record is None:
+        print("E-book analysis failed: FileRecord does not exist.")
+        return 2
+
+    lease_store = SQLiteScanRootWriteLeaseStore(engine)
+    started_at = datetime.now(UTC)
+    lease_token = str(EntityId.new())
+    try:
+        write_lease = lease_store.acquire(
+            record.scan_root_id,
+            ScanRootWriteOwnerKind.EBOOK_ANALYSIS,
+            observation.id,
+            lease_token=lease_token,
+            acquired_at=started_at,
+            lease_expires_at=started_at + timedelta(minutes=30),
+        )
+    except ScanRootWriteLeaseError:
+        print("E-book analysis failed: another write workflow owns this ScanRoot.")
+        return 2
 
     try:
         ebook_analysis_format(observation.relative_path)
@@ -1463,14 +1488,23 @@ def _run_ebook_analyze(args: argparse.Namespace) -> int:
             args.artifact_root,
             work_root=args.work_root,
         )
-        outcome = _ebook_analysis_orchestrator(engine, runtime, args).analyze(
-            args.root,
-            observation,
-            fresh=args.fresh,
-        )
+        with scan_root_write_scope(write_lease, lambda: datetime.now(UTC)):
+            outcome = _ebook_analysis_orchestrator(engine, runtime, args).analyze(
+                args.root,
+                observation,
+                fresh=args.fresh,
+            )
     except (EbookAnalysisError, ValueError) as error:
         print(f"E-book analysis failed: {error}")
         return 1
+    except ScanRootWriteLeaseError:
+        print("E-book analysis failed: ScanRoot write ownership was lost.")
+        return 2
+    finally:
+        try:
+            lease_store.release(write_lease, released_at=datetime.now(UTC))
+        except ScanRootWriteLeaseError:
+            pass
 
     print(f"FileObservation: {outcome.observation_id}")
     print(f"Format: {outcome.format_name}")

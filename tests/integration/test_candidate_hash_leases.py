@@ -90,7 +90,7 @@ def test_candidate_hash_acquire_has_exactly_one_concurrent_owner(
         thread.join()
 
     assert len(acquired) == 1
-    assert blocked == ["active candidate-hash lease exists for this ScanRoot"]
+    assert blocked == ["another write workflow owns this ScanRoot"]
     latest = SQLiteEbookCandidateHashRunStore(
         create_sqlite_engine(database)
     ).latest(root.id)
@@ -180,7 +180,7 @@ def test_candidate_hash_stale_takeover_fences_old_owner_writes(
             )
         ).all()
     assert old_row.status == EbookCandidateHashRunStatus.INTERRUPTED.value
-    assert old_row.heartbeat_at == NOW.isoformat()
+    assert old_row.heartbeat_at == (NOW + timedelta(minutes=2)).isoformat()
     assert replacement.status is EbookCandidateHashRunStatus.RUNNING
     assert stored == []
 

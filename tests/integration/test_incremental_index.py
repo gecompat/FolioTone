@@ -31,7 +31,9 @@ from foliotone.index import (
     ScanRootBinding,
     SQLiteIndexStore,
 )
+from foliotone.index.store import OwnedScanRun
 from foliotone.persistence import create_sqlite_engine, migrate, repository, schema
+from foliotone.persistence.scan_root_lease import OwnedScanRootWriteLease
 
 NOW = datetime(2026, 8, 8, 20, 0, tzinfo=UTC)
 
@@ -62,9 +64,19 @@ class CoordinatedFingerprintWriter(FingerprintWriter):
         self._barrier.wait(timeout=2)
         return super().calculate(observation, physical_path, mode, created_at)
 
-    def save_many(self, fingerprints: Sequence[Fingerprint]) -> None:
+    def save_many(
+        self,
+        fingerprints: Sequence[Fingerprint],
+        *,
+        write_lease: OwnedScanRootWriteLease,
+        committed_at: datetime,
+    ) -> None:
         self.saved_batch_sizes.append(len(fingerprints))
-        super().save_many(fingerprints)
+        super().save_many(
+            fingerprints,
+            write_lease=write_lease,
+            committed_at=committed_at,
+        )
 
 
 @pytest.fixture
@@ -140,7 +152,7 @@ def test_index_store_persists_each_discovery_batch_with_set_writes(tmp_path: Pat
         for index in range(200)
     )
 
-    def statement_count(run: ScanRun) -> tuple[int, tuple[FileChangeState, ...]]:
+    def statement_count(run: OwnedScanRun) -> tuple[int, tuple[FileChangeState, ...]]:
         count = 0
 
         def count_statement(*_args: object) -> None:
@@ -156,12 +168,13 @@ def test_index_store_persists_each_discovery_batch_with_set_writes(tmp_path: Pat
 
     initial_run = store.start_scan(root, NOW)
     initial_statements, initial_states = statement_count(initial_run)
-    assert initial_statements == 4
+    assert initial_statements == 6
     assert set(initial_states) == {FileChangeState.NEW}
+    store.finish_scan(initial_run, ScanRunStatus.COMPLETED, NOW + timedelta(seconds=1))
 
-    unchanged_run = store.start_scan(root, NOW)
+    unchanged_run = store.start_scan(root, NOW + timedelta(seconds=2))
     unchanged_statements, unchanged_states = statement_count(unchanged_run)
-    assert unchanged_statements == 4
+    assert unchanged_statements == 6
     assert set(unchanged_states) == {FileChangeState.UNCHANGED}
 
 

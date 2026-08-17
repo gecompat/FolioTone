@@ -229,6 +229,29 @@ Lauf bleibt lesbar und kann nach externer Prozessprüfung ausdrücklich
 wiederhergestellt werden. Die Recovery verändert keine Source Media und führt
 den Resume-Vertrag aus ADR-0015 unverändert über einen neuen `ScanRun` fort.
 
+### Gemeinsame `ScanRoot`-Write-Lease
+
+Alembic `0012_scan_root_write_leases` ergänzt einen dauerhaften Mutex- und
+Sequencer-Slot je `ScanRoot`. Der Slot bleibt nach Release als Tombstone
+erhalten; jeder neue Besitzer erhöht die `fence_epoch`. Owner-Art, Owner-ID,
+Token und Epoch bilden zusammen den Besitzbeleg. Das Token wird nicht in
+`repr`, Status oder Fehlermeldungen ausgegeben.
+
+Scan, selektives Kandidaten-Hashing, Collection-Analyse und einzelne
+E-Book-Analyse erwerben den Root-Slot atomar mit ihrem Lauf. Jede
+rootbezogene Schreibtransaktion beginnt mit einem bedingten No-op-`UPDATE` auf
+dem Slot und prüft anschließend die zusätzliche Run-Lease. Fachdaten folgen
+erst danach. Finish setzt den Lauf terminal und gibt den Slot zuletzt frei.
+Dadurch kann ein stale Prozess nach einer Übernahme keinen späten
+Fingerprint-, Observation-, Status- oder Evidence-Write mehr committen.
+
+`0012` ergänzt außerdem `uq_scan_runs_active_root`. Upgrade und Downgrade
+verweigern sich bei aktiven Writern, weil laufende Prozesse einer älteren
+Schemafassung keinen gültigen Root-Fence besitzen können. Scanner und
+Collection-Service erneuern Root- und Run-Lease während langer I/O- oder
+Toolarbeit mit separaten Keepern; die Fachtransaktionen bleiben kurz. Der
+vollständige Vertrag ist in ADR-0027 festgelegt.
+
 ### Selektiver Kandidaten-Hash-Lookup
 
 `DuplicateHashCandidateService` schränkt die Quick-Evidence zuerst auf die

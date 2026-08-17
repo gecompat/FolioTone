@@ -277,19 +277,20 @@ class DuplicateHashCandidateService:
                     progress=progress,
                 )
                 keeper.check()
-                if summary.hash_failures:
-                    status = EbookCandidateHashRunStatus.COMPLETED_WITH_FAILURES
-                elif summary.remaining:
-                    status = EbookCandidateHashRunStatus.INTERRUPTED
-                else:
-                    status = EbookCandidateHashRunStatus.COMPLETED
-                self._runs.finish(
-                    run.id,
-                    lease_token,
-                    status,
-                    finished_at=self._clock(),
-                )
-                return summary
+            keeper.check()
+            if summary.hash_failures:
+                status = EbookCandidateHashRunStatus.COMPLETED_WITH_FAILURES
+            elif summary.remaining:
+                status = EbookCandidateHashRunStatus.INTERRUPTED
+            else:
+                status = EbookCandidateHashRunStatus.COMPLETED
+            self._runs.finish(
+                run.id,
+                lease_token,
+                status,
+                finished_at=self._clock(),
+            )
+            return summary
         except KeyboardInterrupt:
             self._runs.abandon_owned(
                 run.id,

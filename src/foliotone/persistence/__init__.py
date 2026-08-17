@@ -45,6 +45,13 @@ from foliotone.persistence.evidence_queries import (
     ObservationEvidenceRecords,
     load_observation_evidence,
 )
+from foliotone.persistence.scan_root_lease import (
+    OwnedScanRootWriteLease,
+    ScanRootWriteLeaseError,
+    ScanRootWriteOwnerKind,
+    SQLiteScanRootWriteLeaseStore,
+    scan_root_write_scope,
+)
 from foliotone.persistence.sqlite import (
     SQLiteRepository,
     alembic_config,
@@ -91,6 +98,11 @@ __all__ = [
     "SQLiteEbookCandidateHashRunStore",
     "SQLiteEbookInventoryReportStore",
     "SQLiteEbookCollectionReportStore",
+    "OwnedScanRootWriteLease",
+    "ScanRootWriteLeaseError",
+    "ScanRootWriteOwnerKind",
+    "SQLiteScanRootWriteLeaseStore",
+    "scan_root_write_scope",
     "alembic_config",
     "create_sqlite_engine",
     "create_sqlite_read_only_engine",

@@ -103,7 +103,7 @@ def test_hard_process_abort_is_recovered_only_after_lease_expiry(
     assert abandoned.lease_expires_at == initial_expiry
 
     before_expiry = NOW + timedelta(seconds=30)
-    with pytest.raises(EbookCandidateHashLeaseError, match="active candidate-hash lease"):
+    with pytest.raises(EbookCandidateHashLeaseError, match="another write workflow"):
         store.acquire(
             root.id,
             scan.id,
