@@ -41,8 +41,10 @@ Verträge und E-Book-Klassifikationsverträge wurden mit `PR #36` bis `PR #39`
 auf `main` integriert. EB-01/E4 ergänzt die gemeinsame Root-Write-Lease aus
 ADR-0027 und Migration `0012`; Scan, Kandidaten-Hashing, Collection-Analyse
 und Einzelanalyse sind damit für denselben `ScanRoot` atomar gefencet. Reale
-Provider, persistierte Authority-Entscheidungen,
-Matching und Review bleiben offen. Music W4 bleibt zurückgestellt.
+Provider, Matching und die späteren Classification-/Relation-Review-Slices
+bleiben offen. EB-02 ergänzt persistierte book-only Resolution Candidates,
+Evidence-Links und append-only Authority-Entscheidungen. Music W4 bleibt
+zurückgestellt.
 
 Der reale `W3-017`-Scan zeigte zusätzlich einen Lifecycle-Gap: Ein externer
 harter Prozessabbruch kann den Cleanup umgehen und einen `ScanRun` als
@@ -852,9 +854,10 @@ bleibt getrennt aktivierbar und darf weder Pfade noch Passwortmaterial loggen.
 W9 erzeugt nur nicht ausführbare Pläne; jede Quarantäne-, Lösch- oder
 Verzeichnisoperation bleibt W10-blockiert.
 
-Die aktuelle Entwicklungsposition ist EB-02: persistierte book-only Entity
-Resolution plus minimaler generischer Review-/Decision-Core. EB-00 und
-EB-01/E4 sind abgeschlossen. Die Reihenfolge, Stop-Gates und zulässigen
+Die aktuelle Entwicklungsposition ist nach abgeschlossenem EB-02 vor EB-05:
+begrenztes Candidate Blocking und Relation Contracts. EB-03A kann getrennt als
+Provider-Cache-Welle vorbereitet werden. EB-00 und EB-01/E4 sind ebenfalls
+abgeschlossen. Die Reihenfolge, Stop-Gates und zulässigen
 Spark-Pakete stehen in `EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` und
 `EBOOK_SPARK_WORK_PACKAGES.md`. Private Pfade, Runtime-Daten, Kennzahlen und
 Berichte bleiben außerhalb von Git; Source Media bleibt unverändert.

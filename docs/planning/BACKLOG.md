@@ -104,8 +104,8 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 | W5A-001 | DONE | Implement versioned Unicode/name normalization without destructive overwrite. |
 | W5A-002 | DONE | Generate local Agent candidates using aliases, pseudonyms, sort names and credited-as forms with versioned confidence/provenance. |
 | W5A-003 | DONE | Implement homonym protection; equal normalized names must not auto-merge Agents. |
-| W5A-004 | PLANNED | Extend the implemented book Work/Edition/Series candidate primitives into complete persisted resolution and add MusicWork/Recording/ReleaseGroup/Release candidates with explanations/confidence. |
-| W5A-005 | PLANNED | Persist confirmed/rejected local authority mappings separately from source observations. |
+| W5A-004 | PLANNED | Book-only Agent/Work/Edition/Series resolution candidates are persisted by EB-02; MusicWork/Recording/ReleaseGroup/Release candidates with explanations/confidence remain planned. |
+| W5A-005 | DONE | Persist confirmed/rejected local authority mappings as append-only review decisions separately from source observations. |
 
 ### W5B — External enrichment infrastructure/providers
 
@@ -148,9 +148,9 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 
 | ID | Status | Item |
 |---|---|---|
-| W7-001 | PLANNED | Persist review queue, decisions, defer/reject/accept semantics and history. |
+| W7-001 | DONE | Persist the generic review queue and append-only accept/reject/defer decision history with optimistic snapshot fencing. |
 | W7-002 | PLANNED | Review/confirm/reject authority candidates and aliases as well as duplicate relations. |
-| W7-003 | PLANNED | Reuse confirmed local knowledge and avoid needless repeated review when evidence/tool/resolver versions are unchanged. |
+| W7-003 | DONE | Reuse compatible ACCEPT/REJECT authority decisions while keeping DEFER reviewable; material or compatibility changes create a new case. |
 
 ## W8 — Calibre Library Adapter
 

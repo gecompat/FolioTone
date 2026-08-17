@@ -404,6 +404,21 @@ Examples:
 
 Such knowledge must remain versioned/auditable and must not silently rewrite historical observations.
 
+### Persistierter Resolution-/Review-Core
+
+EB-02 persistiert lokale book-only `ResolutionCandidate`-Snapshots und ihre
+konkreten `ResolutionEvidenceLink`-Datensätze. Ein erstmaliger Fall bleibt
+immer `REVIEW_REQUIRED`; ausschließlich eine semantisch exakt kompatible
+frühere ACCEPT-Entscheidung darf AUTO_SAFE wiederverwendet werden. REJECT
+unterdrückt den unveränderten Fall, DEFER hält ihn reviewbar.
+
+`ReviewDecision` ist append-only und wird durch eine monotone Sequenz sowie
+Evidence-, Candidate-Set- und Decision-Compatibility-Snapshots optimistisch
+gefencet. Technische Resolver-/Producer-Versionen bleiben Auditdaten und
+entwerten eine fachlich kompatible Entscheidung nicht. Source Evidence und
+kanonische Entity-Felder bleiben unverändert. ADR-0028 enthält den
+vollständigen Vertrag.
+
 ## Future evidence sources
 
 These are planned extensions, not W1 requirements:

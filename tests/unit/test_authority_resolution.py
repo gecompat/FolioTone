@@ -46,11 +46,11 @@ def test_author_name_candidate_plan_is_versioned_and_homonym_safe() -> None:
     assert by_field["agent.name.pseudonym"] == "Mark Twain"
 
 
-def test_agent_name_homonym_gate_requires_disambiguation_hint() -> None:
+def test_agent_name_homonym_gate_rejects_free_form_disambiguation() -> None:
     left = normalize_agent_name_text("Doe, John")
     right = normalize_agent_name_text("John Doe")
     assert not is_homonym_free_merge(left, right)
-    assert is_homonym_free_merge(left, right, disambiguation="isbn:12345")
+    assert not is_homonym_free_merge(left, right, disambiguation="isbn:12345")
 
 
 def test_credited_as_candidate_is_preserved() -> None:

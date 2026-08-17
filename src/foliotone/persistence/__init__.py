@@ -45,6 +45,15 @@ from foliotone.persistence.evidence_queries import (
     ObservationEvidenceRecords,
     load_observation_evidence,
 )
+from foliotone.persistence.resolution_review import (
+    MAX_RESOLUTION_EVIDENCE,
+    MAX_RESOLUTION_PAGE,
+    MAX_REVIEW_PAGE,
+    ResolutionCandidatePage,
+    ResolutionReviewStoreError,
+    ReviewItemPage,
+    SQLiteResolutionReviewStore,
+)
 from foliotone.persistence.scan_root_lease import (
     OwnedScanRootWriteLease,
     ScanRootWriteLeaseError,
@@ -64,6 +73,9 @@ from foliotone.persistence.sqlite import (
 
 __all__ = [
     "Repository",
+    "MAX_RESOLUTION_EVIDENCE",
+    "MAX_RESOLUTION_PAGE",
+    "MAX_REVIEW_PAGE",
     "MAX_EVIDENCE_QUERY_EXECUTIONS",
     "MAX_EVIDENCE_QUERY_FINGERPRINTS",
     "MAX_EVIDENCE_QUERY_OBSERVATIONS",
@@ -101,6 +113,10 @@ __all__ = [
     "OwnedScanRootWriteLease",
     "ScanRootWriteLeaseError",
     "ScanRootWriteOwnerKind",
+    "ResolutionCandidatePage",
+    "ResolutionReviewStoreError",
+    "ReviewItemPage",
+    "SQLiteResolutionReviewStore",
     "SQLiteScanRootWriteLeaseStore",
     "scan_root_write_scope",
     "alembic_config",

@@ -244,7 +244,8 @@ Verifikation durch S-EB00-01 bis S-EB00-04 offen.
 
 **Stand:** Abgeschlossen durch ADR-0027 und Alembic `0012`. Die Umsetzung
 umfasst Scanner, Kandidaten-Hashing, Collection-Analyse und einzelne
-E-Book-Analyse als rootbezogene Writer; EB-02 ist der nächste P0-Schritt.
+E-Book-Analyse als rootbezogene Writer; EB-02 baut darauf als abgeschlossener
+persistierter Resolution-/Review-Core auf.
 
 ## Ziel
 
@@ -381,6 +382,11 @@ Mindestfälle:
 **zusätzlich:** kleiner vorgezogener W7-Core
 **Priorität:** P0
 **Komplexität:** hoch
+
+**Stand:** Abgeschlossen durch ADR-0028 und Alembic `0013`. Persistierte
+Resolution Candidates, konkrete Evidence-Links, generische Review Items und
+append-only ACCEPT-/REJECT-/DEFER-Historie sind implementiert. AUTO_SAFE ist
+auf exakt kompatible frühere ACCEPT-Entscheidungen begrenzt.
 
 ## Warum Review bereits hier beginnen?
 
@@ -2429,12 +2435,11 @@ ohne die Fähigkeit, Source Media zu verändern.
 
 # 42. Empfohlener unmittelbarer nächster Implementierungsschritt
 
-EB-00 und EB-01/E4 sind abgeschlossen. Unmittelbar als Nächstes:
+EB-00, EB-01/E4 und EB-02 sind abgeschlossen. Unmittelbar als Nächstes:
 
-**EB-02 – persistierte book-only Entity Resolution plus minimaler generischer
-Review-/Decision-Core.**
+**EB-05 – begrenztes Candidate Blocking und Relation Contracts.**
 
-Provider-Cache-/Provider-Research und Archive-EA1 können während EB-02 in
+Provider-Cache-/Provider-Research (EB-03A) und Archive-EA1 können in
 getrennten Entwicklungszweigen vorbereitet werden.
 
 Das gibt die geringste Wahrscheinlichkeit, später Persistenz-, Review- oder
