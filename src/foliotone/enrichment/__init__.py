@@ -6,7 +6,10 @@ from foliotone.enrichment.contracts import (
     BookKnowledgeResponse,
     KnowledgeProviderDescriptor,
     KnowledgeProviderMode,
+    ProviderAccessMode,
+    ProviderCachePolicy,
     StructuredKnowledgeBookResult,
+    provider_policy_from_legacy,
 )
 from foliotone.enrichment.providers import SyntheticBookKnowledgeProvider
 
@@ -16,6 +19,9 @@ __all__ = [
     "BookKnowledgeResponse",
     "KnowledgeProviderDescriptor",
     "KnowledgeProviderMode",
+    "ProviderAccessMode",
+    "ProviderCachePolicy",
     "StructuredKnowledgeBookResult",
     "SyntheticBookKnowledgeProvider",
+    "provider_policy_from_legacy",
 ]

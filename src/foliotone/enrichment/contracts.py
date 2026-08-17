@@ -14,12 +14,70 @@ from foliotone.core._validation import require_confidence, require_non_empty
 DEFAULT_KNOWLEDGE_PROVIDER_VERSION: Final = "knowledge-provider/v1"
 
 
+class ProviderAccessMode(Enum):
+    """Sources that an external knowledge provider may access."""
+
+    OFFLINE = "offline"
+    LOCAL_DATASETS = "local_datasets"
+    ONLINE_STRUCTURED = "online_structured"
+    ONLINE_WEB_RESEARCH = "online_web_research"
+
+
+class ProviderCachePolicy(Enum):
+    """Cache behavior for an external knowledge provider request."""
+
+    USE_IF_FRESH = "use_if_fresh"
+    REFRESH_IF_STALE = "refresh_if_stale"
+    FORCE_REFRESH = "force_refresh"
+    NO_CACHE = "no_cache"
+
+
 class KnowledgeProviderMode(Enum):
     """Execution mode used by a structured knowledge provider."""
 
     OFFLINE = "offline"
     ONLINE = "online"
     CACHE = "cache"
+
+
+def provider_policy_from_legacy(
+    mode: KnowledgeProviderMode,
+) -> tuple[ProviderAccessMode, ProviderCachePolicy]:
+    """Map one deprecated provider mode to its canonical policy pair."""
+
+    if not isinstance(mode, KnowledgeProviderMode):
+        raise ValueError("mode must be a KnowledgeProviderMode")
+    return {
+        KnowledgeProviderMode.OFFLINE: (
+            ProviderAccessMode.OFFLINE,
+            ProviderCachePolicy.NO_CACHE,
+        ),
+        KnowledgeProviderMode.ONLINE: (
+            ProviderAccessMode.ONLINE_STRUCTURED,
+            ProviderCachePolicy.NO_CACHE,
+        ),
+        KnowledgeProviderMode.CACHE: (
+            ProviderAccessMode.OFFLINE,
+            ProviderCachePolicy.USE_IF_FRESH,
+        ),
+    }[mode]
+
+
+def validate_provider_policy(
+    access_mode: ProviderAccessMode,
+    cache_policy: ProviderCachePolicy,
+) -> None:
+    """Validate one provider access and cache-policy combination."""
+
+    if not isinstance(access_mode, ProviderAccessMode):
+        raise ValueError("access_mode must be a ProviderAccessMode")
+    if not isinstance(cache_policy, ProviderCachePolicy):
+        raise ValueError("cache_policy must be a ProviderCachePolicy")
+    if access_mode is ProviderAccessMode.OFFLINE and cache_policy in {
+        ProviderCachePolicy.REFRESH_IF_STALE,
+        ProviderCachePolicy.FORCE_REFRESH,
+    }:
+        raise ValueError("offline access cannot request a source refresh")
 
 
 @dataclass(frozen=True, slots=True)
