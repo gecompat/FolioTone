@@ -47,6 +47,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0023](decisions/ADR-0023-selective-duplicate-candidate-hashing.md) begrenzt vollständiges SHA-256-Hashing auf aktuelle Quick-Duplikatkandidaten und definiert den fortsetzbaren read-only Evidence-Vertrag.
 - [ADR-0024](decisions/ADR-0024-deterministic-scan-wide-ebook-inventory-report.md) definiert den deterministischen scanweiten Bestands-, Hash-Abdeckungs- und Exact-Duplicate-Bericht ohne erneuten Source-Zugriff.
 - [ADR-0025](decisions/ADR-0025-recoverable-scan-run-leases.md) definiert Heartbeats, Konkurrenzschutz und die explizite Recovery verwaister `RUNNING`-Scans ohne Änderung des Resume-I/O-Vertrags.
+- [ADR-0026](decisions/ADR-0026-provider-access-and-cache-policy.md) trennt Providerzugriff und Cache-Policy, legt die kanonischen Literale fest und definiert die eindeutige Legacy-Abbildung des bisherigen Provider-Modus.
 
 ## Qualität, Sprache und Dokumentationsregeln
 
