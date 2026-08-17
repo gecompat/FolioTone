@@ -3,8 +3,116 @@ import pytest
 from foliotone.enrichment import (
     BookKnowledgeQuery,
     KnowledgeProviderMode,
+    ProviderAccessMode,
+    ProviderCachePolicy,
     SyntheticBookKnowledgeProvider,
+    provider_policy_from_legacy,
 )
+from foliotone.enrichment.contracts import validate_provider_policy
+
+
+def test_provider_access_mode_literals_are_exact() -> None:
+    assert {name: mode.value for name, mode in ProviderAccessMode.__members__.items()} == {
+        "OFFLINE": "offline",
+        "LOCAL_DATASETS": "local_datasets",
+        "ONLINE_STRUCTURED": "online_structured",
+        "ONLINE_WEB_RESEARCH": "online_web_research",
+    }
+
+
+def test_provider_cache_policy_literals_are_exact() -> None:
+    assert {name: policy.value for name, policy in ProviderCachePolicy.__members__.items()} == {
+        "USE_IF_FRESH": "use_if_fresh",
+        "REFRESH_IF_STALE": "refresh_if_stale",
+        "FORCE_REFRESH": "force_refresh",
+        "NO_CACHE": "no_cache",
+    }
+
+
+@pytest.mark.parametrize(
+    ("access_mode", "cache_policy"),
+    [
+        (access_mode, cache_policy)
+        for access_mode in ProviderAccessMode
+        for cache_policy in ProviderCachePolicy
+        if not (
+            access_mode is ProviderAccessMode.OFFLINE
+            and cache_policy
+            in {
+                ProviderCachePolicy.REFRESH_IF_STALE,
+                ProviderCachePolicy.FORCE_REFRESH,
+            }
+        )
+    ],
+)
+def test_provider_policy_accepts_every_valid_combination(
+    access_mode: ProviderAccessMode,
+    cache_policy: ProviderCachePolicy,
+) -> None:
+    assert validate_provider_policy(access_mode, cache_policy) is None
+
+
+@pytest.mark.parametrize(
+    "cache_policy",
+    [ProviderCachePolicy.REFRESH_IF_STALE, ProviderCachePolicy.FORCE_REFRESH],
+)
+def test_provider_policy_rejects_offline_source_refresh(
+    cache_policy: ProviderCachePolicy,
+) -> None:
+    with pytest.raises(ValueError, match="offline access cannot request a source refresh"):
+        validate_provider_policy(ProviderAccessMode.OFFLINE, cache_policy)
+
+
+@pytest.mark.parametrize(
+    ("access_mode", "cache_policy", "message"),
+    [
+        ("offline", ProviderCachePolicy.NO_CACHE, "access_mode must be a ProviderAccessMode"),
+        (ProviderAccessMode.OFFLINE, "no_cache", "cache_policy must be a ProviderCachePolicy"),
+    ],
+)
+def test_provider_policy_rejects_non_enum_inputs(
+    access_mode: object,
+    cache_policy: object,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        validate_provider_policy(access_mode, cache_policy)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("legacy_mode", "expected_access_mode", "expected_cache_policy"),
+    [
+        (
+            KnowledgeProviderMode.OFFLINE,
+            ProviderAccessMode.OFFLINE,
+            ProviderCachePolicy.NO_CACHE,
+        ),
+        (
+            KnowledgeProviderMode.ONLINE,
+            ProviderAccessMode.ONLINE_STRUCTURED,
+            ProviderCachePolicy.NO_CACHE,
+        ),
+        (
+            KnowledgeProviderMode.CACHE,
+            ProviderAccessMode.OFFLINE,
+            ProviderCachePolicy.USE_IF_FRESH,
+        ),
+    ],
+)
+def test_legacy_provider_mode_maps_to_exact_policy(
+    legacy_mode: KnowledgeProviderMode,
+    expected_access_mode: ProviderAccessMode,
+    expected_cache_policy: ProviderCachePolicy,
+) -> None:
+    assert provider_policy_from_legacy(legacy_mode) == (
+        expected_access_mode,
+        expected_cache_policy,
+    )
+
+
+def test_legacy_provider_policy_mapping_rejects_non_enum_input() -> None:
+    with pytest.raises(ValueError, match="mode must be a KnowledgeProviderMode"):
+        provider_policy_from_legacy("offline")  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
