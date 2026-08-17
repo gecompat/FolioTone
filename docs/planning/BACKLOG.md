@@ -72,6 +72,11 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W3-015 | DONE | Add resumable collection-batch orchestration over persisted current EPUB/MOBI/AZW/AZW3/PDF observations. Reuse exact Evidence, continue after per-file failures, bound concurrency and preserve read-only source handling. |
 | W3-016 | DONE | Add deterministic CLI collection reports with aggregate format/analysis/quality/finding counts plus prioritized incomplete, action-required, duplicate and variant review sets. Keep private paths and metadata in local runtime artifacts and out of Git. |
 | W3-017 | IN PROGRESS | Harden incremental scan/hash persistence from real read-only scale evidence; add recoverable `ScanRun` leases for externally orphaned `RUNNING` attempts, format-balanced pilot planning, resumable full-SHA enrichment limited to Quick duplicate candidates, a current-scan-first materialized candidate snapshot with a measured lookup index, root-wide fenced candidate-hash runs with durable path-free heartbeat/status, a deterministic scan-wide inventory/hash/duplicate report, true SQLite-read-only JSON status and a path-free postscan completion verifier; complete the private collection analysis/report without changing source media or committing private paths, counts, or runtime data. The controlled cutover and book-only continuation through W9 are detailed in [`W3_017_EBOOK_ROADMAP.md`](W3_017_EBOOK_ROADMAP.md). |
+| W3-018 | PLANNED | Evaluate signature-first ZIP/RAR/7z/TAR/CBR/CBZ discovery and maintained read-only listing/integrity tools; decide publication-container, multipart, license, version and sandbox contracts before implementing an adapter. |
+| W3-019 | PLANNED | Persist bounded incremental archive, volume and sidecar inventory Evidence without extraction; report encryption, missing volumes, corruption and unsupported methods path-free. |
+| W3-020 | PLANNED | Implement bounded local archive-password candidates from explicit Secret Handles, container comments, adjacent NFO/TXT/DIZ/INFO/URL/HTML/SFV/README hints and configured local lists; persist no plaintext password and perform no brute force. |
+| W3-021 | PLANNED | Implement read-only bounded archive listing/integrity plus private sandboxed test extraction with traversal, symlink, decompression-bomb, nesting, member-count, size and timeout guards; never delete the source archive. |
+| W3-022 | PLANNED | Persist versioned archive-member Evidence and reuse it only for unchanged archive/tool/adapter/config/secret identities; keep CBR/CBZ/EPUB publication containers distinct from disposable packaging. |
 
 ## W4 — Music Analysis / Tool Orchestration
 
@@ -116,6 +121,7 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 | W5B-008 | PLANNED | Add offline/provider-failure/cache-hit/cache-refresh tests. |
 | W5B-009 | PLANNED | Define generic web research fallback interface; keep it separately enabled and candidate-only. |
 | W5B-010 | PLANNED | Evaluate a local MusicBrainz mirror/container deployment only if scale/rate/latency justifies its operational cost. |
+| W5B-011 | PLANNED | Resolve the user-supplied `Newzcrabber` name to a concrete maintained service and evaluate it plus suitable alternatives as explicit opt-in archive-password candidate providers; require a documented interface, current terms/license/privacy review, path-free queries, local cache and Secret Handles, otherwise record a non-integration decision. |
 
 ### W5C — Classification
 
@@ -136,6 +142,7 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 | W6-004 | PLANNED | Persist human-readable evidence/explanations including ToolExecution provenance. |
 | W6-005 | PLANNED | Calibrate review thresholds using controlled fixtures; prioritize false-positive protection. |
 | W6-006 | PLANNED | Test that agreement among external tools/providers cannot mask contradictory content/edition/recording evidence. |
+| W6-007 | PLANNED | Match archive members, physical files and publication containers at separate file/content/Edition levels; an online password result or equal filename is never sufficient identity Evidence. |
 
 ## W7 — Review
 
@@ -151,6 +158,7 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 |---|---|---|
 | W8-001 | PLANNED | Build on the earlier calibre ToolProvider and implement read-only Calibre library integration with provenance-preserving observations. |
 | W8-002 | PLANNED | Analyze Calibre/filesystem consistency, duplicates and metadata/authority conflicts without modifying Calibre. |
+| W8-003 | PLANNED | Model read-only ownership and dependency Evidence for Calibre records, formats, `metadata.opf`, covers, archive containers and other sidecars before any Keep preference. |
 
 ## W9 — Consolidation Planning
 
@@ -159,12 +167,17 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 | W9-001 | PLANNED | Implement non-executable consolidation plans and preconditions. |
 | W9-002 | PLANNED | Keep duplicate identity separate from quality ranking/keep preference. |
 | W9-003 | PLANNED | Represent changed-since-analysis checks needed by future execution. |
+| W9-004 | PLANNED | Produce a complete non-executable, content-addressed e-book deduplication plan with Keeper, quarantine, verification, rollback, purge, Calibre, sidecar, archive and empty-directory preconditions. |
+| W9-005 | PLANNED | Require Review approval for Keep preference and every future mutation candidate; keep exact duplicate identity, quality ranking and physical operation separate. |
 
 ## W10 — Controlled Consolidation
 
 | ID | Status | Item |
 |---|---|---|
 | W10-001 | BLOCKED | Write-capable FolioTone or external-tool consolidation; blocked until explicit accepted ADR authorizes it. |
+| W10-002 | BLOCKED | Implement a fenced restartable quarantine-only executor after W10 authorization; revalidate candidate and surviving Keeper with full hashes immediately before each mutation. |
+| W10-003 | BLOCKED | Implement verified rollback and separately approved purge after a retention period; never make successful extraction imply archive deletion. |
+| W10-004 | BLOCKED | Implement bottom-up empty-directory cleanup as a separate approved operation with fresh enumeration, root/reparse/Calibre/sidecar guards and an auditable reconstruction record. |
 
 ## Cross-cutting future candidates
 

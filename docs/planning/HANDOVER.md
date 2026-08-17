@@ -820,6 +820,18 @@ Sekunden. Private Collection-Pfade oder Laufzeitkennzahlen wurden nicht in Git
 
 ## Danach weiterarbeiten
 
+Die langfristige E-Book-Folgestrecke für Archive und einen vollständigen
+Deduplizierungsworkflow steht in
+[`EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md`](EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md).
+Sie beginnt mit Toolbewertung, read-only Archiv-/Volume-/Sidecar-Inventar und
+lokalen Passwortkandidaten aus Containerkommentaren sowie
+begrenzten NFO-/TXT-/DIZ-/INFO-/URL-/HTML-/SFV-/README-Quellen. Der vom
+Benutzer genannte Name `Newzcrabber` ist vor einer Providerplanung zunächst
+einer konkreten dokumentierten Schnittstelle zuzuordnen. Online-Recherche
+bleibt getrennt aktivierbar und darf weder Pfade noch Passwortmaterial loggen.
+W9 erzeugt nur nicht ausführbare Pläne; jede Quarantäne-, Lösch- oder
+Verzeichnisoperation bleibt W10-blockiert.
+
 Die aktuelle Entwicklungsposition wurde hier abgeschlossen:
 
 1. `W3-017` — den laufenden read-only Inventar-Snapshot abschließen, selektive

@@ -41,6 +41,7 @@ Dieses Glossar definiert die kanonischen fachlichen Kernbegriffe des Projekts. E
 | `EbookCollectionCandidateGroup` | Begrenzte technische Review-Gruppe auf Basis gleicher vollständiger Datei-Hashes oder gleicher normalisierter Textfingerprints bei unterschiedlichen Datei-Hashes. Sie ist keine `Relation` und kein Duplicate-Verdict. | Duplicate Group als bestätigte Identität |
 | `EbookCandidateHashRun` | Persistierter, rootweit geleaster und gefenceter Lauf zur selektiven Vollhash-Bestätigung aktueller Quick-Duplikatkandidaten. Er speichert nur Source-Scan-Bezug, Phase, Heartbeat-/Lease-Zeitpunkte und Zähler, aber keine Pfade, Dateinamen oder Hashwerte. | ungeschützter Hash-Job, Fingerprint als Laufstatus |
 | `ToolArtifact` | Persistiertes Runtime-Artefakt einer `ToolExecution`, beispielsweise stdout, stderr oder ein Report. | LogFile als allgemeiner Ersatz |
+| `SecretProvider` | Austauschbare lokale Grenze, die geheimes Material außerhalb normaler Persistenz, Logs und Reports hält und FolioTone ausschließlich opake versionierte Secret Handles bereitstellt. | Passwortspalte, Klartextpasswort im ToolResult |
 | `Knowledge Provider` | Externe strukturierte Wissensquelle wie MusicBrainz, Open Library, GND oder Wikidata. | ToolProvider, wenn keine Toolausführung erfolgt |
 | `ClassificationAssertion` | Provenance-behaftete Zuordnung einer Klassifikationsdimension zu einem Wert. | GenreField als alleinige Klassifikation |
 | `Review Queue` | Menge unsicherer oder entscheidungsbedürftiger Fälle für menschliche Prüfung. | ManualFixList |

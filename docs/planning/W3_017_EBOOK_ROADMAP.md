@@ -9,6 +9,11 @@
 **Scope:** E-Book-Schiene von W3-017 bis zur nicht ausführbaren
 Konsolidierungsplanung W9
 
+Die anschließende archive-aware Analyse- und vollständige
+Deduplizierungsstrecke ist separat in
+[`EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md`](EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md)
+geplant. Sie ändert die W10-Sperre dieses Dokuments nicht.
+
 Dieser Plan trennt Entwicklung, synthetische Verifikation und den privaten
 Hintergrundbetrieb. Er plant keine Music-Implementierung. W4 bleibt außerhalb
 dieses Dokuments zurückgestellt. W10 bleibt gesperrt und wird durch diesen Plan
