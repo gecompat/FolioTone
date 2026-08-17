@@ -8,9 +8,9 @@
 E-Book-Lieferwellen EB-00, EB-03A, EB-03B, EB-04, EB-07, EB-08 sowie begrenzter
 Vorarbeiten aus EB-A1 und EB-A2
 
-**Vorgesehene Ausführung:** 5.3 Codex Spark mit Thinking „sehr hoch“; die
-Aufgabengrenzen dieses Dokuments bleiben unabhängig von der konkreten
-Modellverfügbarkeit verbindlich
+**Vorgesehene Ausführung:** 5.3 Codex Spark mit Thinking `high` als Standard
+und kontrollierter Eskalation gemäß diesem Dokument; die Aufgabengrenzen
+bleiben unabhängig von der konkreten Modellverfügbarkeit verbindlich
 
 ## Einordnung
 
@@ -25,6 +25,53 @@ Ein Paket ist nur dann Spark-tauglich, wenn alle fachlichen Entscheidungen vor
 Beginn feststehen, der erlaubte Dateibereich klein ist, das Ergebnis durch
 deterministische Tests beweisbar ist und ein Abbruch bei Vertragsabweichung
 keinen unfertigen Zustand auf `main` hinterlässt.
+
+## Adaptive Modell- und Thinking-Regel
+
+Der koordinierende Codex-Task wählt Modell und Thinking automatisch anhand der
+Aufgabenklasse. Eine erneute Benutzerfrage ist nicht erforderlich, solange die
+Arbeit innerhalb des genehmigten E-Book-Scopes und der nachstehenden Grenzen
+bleibt.
+
+| Aufgabenklasse | Modell | Standard | Zulässige Eskalation |
+|---|---|---|---|
+| Atomare Pakete dieses Dokuments | `gpt-5.3-codex-spark` | `high` | `xhigh` nur für komplexe Integration oder schwer reproduzierbare Testfehler innerhalb eines bereits festgelegten Vertrags |
+| Statusabgleich, Planpflege, gewöhnliche Reviews, CI-Triage und Merge-Verifikation | `gpt-5.6-sol` | `medium` | `high`, wenn mehrere kanonische Verträge oder Wellen konsistent abgeglichen werden müssen |
+| Frontier-Gates für Provider, Classification, Calibre, Persistenz und nicht ausführbare Planung | `gpt-5.6-sol` | `high` | `xhigh`, wenn eine der kritischen Risikoklassen betroffen ist |
+| EB-01, EB-02, EB-05, EB-06, Archive-Security und vergleichbare kritische Architekturarbeit | `gpt-5.6-sol` | `xhigh` | `max` nur nach den unten festgelegten Kriterien |
+| W10-Entscheidung oder bestätigter datenverlustrelevanter Fehler | `gpt-5.6-sol` | `max` | keine automatische Erweiterung des genehmigten Scopes |
+
+Eine Eskalation von `medium` auf `high` erfolgt, wenn mindestens eines der
+folgenden Merkmale vorliegt:
+
+- ein neuer öffentlicher Vertrag, ein Persistenzschema oder eine
+  Rückwärtskompatibilitätsregel muss festgelegt oder überprüft werden;
+- mehrere kanonische Plan-, Domain- oder Statusquellen müssen widerspruchsfrei
+  zusammengeführt werden;
+- ein Fehler bleibt nach einem gezielten Reproduktions- und Diagnoseversuch
+  ungeklärt;
+- ein Pull Request verändert mehrere Schichten trotz bereits begrenztem Scope.
+
+Eine Eskalation auf `xhigh` erfolgt nur bei:
+
+- Lease, Fencing, stale Takeover, atomaren Writes oder anderer Nebenläufigkeit;
+- Identity Resolution, Relation Taxonomy, Candidate Blocking, Scoring,
+  automatischer Bestätigung oder Review-Reuse;
+- Secret Handling, Sandbox-/Archive-Grenzen oder adversarial Input;
+- sicherheitskritischen Preconditions eines `ConsolidationPlan`;
+- einem wiederholten, belastbar reproduzierten Fehler, dessen Ursache mehrere
+  dieser Risikoklassen berührt.
+
+`max` bleibt reserviert für eine ausdrückliche W10-Sicherheitsentscheidung oder
+einen bestätigten Fehler mit realistischer Gefahr irreversiblen Datenverlusts.
+Die höhere Thinking-Stufe erteilt niemals zusätzliche Berechtigungen. Bei einer
+Scope-Erweiterung, destruktiven Aktion oder fehlenden Benutzerentscheidung muss
+der Task unabhängig von Modell und Thinking stoppen.
+
+Wenn Spark während eines Pakets eine nicht im Frontier-Gate entschiedene
+Architektur- oder Sicherheitsfrage entdeckt, darf das Paket nicht allein durch
+Eskalation auf `xhigh` fortgesetzt werden. Es stoppt unverändert; ein separates
+Frontier-Task klärt die Frage mit der für die Risikoklasse vorgesehenen Stufe.
 
 ## Nicht autonom an Spark delegieren
 
@@ -246,7 +293,11 @@ Arbeite im FolioTone-Repository unter C:\rep und implementiere ausschließlich
 das Paket <PAKET-ID> aus
 docs/planning/EBOOK_SPARK_WORK_PACKAGES.md.
 
-Dieser Task ist für 5.3 Codex Spark mit Thinking „sehr hoch“ vorgesehen.
+Dieser Task ist für 5.3 Codex Spark mit Thinking `high` vorgesehen. Der
+koordinierende Task darf auf `xhigh` wechseln, wenn die im Katalog definierten
+Eskalationskriterien innerhalb des bereits festgelegten Vertrags erfüllt sind.
+Eine fehlende Architektur- oder Sicherheitsentscheidung ist kein
+Eskalationsgrund, sondern eine Stoppbedingung für dieses Paket.
 
 Ausgangsbasis ist origin/main bei <COMMIT>. Lies AGENTS.md,
 docs/planning/EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md und den vollständigen
