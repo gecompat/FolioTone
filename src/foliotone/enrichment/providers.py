@@ -12,7 +12,8 @@ from foliotone.enrichment.contracts import (
     BookKnowledgeQuery,
     BookKnowledgeResponse,
     KnowledgeProviderDescriptor,
-    KnowledgeProviderMode,
+    ProviderAccessMode,
+    ProviderCachePolicy,
     StructuredKnowledgeBookResult,
 )
 
@@ -28,12 +29,18 @@ class SyntheticKnowledgeBookRecord(TypedDict):
 class SyntheticBookKnowledgeProvider:
     """Structured book provider backed by synthetic fixtures only."""
 
-    def __init__(self, *, mode: KnowledgeProviderMode = KnowledgeProviderMode.OFFLINE) -> None:
+    def __init__(
+        self,
+        *,
+        access_mode: ProviderAccessMode = ProviderAccessMode.OFFLINE,
+        cache_policy: ProviderCachePolicy = ProviderCachePolicy.NO_CACHE,
+    ) -> None:
         self.descriptor = KnowledgeProviderDescriptor(
             provider_id="synthetic-book-knowledge",
             display_name="Synthetic Book Knowledge Provider",
             source_version=DEFAULT_KNOWLEDGE_PROVIDER_VERSION,
-            default_mode=mode,
+            default_access_mode=access_mode,
+            default_cache_policy=cache_policy,
         )
 
     def fetch(
@@ -62,7 +69,8 @@ class SyntheticBookKnowledgeProvider:
 
         return BookKnowledgeResponse(
             query=query,
-            mode=self.descriptor.default_mode,
+            access_mode=self.descriptor.default_access_mode,
+            cache_policy=self.descriptor.default_cache_policy,
             descriptor=self.descriptor,
             results=results,
         )
