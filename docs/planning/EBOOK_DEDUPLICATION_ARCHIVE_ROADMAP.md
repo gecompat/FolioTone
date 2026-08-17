@@ -17,6 +17,12 @@ durch W9 read-only. Eine spätere Quarantäne-, Lösch- oder
 Verzeichnisoperation erfordert zuerst eine akzeptierte W10-ADR und eine
 erneute ausdrückliche Ausführungsfreigabe.
 
+Der
+[`E-Book-Endgame-Ausführungsplan`](EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md)
+gruppiert EA1 bis EA10 in die Lieferpakete EB-A1 bis EB-A3. Die EA-Nummerierung,
+Semantik und Statuswerte dieses Dokuments bleiben maßgeblich; insbesondere
+werden EA11 und EA12 dadurch nicht freigegeben.
+
 ## Planungsentscheidung
 
 Archive werden nicht pauschal als Verpackung behandelt, die nach einer

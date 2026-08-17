@@ -2,6 +2,11 @@
 
 This file defines the planned development sequence. `PROJECT_STATUS.md` states where the project currently is.
 
+The book-only delivery refinement in `EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md`
+packages existing W, E and EA work into executable EB pull-request waves. Its
+EB labels do not replace this W0-W10 program sequence or the canonical backlog
+IDs.
+
 Under ADR-0016, the initial product surface remains CLI-only. W3 and the following early vertical slices do not add a web API, desktop interface or dashboard layer. The CLI stays a thin adapter to application/core contracts.
 
 ## W0 — Project Foundation

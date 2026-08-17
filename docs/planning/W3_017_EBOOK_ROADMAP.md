@@ -14,6 +14,12 @@ Deduplizierungsstrecke ist separat in
 [`EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md`](EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md)
 geplant. Sie ändert die W10-Sperre dieses Dokuments nicht.
 
+Der
+[`E-Book-Endgame-Ausführungsplan`](EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md)
+verfeinert diese E-Wellen zu umsetzbaren EB-Lieferpaketen. Die EB-Bezeichnungen
+ersetzen weder die E1- bis E12-Semantik dieses Dokuments noch kanonische
+Backlog-IDs.
+
 Dieser Plan trennt Entwicklung, synthetische Verifikation und den privaten
 Hintergrundbetrieb. Er plant keine Music-Implementierung. W4 bleibt außerhalb
 dieses Dokuments zurückgestellt. W10 bleibt gesperrt und wird durch diesen Plan

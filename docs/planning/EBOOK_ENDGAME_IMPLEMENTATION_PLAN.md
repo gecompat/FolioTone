@@ -1,10 +1,47 @@
 # FolioTone – detaillierte Planung der nächsten E-Book-Wellen
 
 **Planungsstand:** 2026-08-17
-**Basis:** `main` nach PR #43 / Commit `a33ad6e6c72f538843eb32be683cc453e5371eea`
+**Basis:** maßgeblicher Implementierungsstand aus `PROJECT_STATUS.md` und
+`BACKLOG.md` zum genannten Planungsstand
 **Scope:** E-Book-Linie einschließlich Authority Resolution, Enrichment,
 Classification, Matching, Review, Calibre-Reconciliation, nicht ausführbarer
 Konsolidierungsplanung und anschließender Archive-Erweiterung.
+
+---
+
+## Einordnung, Vorrang und kollisionsfreie Zuordnung
+
+Dieser Plan ist eine ausführbare Paketierung der bereits bestehenden
+E-Book-Roadmaps. Er führt keine konkurrierende Status- oder ID-Hierarchie ein:
+
+1. `PROJECT_STATUS.md` und `BACKLOG.md` sind maßgeblich für den tatsächlich
+   implementierten Stand und die kanonischen Aufgabenstatus.
+2. `IMPLEMENTATION_PLAN.md` bleibt maßgeblich für die Programmfolge W0 bis W10.
+3. `W3_017_EBOOK_ROADMAP.md` bleibt maßgeblich für die book-only Wellen E1 bis
+   E12.
+4. `EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md` bleibt maßgeblich für Semantik und
+   Status der Archivwellen EA1 bis EA12.
+5. Die EB-Bezeichnungen dieses Dokuments bündeln diese Aufgaben lediglich in
+   umsetzbare Entwicklungs- und Pull-Request-Pakete. Bei einer Abweichung gilt
+   die jeweils vorgenannte maßgebliche Quelle.
+
+| Ausführungspaket | Kanonische Zuordnung |
+|---|---|
+| EB-00 | Dokumentationsabgleich sowie noch offene Korrektur von W5B-001 |
+| EB-01 | E4 |
+| EB-02 | E6 sowie W5A-004/W5A-005 und ein minimaler W7-Review-Core |
+| EB-03A/EB-03B | E7 und W5B |
+| EB-04 | E8 und W5C-004 |
+| EB-05/EB-06 | E9/E10 und W6/W7 |
+| EB-07 | E11 und W8 |
+| EB-08 | E12 und W9 |
+| EB-A1 | Lieferbündel aus EA1 bis EA3 |
+| EB-A2 | Lieferbündel aus EA4 bis EA7 |
+| EB-A3 | Lieferbündel aus EA8 bis EA10 |
+
+EA11 und EA12 gehören weiterhin zur gesperrten W10-Strecke. Keine EB-Welle
+autorisiert Source-Media-Mutationen, Quarantäne, Löschung oder Verzeichnis-
+bereinigung.
 
 ---
 
@@ -12,7 +49,8 @@ Konsolidierungsplanung und anschließender Archive-Erweiterung.
 
 Die eigentliche E-Book-Analysebasis ist inzwischen weit entwickelt:
 
-- W3-001 bis W3-017 sind funktional weitgehend abgeschlossen.
+- W3-001 bis W3-017 sind gemäß `BACKLOG.md` abgeschlossen; E4 sowie E6 bis
+  E12 sind davon getrennte book-only Folgewellen.
 - inkrementeller Scan, Resume und Recovery sind vorhanden;
 - Quick- und Full-Hashing sind vorhanden;
 - selektives SHA-256-Hashing für Duplicate Candidates ist vorhanden;
@@ -123,14 +161,12 @@ Das hat mehrere Vorteile:
 **Art:** Dokumentation / Contract Alignment
 **Keine funktionale Erweiterung**
 
-## Problem 1: W3-017/E3-Status
+## Gelöste Dokumentationskollision: W3-017/E3-Status
 
-Die Dokumentation beschreibt W3-017 an einer Stelle als abgeschlossen,
-während ältere Textteile E2/E3 beziehungsweise den privaten Abschluss noch als
-offen bezeichnen.
-
-Vor der nächsten Implementierungswelle sollte ein eindeutiger Source of Truth
-hergestellt werden.
+Der Abgleich dieser Planungswelle stellt klar: W3-017 und E1 bis E3 sind
+abgeschlossen. E4 sowie E6 bis E12 sind eigenständige Folgewellen. Der
+vollständige private Sammlungslauf bleibt betriebliche Arbeit und ändert den
+implementierten Status von W3-017 nicht.
 
 ## Problem 2: Provider Modes
 
@@ -159,7 +195,7 @@ Zwei getrennte Dimensionen verwenden:
 ProviderAccessMode
 ------------------
 OFFLINE
-LOCAL_DATASET
+LOCAL_DATASETS
 ONLINE_STRUCTURED
 ONLINE_WEB_RESEARCH
 ```
@@ -180,8 +216,10 @@ Candidate-/Evidence-only.
 
 ## Abnahme
 
-- Roadmap, Backlog und Project Status widersprechen sich nicht mehr.
-- Provider Access Mode und Cache Policy sind semantisch getrennt.
+- Roadmap, Backlog und Project Status widersprechen sich beim W3-017-Status
+  nicht mehr.
+- W5B-001 bleibt offen, bis Provider Access Mode und Cache Policy im Code
+  semantisch getrennt und verifiziert sind.
 - Noch kein realer Provider wird angebunden.
 
 ---
@@ -1739,6 +1777,10 @@ W10 bleibt ausdrücklich blockiert.
 Die separate Archive-Roadmap ist fachlich sinnvoll, sollte aber nicht die
 generische Matching-/Review-Architektur duplizieren.
 
+Für Semantik, Reihenfolge und Status der EA1- bis EA12-Wellen bleibt
+`EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md` maßgeblich. EB-A1 bis EB-A3 sind nur
+Lieferbündel und ersetzen oder nummerieren die EA-Wellen nicht neu.
+
 ## Empfehlung
 
 ### Sofort parallel möglich
@@ -2372,9 +2414,15 @@ ohne die Fähigkeit, Source Media zu verändern.
 
 # 42. Empfohlener unmittelbarer nächster Implementierungsschritt
 
+**Zuerst den noch offenen Implementierungsteil von EB-00 abschließen:**
+Provider Access Mode und Cache Policy im Vertrag trennen und gezielt
+verifizieren.
+
+Danach:
+
 **EB-01 / E4 – gemeinsame `ScanRoot` Write Lease und vollständiges Fencing.**
 
-Danach unmittelbar:
+Anschließend unmittelbar:
 
 **EB-02 – persistierte book-only Entity Resolution plus minimaler generischer
 Review-/Decision-Core.**
@@ -2388,6 +2436,11 @@ Matching-Verträge erneut umbauen zu müssen.
 ---
 
 # Quellen für die Provider-/Tool-Entscheidungen
+
+Diese Links sind zeitgebundene Recherchehinweise. Vor EB-03B beziehungsweise
+einer Tool- oder Provider-Integration müssen Primärdokumentation, Zugriff,
+Lizenz, Datenschutz, Sicherheitsverhalten und Wartungsstatus erneut geprüft
+und die Entscheidung im Repository festgehalten werden.
 
 Open Library (2026), *APIs / Usage Guidelines / Rate Limits / Bulk Access*
 https://openlibrary.org/developers/api

@@ -68,7 +68,9 @@ Für E5 wurden zusätzlich synthetische Skalierungs- und Restart-Vertragsfälle 
 genau eine Kandidatenmaterialisierung je Invocation, indexgestützte
 `EXPLAIN QUERY PLAN`-Prüfung und getrennte Messung von Auswahllaufzeit,
 Hashing-I/O und Commitzeit.
-Die Welle bleibt in anderen Teilen (E2/E3, private Lauf-Abschluss) offen.
+W3-017 sowie E1 bis E3 sind abgeschlossen. E4 und E6 bis E12 bleiben davon
+getrennte langfristige book-only Folgewellen; der vollständige private
+Sammlungslauf bleibt betriebliche Arbeit und ändert diesen Status nicht.
 Music-Welle W4
 bleibt geplant und zurückgestellt.
 
