@@ -57,7 +57,12 @@ Befundprovenance und begrenzte Duplicate-/Varianten-Review-Kandidaten.
 realen Pilot gehärtet, heterogene Pilotpläne und selektives vollständiges
 Hashing von Quick-Duplikatkandidaten sind implementiert. Neue `ScanRun`-Leases
 mit Heartbeats und expliziter stale-`RUNNING`-Recovery schließen die im realen
-Lauf beobachtete Lücke nach einem externen harten Prozessabbruch. Die
+Lauf beobachtete Lücke nach einem externen harten Prozessabbruch.
+Für E5 wurden zusätzlich synthetische Skalierungs- und Restart-Vertragsfälle ergänzt:
+genau eine Kandidatenmaterialisierung je Invocation, indexgestützte
+`EXPLAIN QUERY PLAN`-Prüfung und getrennte Messung von Auswahllaufzeit,
+Hashing-I/O und Commitzeit.
+Die Welle bleibt in anderen Teilen (E2/E3, private Lauf-Abschluss) offen.
 Music-Welle W4
 bleibt geplant und zurückgestellt.
 

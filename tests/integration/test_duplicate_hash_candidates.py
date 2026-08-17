@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Event
 
 import pytest
 from pytest import CaptureFixture
-from sqlalchemy import Engine, event
+from sqlalchemy import Engine, event, insert, select, text
 
 from foliotone.cli.main import main
 from foliotone.core import (
@@ -17,7 +18,10 @@ from foliotone.core import (
     FileObservation,
     Fingerprint,
     MediaType,
+    PresenceState,
     ScanRoot,
+    ScanRun,
+    ScanRunStatus,
 )
 from foliotone.index import (
     DuplicateHashCandidateError,
@@ -33,9 +37,12 @@ from foliotone.persistence import (
     create_sqlite_engine,
     migrate,
     repository,
+    schema,
 )
 
 NOW = datetime(2026, 8, 15, 20, 0, tzinfo=UTC)
+SYNTHETIC_HISTORY_SCAN_COUNT = 6
+SYNTHETIC_HISTORY_RECORDS_PER_SCAN = 250
 
 
 class _BlockingFingerprintWriter(FingerprintWriter):
@@ -115,6 +122,202 @@ class _InterruptingFingerprintWriter(FingerprintWriter):
         created_at: datetime,
     ) -> Fingerprint:
         raise KeyboardInterrupt
+
+
+def _seed_scale_dataset(
+    tmp_path: Path,
+    engine: Engine,
+    *,
+    root_name: str = "synthetic-scale",
+    history_scans: int = SYNTHETIC_HISTORY_SCAN_COUNT,
+    history_records_per_scan: int = SYNTHETIC_HISTORY_RECORDS_PER_SCAN,
+    duplicate_group_size: int = 4,
+    extra_current_uniques: int = 12,
+) -> tuple[ScanRoot, ScanRun]:
+    media = tmp_path / "scale-media"
+    media.mkdir()
+    root = ScanRoot(id=EntityId.new(), name=root_name, media_type=MediaType.EBOOK)
+    repository(engine, ScanRoot).save(root)
+    scan_rows: list[ScanRun] = []
+    records: list[dict[str, object]] = []
+    observations: list[dict[str, object]] = []
+    quick_rows: list[dict[str, object]] = []
+    timestamp = NOW
+
+    def add_observation(
+        scan_id: EntityId,
+        *, relative_path: str, size_bytes: int, payload: bytes, quick_value: str
+    ) -> None:
+        file_id = str(EntityId.new())
+        observation_id = str(EntityId.new())
+        records.append(
+            {
+                "id": file_id,
+                "scan_root_id": str(root.id),
+                "relative_path": relative_path,
+                "size_bytes": size_bytes,
+                "modified_at": timestamp.isoformat(),
+                "media_type": MediaType.EBOOK.value,
+                "presence_state": PresenceState.PRESENT.value,
+                "first_seen_at": timestamp.isoformat(),
+                "last_seen_at": timestamp.isoformat(),
+                "missing_since_at": None,
+                "consecutive_missing_scans": 0,
+            }
+        )
+        observations.append(
+            {
+                "id": observation_id,
+                "file_id": file_id,
+                "scan_run_id": str(scan_id),
+                "relative_path": relative_path,
+                "size_bytes": size_bytes,
+                "modified_at": timestamp.isoformat(),
+                "observed_at": timestamp.isoformat(),
+            }
+        )
+        quick_rows.append(
+            {
+                "id": str(EntityId.new()),
+                "target_kind": EntityKind.FILE_OBSERVATION.value,
+                "target_id": observation_id,
+                "kind": "QUICK_FILE",
+                "algorithm": "sha256-head-tail",
+                "algorithm_version": "1",
+                "value": quick_value,
+                "created_at": timestamp.isoformat(),
+                "tool_execution_id": None,
+            }
+        )
+        if relative_path.startswith("current/"):
+            media_file = media / relative_path
+            media_file.parent.mkdir(parents=True, exist_ok=True)
+            source_bytes = (payload * ((size_bytes // len(payload)) + 1))[:size_bytes]
+            media_file.write_bytes(source_bytes)
+            media_timestamp = timestamp.timestamp()
+            os.utime(media_file, (media_timestamp, media_timestamp))
+
+    for index in range(history_scans):
+        scan = ScanRun(
+            id=EntityId.new(),
+            scan_root_id=root.id,
+            started_at=timestamp - timedelta(days=2) + timedelta(minutes=index),
+            completed_at=timestamp - timedelta(days=2) + timedelta(minutes=index + 1),
+            status=ScanRunStatus.COMPLETED,
+        )
+        scan_rows.append(scan)
+        for generation in range(history_records_per_scan):
+            add_observation(
+                scan.id,
+                relative_path=f"history/{index:03d}/row-{generation:05d}.epub",
+                size_bytes=1_000 + generation,
+                payload=b"historical",
+                quick_value=f"history-{index:03d}-{generation:05d}",
+            )
+
+    latest_scan = ScanRun(
+        id=EntityId.new(),
+        scan_root_id=root.id,
+        started_at=timestamp - timedelta(minutes=1),
+        completed_at=timestamp,
+        status=ScanRunStatus.COMPLETED,
+    )
+    scan_rows.append(latest_scan)
+    for group in range(2):
+        for index in range(duplicate_group_size):
+            add_observation(
+                latest_scan.id,
+                relative_path=f"current/duplicate-{group:02d}-{index:03d}.epub",
+                size_bytes=10_000 + group,
+                payload=f"duplicate-{group}".encode(),
+                quick_value=f"duplicate-group-{group:02d}",
+            )
+    for index in range(extra_current_uniques):
+        add_observation(
+            latest_scan.id,
+            relative_path=f"current/unique-{index:03d}.epub",
+            size_bytes=15_000 + index,
+            payload=f"unique-{index}".encode(),
+            quick_value=f"unique-{index:03d}",
+        )
+    scan_repository = repository(engine, ScanRun)
+    for scan_row in scan_rows:
+        scan_repository.save(scan_row)
+    with engine.begin() as connection:
+        connection.execute(insert(schema.file_records), records)
+        connection.execute(insert(schema.file_observations), observations)
+        connection.execute(insert(schema.fingerprints), quick_rows)
+    return root, latest_scan
+
+
+def _ordered_candidate_observations(
+    root: ScanRoot,
+    scan: ScanRun,
+    engine: Engine,
+    include_hashed: bool = False,
+) -> tuple[EntityId, ...]:
+    service = DuplicateHashCandidateService(engine)
+    current, groups, full_hash_targets = service._candidate_tables(root, scan)
+    statement = (
+        select(current.c.observation_id)
+        .select_from(
+            current.join(
+                groups, groups.c.quick_value == current.c.quick_value
+            ).outerjoin(
+                full_hash_targets,
+                full_hash_targets.c.observation_id == current.c.observation_id,
+            )
+        )
+        .order_by(current.c.quick_value, current.c.observation_id)
+    )
+    if not include_hashed:
+        statement = statement.where(full_hash_targets.c.observation_id.is_(None))
+    with engine.connect() as connection:
+        rows = connection.execute(statement).scalars().all()
+    return tuple(EntityId.parse(row) for row in rows)
+
+
+def _snapshot_candidates_plan(
+    service: DuplicateHashCandidateService,
+    root: ScanRoot,
+    scan: ScanRun,
+    engine: Engine,
+) -> str:
+    current, groups, full_hash_targets = service._candidate_tables(root, scan)
+    candidate_query = (
+        select(current.c.observation_id, current.c.quick_value)
+        .select_from(
+            current.join(
+                groups,
+                groups.c.quick_value == current.c.quick_value,
+            ).outerjoin(
+                full_hash_targets,
+                full_hash_targets.c.observation_id == current.c.observation_id,
+            )
+        )
+        .where(full_hash_targets.c.observation_id.is_(None))
+    )
+    with engine.connect() as connection:
+        compile_kwargs = {"literal_binds": True}
+        query_plan = candidate_query.compile(
+            dialect=connection.dialect,
+            compile_kwargs=compile_kwargs,
+        )
+        plan_rows = connection.execute(
+            text(f"EXPLAIN QUERY PLAN {query_plan}")
+        ).all()
+        return " ".join(str(value) for row in plan_rows for value in row)
+
+
+def _full_hashed_observations(engine: Engine) -> set[str]:
+    with engine.connect() as connection:
+        rows = connection.execute(
+            select(schema.fingerprints.c.target_id).where(
+                schema.fingerprints.c.target_kind == EntityKind.FILE_OBSERVATION.value,
+                schema.fingerprints.c.kind == "FILE_SHA256",
+            )
+        ).scalars().all()
+    return {str(row) for row in rows}
 
 
 def _candidate_case(
@@ -572,3 +775,100 @@ def test_keyboard_interrupt_releases_the_run_and_rerun_hashes_only_missing(
     assert summary.already_hashed == 0
     assert summary.hashed_this_invocation == 2
     assert summary.remaining == 0
+
+
+def test_candidate_hash_scale_dataset_uses_single_candidate_materialization_and_indexed_plan(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "scale.db"
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    root, scan = _seed_scale_dataset(tmp_path, engine)
+
+    materializations: list[str] = []
+
+    def observe_statement(
+        _connection: object,
+        _cursor: object,
+        statement: str,
+        _parameters: object,
+        _context: object,
+        _executemany: object,
+    ) -> None:
+        if (
+            "INSERT INTO" in statement.upper()
+            and "_foliotone_duplicate_hash_candidates" in statement
+            and "CURRENT_QUICK_OBSERVATIONS" in statement.upper()
+        ):
+            materializations.append(statement)
+
+    event.listen(engine, "before_cursor_execute", observe_statement)
+    try:
+        summary = DuplicateHashCandidateService(engine).enrich(
+            root,
+            tmp_path / "scale-media",
+            worker_count=2,
+            batch_size=4,
+        )
+    finally:
+        event.remove(engine, "before_cursor_execute", observe_statement)
+    assert len(materializations) == 1
+    assert summary.candidate_groups == 2
+    assert summary.candidate_observations == 8
+    assert summary.hashed_this_invocation == 8
+    assert summary.remaining == 0
+
+    candidate_plan = _snapshot_candidates_plan(
+        DuplicateHashCandidateService(engine),
+        root,
+        scan,
+        engine,
+    )
+    assert "ix_fingerprints_target_profile_id_value" in candidate_plan
+
+
+def test_candidate_hash_scale_restart_with_max_items_is_deterministic(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "scale-restart.db"
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    root, scan = _seed_scale_dataset(tmp_path, engine)
+    ordered_observations = _ordered_candidate_observations(root, scan, engine)
+    assert len(ordered_observations) == 8
+
+    service = DuplicateHashCandidateService(engine)
+    first = service.enrich(
+        root,
+        tmp_path / "scale-media",
+        batch_size=4,
+        max_items=3,
+    )
+    assert first.hashed_this_invocation == 3
+    assert first.remaining == 5
+    assert _full_hashed_observations(engine) == {
+        str(ordered_observations[index]) for index in range(3)
+    }
+
+    second = DuplicateHashCandidateService(engine).enrich(
+        root,
+        tmp_path / "scale-media",
+        batch_size=4,
+        max_items=3,
+    )
+    assert second.hashed_this_invocation == 3
+    assert second.remaining == 2
+    assert _full_hashed_observations(engine) == {
+        str(ordered_observations[index]) for index in range(6)
+    }
+
+    completed = DuplicateHashCandidateService(engine).enrich(
+        root,
+        tmp_path / "scale-media",
+        batch_size=4,
+    )
+    assert completed.hashed_this_invocation == 2
+    assert completed.remaining == 0
+    assert _full_hashed_observations(engine) == {
+        str(ordered_observations[index]) for index in range(8)
+    }

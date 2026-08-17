@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Event, Thread
+from time import perf_counter
 from typing import Any
 
 from sqlalchemy import (
@@ -84,6 +85,9 @@ class DuplicateHashCandidateSummary:
     hashed_this_invocation: int
     hash_failures: int
     remaining: int
+    selection_elapsed_seconds: float = 0.0
+    hash_batch_elapsed_seconds: float = 0.0
+    commit_elapsed_seconds: float = 0.0
     profile: str = DUPLICATE_HASH_PROFILE
 
     def __post_init__(self) -> None:
@@ -99,6 +103,12 @@ class DuplicateHashCandidateSummary:
             raise ValueError("duplicate hash counts must not be negative")
         if self.already_hashed > self.candidate_observations:
             raise ValueError("already-hashed count exceeds candidate observations")
+        if self.selection_elapsed_seconds < 0:
+            raise ValueError("selection elapsed seconds must not be negative")
+        if self.hash_batch_elapsed_seconds < 0:
+            raise ValueError("hash batch elapsed seconds must not be negative")
+        if self.commit_elapsed_seconds < 0:
+            raise ValueError("commit elapsed seconds must not be negative")
         if not self.profile.strip():
             raise ValueError("duplicate hash profile must not be empty")
 
@@ -327,8 +337,12 @@ class DuplicateHashCandidateService:
         processed = 0
         hashed = 0
         failures = 0
+        selection_elapsed = 0.0
+        hash_batch_elapsed = 0.0
+        commit_elapsed = 0.0
         cursor: tuple[str, str] | None = None
         snapshot = self._candidate_snapshot_table()
+        selection_started_at = perf_counter()
 
         with self._engine.connect() as snapshot_connection:
             try:
@@ -361,6 +375,7 @@ class DuplicateHashCandidateService:
                     "candidate selection completed: "
                     f"groups={groups}, observations={observations}, pending={pending}",
                 )
+                selection_elapsed = perf_counter() - selection_started_at
 
                 while max_items is None or processed < max_items:
                     keeper.check()
@@ -376,14 +391,17 @@ class DuplicateHashCandidateService:
                     snapshot_connection.rollback()
                     if not candidates:
                         break
+                    hash_batch_started_at = perf_counter()
                     succeeded, failed = self._hash_batch(
                         resolved_root,
                         candidates,
                         worker_count=worker_count,
                         created_at=self._clock(),
                     )
+                    hash_batch_elapsed += perf_counter() - hash_batch_started_at
                     keeper.check()
                     committed_at = self._clock()
+                    commit_started_at = perf_counter()
                     self._runs.commit_batch(
                         run_id,
                         lease_token,
@@ -393,6 +411,7 @@ class DuplicateHashCandidateService:
                         processed_delta=len(candidates),
                         failure_delta=failed,
                     )
+                    commit_elapsed += perf_counter() - commit_started_at
                     hashed += len(succeeded)
                     failures += failed
                     processed += len(candidates)
@@ -418,6 +437,9 @@ class DuplicateHashCandidateService:
             hashed_this_invocation=hashed,
             hash_failures=failures,
             remaining=remaining,
+            selection_elapsed_seconds=selection_elapsed,
+            hash_batch_elapsed_seconds=hash_batch_elapsed,
+            commit_elapsed_seconds=commit_elapsed,
         )
 
     def _latest_scan(self, root: ScanRoot) -> ScanRun:
