@@ -110,7 +110,10 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
     scan_columns = {column["name"] for column in inspector.get_columns("scan_runs")}
     assert {"resumed_from_run_id", "lease_token", "lease_expires_at"} <= scan_columns
     expected_indexes = {
-        "scan_runs": {"ix_scan_runs_root_status_lease"},
+        "scan_runs": {
+            "ix_scan_runs_root_status_lease",
+            "uq_scan_runs_active_root",
+        },
         "tool_executions": {"ix_tool_executions_input_capability_provider_started"},
         "tool_results": {"ix_tool_results_target_execution"},
         "fingerprints": {
@@ -150,7 +153,7 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
                 "target_id": "00000000-0000-0000-0000-000000000001",
             },
         ).all()
-    assert revision == "0011_candidate_hash_run_leases"
+    assert revision == "0012_scan_root_write_leases"
     assert any(
         "ix_fingerprints_target_profile_id_value" in str(row[-1])
         for row in query_plan
@@ -240,7 +243,7 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0011_candidate_hash_run_leases"
+    assert revision == "0012_scan_root_write_leases"
 
 
 def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
@@ -267,7 +270,7 @@ def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
         ).scalar_one()
 
     assert "ix_fingerprints_target_profile_id_value" in indexes
-    assert revision == "0011_candidate_hash_run_leases"
+    assert revision == "0012_scan_root_write_leases"
 
 
 def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
@@ -323,7 +326,7 @@ def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
         for index in inspector.get_indexes(ebook_candidate_hash_runs.name)
     }
     assert duplicate_count == 2
-    assert revision == "0011_candidate_hash_run_leases"
+    assert revision == "0012_scan_root_write_leases"
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:

@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from itertools import islice
+from threading import Event, Thread
 
 from foliotone.core import (
     EntityId,
@@ -25,12 +26,15 @@ from foliotone.index.hashing import FingerprintWriter, HashMode
 from foliotone.index.relocation import RelocationCandidateDetector
 from foliotone.index.store import (
     DEFAULT_SCAN_LEASE_DURATION,
+    OwnedScanRun,
     ScanLeaseError,
     SQLiteIndexStore,
 )
+from foliotone.persistence.scan_root_lease import OwnedScanRootWriteLease
 
 Clock = Callable[[], datetime]
 MAX_SCAN_HASH_WORKERS = 8
+MAX_SCAN_HEARTBEAT_SECONDS = 60.0
 _HASH_STATES = frozenset(
     {
         FileChangeState.NEW,
@@ -60,6 +64,59 @@ class ScanSummary:
             for state, count in self.counts.items()
             if state not in {FileChangeState.MISSING, FileChangeState.DELETED}
         )
+
+
+class _ScanLeaseKeeper:
+    """Renew scan and root ownership while discovery or hashing blocks."""
+
+    def __init__(
+        self,
+        store: SQLiteIndexStore,
+        owned: OwnedScanRun,
+        *,
+        clock: Clock,
+        lease_duration: timedelta,
+    ) -> None:
+        self._store = store
+        self._owned = owned
+        self._clock = clock
+        self._lease_duration = lease_duration
+        self._interval = min(
+            MAX_SCAN_HEARTBEAT_SECONDS,
+            lease_duration.total_seconds() / 3,
+        )
+        self._stop = Event()
+        self._thread = Thread(
+            target=self._renew_until_stopped,
+            name="foliotone-scan-heartbeat",
+            daemon=True,
+        )
+        self._error: Exception | None = None
+
+    def __enter__(self) -> _ScanLeaseKeeper:
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_exception: object) -> None:
+        self._stop.set()
+        self._thread.join()
+
+    def check(self) -> None:
+        if self._error is not None:
+            raise ScanLeaseError("scan heartbeat failed") from self._error
+
+    def _renew_until_stopped(self) -> None:
+        while not self._stop.wait(self._interval):
+            heartbeat_at = self._clock()
+            try:
+                self._owned = self._store.heartbeat_scan(
+                    self._owned,
+                    heartbeat_at,
+                    heartbeat_at + self._lease_duration,
+                )
+            except Exception as error:
+                self._error = error
+                return
 
 
 class IncrementalScanner:
@@ -105,7 +162,7 @@ class IncrementalScanner:
     ) -> ScanSummary:
         """Run or resume one incremental scan with a distinct auditable ScanRun."""
         started_at = self._clock()
-        run = self._store.start_scan(
+        owned = self._store.start_scan(
             root,
             started_at,
             resume_from=resume_from,
@@ -115,61 +172,94 @@ class IncrementalScanner:
         counts: Counter[FileChangeState] = Counter()
         relocation_candidates: tuple[FileRelocationCandidate, ...] = ()
         hash_failures = 0
+        keeper = _ScanLeaseKeeper(
+            self._store,
+            owned,
+            clock=self._clock,
+            lease_duration=self._lease_duration,
+        )
+        keeper.__enter__()
+        keeper_stopped = False
 
         try:
             iterator = discover_files(binding)
             for batch in _batches(iterator, self._batch_size):
-                run = self._heartbeat(run)
-                outcome = self._store.process_batch(root, run, batch, self._clock())
+                keeper.check()
+                owned = self._heartbeat(owned)
+                outcome = self._store.process_batch(root, owned, batch, self._clock())
                 counts.update(event.change_state for event in outcome.events)
                 hash_failures += self._hash_changed(
                     batch,
                     outcome.observations,
                     outcome.events,
+                    owned.write_lease,
                 )
-                run = self._heartbeat(run)
+                keeper.check()
+                owned = self._heartbeat(owned)
 
-            run = self._heartbeat(run)
+            owned = self._heartbeat(owned)
             missing = self._store.mark_missing(
                 root,
-                run,
+                owned,
                 self._clock(),
                 deletion_policy=self._deletion_policy,
             )
             counts.update(event.change_state for event in missing)
-            run = self._heartbeat(run)
+            owned = self._heartbeat(owned)
             if self._relocation_detector is not None:
-                relocation_candidates = self._relocation_detector.detect(run, self._clock())
-                run = self._heartbeat(run)
-            run = self._store.finish_scan(run, ScanRunStatus.COMPLETED, self._clock())
+                relocation_candidates = self._relocation_detector.detect(
+                    owned.run,
+                    self._clock(),
+                    write_lease=owned.write_lease,
+                )
+                owned = self._heartbeat(owned)
+            keeper.check()
+            keeper.__exit__(None, None, None)
+            keeper_stopped = True
+            keeper.check()
+            owned = self._store.finish_scan(
+                owned,
+                ScanRunStatus.COMPLETED,
+                self._clock(),
+            )
         except KeyboardInterrupt:
-            self._finish_after_error(run, ScanRunStatus.INTERRUPTED)
+            if not keeper_stopped:
+                keeper.__exit__(None, None, None)
+            self._finish_after_error(owned, ScanRunStatus.INTERRUPTED)
             raise
         except Exception:
-            self._finish_after_error(run, ScanRunStatus.FAILED)
+            if not keeper_stopped:
+                keeper.__exit__(None, None, None)
+            self._finish_after_error(owned, ScanRunStatus.FAILED)
             raise
         except BaseException:
-            self._finish_after_error(run, ScanRunStatus.INTERRUPTED)
+            if not keeper_stopped:
+                keeper.__exit__(None, None, None)
+            self._finish_after_error(owned, ScanRunStatus.INTERRUPTED)
             raise
 
         return ScanSummary(
-            run=run,
+            run=owned.run,
             counts=dict(counts),
             relocation_candidates=relocation_candidates,
             hash_failures=hash_failures,
         )
 
-    def _heartbeat(self, run: ScanRun) -> ScanRun:
+    def _heartbeat(self, owned: OwnedScanRun) -> OwnedScanRun:
         heartbeat_at = self._clock()
         return self._store.heartbeat_scan(
-            run,
+            owned,
             heartbeat_at,
             heartbeat_at + self._lease_duration,
         )
 
-    def _finish_after_error(self, run: ScanRun, status: ScanRunStatus) -> None:
+    def _finish_after_error(
+        self,
+        owned: OwnedScanRun,
+        status: ScanRunStatus,
+    ) -> None:
         try:
-            self._store.finish_scan(run, status, self._clock())
+            self._store.finish_scan(owned, status, self._clock())
         except ScanLeaseError:
             # A concurrent stale-run recovery already owns the durable transition.
             pass
@@ -179,6 +269,7 @@ class IncrementalScanner:
         discovered: tuple[DiscoveredFile, ...],
         observations: tuple[FileObservation, ...],
         events: tuple[FileScanEvent, ...],
+        write_lease: OwnedScanRootWriteLease,
     ) -> int:
         if self._hash_mode is HashMode.NONE or self._fingerprints is None:
             return 0
@@ -242,7 +333,11 @@ class IncrementalScanner:
                         hash_failures += 1
                     else:
                         fingerprints.extend(calculated)
-        self._fingerprints.save_many(fingerprints)
+        self._fingerprints.save_many(
+            fingerprints,
+            write_lease=write_lease,
+            committed_at=self._clock(),
+        )
         return hash_failures
 
 

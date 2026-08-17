@@ -2,7 +2,7 @@
 
 ## Status und Geltungsbereich
 
-**Status:** In Bearbeitung (W3-017 und E5 abgeschlossen; E6-E8 teilweise integriert; E4 und E9-E12 offen)
+**Status:** In Bearbeitung (W3-017, E4 und E5 abgeschlossen; E6-E8 teilweise integriert; E9-E12 offen)
 
 **Stand:** 2026-08-17
 
@@ -219,6 +219,13 @@ beschrieben.
 
 ### E4 — Gemeinsame `ScanRoot`-Write-Lease und vollständiges Scan-Fencing
 
+**Stand (abgeschlossen):** ADR-0027 und Alembic `0012` führen einen
+dauerhaften Root-Lease-Slot mit monotoner Fence-Epoch ein. Scan,
+Kandidaten-Hashing, Collection-Analyse und einzelne E-Book-Analyse sind für
+denselben Root gegenseitig ausgeschlossen; ihre Datenbankwrites werden in der
+jeweiligen Fachtransaktion gefencet. Scanner und Collection-Analyse erneuern
+Root- und Run-Lease während langer Arbeit über getrennte Keeper.
+
 **Ziel:** Scan und Kandidaten-Hashing desselben `ScanRoot` können nicht mehr
 gleichzeitig schreiben.
 
@@ -395,8 +402,8 @@ Nicht parallel auf derselben Runtime-Datenbank laufen dürfen:
 
 - Migration und aktiver Writer;
 - zwei Kandidaten-Hash-Invocations desselben `ScanRoot`;
-- Scan und Kandidaten-Hashing desselben `ScanRoot`, bis E4 vollständig
-  implementiert und ausgerollt ist;
+- Scan und Kandidaten-Hashing desselben `ScanRoot`; seit E4 weist die
+  gemeinsame Root-Lease den zweiten Writer automatisch ab;
 - Inventar-/Abschlussverifikation während einer Schemaänderung.
 
 Code-Wellen werden in getrennten Worktrees entwickelt. Laufzeitcode wird erst

@@ -2,6 +2,7 @@
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     Float,
     ForeignKey,
@@ -40,6 +41,44 @@ scan_runs = Table(
     Column("resumed_from_run_id", ID, ForeignKey("scan_runs.id")),
     Column("lease_token", Text),
     Column("lease_expires_at", DATETIME),
+)
+
+scan_root_write_leases = Table(
+    "scan_root_write_leases",
+    metadata,
+    Column(
+        "scan_root_id",
+        ID,
+        ForeignKey("scan_roots.id"),
+        primary_key=True,
+    ),
+    Column("owner_kind", ENUM),
+    Column("owner_run_id", ID),
+    Column("lease_token", Text),
+    Column("fence_epoch", Integer, nullable=False),
+    Column("lease_expires_at", DATETIME),
+    Column("heartbeat_at", DATETIME),
+    Column("acquired_at", DATETIME),
+    UniqueConstraint(
+        "owner_kind",
+        "owner_run_id",
+        name="uq_scan_root_write_leases_owner",
+    ),
+    CheckConstraint(
+        "fence_epoch >= 0",
+        name="ck_scan_root_write_leases_epoch",
+    ),
+    CheckConstraint(
+        "(lease_token IS NULL AND owner_kind IS NULL AND owner_run_id IS NULL "
+        "AND lease_expires_at IS NULL AND heartbeat_at IS NULL AND acquired_at IS NULL) "
+        "OR (lease_token IS NOT NULL AND lease_token <> '' "
+        "AND owner_kind IN ('SCAN_RUN', 'EBOOK_CANDIDATE_HASH_RUN', "
+        "'EBOOK_COLLECTION_RUN', 'EBOOK_ANALYSIS') AND owner_run_id IS NOT NULL "
+        "AND lease_expires_at IS NOT NULL AND heartbeat_at IS NOT NULL "
+        "AND acquired_at IS NOT NULL AND fence_epoch >= 1 "
+        "AND acquired_at <= heartbeat_at AND heartbeat_at < lease_expires_at)",
+        name="ck_scan_root_write_leases_state",
+    ),
 )
 
 file_records = Table(
@@ -373,6 +412,7 @@ evidence = Table(
 ALL_TABLES = (
     scan_roots,
     scan_runs,
+    scan_root_write_leases,
     file_records,
     file_observations,
     value_assertions,

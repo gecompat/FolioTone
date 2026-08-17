@@ -13,6 +13,7 @@ from sqlalchemy.engine import Connection
 
 from foliotone.core.ids import EntityId
 from foliotone.persistence.codecs import Codec, codec_for
+from foliotone.persistence.scan_root_lease import fence_scoped_write
 
 
 def create_sqlite_engine(database: Path | str) -> Engine:
@@ -93,6 +94,7 @@ class SQLiteRepository[T]:
 
         table = self._codec.table
         with self._engine.begin() as connection:
+            fence_scoped_write(connection)
             exists = connection.execute(
                 select(table.c.id).where(table.c.id == entity_id)
             ).scalar_one_or_none()

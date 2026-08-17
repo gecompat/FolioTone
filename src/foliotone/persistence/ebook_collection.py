@@ -25,6 +25,12 @@ from foliotone.core import (
 )
 from foliotone.persistence import schema, w3_schema
 from foliotone.persistence.codecs import Codec, codec_for
+from foliotone.persistence.scan_root_lease import (
+    OwnedScanRootWriteLease,
+    ScanRootWriteLeaseError,
+    ScanRootWriteOwnerKind,
+    SQLiteScanRootWriteLeaseStore,
+)
 
 EBOOK_COLLECTION_PLAN_BATCH_SIZE = 500
 _COLLECTION_FORMAT_ORDER = ("EPUB", "MOBI", "AZW", "AZW3", "PDF")
@@ -134,6 +140,7 @@ class SQLiteEbookCollectionStore:
         self._item_codec = codec_for(EbookCollectionItem)
         self._observation_codec = codec_for(FileObservation)
         self._scan_codec = codec_for(ScanRun)
+        self._write_leases = SQLiteScanRootWriteLeaseStore(engine)
 
     def create_run(
         self,
@@ -156,6 +163,21 @@ class SQLiteEbookCollectionStore:
         if plan_per_format is not None and plan_per_format <= 0:
             raise ValueError("plan_per_format must be positive when provided")
         with self._engine.begin() as connection:
+            run_id = EntityId.new()
+            try:
+                self._write_leases.acquire_in_transaction(
+                    connection,
+                    scan_root_id,
+                    ScanRootWriteOwnerKind.EBOOK_COLLECTION_RUN,
+                    run_id,
+                    lease_token=lease_token,
+                    acquired_at=started_at,
+                    lease_expires_at=lease_expires_at,
+                )
+            except ScanRootWriteLeaseError as error:
+                raise EbookCollectionStoreError(
+                    "another write workflow owns this ScanRoot"
+                ) from error
             source_scan = self._latest_scan(connection, scan_root_id)
             if source_scan is None:
                 raise EbookCollectionStoreError("ScanRoot has no persisted ScanRun")
@@ -164,7 +186,7 @@ class SQLiteEbookCollectionStore:
                     "latest ScanRun must be COMPLETED before collection analysis"
                 )
             run = EbookCollectionRun(
-                id=EntityId.new(),
+                id=run_id,
                 scan_root_id=scan_root_id,
                 source_scan_run_id=source_scan.id,
                 profile=profile,
@@ -212,6 +234,43 @@ class SQLiteEbookCollectionStore:
                 and run.lease_expires_at > now
             ):
                 raise EbookCollectionStoreError("collection run already has an active lease")
+            current = self._write_leases.current_in_transaction(
+                connection,
+                run.scan_root_id,
+            )
+            try:
+                if current is None:
+                    self._write_leases.acquire_in_transaction(
+                        connection,
+                        run.scan_root_id,
+                        ScanRootWriteOwnerKind.EBOOK_COLLECTION_RUN,
+                        run.id,
+                        lease_token=lease_token,
+                        acquired_at=now,
+                        lease_expires_at=lease_expires_at,
+                    )
+                elif (
+                    current.owner_kind
+                    is ScanRootWriteOwnerKind.EBOOK_COLLECTION_RUN
+                    and current.owner_run_id == run.id
+                    and current.lease_expires_at <= now
+                ):
+                    self._write_leases.takeover_expired_in_transaction(
+                        connection,
+                        current,
+                        run.id,
+                        lease_token=lease_token,
+                        acquired_at=now,
+                        lease_expires_at=lease_expires_at,
+                    )
+                else:
+                    raise ScanRootWriteLeaseError(
+                        "another write workflow owns this ScanRoot"
+                    )
+            except ScanRootWriteLeaseError as error:
+                raise EbookCollectionStoreError(
+                    "another write workflow owns this ScanRoot"
+                ) from error
             connection.execute(
                 update(w3_schema.ebook_collection_items)
                 .where(
@@ -243,6 +302,16 @@ class SQLiteEbookCollectionStore:
     def get_run(self, run_id: EntityId) -> EbookCollectionRun | None:
         with self._engine.connect() as connection:
             return self._get_run(connection, run_id)
+
+    def owned_write_lease(
+        self,
+        run_id: EntityId,
+        lease_token: str,
+    ) -> OwnedScanRootWriteLease:
+        """Return the opaque root proof held by one active collection run."""
+
+        with self._engine.connect() as connection:
+            return self._require_root_owner(connection, run_id, lease_token)
 
     def latest_interrupted_run(
         self,
@@ -276,6 +345,17 @@ class SQLiteEbookCollectionStore:
         if lease_expires_at <= now:
             raise ValueError("heartbeat lease must expire after now")
         with self._engine.begin() as connection:
+            root_lease = self._require_root_owner(
+                connection,
+                run_id,
+                lease_token,
+            )
+            self._heartbeat_root(
+                connection,
+                root_lease,
+                heartbeat_at=now,
+                lease_expires_at=lease_expires_at,
+            )
             run = self._require_lease(connection, run_id, lease_token, now)
             self._update_record(
                 connection,
@@ -294,6 +374,12 @@ class SQLiteEbookCollectionStore:
         if limit <= 0:
             raise ValueError("claim limit must be positive")
         with self._engine.begin() as connection:
+            root_lease = self._require_root_owner(
+                connection,
+                run_id,
+                lease_token,
+            )
+            self._fence_root(connection, root_lease, started_at)
             self._require_lease(connection, run_id, lease_token, started_at)
             rows = connection.execute(
                 select(w3_schema.ebook_collection_items)
@@ -364,6 +450,12 @@ class SQLiteEbookCollectionStore:
         ):
             raise ValueError("collection finding references an unavailable execution")
         with self._engine.begin() as connection:
+            root_lease = self._require_root_owner(
+                connection,
+                item.run_id,
+                lease_token,
+            )
+            self._fence_root(connection, root_lease, completed_at)
             self._require_lease(connection, item.run_id, lease_token, completed_at)
             current = self._get_item(connection, item.id)
             if current is None or current.status is not EbookCollectionItemStatus.RUNNING:
@@ -439,6 +531,12 @@ class SQLiteEbookCollectionStore:
         finished_at: datetime,
     ) -> EbookCollectionRun:
         with self._engine.begin() as connection:
+            root_lease = self._require_root_owner(
+                connection,
+                run_id,
+                lease_token,
+            )
+            self._fence_root(connection, root_lease, finished_at)
             run = self._require_lease(connection, run_id, lease_token, finished_at)
             counts = self._counts(connection, run_id)
             if counts.pending or counts.running:
@@ -458,6 +556,11 @@ class SQLiteEbookCollectionStore:
                 lease_expires_at=None,
             )
             self._update_record(connection, self._run_codec, finished)
+            self._write_leases.release_in_transaction(
+                connection,
+                root_lease,
+                released_at=finished_at,
+            )
             return finished
 
     def fail_invocation(
@@ -468,6 +571,12 @@ class SQLiteEbookCollectionStore:
         failed_at: datetime,
     ) -> EbookCollectionRun:
         with self._engine.begin() as connection:
+            root_lease = self._require_root_owner(
+                connection,
+                run_id,
+                lease_token,
+            )
+            self._fence_root(connection, root_lease, failed_at)
             run = self._require_lease(connection, run_id, lease_token, failed_at)
             failed = replace(
                 run,
@@ -476,6 +585,11 @@ class SQLiteEbookCollectionStore:
                 lease_expires_at=None,
             )
             self._update_record(connection, self._run_codec, failed)
+            self._write_leases.release_in_transaction(
+                connection,
+                root_lease,
+                released_at=failed_at,
+            )
             return failed
 
     def counts(self, run_id: EntityId) -> EbookCollectionCounts:
@@ -623,6 +737,63 @@ class SQLiteEbookCollectionStore:
         ):
             raise EbookCollectionStoreError("collection run lease is unavailable or expired")
         return run
+
+    def _require_root_owner(
+        self,
+        connection: Connection,
+        run_id: EntityId,
+        lease_token: str,
+    ) -> OwnedScanRootWriteLease:
+        run = self._get_run(connection, run_id)
+        if run is None:
+            raise EbookCollectionStoreError("collection run does not exist")
+        current = self._write_leases.current_in_transaction(
+            connection,
+            run.scan_root_id,
+        )
+        if (
+            current is None
+            or current.owner_kind is not ScanRootWriteOwnerKind.EBOOK_COLLECTION_RUN
+            or current.owner_run_id != run.id
+            or current.lease_token != lease_token
+        ):
+            raise EbookCollectionStoreError(
+                "collection root ownership is unavailable"
+            )
+        return current
+
+    def _fence_root(
+        self,
+        connection: Connection,
+        lease: OwnedScanRootWriteLease,
+        now: datetime,
+    ) -> None:
+        try:
+            self._write_leases.fence(connection, lease, now)
+        except ScanRootWriteLeaseError as error:
+            raise EbookCollectionStoreError(
+                "collection run lease is unavailable or expired"
+            ) from error
+
+    def _heartbeat_root(
+        self,
+        connection: Connection,
+        lease: OwnedScanRootWriteLease,
+        *,
+        heartbeat_at: datetime,
+        lease_expires_at: datetime,
+    ) -> None:
+        try:
+            self._write_leases.heartbeat_in_transaction(
+                connection,
+                lease,
+                heartbeat_at=heartbeat_at,
+                lease_expires_at=lease_expires_at,
+            )
+        except ScanRootWriteLeaseError as error:
+            raise EbookCollectionStoreError(
+                "collection run lease is unavailable or expired"
+            ) from error
 
     def _get_run(
         self,

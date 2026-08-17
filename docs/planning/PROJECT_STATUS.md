@@ -4,7 +4,7 @@ Stand: 2026-08-17
 
 ## Aktuelle Welle
 
-**W3-017 abgeschlossen — book-only Authority-, Provider-, Klassifikations- und Deduplizierungsstrecke aktiv**
+**EB-01/E4 abgeschlossen — gemeinsame `ScanRoot`-Write-Lease aktiv**
 
 Der kontrollierte Runtime-Cutover, die Trennung zwischen synthetischen
 Entwicklungs-Gates und privatem Hintergrundlauf sowie die langfristige
@@ -77,11 +77,21 @@ Für E5 wurden zusätzlich synthetische Skalierungs- und Restart-Vertragsfälle 
 genau eine Kandidatenmaterialisierung je Invocation, indexgestützte
 `EXPLAIN QUERY PLAN`-Prüfung und getrennte Messung von Auswahllaufzeit,
 Hashing-I/O und Commitzeit.
-W3-017 sowie E1 bis E3 sind abgeschlossen. E4 und E6 bis E12 bleiben davon
+W3-017 sowie E1 bis E5 sind abgeschlossen. E6 bis E12 bleiben davon
 getrennte langfristige book-only Folgewellen; der vollständige private
 Sammlungslauf bleibt betriebliche Arbeit und ändert diesen Status nicht.
 Music-Welle W4
 bleibt geplant und zurückgestellt.
+
+EB-01/E4 ergänzt mit ADR-0027 und Alembic `0012` einen dauerhaften
+`ScanRoot`-Write-Lease-Slot mit monotoner Fence-Epoch. Scanner,
+Kandidaten-Hashing, Collection-Analyse und einzelne E-Book-Analyse können für
+denselben Root nicht mehr gleichzeitig legitim schreiben. Root-Fence,
+Run-Fence und Fachdaten liegen in derselben SQLite-Transaktion; stale Writer
+können nach einer Übernahme weder Fingerprints, Scanstatus, Missing-/Deleted-
+Übergänge, Relocation- noch Analyse-Evidence committen. Keeper schützen lange
+Hash- und Analysearbeit, ohne Datenbanktransaktionen offen zu halten. Die
+Migration verweigert Upgrade oder Downgrade bei aktiven Writern.
 
 ## Implementierter W2-Slice
 
@@ -977,6 +987,16 @@ bestanden die fünf direkt betroffenen Unit-/Integrationstests erneut in 43,48
 Sekunden; Ruff und Mypy waren für die betroffenen Dateien ohne Befund. Der
 vollständige Gate läuft genau einmal am Pull Request.
 
+**Empirisch für EB-01/E4 Root-Fencing:** Die gezielten Root-Lease-, Scan-
+Resume-, Incremental-Index-, Collection- und Persistenzläufe bestanden 53
+Integrationstests. Sie prüfen konkurrierende Owner, Cross-Workflow-
+Blockierung, monotone Epoch und ABA-Schutz, atomaren Fence-Rollback,
+path-freie Fehler, Keeper-Lifecycle, Schema-Constraints, Upgrade-Quiescence
+und die Downgrade-Sperre bei aktivem Writer. Weitere Kandidaten-Hash-
+Leasefälle waren bereits im direkt betroffenen 16-Test-Verbund grün. Alle
+Daten sind synthetisch; Source Media und private Runtime-Datenbanken wurden
+nicht geöffnet. Der vollständige Gate läuft genau einmal am Pull Request.
+
 ## Aktiver W3-Stand und nächster Schritt
 
 W2 ist abgeschlossen; `W3-001` bis `W3-016` sind abgeschlossen. W3-015 stellt
@@ -1018,7 +1038,9 @@ paketierten Schema-Head, die gemeinsame Scan-/Hash-/Collection-Lineage, die
 Inventarartefakte bytegenau und die begrenzte Formatabdeckung über dieselbe
 echte Read-only-Verbindung, ohne Source Media zu öffnen. Der vollständige
 private Inventar-/Collection-Lauf und Bericht werden noch abgeschlossen.
-Music W4 bleibt bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche
+Der nächste Entwicklungsschritt ist EB-02: persistierte book-only Entity
+Resolution mit minimalem generischem Review-/Decision-Core. Music W4 bleibt
+bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche
 bleibt ausschließlich die CLI.
 
 ## Nicht implementiert

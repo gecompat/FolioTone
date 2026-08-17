@@ -26,6 +26,12 @@ from foliotone.index.discovery import DiscoveredFile
 from foliotone.persistence import repository, schema, w2_schema
 from foliotone.persistence._mapping import datetime_to_db
 from foliotone.persistence.codecs import codec_for
+from foliotone.persistence.scan_root_lease import (
+    OwnedScanRootWriteLease,
+    ScanRootWriteLeaseError,
+    ScanRootWriteOwnerKind,
+    SQLiteScanRootWriteLeaseStore,
+)
 
 DEFAULT_SCAN_LEASE_DURATION = timedelta(minutes=30)
 
@@ -42,11 +48,20 @@ class BatchOutcome:
     events: tuple[FileScanEvent, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class OwnedScanRun:
+    """A running ScanRun coupled to its root-wide fencing proof."""
+
+    run: ScanRun
+    write_lease: OwnedScanRootWriteLease
+
+
 class SQLiteIndexStore:
     """Index-specific queries and batched writes over the W1 SQLite persistence layer."""
 
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
+        self._write_leases = SQLiteScanRootWriteLeaseStore(engine)
 
     def save_root(self, root: ScanRoot) -> None:
         repository(self._engine, ScanRoot).save(root)
@@ -134,7 +149,7 @@ class SQLiteIndexStore:
         resume_from: ScanRun | None = None,
         lease_token: str | None = None,
         lease_expires_at: datetime | None = None,
-    ) -> ScanRun:
+    ) -> OwnedScanRun:
         self.save_root(root)
         if resume_from is not None:
             persisted = repository(self._engine, ScanRun).get(resume_from.id)
@@ -145,8 +160,11 @@ class SQLiteIndexStore:
         if lease_token is None and lease_expires_at is None:
             lease_token = str(EntityId.new())
             lease_expires_at = started_at + DEFAULT_SCAN_LEASE_DURATION
+        if lease_token is None or lease_expires_at is None:
+            raise ValueError("scan lease token and expiry must be provided together")
+        run_id = EntityId.new()
         run = ScanRun(
-            id=EntityId.new(),
+            id=run_id,
             scan_root_id=root.id,
             started_at=started_at,
             status=ScanRunStatus.RUNNING,
@@ -154,8 +172,22 @@ class SQLiteIndexStore:
             lease_token=lease_token,
             lease_expires_at=lease_expires_at,
         )
-        repository(self._engine, ScanRun).save(run)
-        return run
+        codec = codec_for(ScanRun)
+        try:
+            with self._engine.begin() as connection:
+                write_lease = self._write_leases.acquire_in_transaction(
+                    connection,
+                    root.id,
+                    ScanRootWriteOwnerKind.SCAN_RUN,
+                    run_id,
+                    lease_token=lease_token,
+                    acquired_at=started_at,
+                    lease_expires_at=lease_expires_at,
+                )
+                connection.execute(insert(schema.scan_runs).values(**codec.encode(run)))
+        except ScanRootWriteLeaseError as error:
+            raise ScanLeaseError("another write workflow owns this ScanRoot") from error
+        return OwnedScanRun(run=run, write_lease=write_lease)
 
     def recover_latest_stale_run(
         self,
@@ -187,6 +219,25 @@ class SQLiteIndexStore:
             if run.lease_expires_at is not None and run.lease_expires_at > recovered_at:
                 raise ScanLeaseError("the latest RUNNING ScanRun still has an active lease")
 
+            current_lease = self._write_leases.current_in_transaction(
+                connection,
+                root.id,
+            )
+            if (
+                current_lease is None
+                or current_lease.owner_kind is not ScanRootWriteOwnerKind.SCAN_RUN
+                or current_lease.owner_run_id != run.id
+                or current_lease.lease_expires_at > recovered_at
+            ):
+                raise ScanLeaseError("the ScanRoot writer is not recoverable")
+            recovery = self._write_leases.takeover_expired_in_transaction(
+                connection,
+                current_lease,
+                run.id,
+                lease_token=str(EntityId.new()),
+                acquired_at=recovered_at,
+                lease_expires_at=recovered_at + DEFAULT_SCAN_LEASE_DURATION,
+            )
             recovered = replace(
                 run,
                 status=ScanRunStatus.INTERRUPTED,
@@ -209,17 +260,23 @@ class SQLiteIndexStore:
             )
             if result.rowcount != 1:
                 raise ScanLeaseError("the RUNNING ScanRun lease changed during recovery")
+            self._write_leases.release_in_transaction(
+                connection,
+                recovery,
+                released_at=recovered_at,
+            )
             return recovered
 
     def heartbeat_scan(
         self,
-        run: ScanRun,
+        owned: OwnedScanRun,
         heartbeat_at: datetime,
         lease_expires_at: datetime,
-    ) -> ScanRun:
+    ) -> OwnedScanRun:
         """Extend one still-active lease owned by this scan invocation."""
         if lease_expires_at <= heartbeat_at:
             raise ValueError("heartbeat lease must expire after heartbeat_at")
+        run = owned.run
         if run.lease_token is None or run.lease_expires_at is None:
             raise ScanLeaseError("the RUNNING ScanRun has no owned lease")
         renewed = replace(run, lease_expires_at=lease_expires_at)
@@ -227,6 +284,12 @@ class SQLiteIndexStore:
         if encoded_heartbeat_at is None:
             raise AssertionError("non-null heartbeat time encoded as None")
         with self._engine.begin() as connection:
+            renewed_write_lease = self._write_leases.heartbeat_in_transaction(
+                connection,
+                owned.write_lease,
+                heartbeat_at=heartbeat_at,
+                lease_expires_at=lease_expires_at,
+            )
             result = connection.execute(
                 update(schema.scan_runs)
                 .where(
@@ -239,7 +302,7 @@ class SQLiteIndexStore:
             )
         if result.rowcount != 1:
             raise ScanLeaseError("the RUNNING ScanRun lease is unavailable or expired")
-        return renewed
+        return OwnedScanRun(run=renewed, write_lease=renewed_write_lease)
 
     @staticmethod
     def _validate_resume_source(root: ScanRoot, run: ScanRun) -> None:
@@ -250,10 +313,11 @@ class SQLiteIndexStore:
 
     def finish_scan(
         self,
-        run: ScanRun,
+        owned: OwnedScanRun,
         status: ScanRunStatus,
         completed_at: datetime,
-    ) -> ScanRun:
+    ) -> OwnedScanRun:
+        run = owned.run
         if status is ScanRunStatus.RUNNING:
             raise ValueError("finish_scan requires a terminal ScanRunStatus")
         finished = replace(
@@ -271,6 +335,7 @@ class SQLiteIndexStore:
             else schema.scan_runs.c.lease_token == run.lease_token
         )
         with self._engine.begin() as connection:
+            self._fence_owned_scan(connection, owned, completed_at)
             result = connection.execute(
                 update(schema.scan_runs)
                 .where(
@@ -280,14 +345,20 @@ class SQLiteIndexStore:
                 )
                 .values(**encoded)
             )
+            if result.rowcount == 1:
+                self._write_leases.release_in_transaction(
+                    connection,
+                    owned.write_lease,
+                    released_at=completed_at,
+                )
         if result.rowcount != 1:
             raise ScanLeaseError("the RUNNING ScanRun is no longer owned by this invocation")
-        return finished
+        return OwnedScanRun(run=finished, write_lease=owned.write_lease)
 
     def process_batch(
         self,
         root: ScanRoot,
-        run: ScanRun,
+        owned: OwnedScanRun,
         discovered: tuple[DiscoveredFile, ...],
         observed_at: datetime,
     ) -> BatchOutcome:
@@ -300,6 +371,7 @@ class SQLiteIndexStore:
             raise ValueError("one scan batch must not contain duplicate relative paths")
 
         with self._engine.begin() as connection:
+            self._fence_owned_scan(connection, owned, observed_at)
             existing_rows = connection.execute(
                 select(schema.file_records).where(
                     schema.file_records.c.scan_root_id == str(root.id),
@@ -324,7 +396,7 @@ class SQLiteIndexStore:
                 observation = FileObservation(
                     id=EntityId.new(),
                     file_id=record.id,
-                    scan_run_id=run.id,
+                    scan_run_id=owned.run.id,
                     relative_path=item.relative_path,
                     size_bytes=item.size_bytes,
                     modified_at=item.modified_at,
@@ -333,7 +405,7 @@ class SQLiteIndexStore:
                 event = FileScanEvent(
                     id=EntityId.new(),
                     file_id=record.id,
-                    scan_run_id=run.id,
+                    scan_run_id=owned.run.id,
                     change_state=state,
                     recorded_at=observed_at,
                     previous_relative_path=None if current is None else current.relative_path,
@@ -352,7 +424,7 @@ class SQLiteIndexStore:
     def mark_missing(
         self,
         root: ScanRoot,
-        run: ScanRun,
+        owned: OwnedScanRun,
         recorded_at: datetime,
         deletion_policy: DeletionConfirmationPolicy | None = None,
     ) -> tuple[FileScanEvent, ...]:
@@ -360,11 +432,12 @@ class SQLiteIndexStore:
         observation_exists = exists(
             select(schema.file_observations.c.id).where(
                 schema.file_observations.c.file_id == schema.file_records.c.id,
-                schema.file_observations.c.scan_run_id == str(run.id),
+                schema.file_observations.c.scan_run_id == str(owned.run.id),
             )
         )
 
         with self._engine.begin() as connection:
+            self._fence_owned_scan(connection, owned, recorded_at)
             rows = connection.execute(
                 select(schema.file_records).where(
                     schema.file_records.c.scan_root_id == str(root.id),
@@ -409,7 +482,7 @@ class SQLiteIndexStore:
                 event = FileScanEvent(
                     id=EntityId.new(),
                     file_id=current.id,
-                    scan_run_id=run.id,
+                    scan_run_id=owned.run.id,
                     change_state=change_state,
                     recorded_at=recorded_at,
                     previous_relative_path=current.relative_path,
@@ -417,6 +490,33 @@ class SQLiteIndexStore:
                 _insert(connection, event)
                 events.append(event)
             return tuple(events)
+
+    def _fence_owned_scan(
+        self,
+        connection: Connection,
+        owned: OwnedScanRun,
+        now: datetime,
+    ) -> None:
+        try:
+            self._write_leases.fence(connection, owned.write_lease, now)
+        except ScanRootWriteLeaseError as error:
+            raise ScanLeaseError("ScanRoot write ownership is unavailable") from error
+        run = owned.run
+        encoded_now = datetime_to_db(now)
+        if encoded_now is None:
+            raise AssertionError("non-null scan fence time encoded as None")
+        result = connection.execute(
+            update(schema.scan_runs)
+            .where(
+                schema.scan_runs.c.id == str(run.id),
+                schema.scan_runs.c.status == ScanRunStatus.RUNNING.value,
+                schema.scan_runs.c.lease_token == run.lease_token,
+                schema.scan_runs.c.lease_expires_at > encoded_now,
+            )
+            .values(lease_expires_at=schema.scan_runs.c.lease_expires_at)
+        )
+        if result.rowcount != 1:
+            raise ScanLeaseError("the RUNNING ScanRun lease is unavailable or expired")
 
     def list_events(self, run: ScanRun) -> list[FileScanEvent]:
         """Return scan events for one run in deterministic ID order."""

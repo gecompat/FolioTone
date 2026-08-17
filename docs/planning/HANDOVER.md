@@ -38,7 +38,10 @@ Benutzerentscheidung bleibt die Entwicklung bis zur Reife der E-Book-Pipeline
 bei E-Books; `W3-017` einschließlich des E5-Performance-/Restart-Vertrags ist
 abgeschlossen. Die lokalen Authority-Grundlagen, strukturierten Provider-
 Verträge und E-Book-Klassifikationsverträge wurden mit `PR #36` bis `PR #39`
-auf `main` integriert. Reale Provider, persistierte Authority-Entscheidungen,
+auf `main` integriert. EB-01/E4 ergänzt die gemeinsame Root-Write-Lease aus
+ADR-0027 und Migration `0012`; Scan, Kandidaten-Hashing, Collection-Analyse
+und Einzelanalyse sind damit für denselben `ScanRoot` atomar gefencet. Reale
+Provider, persistierte Authority-Entscheidungen,
 Matching und Review bleiben offen. Music W4 bleibt zurückgestellt.
 
 Der reale `W3-017`-Scan zeigte zusätzlich einen Lifecycle-Gap: Ein externer
@@ -46,6 +49,12 @@ harter Prozessabbruch kann den Cleanup umgehen und einen `ScanRun` als
 `RUNNING` hinterlassen. ADR-0025 und Alembic `0009_scan_run_leases` ergänzen
 deshalb 30-Minuten-Leases, Heartbeats und eine explizite atomare Recovery für
 abgelaufene oder aus älteren Versionen stammende ungeleaste Läufe.
+
+Die per-Run-Leases bleiben zusätzliche Laufzeitbelege. Die gemeinsame
+`scan_root_write_leases`-Tombstone-Zeile ist seit EB-01 das maßgebliche
+Cross-Workflow-Fence. Migration `0012` darf nur bei vollständig ruhenden
+Scan-, Candidate-Hash- und Collection-Writern ausgeführt werden; ungefencte
+Legacy-`RUNNING`-Zustände werden nicht automatisch übernommen.
 
 ## Vor Änderungen lesen
 
@@ -843,16 +852,12 @@ bleibt getrennt aktivierbar und darf weder Pfade noch Passwortmaterial loggen.
 W9 erzeugt nur nicht ausführbare Pläne; jede Quarantäne-, Lösch- oder
 Verzeichnisoperation bleibt W10-blockiert.
 
-Die aktuelle Entwicklungsposition wurde hier abgeschlossen:
-
-1. `W3-017` — den laufenden read-only Inventar-Snapshot abschließen, selektive
-   Vollhash-Evidence für Quick-Duplikatkandidaten ergänzen, den scanweiten
-   privaten Inventarbericht erzeugen und einen formatabdeckenden Collection-
-   Lauf bis zum Qualitäts-/Duplicate-Bericht fortsetzen. Private Pfade,
-   Runtime-Daten, Kennzahlen und Berichte bleiben außerhalb von Git; Source
-   Media bleibt unverändert. Der kontrollierte Cutover und die anschließende
-   book-only Folgeplanung stehen in `W3_017_EBOOK_ROADMAP.md`; der direkt
-   verwendbare Auftrag steht in `W3_017_EBOOK_ROADMAP_PROMPT.md`.
+Die aktuelle Entwicklungsposition ist EB-02: persistierte book-only Entity
+Resolution plus minimaler generischer Review-/Decision-Core. EB-00 und
+EB-01/E4 sind abgeschlossen. Die Reihenfolge, Stop-Gates und zulässigen
+Spark-Pakete stehen in `EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` und
+`EBOOK_SPARK_WORK_PACKAGES.md`. Private Pfade, Runtime-Daten, Kennzahlen und
+Berichte bleiben außerhalb von Git; Source Media bleibt unverändert.
 
 Music W4 bleibt geplant, wird aber erst nach der E-Book-Vertiefung und den
 book-spezifischen Teilen von Authority Resolution, Matching, Review und

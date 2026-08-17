@@ -14,6 +14,10 @@ from sqlalchemy import Engine, and_, func, insert, literal_column, select
 from foliotone.core import EntityId, EntityKind, FileObservation, Fingerprint
 from foliotone.persistence import schema
 from foliotone.persistence.codecs import codec_for
+from foliotone.persistence.scan_root_lease import (
+    OwnedScanRootWriteLease,
+    SQLiteScanRootWriteLeaseStore,
+)
 
 DEFAULT_CHUNK_BYTES = 4 * 1024 * 1024
 QUICK_SAMPLE_BYTES = 64 * 1024
@@ -85,6 +89,7 @@ class FingerprintWriter:
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
         self._codec = codec_for(Fingerprint)
+        self._write_leases = SQLiteScanRootWriteLeaseStore(engine)
 
     def calculate(
         self,
@@ -125,13 +130,20 @@ class FingerprintWriter:
             )
         return tuple(fingerprints)
 
-    def save_many(self, fingerprints: Sequence[Fingerprint]) -> None:
+    def save_many(
+        self,
+        fingerprints: Sequence[Fingerprint],
+        *,
+        write_lease: OwnedScanRootWriteLease,
+        committed_at: datetime,
+    ) -> None:
         """Persist one bounded fingerprint batch in a single transaction."""
 
         if not fingerprints:
             return
         rows = [dict(self._codec.encode(fingerprint)) for fingerprint in fingerprints]
         with self._engine.begin() as connection:
+            self._write_leases.fence(connection, write_lease, committed_at)
             connection.execute(insert(self._codec.table), rows)
 
     def calculate_full(
@@ -260,7 +272,13 @@ class FingerprintWriter:
         physical_path: Path,
         mode: HashMode,
         created_at: datetime,
+        *,
+        write_lease: OwnedScanRootWriteLease,
     ) -> tuple[Fingerprint, ...]:
         fingerprints = self.calculate(observation, physical_path, mode, created_at)
-        self.save_many(fingerprints)
+        self.save_many(
+            fingerprints,
+            write_lease=write_lease,
+            committed_at=created_at,
+        )
         return fingerprints

@@ -242,6 +242,10 @@ Verifikation durch S-EB00-01 bis S-EB00-04 offen.
 **Komplexität:** hoch
 **Muss vor neuen langfristigen Runtime-Writer-Strecken abgeschlossen werden.**
 
+**Stand:** Abgeschlossen durch ADR-0027 und Alembic `0012`. Die Umsetzung
+umfasst Scanner, Kandidaten-Hashing, Collection-Analyse und einzelne
+E-Book-Analyse als rootbezogene Writer; EB-02 ist der nächste P0-Schritt.
+
 ## Ziel
 
 Für einen `ScanRoot` existiert zu einem Zeitpunkt genau ein legitimer
@@ -2425,15 +2429,7 @@ ohne die Fähigkeit, Source Media zu verändern.
 
 # 42. Empfohlener unmittelbarer nächster Implementierungsschritt
 
-**Zuerst den noch offenen Implementierungsteil von EB-00 abschließen:**
-Provider Access Mode und Cache Policy im Vertrag trennen und gezielt
-verifizieren.
-
-Danach:
-
-**EB-01 / E4 – gemeinsame `ScanRoot` Write Lease und vollständiges Fencing.**
-
-Anschließend unmittelbar:
+EB-00 und EB-01/E4 sind abgeschlossen. Unmittelbar als Nächstes:
 
 **EB-02 – persistierte book-only Entity Resolution plus minimaler generischer
 Review-/Decision-Core.**
