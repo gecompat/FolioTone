@@ -35,8 +35,11 @@ Plan, begrenzte Worker und per-File-Fehlerfortsetzung. `W3-016` ergänzt
 deterministische private Collection-Berichte, persistierte Befundprovenance
 und begrenzte Duplicate-/Varianten-Kandidaten ohne Identitätsurteil. Auf
 Benutzerentscheidung bleibt die Entwicklung bis zur Reife der E-Book-Pipeline
-bei E-Books; `W3-017` ist als Nächstes vorgesehen, Music W4 ist
-zurückgestellt.
+bei E-Books; `W3-017` einschließlich des E5-Performance-/Restart-Vertrags ist
+abgeschlossen. Die lokalen Authority-Grundlagen, strukturierten Provider-
+Verträge und E-Book-Klassifikationsverträge wurden mit `PR #36` bis `PR #39`
+auf `main` integriert. Reale Provider, persistierte Authority-Entscheidungen,
+Matching und Review bleiben offen. Music W4 bleibt zurückgestellt.
 
 Der reale `W3-017`-Scan zeigte zusätzlich einen Lifecycle-Gap: Ein externer
 harter Prozessabbruch kann den Cleanup umgehen und einen `ScanRun` als

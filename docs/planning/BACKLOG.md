@@ -71,7 +71,7 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W3-014 | DONE | Expand the fully synthetic e-book corpus with malformed, sparse, multi-format and visual-distance cases; replace collection-wide pair-comparison reads with bounded target queries and measured SQLite indexes without using private media. |
 | W3-015 | DONE | Add resumable collection-batch orchestration over persisted current EPUB/MOBI/AZW/AZW3/PDF observations. Reuse exact Evidence, continue after per-file failures, bound concurrency and preserve read-only source handling. |
 | W3-016 | DONE | Add deterministic CLI collection reports with aggregate format/analysis/quality/finding counts plus prioritized incomplete, action-required, duplicate and variant review sets. Keep private paths and metadata in local runtime artifacts and out of Git. |
-| W3-017 | IN PROGRESS | Harden incremental scan/hash persistence from real read-only scale evidence; add recoverable `ScanRun` leases for externally orphaned `RUNNING` attempts, format-balanced pilot planning, resumable full-SHA enrichment limited to Quick duplicate candidates, a current-scan-first materialized candidate snapshot with a measured lookup index, root-wide fenced candidate-hash runs with durable path-free heartbeat/status, a deterministic scan-wide inventory/hash/duplicate report, true SQLite-read-only JSON status, a path-free postscan completion verifier and the E5 synthetic performance/restart contract; complete the private collection analysis/report without changing source media or committing private paths, counts, or runtime data. The controlled cutover and book-only continuation through W9 are detailed in [`W3_017_EBOOK_ROADMAP.md`](W3_017_EBOOK_ROADMAP.md). |
+| W3-017 | DONE | Harden incremental scan/hash persistence from real read-only scale evidence; add recoverable `ScanRun` leases for externally orphaned `RUNNING` attempts, format-balanced pilot planning, resumable full-SHA enrichment limited to Quick duplicate candidates, a current-scan-first materialized candidate snapshot with a measured lookup index, root-wide fenced candidate-hash runs with durable path-free heartbeat/status, a deterministic scan-wide inventory/hash/duplicate report, true SQLite-read-only JSON status, a path-free postscan completion verifier and the E5 synthetic performance/restart contract. The controlled book-only continuation through W9 is detailed in [`W3_017_EBOOK_ROADMAP.md`](W3_017_EBOOK_ROADMAP.md). |
 | W3-018 | PLANNED | Evaluate signature-first ZIP/RAR/7z/TAR/CBR/CBZ discovery and maintained read-only listing/integrity tools; decide publication-container, multipart, license, version and sandbox contracts before implementing an adapter. |
 | W3-019 | PLANNED | Persist bounded incremental archive, volume and sidecar inventory Evidence without extraction; report encryption, missing volumes, corruption and unsupported methods path-free. |
 | W3-020 | PLANNED | Implement bounded local archive-password candidates from explicit Secret Handles, container comments, adjacent NFO/TXT/DIZ/INFO/URL/HTML/SFV/README hints and configured local lists; persist no plaintext password and perform no brute force. |
@@ -101,23 +101,23 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 
 | ID | Status | Item |
 |---|---|---|
-| W5A-001 | PLANNED | Implement versioned Unicode/name normalization without destructive overwrite. |
-| W5A-002 | PLANNED | Resolve Agent candidates using aliases, pseudonyms, sort names, credited-as forms, transliterations and local confirmed knowledge. |
-| W5A-003 | PLANNED | Implement homonym protection; equal normalized names must not auto-merge Agents. |
-| W5A-004 | PLANNED | Implement Work/Edition/Series and MusicWork/Recording/ReleaseGroup/Release resolution candidates with explanations/confidence. |
+| W5A-001 | DONE | Implement versioned Unicode/name normalization without destructive overwrite. |
+| W5A-002 | DONE | Generate local Agent candidates using aliases, pseudonyms, sort names and credited-as forms with versioned confidence/provenance. |
+| W5A-003 | DONE | Implement homonym protection; equal normalized names must not auto-merge Agents. |
+| W5A-004 | PLANNED | Extend the implemented book Work/Edition/Series candidate primitives into complete persisted resolution and add MusicWork/Recording/ReleaseGroup/Release candidates with explanations/confidence. |
 | W5A-005 | PLANNED | Persist confirmed/rejected local authority mappings separately from source observations. |
 
 ### W5B — External enrichment infrastructure/providers
 
 | ID | Status | Item |
 |---|---|---|
-| W5B-001 | PLANNED | Implement provider interface and explicit OFFLINE/LOCAL_DATASETS/ONLINE_STRUCTURED/ONLINE_WEB_RESEARCH modes. |
+| W5B-001 | DONE | Implement provider interface and explicit OFFLINE/LOCAL_DATASETS/ONLINE_STRUCTURED/ONLINE_WEB_RESEARCH modes. |
 | W5B-002 | PLANNED | Implement persistent provider cache/import/version state under `/data`; no provider cache in Git. |
-| W5B-003 | PLANNED | Implement privacy-minimized query DTOs; never send absolute paths. |
+| W5B-003 | DONE | Implement privacy-minimized query DTOs; never send absolute paths. |
 | W5B-004 | PLANNED | Review and select first book/authority providers from Open Library, GND/DNB and Wikidata; record current access/license constraints before coding adapters. |
 | W5B-005 | PLANNED | Review and select first music knowledge providers from MusicBrainz and AcoustID; Chromaprint/fpcalc remains a local ToolProvider concern. |
 | W5B-006 | PLANNED | Evaluate/import official bulk/local datasets where they are more appropriate than per-file API lookup. |
-| W5B-007 | PLANNED | Implement at least one structured book/authority adapter and one structured music adapter as initial vertical slices. |
+| W5B-007 | PLANNED | Complete the initial structured-provider vertical slices: the synthetic book/authority provider contract is implemented; a selected real book adapter and the structured music adapter remain. |
 | W5B-008 | PLANNED | Add offline/provider-failure/cache-hit/cache-refresh tests. |
 | W5B-009 | PLANNED | Define generic web research fallback interface; keep it separately enabled and candidate-only. |
 | W5B-010 | PLANNED | Evaluate a local MusicBrainz mirror/container deployment only if scale/rate/latency justifies its operational cost. |
@@ -127,8 +127,8 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 
 | ID | Status | Item |
 |---|---|---|
-| W5C-001 | PLANNED | Implement typed multidimensional classification assertions with source/taxonomy provenance. |
-| W5C-002 | PLANNED | Support e-book domain/genre/subgenre/topic/audience/language/form facets. |
+| W5C-001 | DONE | Implement typed multidimensional classification assertions with source/taxonomy provenance. |
+| W5C-002 | DONE | Support e-book domain/genre/subgenre/topic/audience/language/form facets. |
 | W5C-003 | PLANNED | Support music domain/style plus classical period/form/instrumentation facets. |
 | W5C-004 | PLANNED | Preserve conflicting provider/tool classifications and derive canonical/local projections separately. |
 

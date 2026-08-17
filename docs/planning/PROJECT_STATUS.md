@@ -1,10 +1,10 @@
 # Projektstatus
 
-Stand: 2026-08-16
+Stand: 2026-08-17
 
 ## Aktuelle Welle
 
-**W3 E-Book-Vertiefung aktiv — reale read-only Collection-Härtung und selektive Duplikatbestätigung in Arbeit**
+**W3-017 abgeschlossen — book-only Authority-, Provider-, Klassifikations- und Deduplizierungsstrecke aktiv**
 
 Der kontrollierte Runtime-Cutover, die Trennung zwischen synthetischen
 Entwicklungs-Gates und privatem Hintergrundlauf sowie die langfristige
@@ -20,6 +20,12 @@ optionale separat aktivierte Providerrecherche und archive-aware Matching
 führen zunächst ausschließlich zu Evidence, Review und nicht ausführbaren
 W9-Plänen. Quarantäne, Purge und Leer-Verzeichnis-Bereinigung bleiben bis zu
 einer zukünftigen akzeptierten W10-ADR blockiert.
+
+Die lokalen Authority-Grundlagen aus `PR #36`, der synthetische E5-
+Performance-/Restart-Vertrag aus `PR #37`, die strukturierten Provider-
+Verträge aus `PR #38` und die mehrdimensionalen E-Book-Klassifikationsverträge
+aus `PR #39` sind auf `main` integriert. Persistierte Authority-Entscheidungen,
+Provider-Cache und reale Provider-Auswahl bleiben weiterhin geplant.
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 

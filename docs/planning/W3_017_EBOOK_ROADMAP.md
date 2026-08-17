@@ -2,9 +2,9 @@
 
 ## Status und Geltungsbereich
 
-**Status:** Geplant
+**Status:** In Bearbeitung (W3-017 und E5 abgeschlossen; E6-E8 teilweise integriert; E4 und E9-E12 offen)
 
-**Stand:** 2026-08-16
+**Stand:** 2026-08-17
 
 **Scope:** E-Book-Schiene von W3-017 bis zur nicht ausführbaren
 Konsolidierungsplanung W9
@@ -257,6 +257,9 @@ E5 ist ein Entwicklungsvertrag und wartet nicht auf E3. Die Welle darf in
 einem isolierten Worktree parallel zum privaten Hintergrundlauf entstehen,
 solange sie dessen Datenbank und Prozesse nicht verändert.
 
+**Stand (abgeschlossen):** `PR #37` integriert die synthetischen Skalierungs-,
+Index-, Phasenmessungs- und deterministischen `max-items`-Restart-Verträge.
+
 ### E6 — E-Book-Authority und lokale Entity Resolution (W5A, book-only)
 
 **Ziel:** Provider-neutrale lokale Kandidaten für `Agent`, `Work`, `Edition`
@@ -278,10 +281,23 @@ Reihenfolge:
 Abnahme erfordert nachvollziehbare Rule-/Resolver-Versionen, Confidence und
 Evidence-Links. Es entsteht noch kein Duplicate-Matching.
 
+**Stand (Teilabschluss):** `PR #36` integriert versionierte lokale Namens- und
+Identifier-Normalisierung, Agent-/Buchkandidaten und einen konservativen
+Homonym-Guard. Persistierte bestätigte/abgelehnte Zuordnungen und der breitere
+synthetische False-Positive-Korpus bleiben offen.
+
 ### E7 — Strukturierte E-Book-Knowledge-Provider (W5B, book-only)
 
 **Ziel:** Mindestens ein strukturierter Buch-/Authority-Provider ergänzt
 lokale Kandidaten privacy-minimiert und offline-fähig.
+
+**Stand (Vertragsgrundlage integriert):** `w5b: add synthetic structured book knowledge provider` wurde in
+`PR #38` (Merge-Commit `08371f2b3cbd8d49c6b8fbe1308577520cee5be4`) erfolgreich
+integriert. Die neuen privacy-minimierten Provider-Verträge und Offline-Synthese-Fixtures
+sind in `src/foliotone/enrichment/contracts.py`, `src/foliotone/enrichment/providers.py`
+und `tests/unit/test_enrichment.py` verifiziert.
+Persistenter Cache, aktuelle reale Provider-Auswahl und der erste reale Adapter
+bleiben offen.
 
 Vor der Implementierung werden aktuelle offizielle Zugangs-, Lizenz-,
 Attributions-, Rate-Limit-, Cache- und Bulk-Daten-Regeln erneut geprüft. Die
@@ -301,6 +317,11 @@ Umfang:
 
 **Ziel:** Domain, Genre, Subgenre, Topic, Audience, Language und Form werden
 als getrennte, Provenance-behaftete Assertions modelliert.
+
+**Stand (abgeschlossen):** `w5c: add multidimensional book classification contracts` wurde in
+`PR #39` (Merge-Commit `6023fbebe514526fa7a0612e6ca5bc7f28c53a96`) erfolgreich
+integriert. Die neuen Assertions-DTOs und Verifikationstests liegen in
+`src/foliotone/classification/contracts.py` und `tests/unit/test_classification.py`.
 
 Konflikte zwischen lokaler Ableitung, ToolProvider und Knowledge Provider
 bleiben erhalten. Klassifikation ist keine Identitätsevidence und darf weder
