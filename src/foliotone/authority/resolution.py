@@ -251,13 +251,11 @@ def is_homonym_free_merge(
     Equal normalized names alone never trigger auto-merge.
     """
 
-    left_key = require_non_empty(left_normalized, "left_normalized").casefold()
-    right_key = require_non_empty(right_normalized, "right_normalized").casefold()
-    if left_key != right_key:
-        return False
-    if disambiguation is None or not disambiguation.strip():
-        return False
-    return disambiguate(left_key, disambiguation).startswith("ok:")
+    require_non_empty(left_normalized, "left_normalized")
+    require_non_empty(right_normalized, "right_normalized")
+    # EB-02 deliberately removes free-form strings from identity policy. Only
+    # an exact compatible persisted ACCEPT decision may make a later case safe.
+    return False
 
 
 def disambiguate(name: str, disambiguation: str) -> str:

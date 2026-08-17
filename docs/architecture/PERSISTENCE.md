@@ -252,6 +252,21 @@ Collection-Service erneuern Root- und Run-Lease während langer I/O- oder
 Toolarbeit mit separaten Keepern; die Fachtransaktionen bleiben kurz. Der
 vollständige Vertrag ist in ADR-0027 festgelegt.
 
+### Persistierte Resolution und Review-Historie
+
+Alembic `0013_resolution_review_core` ergänzt die Tabellen
+`resolution_candidates`, `resolution_candidate_evidence`, `review_items` und
+`review_decisions`. Kandidaten und ihre konkreten polymorphen Evidence-Links
+werden atomar über einen dedizierten Store eingefügt; der generische
+Update-by-ID-Repositorypfad ist für diese Snapshots nicht zulässig.
+
+Review-Entscheidungen werden ausschließlich angehängt. `sequence_no` ordnet
+auch Entscheidungen mit identischem Zeitpunkt eindeutig. Evidence-
+Fingerprint, vollständiger Candidate-Set-Fingerprint und
+`decision_compatibility_version` bilden den optimistischen Stale-Vertrag.
+Migration `0013` ist additiv und verweigert einen Daten verlierenden Downgrade,
+solange Resolution- oder Review-Daten existieren. Details stehen in ADR-0028.
+
 ### Selektiver Kandidaten-Hash-Lookup
 
 `DuplicateHashCandidateService` schränkt die Quick-Evidence zuerst auf die

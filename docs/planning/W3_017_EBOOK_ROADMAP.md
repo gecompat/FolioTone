@@ -294,10 +294,12 @@ Reihenfolge:
 Abnahme erfordert nachvollziehbare Rule-/Resolver-Versionen, Confidence und
 Evidence-Links. Es entsteht noch kein Duplicate-Matching.
 
-**Stand (Teilabschluss):** `PR #36` integriert versionierte lokale Namens- und
-Identifier-Normalisierung, Agent-/Buchkandidaten und einen konservativen
-Homonym-Guard. Persistierte bestätigte/abgelehnte Zuordnungen und der breitere
-synthetische False-Positive-Korpus bleiben offen.
+**Stand (abgeschlossen, book-only):** `PR #36` integriert versionierte lokale
+Namens- und Identifier-Normalisierung, Agent-/Buchkandidaten und einen
+konservativen Homonym-Guard. EB-02 ergänzt mit ADR-0028 und Alembic `0013`
+persistierte Resolution Candidates, konkrete Evidence-Links sowie
+append-only ACCEPT-/REJECT-/DEFER-Entscheidungen mit exakter
+Wiederverwendung. Music bleibt getrennt geplant.
 
 ### E7 — Strukturierte E-Book-Knowledge-Provider (W5B, book-only)
 

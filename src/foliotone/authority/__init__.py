@@ -12,6 +12,14 @@ from foliotone.authority.normalization import (
 from foliotone.authority.normalization import (
     normalize_identifier as _normalize_identifier,
 )
+from foliotone.authority.persisted_resolution import (
+    CANDIDATE_SET_FINGERPRINT_PROFILE,
+    EVIDENCE_FINGERPRINT_PROFILE,
+    ResolutionReuseRoute,
+    resolution_candidate_set_fingerprint,
+    resolution_evidence_fingerprint,
+    route_reusable_decision,
+)
 from foliotone.authority.resolution import (
     DEFAULT_AGENT_NAME_CONFIDENCE,
     DEFAULT_AUTHOR_RESOLUTION_VERSION,
@@ -64,6 +72,7 @@ def normalize_identifier_text(identifier: str) -> str:
 
 __all__ = [
     "AuthorityNameProfile",
+    "CANDIDATE_SET_FINGERPRINT_PROFILE",
     "BibliographicEntityProfile",
     "DEFAULT_AUTHOR_RESOLUTION_VERSION",
     "DEFAULT_AGENT_NAME_CONFIDENCE",
@@ -73,9 +82,11 @@ __all__ = [
     "DEFAULT_TITLE_CONFIDENCE",
     "DEFAULT_TITLE_RESOLUTION_VERSION",
     "IDENTIFIER_NORMALIZATION_PROFILE",
+    "EVIDENCE_FINGERPRINT_PROFILE",
     "NAME_NORMALIZATION_PROFILE",
     "NormalizedIdentifier",
     "NormalizedName",
+    "ResolutionReuseRoute",
     "TitleProfile",
     "canonicalize_title",
     "disambiguate",
@@ -93,4 +104,7 @@ __all__ = [
     "normalize_identifier_for_profile",
     "normalize_identifier_key",
     "normalize_identifier_text",
+    "resolution_candidate_set_fingerprint",
+    "resolution_evidence_fingerprint",
+    "route_reusable_decision",
 ]

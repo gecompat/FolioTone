@@ -4,7 +4,7 @@ Stand: 2026-08-17
 
 ## Aktuelle Welle
 
-**EB-01/E4 abgeschlossen — gemeinsame `ScanRoot`-Write-Lease aktiv**
+**EB-02 abgeschlossen — persistierte Entity Resolution und Review Core**
 
 Der kontrollierte Runtime-Cutover, die Trennung zwischen synthetischen
 Entwicklungs-Gates und privatem Hintergrundlauf sowie die langfristige
@@ -92,6 +92,14 @@ können nach einer Übernahme weder Fingerprints, Scanstatus, Missing-/Deleted-
 Übergänge, Relocation- noch Analyse-Evidence committen. Keeper schützen lange
 Hash- und Analysearbeit, ohne Datenbanktransaktionen offen zu halten. Die
 Migration verweigert Upgrade oder Downgrade bei aktiven Writern.
+
+EB-02 ergänzt mit ADR-0028 und Alembic `0013` persistierte book-only
+`ResolutionCandidate`-Snapshots, konkrete Evidence-Links, generische
+`ReviewItem`-Datensätze und append-only ACCEPT-/REJECT-/DEFER-Entscheidungen.
+Erstmalige Kandidaten bleiben immer reviewpflichtig. Nur eine semantisch exakt
+kompatible frühere ACCEPT-Entscheidung darf AUTO_SAFE wiederverwendet werden;
+REJECT unterdrückt den unveränderten Fall und DEFER bleibt reviewbar. Source
+Evidence, kanonische Metadaten und Source Media bleiben unverändert.
 
 ## Implementierter W2-Slice
 
@@ -1038,10 +1046,11 @@ paketierten Schema-Head, die gemeinsame Scan-/Hash-/Collection-Lineage, die
 Inventarartefakte bytegenau und die begrenzte Formatabdeckung über dieselbe
 echte Read-only-Verbindung, ohne Source Media zu öffnen. Der vollständige
 private Inventar-/Collection-Lauf und Bericht werden noch abgeschlossen.
-Der nächste Entwicklungsschritt ist EB-02: persistierte book-only Entity
-Resolution mit minimalem generischem Review-/Decision-Core. Music W4 bleibt
-bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche
-bleibt ausschließlich die CLI.
+Der nächste Frontier-Schritt ist EB-05: begrenztes Candidate Blocking und
+Relation Contracts auf Basis des nun persistierten Resolution-/Review-Cores.
+EB-03A kann als getrennte Provider-Cache-Welle vorbereitet werden. Music W4
+bleibt bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
+ausschließlich die CLI.
 
 ## Nicht implementiert
 
@@ -1050,12 +1059,12 @@ Noch nicht vorhanden sind unter anderem:
 - weitere Formate außerhalb der expliziten EPUB/MOBI/AZW/AZW3-Text-Allowlist
   sowie alle Music-ToolProvider;
 - calibre Library Reconciliation;
-- Entity Resolution Engine;
+- vollständiger Offline-Orchestrator und Review-CLI für Entity Resolution;
 - externe Knowledge Provider und Provider Cache;
 - Classification Engine;
 - Matching Engine;
 - vollständiger realer Sammlungslauf und zusätzliche qpdf-Struktur-Evidence;
-- Review System;
+- Classification-/Matching-/Keep-Preference-Review über den generischen Core;
 - Consolidation Planning und Execution;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 

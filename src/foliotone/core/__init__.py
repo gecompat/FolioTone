@@ -42,6 +42,24 @@ from foliotone.core.music_models import (
     ReleaseRecording,
 )
 from foliotone.core.relocation_models import FileRelocationCandidate, RelocationCandidateKind
+from foliotone.core.resolution_models import (
+    BOOK_RESOLUTION_ENTITY_KINDS,
+    RESOLUTION_SUBJECT_KINDS,
+    ResolutionCandidate,
+    ResolutionDisposition,
+    ResolutionEvidenceKind,
+    ResolutionEvidenceLink,
+    ResolutionEvidenceRole,
+)
+from foliotone.core.review_models import (
+    ReviewActorKind,
+    ReviewCandidateKind,
+    ReviewDecision,
+    ReviewDecisionValue,
+    ReviewItem,
+    ReviewItemState,
+    ReviewType,
+)
 from foliotone.core.scan_events import FileScanEvent
 
 __all__ = [
@@ -49,6 +67,7 @@ __all__ = [
     "AgentName",
     "AgentNameType",
     "AgentType",
+    "BOOK_RESOLUTION_ENTITY_KINDS",
     "CatalogDesignation",
     "ClassificationAssertion",
     "Contribution",
@@ -86,6 +105,19 @@ __all__ = [
     "ReleaseGroup",
     "ReleaseRecording",
     "RelocationCandidateKind",
+    "RESOLUTION_SUBJECT_KINDS",
+    "ResolutionCandidate",
+    "ResolutionDisposition",
+    "ResolutionEvidenceKind",
+    "ResolutionEvidenceLink",
+    "ResolutionEvidenceRole",
+    "ReviewActorKind",
+    "ReviewCandidateKind",
+    "ReviewDecision",
+    "ReviewDecisionValue",
+    "ReviewItem",
+    "ReviewItemState",
+    "ReviewType",
     "ScanRoot",
     "ScanRun",
     "ScanRunStatus",
