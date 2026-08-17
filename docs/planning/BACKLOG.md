@@ -111,7 +111,7 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 
 | ID | Status | Item |
 |---|---|---|
-| W5B-001 | NEXT | Separate provider access modes (OFFLINE/LOCAL_DATASETS/ONLINE_STRUCTURED/ONLINE_WEB_RESEARCH) from cache policy; the implemented OFFLINE/ONLINE/CACHE contract is not yet the complete target contract. |
+| W5B-001 | DONE | Separate provider access modes (`OFFLINE`/`LOCAL_DATASETS`/`ONLINE_STRUCTURED`/`ONLINE_WEB_RESEARCH`) from `ProviderCachePolicy`; retain `KnowledgeProviderMode` only as input to the exact deprecated compatibility mapping. |
 | W5B-002 | PLANNED | Implement persistent provider cache/import/version state under `/data`; no provider cache in Git. |
 | W5B-003 | DONE | Implement privacy-minimized query DTOs; never send absolute paths. |
 | W5B-004 | PLANNED | Review and select first book/authority providers from Open Library, GND/DNB and Wikidata; record current access/license constraints before coding adapters. |
