@@ -316,6 +316,10 @@ A provider classification is evidence, not automatically the canonical classific
 
 External knowledge is accessed through adapters/providers, never directly from matching/domain code.
 
+`PR #38` hat die strukturierten Book/Authority-Provider-Verträge (offline-synthetische
+Query-/DTO/Result-Contracts) auf `main` eingeführt; `PR #39` ergänzt die
+multidimensionalen e-Book-Klassifikations-DTOs.
+
 Conceptual interface responsibilities:
 
 - resolve/search by structured identifiers or candidate fields;
