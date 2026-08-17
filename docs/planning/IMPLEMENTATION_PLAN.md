@@ -223,6 +223,18 @@ that roadmap and stays deferred under the current user-directed E-book focus.
     and emit deterministic private JSON/CSV/checksum artifacts without a
     Relation, keep preference or identity verdict.
 
+The subsequent archive-aware e-book and end-to-end deduplication track is
+defined in
+[`EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md`](EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md).
+It first adds signature-based archive/volume/sidecar inventory, bounded
+read-only listing and integrity Evidence, local secret-handle-based password
+candidates and sandboxed private test extraction. Archive members then enter
+the normal Entity Resolution, Matching and Review sequence without pretending
+to be physical source files. W9 may produce only a non-executable,
+content-addressed deduplication plan. Quarantine, purge and empty-directory
+cleanup remain blocked W10 work until a future accepted ADR and separate
+execution approval exist.
+
 Current execution priority is intentionally e-book-first. Music W4 remains in
 the architecture and backlog but is deferred until the e-book completion track
 and the book-only portions of authority resolution, matching, review and

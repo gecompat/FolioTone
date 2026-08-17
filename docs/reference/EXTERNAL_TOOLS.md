@@ -252,6 +252,30 @@ Official references:
 - https://gitlab.freedesktop.org/poppler/poppler/-/blob/poppler-26.07.0/NEWS
 - https://packages.msys2.org/packages/mingw-w64-x86_64-poppler
 
+### Archiv-Listing und sichere Testextraktion
+
+Priority: **planned / evaluation required**
+
+Candidate roles:
+
+- signature-first Listing und Integritätstest für ZIP, RAR, 7z, TAR, CBR und
+  CBZ;
+- Verschlüsselungs-, Volume-, CRC- und Methodenerkennung;
+- begrenzte private Testextraktion ohne Source-Media-Mutation;
+- maschinenlesbare Mitglieder- und Fehlerausgabe für versionierte Evidence.
+
+Vor einer Implementierung werden insbesondere 7-Zip,
+libarchive/bsdtar und geeignete RAR-Unterstützung anhand aktueller offizieller
+Dokumentation bewertet. Zu prüfen sind dokumentierte CLI-/Library-Verträge,
+Versionserkennung, Exitcodes, Passwortübergabe ohne Prozessargument,
+Mehrteilarchive, Lizenz und Redistribution sowie Traversal-, Symlink-,
+Decompression-Bomb- und Ressourcengrenzen.
+
+Eine erfolgreiche Extraktion ist keine Löschfreigabe. CBR, CBZ und EPUB sind
+Publikationscontainer und werden nicht als automatisch entbehrliche Archive
+behandelt. Der detaillierte Stufenvertrag steht in
+[`EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md`](../planning/EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md).
+
 ## Music tools
 
 ### FFmpeg / ffprobe

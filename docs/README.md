@@ -10,7 +10,8 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 4. [Backlog](planning/BACKLOG.md) enthält die konkreten Aufgaben und Statuswerte.
 5. [E-Book-Roadmap W3-017 bis W9](planning/W3_017_EBOOK_ROADMAP.md) trennt den privaten Runtime-Cutover, synthetische Entwicklungs-Gates und die langfristige book-only Folgeplanung.
 6. [Ausführungs-Prompt für die E-Book-Roadmap](planning/W3_017_EBOOK_ROADMAP_PROMPT.md) enthält den wiederverwendbaren Auftrag für einen neuen Codex-Thread.
-7. [Lokaler W2-Smoke-Test](quality/LOCAL_SMOKE_TEST.md) dokumentiert den abgeschlossenen manuellen Windows-/Docker-Testpunkt mit ausschließlich synthetischen Dateien.
+7. [E-Book-Archive und kontrollierte Deduplizierung](planning/EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md) plant read-only Archivanalyse, lokale Passwortkandidaten, archive-aware Matching und die weiterhin gesperrte spätere W10-Ausführung.
+8. [Lokaler W2-Smoke-Test](quality/LOCAL_SMOKE_TEST.md) dokumentiert den abgeschlossenen manuellen Windows-/Docker-Testpunkt mit ausschließlich synthetischen Dateien.
 
 ## Architektur
 
