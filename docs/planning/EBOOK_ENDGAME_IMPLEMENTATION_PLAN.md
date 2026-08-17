@@ -1,7 +1,7 @@
 # FolioTone – detaillierte Planung der nächsten E-Book-Wellen
 
-**Planungsstand:** 2026-08-17  
-**Basis:** `main` nach PR #43 / Commit `a33ad6e6c72f538843eb32be683cc453e5371eea`  
+**Planungsstand:** 2026-08-17
+**Basis:** `main` nach PR #43 / Commit `a33ad6e6c72f538843eb32be683cc453e5371eea`
 **Scope:** E-Book-Linie einschließlich Authority Resolution, Enrichment,
 Classification, Matching, Review, Calibre-Reconciliation, nicht ausführbarer
 Konsolidierungsplanung und anschließender Archive-Erweiterung.
@@ -119,8 +119,8 @@ Das hat mehrere Vorteile:
 
 # 3. EB-00 – Status- und Contract-Bereinigung
 
-**Priorität:** P0 – sehr klein, aber vor weiterer Implementierung sinnvoll  
-**Art:** Dokumentation / Contract Alignment  
+**Priorität:** P0 – sehr klein, aber vor weiterer Implementierung sinnvoll
+**Art:** Dokumentation / Contract Alignment
 **Keine funktionale Erweiterung**
 
 ## Problem 1: W3-017/E3-Status
@@ -188,9 +188,9 @@ Candidate-/Evidence-only.
 
 # 4. EB-01 – gemeinsame ScanRoot Write Lease und vollständiges Fencing
 
-**entspricht:** E4  
-**Priorität:** P0 – Safety/Correctness  
-**Komplexität:** hoch  
+**entspricht:** E4
+**Priorität:** P0 – Safety/Correctness
+**Komplexität:** hoch
 **Muss vor neuen langfristigen Runtime-Writer-Strecken abgeschlossen werden.**
 
 ## Ziel
@@ -324,9 +324,9 @@ Mindestfälle:
 
 # 5. EB-02 – persistierte E-Book Entity Resolution + gemeinsamer Review Core
 
-**entspricht:** Rest E6 / W5A-004 book-only / W5A-005  
-**zusätzlich:** kleiner vorgezogener W7-Core  
-**Priorität:** P0  
+**entspricht:** Rest E6 / W5A-004 book-only / W5A-005
+**zusätzlich:** kleiner vorgezogener W7-Core
+**Priorität:** P0
 **Komplexität:** hoch
 
 ## Warum Review bereits hier beginnen?
@@ -595,8 +595,8 @@ Mindestens synthetisch abdecken:
 
 # 7. EB-03A – Provider Cache und Provider Runtime vervollständigen
 
-**entspricht:** W5B-002, W5B-008 und Teil E7  
-**Priorität:** P1  
+**entspricht:** W5B-002, W5B-008 und Teil E7
+**Priorität:** P1
 **Kann nach EB-01 teilweise parallel zu EB-02 entstehen.**
 
 ## Ziel
@@ -721,7 +721,7 @@ Nur für geeignete temporäre Fehler.
 
 # 8. EB-03B – erster realer Book Provider
 
-**entspricht:** W5B-004, book-only Teil W5B-007  
+**entspricht:** W5B-004, book-only Teil W5B-007
 **Priorität:** P1
 
 ## Hauptempfehlung: Open Library als erster bibliografischer Vertical Slice
@@ -854,8 +854,8 @@ Nicht als erste bibliografische Quelle.
 
 # 10. EB-04 – persistierte Classification und lokale Projection
 
-**entspricht:** Rest E8 / W5C-004  
-**Priorität:** P1  
+**entspricht:** Rest E8 / W5C-004
+**Priorität:** P1
 **Komplexität:** mittel
 
 Die DTO-Verträge existieren bereits.
@@ -955,8 +955,8 @@ bestätigen.
 
 # 11. EB-05 – Matching Foundation und Candidate Blocking
 
-**entspricht:** E9 Teil 1 / W6-001, W6-002, Teil W6-004  
-**Priorität:** P0 – zentrale Produktfunktion  
+**entspricht:** E9 Teil 1 / W6-001, W6-002, Teil W6-004
+**Priorität:** P0 – zentrale Produktfunktion
 **Komplexität:** hoch
 
 ## Wichtigste Designentscheidung
@@ -1197,8 +1197,8 @@ QUALITY_VARIANT
 
 # 13. EB-06 – versioniertes Scoring, Explanation und vollständiger Review Workflow
 
-**entspricht:** Rest E9 + E10 / W6-003 bis W6-006 / W7  
-**Priorität:** P0  
+**entspricht:** Rest E9 + E10 / W6-003 bis W6-006 / W7
+**Priorität:** P0
 **Komplexität:** hoch
 
 ## Kein universeller Gesamtscore
@@ -1384,8 +1384,8 @@ Eine neue Review ist erforderlich, wenn beispielsweise:
 
 # 18. EB-07 – read-only Calibre Library Reconciliation
 
-**entspricht:** E11 / W8  
-**Priorität:** P1  
+**entspricht:** E11 / W8
+**Priorität:** P1
 **Komplexität:** mittel bis hoch
 
 ## Architekturentscheidung
@@ -1520,8 +1520,8 @@ Dateisystem vorbei löschen.
 
 # 21. EB-08 – nicht ausführbarer ConsolidationPlan
 
-**entspricht:** E12 / W9  
-**Priorität:** P0 – eigentliches Analyse-Endprodukt  
+**entspricht:** E12 / W9
+**Priorität:** P0 – eigentliches Analyse-Endprodukt
 **Komplexität:** mittel bis hoch
 
 ## Zentrale Regel
@@ -1769,8 +1769,8 @@ EA10 kompletter Deduplication Plan
 
 # 27. EB-A1 – Archive Discovery, Sidecars und Secret Boundary
 
-**entspricht:** EA1–EA3  
-**Priorität:** P1  
+**entspricht:** EA1–EA3
+**Priorität:** P1
 **Kann nach EB-01 parallel laufen.**
 
 ## Containerklassen
@@ -1900,7 +1900,7 @@ Kein:
 
 # 30. EB-A2 – bounded Listing, Integrity und private Extraction
 
-**entspricht:** EA4–EA6  
+**entspricht:** EA4–EA6
 **Priorität:** P1
 
 ## Sicherheitsbudgets
@@ -2011,7 +2011,7 @@ Secret version
 
 # 33. EB-A3 – archive-aware Matching und finale Deduplication Integration
 
-**entspricht:** EA8–EA10  
+**entspricht:** EA8–EA10
 **Abhängigkeit:** EB-06 + EB-07 + EB-A2
 
 Jetzt kann die generische Matching Engine wiederverwendet werden.
@@ -2389,32 +2389,32 @@ Matching-Verträge erneut umbauen zu müssen.
 
 # Quellen für die Provider-/Tool-Entscheidungen
 
-Open Library (2026), *APIs / Usage Guidelines / Rate Limits / Bulk Access*  
+Open Library (2026), *APIs / Usage Guidelines / Rate Limits / Bulk Access*
 https://openlibrary.org/developers/api
 
-Open Library (2025), *Search API – Work and Edition data*  
+Open Library (2025), *Search API – Work and Edition data*
 https://openlibrary.org/dev/docs/api/search
 
-Open Library, *Data Dumps*  
+Open Library, *Data Dumps*
 https://openlibrary.org/developers/dumps
 
-Open Library, *Licensing*  
+Open Library, *Licensing*
 https://openlibrary.org/developers/licensing
 
-Deutsche Nationalbibliothek, *Gemeinsame Normdatei (GND)*  
+Deutsche Nationalbibliothek, *Gemeinsame Normdatei (GND)*
 https://www.dnb.de/gnd
 
-Deutsche Nationalbibliothek, *GND / Metadatendienste und Gesamtabzüge*  
+Deutsche Nationalbibliothek, *GND / Metadatendienste und Gesamtabzüge*
 https://www.dnb.de/DE/Professionell/Metadatendienste/Metadatendienste.html
 
-DNB, *SPARQL Service – BETA*  
+DNB, *SPARQL Service – BETA*
 https://sparql.dnb.de/gnd
 
-Wikidata, *Data access*  
+Wikidata, *Data access*
 https://www.wikidata.org/wiki/Wikidata:Data_access
 
-Wikimedia Foundation, *User-Agent Policy*  
+Wikimedia Foundation, *User-Agent Policy*
 https://foundation.wikimedia.org/wiki/Policy:Wikimedia_Foundation_User-Agent_Policy
 
-calibre, *calibredb documentation*  
+calibre, *calibredb documentation*
 https://manual.calibre-ebook.com/generated/en/calibredb.html
