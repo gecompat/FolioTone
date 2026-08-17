@@ -87,7 +87,8 @@ class KnowledgeProviderDescriptor:
     provider_id: str
     display_name: str
     source_version: str
-    default_mode: KnowledgeProviderMode
+    default_access_mode: ProviderAccessMode
+    default_cache_policy: ProviderCachePolicy
     supports_cache: bool = True
 
     def __post_init__(self) -> None:
@@ -100,8 +101,10 @@ class KnowledgeProviderDescriptor:
         object.__setattr__(
             self, "source_version", require_non_empty(self.source_version, "source_version")
         )
-        if not isinstance(self.default_mode, KnowledgeProviderMode):
-            raise ValueError("default_mode must be a KnowledgeProviderMode")
+        validate_provider_policy(
+            self.default_access_mode,
+            self.default_cache_policy,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,13 +221,13 @@ class BookKnowledgeResponse:
     """Privacy-first envelope for one query round-trip."""
 
     query: BookKnowledgeQuery
-    mode: KnowledgeProviderMode
+    access_mode: ProviderAccessMode
+    cache_policy: ProviderCachePolicy
     descriptor: KnowledgeProviderDescriptor
     results: tuple[StructuredKnowledgeBookResult, ...]
 
     def __post_init__(self) -> None:
-        if not isinstance(self.mode, KnowledgeProviderMode):
-            raise ValueError("mode must be a KnowledgeProviderMode")
+        validate_provider_policy(self.access_mode, self.cache_policy)
 
     @property
     def query_fingerprint(self) -> str:
@@ -235,7 +238,8 @@ class BookKnowledgeResponse:
             "provider_id": self.descriptor.provider_id,
             "source_version": self.descriptor.source_version,
             "query_fingerprint": self.query_fingerprint,
-            "mode": self.mode.value,
+            "access_mode": self.access_mode.value,
+            "cache_policy": self.cache_policy.value,
             "result_count": len(self.results),
             "results": tuple(result.as_privacy_dto() for result in self.results),
         }

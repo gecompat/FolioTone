@@ -132,37 +132,61 @@ def test_legacy_provider_mode_names_and_values_are_stable(
     assert mode.value == expected_value
 
 
-def test_synthetic_provider_defaults_to_legacy_offline_mode() -> None:
+def test_synthetic_provider_defaults_to_offline_without_cache() -> None:
     provider = SyntheticBookKnowledgeProvider()
 
     response = provider.fetch(BookKnowledgeQuery(title="Synthetic title"))
 
-    assert provider.descriptor.default_mode is KnowledgeProviderMode.OFFLINE
-    assert response.descriptor.default_mode is KnowledgeProviderMode.OFFLINE
-    assert response.mode is KnowledgeProviderMode.OFFLINE
-    assert response.as_privacy_dto()["mode"] == "offline"
+    assert provider.descriptor.default_access_mode is ProviderAccessMode.OFFLINE
+    assert provider.descriptor.default_cache_policy is ProviderCachePolicy.NO_CACHE
+    assert response.access_mode is ProviderAccessMode.OFFLINE
+    assert response.cache_policy is ProviderCachePolicy.NO_CACHE
+    assert response.as_privacy_dto()["access_mode"] == "offline"
+    assert response.as_privacy_dto()["cache_policy"] == "no_cache"
 
 
 @pytest.mark.parametrize(
-    ("mode", "expected_value"),
+    ("legacy_mode", "access_mode", "cache_policy"),
     [
-        (KnowledgeProviderMode.OFFLINE, "offline"),
-        (KnowledgeProviderMode.ONLINE, "online"),
-        (KnowledgeProviderMode.CACHE, "cache"),
+        (
+            legacy_mode,
+            *provider_policy_from_legacy(legacy_mode),
+        )
+        for legacy_mode in KnowledgeProviderMode
     ],
 )
-def test_synthetic_provider_propagates_legacy_mode_to_response_and_privacy_dto(
-    mode: KnowledgeProviderMode,
-    expected_value: str,
+def test_synthetic_provider_propagates_mapped_legacy_policy(
+    legacy_mode: KnowledgeProviderMode,
+    access_mode: ProviderAccessMode,
+    cache_policy: ProviderCachePolicy,
 ) -> None:
-    provider = SyntheticBookKnowledgeProvider(mode=mode)
+    provider = SyntheticBookKnowledgeProvider(
+        access_mode=access_mode,
+        cache_policy=cache_policy,
+    )
 
     response = provider.fetch(BookKnowledgeQuery(title="Synthetic title"))
 
-    assert provider.descriptor.default_mode is mode
-    assert response.descriptor.default_mode is mode
-    assert response.mode is mode
-    assert response.as_privacy_dto()["mode"] == expected_value
+    assert provider.descriptor.default_access_mode is access_mode
+    assert provider.descriptor.default_cache_policy is cache_policy
+    assert response.access_mode is access_mode
+    assert response.cache_policy is cache_policy
+    assert response.as_privacy_dto()["access_mode"] == access_mode.value
+    assert response.as_privacy_dto()["cache_policy"] == cache_policy.value
+
+
+@pytest.mark.parametrize(
+    "cache_policy",
+    [ProviderCachePolicy.REFRESH_IF_STALE, ProviderCachePolicy.FORCE_REFRESH],
+)
+def test_synthetic_provider_rejects_offline_source_refresh(
+    cache_policy: ProviderCachePolicy,
+) -> None:
+    with pytest.raises(ValueError, match="offline access cannot request a source refresh"):
+        SyntheticBookKnowledgeProvider(
+            access_mode=ProviderAccessMode.OFFLINE,
+            cache_policy=cache_policy,
+        )
 
 
 def test_synthetic_book_provider_matches_title_and_author() -> None:
@@ -176,7 +200,8 @@ def test_synthetic_book_provider_matches_title_and_author() -> None:
 
     assert response.query_fingerprint == query.fingerprint()
     assert response.results
-    assert response.mode.value == "offline"
+    assert response.access_mode is ProviderAccessMode.OFFLINE
+    assert response.cache_policy is ProviderCachePolicy.NO_CACHE
 
     first = response.results[0]
     keys = {dto.key for dto in first.dtos}
@@ -209,4 +234,7 @@ def test_privacy_dto_contains_no_absolute_paths() -> None:
 
     assert "c:\\" not in rendered
     assert "provider_id" in dto
+    assert "mode" not in dto
+    assert dto["access_mode"] == "offline"
+    assert dto["cache_policy"] == "no_cache"
     assert dto["result_count"] == 1
