@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Event
@@ -12,8 +13,8 @@ from sqlalchemy import Engine, event, insert, select, text
 from foliotone.cli.main import main
 from foliotone.core import (
     EbookCandidateHashRunStatus,
-    EntityKind,
     EntityId,
+    EntityKind,
     FileObservation,
     Fingerprint,
     MediaType,
@@ -191,7 +192,10 @@ def _seed_scale_dataset(
         if relative_path.startswith("current/"):
             media_file = media / relative_path
             media_file.parent.mkdir(parents=True, exist_ok=True)
-            media_file.write_bytes(payload)
+            source_bytes = (payload * ((size_bytes // len(payload)) + 1))[:size_bytes]
+            media_file.write_bytes(source_bytes)
+            media_timestamp = timestamp.timestamp()
+            os.utime(media_file, (media_timestamp, media_timestamp))
 
     for index in range(history_scans):
         scan = ScanRun(
@@ -225,7 +229,7 @@ def _seed_scale_dataset(
                 latest_scan.id,
                 relative_path=f"current/duplicate-{group:02d}-{index:03d}.epub",
                 size_bytes=10_000 + group,
-                payload=f"duplicate-{group}".encode("utf-8"),
+                payload=f"duplicate-{group}".encode(),
                 quick_value=f"duplicate-group-{group:02d}",
             )
     for index in range(extra_current_uniques):
@@ -233,10 +237,12 @@ def _seed_scale_dataset(
             latest_scan.id,
             relative_path=f"current/unique-{index:03d}.epub",
             size_bytes=15_000 + index,
-            payload=f"unique-{index}".encode("utf-8"),
+            payload=f"unique-{index}".encode(),
             quick_value=f"unique-{index:03d}",
         )
-    repository(engine, ScanRun).save_many(scan_rows)
+    scan_repository = repository(engine, ScanRun)
+    for scan_row in scan_rows:
+        scan_repository.save(scan_row)
     with engine.begin() as connection:
         connection.execute(insert(schema.file_records), records)
         connection.execute(insert(schema.file_observations), observations)
@@ -292,10 +298,13 @@ def _snapshot_candidates_plan(
         .where(full_hash_targets.c.observation_id.is_(None))
     )
     with engine.connect() as connection:
+        compile_kwargs = {"literal_binds": True}
+        query_plan = candidate_query.compile(
+            dialect=connection.dialect,
+            compile_kwargs=compile_kwargs,
+        )
         plan_rows = connection.execute(
-            text(
-                f"EXPLAIN QUERY PLAN {candidate_query.compile(dialect=connection.dialect, compile_kwargs={'literal_binds': True})}"
-            )
+            text(f"EXPLAIN QUERY PLAN {query_plan}")
         ).all()
         return " ".join(str(value) for row in plan_rows for value in row)
 
