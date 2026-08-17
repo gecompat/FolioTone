@@ -1,1 +1,51 @@
-"""Duplicate/relation candidate generation, scoring, classification, and explanations."""
+"""Public matching contracts."""
+
+from foliotone.matching.contracts import (
+    MAX_CANDIDATE_BLOCK_EVIDENCE_IDS,
+    MAX_CANDIDATE_BLOCK_MEMBERS,
+    RELATION_CONTRACTS,
+    CandidateBlock,
+    CandidateBlockMember,
+    CandidateBlockStatus,
+    CandidateBlockStrength,
+    CandidateBlockType,
+    RelationContract,
+    RelationIdentityEffect,
+    build_candidate_block_key,
+    relation_contract_for,
+    validate_relation_endpoints,
+)
+from foliotone.matching.ebook_blocking import (
+    BLOCKING_FETCH_SIZE,
+    EBOOK_BLOCKING_PROFILE,
+    MAX_BLOCK_MEMBERS,
+    MAX_BLOCK_PAGE,
+    MAX_PAIRWISE_MEMBERS,
+    EbookCandidateBlockingError,
+    EbookCandidateBlockSnapshot,
+    SQLiteEbookCandidateBlockReader,
+)
+
+__all__ = [
+    "MAX_CANDIDATE_BLOCK_EVIDENCE_IDS",
+    "MAX_CANDIDATE_BLOCK_MEMBERS",
+    "RELATION_CONTRACTS",
+    "CandidateBlock",
+    "CandidateBlockMember",
+    "CandidateBlockStatus",
+    "CandidateBlockStrength",
+    "CandidateBlockType",
+    "BLOCKING_FETCH_SIZE",
+    "EBOOK_BLOCKING_PROFILE",
+    "MAX_BLOCK_MEMBERS",
+    "MAX_BLOCK_PAGE",
+    "MAX_PAIRWISE_MEMBERS",
+    "EbookCandidateBlockingError",
+    "EbookCandidateBlockSnapshot",
+    "RelationContract",
+    "RelationIdentityEffect",
+    "SQLiteEbookCandidateBlockReader",
+    "build_candidate_block_key",
+    "relation_contract_for",
+    "validate_relation_endpoints",
+]

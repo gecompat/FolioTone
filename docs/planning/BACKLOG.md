@@ -136,8 +136,8 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 
 | ID | Status | Item |
 |---|---|---|
-| W6-001 | PLANNED | Finalize relation taxonomy and validation rules across File/Edition/Work/MusicWork/Recording/ReleaseGroup/Release levels. |
-| W6-002 | PLANNED | Implement candidate blocking using hashes, identifiers, resolved entities, text/audio fingerprints, durations and contextual/tool-derived keys. |
+| W6-001 | PLANNED | Book-only Endpoint-, Identity- und Evidence-Verträge sind durch EB-05 abgeschlossen; MusicWork/Recording/ReleaseGroup/Release bleiben offen. |
+| W6-002 | PLANNED | EB-05 implementiert bounded read-only E-Book-Blocking für Hashes, Identifier, Resolution, Agent/Titel, Text und Series-Kontext; Music-, Audio- und weitere Kontextblöcke bleiben offen. |
 | W6-003 | PLANNED | Implement versioned feature/scoring pipeline. |
 | W6-004 | PLANNED | Persist human-readable evidence/explanations including ToolExecution provenance. |
 | W6-005 | PLANNED | Calibrate review thresholds using controlled fixtures; prioritize false-positive protection. |

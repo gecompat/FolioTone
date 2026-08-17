@@ -159,6 +159,18 @@ Music:
 
 Blocking logic must be versioned/configurable where behavior can change.
 
+Der book-only Slice `ebook-candidate-blocking/v1` projiziert diese Quellen
+read-only aus genau dem neuesten abgeschlossenen `ScanRun`. Er gibt nur
+domain-separierte Key-Fingerprints, opake Evidence-IDs, Zähler und begrenzte
+Mitglieder aus; Pfade und materielle Hash-, Identifier-, Namen- oder Titelwerte
+bleiben außerhalb des DTOs. Nicht exakte Blocks oberhalb der Pairwise-Grenze
+erhalten `SECONDARY_REQUIRED`. `FILE_SHA256` wird als `EXACT_GROUP` mit einem
+deterministischen Representative dargestellt, sodass große exakte Gruppen
+keine quadratische Paarliste erzeugen. `SERIES_CONTEXT` bleibt ausschließlich
+unterstützende Evidence. ADR-0029 definiert die zugehörigen book-only Relation
+Contracts. Der Slice persistiert weder Blocks noch Relations und öffnet keine
+Source Media.
+
 ## Kontrollierter E-Book-Vergleichskorpus
 
 `W3-007` stellt unter `tests/fixtures/ebook_comparison/v1/` einen versionierten,

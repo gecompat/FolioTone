@@ -101,6 +101,15 @@ kompatible frühere ACCEPT-Entscheidung darf AUTO_SAFE wiederverwendet werden;
 REJECT unterdrückt den unveränderten Fall und DEFER bleibt reviewbar. Source
 Evidence, kanonische Metadaten und Source Media bleiben unverändert.
 
+EB-05 ergänzt mit ADR-0029 begrenzte, read-only `CandidateBlock`-Projektionen
+für vollständige File-Hashes, Edition-Identifier, akzeptierte Edition-, Work-
+und Series-Resolution, Agent/Titel sowie normalisierte Textfingerprints.
+Große Blocks erhalten `SECONDARY_REQUIRED`; exakte File-Duplikate werden als
+bounded Group mit Representative statt als quadratische Paarliste dargestellt.
+Book-only Relation Contracts fixieren Endpoint-Ebene, Identity-Effekt und
+erforderliche Evidence-Codes. Es gibt weder neue Persistenz noch Migration,
+Scoring, automatische Relation oder Source-Media-Zugriff.
+
 ## Implementierter W2-Slice
 
 ### Incremental Index
@@ -1005,6 +1014,16 @@ Leasefälle waren bereits im direkt betroffenen 16-Test-Verbund grün. Alle
 Daten sind synthetisch; Source Media und private Runtime-Datenbanken wurden
 nicht geöffnet. Der vollständige Gate läuft genau einmal am Pull Request.
 
+**Empirisch für EB-05 Candidate Blocking:** Der gezielte Domain-/Core-/SQLite-
+Verbundlauf bestand 19 Tests in 66,45 Sekunden. Er prüft alle sieben
+book-only Blockquellen, exakte Review-Fingerprint-Bindung, die Lineage des
+neuesten abgeschlossenen Scans, harte Member-/Pairwise-Grenzen und eine
+synthetische Exact-Duplicate-Gruppe mit 1.000 Mitgliedern ohne Paarliste.
+Ruff war für das Repository erfolgreich; Mypy prüfte 109 Source-Dateien ohne
+Befund. Alle Testdaten sind synthetisch; Source Media und private Runtime-
+Datenbanken wurden nicht geöffnet. Der vollständige Gate läuft genau einmal
+am Pull Request.
+
 ## Aktiver W3-Stand und nächster Schritt
 
 W2 ist abgeschlossen; `W3-001` bis `W3-016` sind abgeschlossen. W3-015 stellt
@@ -1046,8 +1065,8 @@ paketierten Schema-Head, die gemeinsame Scan-/Hash-/Collection-Lineage, die
 Inventarartefakte bytegenau und die begrenzte Formatabdeckung über dieselbe
 echte Read-only-Verbindung, ohne Source Media zu öffnen. Der vollständige
 private Inventar-/Collection-Lauf und Bericht werden noch abgeschlossen.
-Der nächste Frontier-Schritt ist EB-05: begrenztes Candidate Blocking und
-Relation Contracts auf Basis des nun persistierten Resolution-/Review-Cores.
+Der nächste Frontier-Schritt ist EB-06: versioniertes Scoring, Explanation und
+vollständiges Matching-Review auf Basis der EB-05-Blocks und Relation Contracts.
 EB-03A kann als getrennte Provider-Cache-Welle vorbereitet werden. Music W4
 bleibt bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
 ausschließlich die CLI.

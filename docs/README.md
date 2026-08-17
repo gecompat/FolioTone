@@ -50,6 +50,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0026](decisions/ADR-0026-provider-access-and-cache-policy.md) trennt Providerzugriff und Cache-Policy, legt die kanonischen Literale fest und definiert die eindeutige Legacy-Abbildung des bisherigen Provider-Modus.
 - [ADR-0027](decisions/ADR-0027-scan-root-write-lease-and-fencing.md) koordiniert alle rootbezogenen Runtime-Writer über eine gemeinsame `ScanRoot`-Lease mit monotoner Fence-Epoch.
 - [ADR-0028](decisions/ADR-0028-persisted-resolution-and-review-core.md) definiert persistierte Resolution Candidates, materielle Evidence-Links und append-only Review-Entscheidungen.
+- [ADR-0029](decisions/ADR-0029-bounded-ebook-candidate-blocking.md) definiert begrenztes read-only E-Book-Candidate-Blocking und book-only Relation Contracts.
 
 ## Qualität, Sprache und Dokumentationsregeln
 
