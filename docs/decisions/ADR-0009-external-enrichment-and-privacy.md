@@ -18,6 +18,10 @@ External enrichment is implemented only through provider adapters with explicit 
 - `ONLINE_STRUCTURED`;
 - `ONLINE_WEB_RESEARCH` as a separately enabled fallback.
 
+ADR-0026 refines these access types as `ProviderAccessMode` and separates them
+from the independent `ProviderCachePolicy` contract. A cache state is not an
+operating mode and never expands the provider access permitted here.
+
 Provider adapters must:
 
 - preserve source/provenance and provider identifiers;

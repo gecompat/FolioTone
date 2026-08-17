@@ -351,6 +351,13 @@ Planned modes:
 - `ONLINE_STRUCTURED` — use configured structured APIs/services;
 - `ONLINE_WEB_RESEARCH` — generic web research fallback, separately enabled.
 
+ADR-0026 fixes these literals as `ProviderAccessMode` and defines the separate
+`ProviderCachePolicy` literals `USE_IF_FRESH`, `REFRESH_IF_STALE`,
+`FORCE_REFRESH` and `NO_CACHE`. `USE_IF_FRESH` is cache-only on miss or stale
+state; the two refresh policies require a non-`OFFLINE` access mode. Cache
+policy never grants source access that the access mode or provider descriptor
+forbids.
+
 Privacy rules:
 
 - never send absolute local paths to an external provider;

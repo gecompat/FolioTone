@@ -174,9 +174,9 @@ abgeschlossen. E4 sowie E6 bis E12 sind eigenständige Folgewellen. Der
 vollständige private Sammlungslauf bleibt betriebliche Arbeit und ändert den
 implementierten Status von W3-017 nicht.
 
-## Problem 2: Provider Modes
+## Gelöste Vertragsentscheidung: Provider Modes
 
-Der Backlog bezeichnet folgende Modi als implementiert:
+Der kanonische Zielvertrag aus ADR-0009 bezeichnet folgende Zugriffsarten:
 
 - `OFFLINE`
 - `LOCAL_DATASETS`
@@ -189,11 +189,11 @@ Der aktuelle Code modelliert dagegen:
 - `ONLINE`
 - `CACHE`
 
-Das ist nicht nur ein Naming-Problem.
+Das war nicht nur ein Naming-Problem.
 
 `CACHE` beschreibt keine Datenquelle, sondern eine Cache Policy.
 
-### Empfehlung
+### Verbindlicher Vertrag
 
 Zwei getrennte Dimensionen verwenden:
 
@@ -206,7 +206,7 @@ ONLINE_STRUCTURED
 ONLINE_WEB_RESEARCH
 ```
 
-und beispielsweise:
+und gemäß ADR-0026:
 
 ```text
 ProviderCachePolicy
@@ -219,6 +219,11 @@ NO_CACHE
 
 `ONLINE_WEB_RESEARCH` bleibt weiterhin separat aktiviert und
 Candidate-/Evidence-only.
+
+ADR-0026 legt zusätzlich die Legacy-Abbildung fest: `OFFLINE` wird zu
+`OFFLINE`/`NO_CACHE`, `ONLINE` zu `ONLINE_STRUCTURED`/`NO_CACHE` und `CACHE`
+zu `OFFLINE`/`USE_IF_FRESH`. W5B-001 bleibt bis zur Implementierung und
+Verifikation durch S-EB00-01 bis S-EB00-04 offen.
 
 ## Abnahme
 

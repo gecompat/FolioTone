@@ -141,7 +141,7 @@ noch implementiert.
 
 | Gate | Muss vorliegen, bevor Spark beginnt |
 |---|---|
-| FG-00 | Exakte `ProviderAccessMode`-/`ProviderCachePolicy`-Literale, Legacy-Mapping und Deprecation-Regel. |
+| FG-00 | Durch [ADR-0026](../decisions/ADR-0026-provider-access-and-cache-policy.md) akzeptiert: exakte `ProviderAccessMode`-/`ProviderCachePolicy`-Literale, Legacy-Mapping und Deprecation-Regel. |
 | FG-03A | Cache-Payload-Regel je Provider, TTL-/Freshness-Regeln, Cache-Key-Kanonisierung und Transaktionsgrenze. |
 | FG-03B | Erneut geprüfte Provider-Primärdokumentation, Lizenz-/Cache-Regeln, feste Endpoints, Rate Limits und DTO-Mapping. |
 | FG-04 | Classification-Taxonomie, Projection-Priorität, Konfliktstatus und Profilversion. |
@@ -156,7 +156,7 @@ noch implementiert.
 | Paket | Ergebnis | Erlaubter Dateibereich | Gezielter Nachweis |
 |---|---|---|---|
 | S-EB00-01 | Bestehende `OFFLINE`-/`ONLINE`-/`CACHE`-Verwendungen werden als Characterization Tests festgehalten; noch keine Produktionsänderung. | `tests/unit/test_enrichment.py` und höchstens eine neue Unit-Testdatei | Alle Legacy-Fälle sind parametrisiert und grün. |
-| S-EB00-02 | Die in FG-00 festgelegten Access- und Cache-Policy-Enums werden additiv eingeführt. | `src/foliotone/enrichment/contracts.py`, `tests/unit/test_enrichment.py` | Literale, strikte Validierung und ungültige Kombinationen sind getestet; Legacy-Verhalten bleibt grün. |
+| S-EB00-02 | Die in FG-00 festgelegten Access- und Cache-Policy-Enums werden additiv eingeführt. | `src/foliotone/enrichment/contracts.py`, `src/foliotone/enrichment/__init__.py`, `tests/unit/test_enrichment.py` | Literale, strikte Validierung und ungültige Kombinationen sind getestet; Legacy-Verhalten bleibt grün. |
 | S-EB00-03 | Request-/Provider-DTOs verwenden die getrennten Dimensionen und das festgelegte Legacy-Mapping. | `src/foliotone/enrichment/contracts.py`, `src/foliotone/enrichment/providers.py`, `tests/unit/test_enrichment.py` | Jeder Legacy-Fall besitzt genau eine erwartete Abbildung; `OFFLINE` kann keinen Netzwerkzugriff anfordern. |
 | S-EB00-04 | Veraltete Dokumentation wird entfernt und W5B-001 erst nach erfolgreicher Gesamtprüfung auf `DONE` gesetzt. | `docs/planning/BACKLOG.md`, `docs/planning/PROJECT_STATUS.md`, betroffene Provider-Referenz | Dokumentationsverträge, Linkprüfung und Suche nach widersprüchlichen Moduslisten sind grün. |
 
