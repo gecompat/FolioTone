@@ -316,9 +316,11 @@ A provider classification is evidence, not automatically the canonical classific
 
 External knowledge is accessed through adapters/providers, never directly from matching/domain code.
 
-`PR #38` hat die strukturierten Book/Authority-Provider-Verträge (offline-synthetische
-Query-/DTO/Result-Contracts) auf `main` eingeführt; `PR #39` ergänzt die
-multidimensionalen e-Book-Klassifikations-DTOs.
+`PR #38` hat die strukturierten Book/Authority-Provider-Verträge
+(offline-synthetische Query-/DTO-/Result-Contracts) auf `main` eingeführt;
+`PR #39` ergänzt die multidimensionalen E-Book-Klassifikations-DTOs. Die
+Providerverträge verwenden inzwischen getrennte Zugriffs- und Cache-
+Dimensionen gemäß ADR-0026.
 
 Conceptual interface responsibilities:
 
@@ -344,19 +346,21 @@ See `docs/reference/EXTERNAL_DATA_SOURCES.md` for the initial source registry.
 
 Network use must be explicit and separable from local analysis.
 
-Planned modes:
+Kanonische `ProviderAccessMode`-Werte:
 
 - `OFFLINE` — no network access;
 - `LOCAL_DATASETS` — use locally imported authority/catalog datasets only;
 - `ONLINE_STRUCTURED` — use configured structured APIs/services;
 - `ONLINE_WEB_RESEARCH` — generic web research fallback, separately enabled.
 
-ADR-0026 fixes these literals as `ProviderAccessMode` and defines the separate
-`ProviderCachePolicy` literals `USE_IF_FRESH`, `REFRESH_IF_STALE`,
-`FORCE_REFRESH` and `NO_CACHE`. `USE_IF_FRESH` is cache-only on miss or stale
-state; the two refresh policies require a non-`OFFLINE` access mode. Cache
-policy never grants source access that the access mode or provider descriptor
-forbids.
+ADR-0026 definiert davon getrennt die `ProviderCachePolicy`-Werte
+`USE_IF_FRESH`, `REFRESH_IF_STALE`, `FORCE_REFRESH` und `NO_CACHE`.
+`OFFLINE` mit `USE_IF_FRESH` ist cache-only; bei einem fehlenden oder veralteten
+Treffer erfolgt kein Source Fetch. `OFFLINE` mit `NO_CACHE` verwendet weder
+Cache noch externe Quelle. Die Kombinationen `OFFLINE` mit
+`REFRESH_IF_STALE` oder `FORCE_REFRESH` sind ungültig. Eine Cache-Policy kann
+keinen Zugriff freigeben, den der Zugriffsmodus oder Providerdescriptor
+verbietet.
 
 Privacy rules:
 

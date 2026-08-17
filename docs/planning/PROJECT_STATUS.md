@@ -27,11 +27,14 @@ Verträge aus `PR #38` und die mehrdimensionalen E-Book-Klassifikationsverträge
 aus `PR #39` sind auf `main` integriert. Persistierte Authority-Entscheidungen,
 Provider-Cache und reale Provider-Auswahl bleiben weiterhin geplant.
 
-FG-00 ist durch ADR-0026 entschieden: `ProviderAccessMode` trennt die vier
-Zugriffsarten aus ADR-0009 vom unabhängigen `ProviderCachePolicy`-Vertrag und
-legt die eindeutige Abbildung von `KnowledgeProviderMode` fest. Der Code nutzt
-weiterhin den Legacy-Vertrag; W5B-001 bleibt deshalb bis zum Abschluss von
-S-EB00-01 bis S-EB00-04 `NEXT`.
+ADR-0026 ist durch S-EB00-01 bis S-EB00-04 umgesetzt. `ProviderAccessMode`
+trennt die vier Zugriffsarten aus ADR-0009 vom unabhängigen
+`ProviderCachePolicy`-Vertrag. Descriptor, Response und synthetischer Provider
+verwenden die getrennten Dimensionen; Privacy-DTOs geben `access_mode` und
+`cache_policy` aus. `KnowledgeProviderMode` bleibt ohne Runtime-Warnung nur als
+deprecated Eingabe der eindeutigen Legacy-Abbildung importierbar. W5B-001 ist
+damit `DONE`; Provider-Cache-Laufzeit und reale Provider bleiben Gegenstand der
+folgenden E-Book-Wellen.
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
