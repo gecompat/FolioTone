@@ -162,7 +162,24 @@ Chromaprint and AcoustID are deliberately separated in FolioTone architecture: C
 
 ## Provider classes to research later
 
-The following are useful candidates but require a dedicated current licensing/access/coverage review before inclusion in the implementation backlog:
+The following are useful candidates but require a dedicated current licensing/access/coverage review before a concrete adapter is implemented:
+
+### Archiv-Passwortkandidaten
+
+Der vom Benutzer genannte Name `Newzcrabber` muss zunächst einer konkreten,
+aktuell betriebenen Quelle mit dokumentierter Automationsschnittstelle
+zugeordnet werden. FolioTone nimmt weder Produktidentität noch Eignung vor
+dieser Prüfung an. Zusätzlich können geeignete Usenet-/NZB-Metadatenquellen
+bewertet werden, sofern ihre aktuellen Bedingungen und Schnittstellen eine
+rechtmäßige, privacy-bounded Nutzung erlauben.
+
+Ein späterer Adapter ist separat zu aktivieren, überträgt keine absoluten oder
+relativen Sammlungspfade und bevorzugt strukturierte Release-/NZB-Identifier
+gegenüber rohen Dateinamen. Antworten erzeugen ausschließlich
+Provenance-behaftete Passwortkandidaten hinter einem lokalen Secret Handle.
+Passwortmaterial erscheint nicht in Provider Cache, Logs, Reports oder Git.
+Ohne stabile dokumentierte Schnittstelle wird eine begründete
+Nichtintegration festgehalten.
 
 ### Bibliographic / authority
 

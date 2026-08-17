@@ -519,7 +519,15 @@ class DuplicateHashCandidateService:
             select(
                 func.count(func.distinct(snapshot.c.quick_value)),
                 func.count(),
-                func.coalesce(func.sum(snapshot.c.full_hashed), 0),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (snapshot.c.full_hashed.is_(True), 1),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ),
             ).select_from(snapshot)
         ).one()
         return int(groups), int(observations), int(already_hashed)

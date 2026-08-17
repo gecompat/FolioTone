@@ -12,6 +12,15 @@ book-only Fortsetzung bis W9 sind in
 [`W3_017_EBOOK_ROADMAP.md`](W3_017_EBOOK_ROADMAP.md) geplant. Der Plan ändert
 keinen implementierten Status und autorisiert W10 nicht.
 
+Die danach vorgemerkte read-only Archiv- und vollständige
+Deduplizierungsstrecke ist in
+[`EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md`](EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md)
+geplant. Sie ergänzt noch keine Implementierung. Lokale Passwortkandidaten,
+optionale separat aktivierte Providerrecherche und archive-aware Matching
+führen zunächst ausschließlich zu Evidence, Review und nicht ausführbaren
+W9-Plänen. Quarantäne, Purge und Leer-Verzeichnis-Bereinigung bleiben bis zu
+einer zukünftigen akzeptierten W10-ADR blockiert.
+
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
 Die anfängliche Produktoberfläche bleibt auf ausdrückliche Benutzerentscheidung
