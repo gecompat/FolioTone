@@ -1018,6 +1018,14 @@ bestätigen.
 **Priorität:** P0 – zentrale Produktfunktion
 **Komplexität:** hoch
 
+**Stand:** Abgeschlossen durch ADR-0029. Der read-only Reader erzeugt
+begrenzte, path-freie Blocks aus vollständigem File-Hash, Edition-Identifier,
+akzeptierter Edition-/Work-/Series-Resolution, Agent/Titel und normalisiertem
+Text. Große Blocks werden nicht paarweise expandiert; exakte Duplikate
+verwenden einen Representative. Die book-only Relation Contracts validieren
+Endpoint-Ebene und Evidence-Anforderungen. EB-05 fügt keine Persistenz oder
+Migration hinzu; Relation Candidates, Scoring und Review folgen in EB-06.
+
 ## Wichtigste Designentscheidung
 
 Nicht direkt:
@@ -2435,9 +2443,9 @@ ohne die Fähigkeit, Source Media zu verändern.
 
 # 42. Empfohlener unmittelbarer nächster Implementierungsschritt
 
-EB-00, EB-01/E4 und EB-02 sind abgeschlossen. Unmittelbar als Nächstes:
+EB-00, EB-01/E4, EB-02 und EB-05 sind abgeschlossen. Unmittelbar als Nächstes:
 
-**EB-05 – begrenztes Candidate Blocking und Relation Contracts.**
+**EB-06 – versioniertes Scoring, Explanation und vollständiges Matching-Review.**
 
 Provider-Cache-/Provider-Research (EB-03A) und Archive-EA1 können in
 getrennten Entwicklungszweigen vorbereitet werden.

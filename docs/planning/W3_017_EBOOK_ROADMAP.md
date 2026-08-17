@@ -2,7 +2,7 @@
 
 ## Status und Geltungsbereich
 
-**Status:** In Bearbeitung (W3-017, E4 und E5 abgeschlossen; E6-E8 teilweise integriert; E9-E12 offen)
+**Status:** In Bearbeitung (W3-017, E4 und E5 abgeschlossen; E6-E8 teilweise integriert; E9 Blocking integriert; E9 Scoring sowie E10-E12 offen)
 
 **Stand:** 2026-08-17
 
@@ -359,6 +359,15 @@ False-Positive-Schutz und trennt mindestens:
 
 Tool- oder Provider-Übereinstimmung darf widersprüchliche Inhalts- oder
 Edition-Evidence nicht verdecken.
+
+**Stand (Blocking-Grundlage integriert):** EB-05 führt mit ADR-0029
+begrenzte read-only Blocks für vollständige File-Hashes, Edition-Identifier,
+akzeptierte lokale Resolution, Agent/Titel, normalisierten Text und
+Series-Kontext ein. Große Blocks werden nicht paarweise expandiert; exakte
+Duplikate verwenden eine bounded Group mit Representative. Die book-only
+Relation Contracts fixieren die zulässige Endpoint-Ebene und erforderliche
+Evidence. Scoring, Explanation, Relation-Persistenz und Matching-Review
+bleiben EB-06.
 
 ### E10 — Persistierte E-Book-Review-Workflows (W7, book-only)
 

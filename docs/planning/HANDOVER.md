@@ -854,8 +854,10 @@ bleibt getrennt aktivierbar und darf weder Pfade noch Passwortmaterial loggen.
 W9 erzeugt nur nicht ausführbare Pläne; jede Quarantäne-, Lösch- oder
 Verzeichnisoperation bleibt W10-blockiert.
 
-Die aktuelle Entwicklungsposition ist nach abgeschlossenem EB-02 vor EB-05:
-begrenztes Candidate Blocking und Relation Contracts. EB-03A kann getrennt als
+Die aktuelle Entwicklungsposition ist nach abgeschlossenem EB-05 vor EB-06:
+versioniertes Scoring, Explanation und vollständiges Matching-Review. EB-05
+liefert begrenzte read-only Candidate Blocks und book-only Relation Contracts,
+persistiert aber weder Blocks noch Relation Candidates. EB-03A kann getrennt als
 Provider-Cache-Welle vorbereitet werden. EB-00 und EB-01/E4 sind ebenfalls
 abgeschlossen. Die Reihenfolge, Stop-Gates und zulässigen
 Spark-Pakete stehen in `EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` und
