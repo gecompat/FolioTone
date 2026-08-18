@@ -138,10 +138,10 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 |---|---|---|
 | W6-001 | PLANNED | Book-only Endpoint-, Identity- und Evidence-Verträge sind durch EB-05 abgeschlossen; MusicWork/Recording/ReleaseGroup/Release bleiben offen. |
 | W6-002 | PLANNED | EB-05 implementiert bounded read-only E-Book-Blocking für Hashes, Identifier, Resolution, Agent/Titel, Text und Series-Kontext; Music-, Audio- und weitere Kontextblöcke bleiben offen. |
-| W6-003 | PLANNED | Implement versioned feature/scoring pipeline. |
+| W6-003 | PLANNED | EB-06A implementiert reine versionierte Profile für Exact Duplicate, Same Edition und Same Work; persistierter Workflow und Music-Profile bleiben offen. |
 | W6-004 | PLANNED | Persist human-readable evidence/explanations including ToolExecution provenance. |
 | W6-005 | PLANNED | Calibrate review thresholds using controlled fixtures; prioritize false-positive protection. |
-| W6-006 | PLANNED | Test that agreement among external tools/providers cannot mask contradictory content/edition/recording evidence. |
+| W6-006 | PLANNED | EB-06A schützt book-only Profile gegen das Überstimmen harter lokaler Contradictions; Recording-/Music-Fälle bleiben offen. |
 | W6-007 | PLANNED | Match archive members, physical files and publication containers at separate file/content/Edition levels; an online password result or equal filename is never sufficient identity Evidence. |
 
 ## W7 — Review
