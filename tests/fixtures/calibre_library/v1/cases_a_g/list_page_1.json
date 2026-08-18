@@ -1,0 +1,78 @@
+[
+  {
+    "authors": ["Ada Alpha"],
+    "formats": ["__FOLIOTONE_CALIBRE_ROOT__/Ada Alpha/Fixture One (101)/Fixture One.epub"],
+    "id": 101,
+    "identifiers": {"isbn": "9780000000101"},
+    "last_modified": "2026-01-01T10:00:00+00:00",
+    "title": "Fixture One",
+    "uuid": "00000000-0000-4000-8000-000000000101"
+  },
+  {
+    "authors": ["Bea Beta"],
+    "formats": ["__FOLIOTONE_CALIBRE_ROOT__/Bea Beta/Missing Format (102)/Missing Format.pdf"],
+    "id": 102,
+    "identifiers": {},
+    "last_modified": "2026-01-02T10:00:00+00:00",
+    "title": "Missing Format",
+    "uuid": "00000000-0000-4000-8000-000000000102"
+  },
+  {
+    "authors": ["Gia Gamma"],
+    "formats": ["__FOLIOTONE_CALIBRE_ROOT__/Gia Gamma/Binary Twin A (103)/Binary Twin A.epub"],
+    "id": 103,
+    "identifiers": {},
+    "last_modified": "2026-01-03T10:00:00+00:00",
+    "title": "Binary Twin A",
+    "uuid": "00000000-0000-4000-8000-000000000103"
+  },
+  {
+    "authors": ["Gia Gamma"],
+    "formats": ["__FOLIOTONE_CALIBRE_ROOT__/Gia Gamma/Binary Twin B (104)/Binary Twin B.epub"],
+    "id": 104,
+    "identifiers": {},
+    "last_modified": "2026-01-04T10:00:00+00:00",
+    "title": "Binary Twin B",
+    "uuid": "00000000-0000-4000-8000-000000000104"
+  },
+  {
+    "authors": ["Dan Delta"],
+    "formats": [
+      "__FOLIOTONE_CALIBRE_ROOT__/Dan Delta/Multi Format (105)/Multi Format.epub",
+      "__FOLIOTONE_CALIBRE_ROOT__/Dan Delta/Multi Format (105)/Multi Format.mobi",
+      "__FOLIOTONE_CALIBRE_ROOT__/Dan Delta/Multi Format (105)/Multi Format.pdf"
+    ],
+    "id": 105,
+    "identifiers": {"isbn": "9780000000105"},
+    "last_modified": "2026-01-05T10:00:00+00:00",
+    "title": "Multi Format",
+    "uuid": "00000000-0000-4000-8000-000000000105"
+  },
+  {
+    "authors": ["Eva Epsilon"],
+    "formats": ["__FOLIOTONE_CALIBRE_ROOT__/Eva Epsilon/Calibre Heading (106)/Calibre Heading.epub"],
+    "id": 106,
+    "identifiers": {},
+    "last_modified": "2026-01-06T10:00:00+00:00",
+    "title": "Calibre Heading",
+    "uuid": "00000000-0000-4000-8000-000000000106"
+  },
+  {
+    "authors": ["Zora Zeta"],
+    "formats": ["__FOLIOTONE_CALIBRE_ROOT__/Zora Zeta/Authority Conflict (107)/Authority Conflict.azw3"],
+    "id": 107,
+    "identifiers": {},
+    "last_modified": "2026-01-07T10:00:00+00:00",
+    "title": "Authority Conflict",
+    "uuid": "00000000-0000-4000-8000-000000000107"
+  },
+  {
+    "authors": ["Eli Eta"],
+    "formats": ["__FOLIOTONE_CALIBRE_ROOT__/Eli Eta/Sidecar Owner (108)/Sidecar Owner.epub"],
+    "id": 108,
+    "identifiers": {},
+    "last_modified": "2026-01-08T10:00:00+00:00",
+    "title": "Sidecar Owner",
+    "uuid": "00000000-0000-4000-8000-000000000108"
+  }
+]

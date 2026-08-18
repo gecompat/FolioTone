@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="book-id" version="3.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="book-id">urn:uuid:00000000-0000-4000-8000-000000000107</dc:identifier>
+    <dc:title>Authority Conflict</dc:title>
+    <dc:creator>Zora Zeta</dc:creator>
+    <dc:language>eng</dc:language>
+  </metadata>
+</package>
