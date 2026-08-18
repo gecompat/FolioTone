@@ -1,0 +1,1457 @@
+Ja. Nach einer erneuten Durchsicht des aktuellen Standes würde ich meine vorige Einschätzung etwas verschärfen:
+
+**FolioTone ist technisch sehr sauber gedacht – aber der Autor optimiert momentan stark auf die Korrektheit der Analyse-Pipeline und relativ wenig auf den maximalen praktischen Nutzen, der aus dem aufgebauten Wissensbestand entstehen könnte.**
+
+Das ist ein wichtiger Unterschied. Der Autor baut gerade einen sehr guten **Beobachtungs- und Evidence-Motor**. Daraus könnte aber wesentlich mehr werden als ein Werkzeug zum späteren Aufräumen von EPUB-Dateien.
+
+Der aktuelle Stand bestätigt das: W3 ist weiterhin E-Book-zentriert, Matching/Review ist inzwischen implementiert, und die nächste geplante Strecke beschäftigt sich mit Archiv-/Deduplication-Themen. Gleichzeitig bleiben Authority-Entscheidungen, Provider-Cache und echte Provider-Auswahl noch geplant. ([GitHub][1])
+
+## Die größte verpasste Chance: FolioTone muss nicht primär ein „Cleaner“ sein
+
+Ich würde die Produktidee eigentlich so neu formulieren:
+
+> **FolioTone ist eine lokale Knowledge Graph / Evidence Engine für persönliche Medienbestände.**
+
+Das Aufräumen wäre nur **eine** Anwendung davon.
+
+Heute denkt die Architektur ungefähr:
+
+```text
+Dateien
+  ↓
+Analyse
+  ↓
+Evidence
+  ↓
+Matching
+  ↓
+Review
+  ↓
+Consolidation
+```
+
+Ich würde daraus machen:
+
+```text
+                    ┌── Suche
+                    ├── Duplikate
+                    ├── Qualitätsanalyse
+                    ├── Metadaten
+                    ├── Bibliografie
+                    ├── Empfehlungen
+                    ├── Archivierung
+                    ├── Backup-Verifikation
+                    ├── Migration
+                    ├── Calibre-Synchronisation
+                    ├── Import/Inbox
+                    └── Cleanup
+                         ▲
+                         │
+Filesystem → Evidence → Knowledge Graph
+                         │
+                 Work / Edition / Person
+                 Release / Recording
+                 Relations / Sources
+```
+
+Der Kern wäre also nicht „Dateien löschen“, sondern:
+
+**FolioTone weiß irgendwann, was der Benutzer besitzt.**
+
+Und genau dort sehe ich einige große Lücken.
+
+---
+
+# 1. „Was besitze ich eigentlich?“ fehlt als eigenes Produktziel
+
+Der aktuelle Ansatz unterscheidet sehr schön zwischen Datei, Observation, Evidence, Work und Edition. Auch `Work`/`Edition` sowie bei Musik `Recording`/`ReleaseGroup`/`Release` sind bereits im Datenmodell vorgesehen. ([GitHub][2])
+
+Aber daraus könnte man eine viel wichtigere Frage ableiten:
+
+> **Was befindet sich tatsächlich in meiner Sammlung?**
+
+Beispiel:
+
+```text
+Der Herr der Ringe
+
+Besitz:
+  EPUB     3 Dateien
+  AZW3     2 Dateien
+  PDF      1 Datei
+
+Werke:
+  1 Work
+
+Editionen:
+  4 Editions
+
+Sprachen:
+  DE       3
+  EN       3
+
+physische Dateien:
+  6
+
+vermutlich redundant:
+  2
+
+einzigartige Inhalte:
+  4
+
+beste Qualität:
+  EPUB #4
+
+fehlende Metadaten:
+  1
+
+beschädigt:
+  0
+```
+
+Das wäre für mich **der eigentliche Kernnutzen**.
+
+Momentan ist das Ergebnis eher eine Menge technischer Befunde.
+
+Es fehlt eine erstklassige Projektion:
+
+### `CollectionState`
+
+also:
+
+> „So sieht meine Bibliothek aus.“
+
+---
+
+# 2. Besitz ≠ Datei ≠ Edition ≠ Werk
+
+Das ist meines Erachtens eines der schwierigsten Probleme – und eines, das noch viel stärker herausgearbeitet werden sollte.
+
+Nehmen wir:
+
+```text
+Dune.epub
+Dune.mobi
+Dune.azw3
+Dune-DE.epub
+Dune-Anniversary.epub
+Dune-Audiobook.m4b
+```
+
+Sind das:
+
+* 1 Werk?
+* 2 Werke?
+* 3 Editionen?
+* 5 digitale Repräsentationen?
+* 1 Buch + 1 Hörbuch?
+* 1 deutsche Übersetzung?
+* eine neue Revision?
+
+Das ist **keine Duplicate-Frage**.
+
+Das ist ein **Bibliotheksmodellierungsproblem**.
+
+Und genau hier könnte FolioTone deutlich tiefer gehen.
+
+---
+
+# 3. „Edition“ ist wahrscheinlich noch nicht granular genug
+
+Die nächste Stufe wäre:
+
+```text
+Work
+ └── Expression
+      └── Edition
+           └── Manifestation
+                └── File
+```
+
+Zum Beispiel:
+
+```text
+Work:
+    Der kleine Prinz
+
+Expression:
+    Original Französisch
+    Deutsche Übersetzung
+    Englische Übersetzung
+
+Edition:
+    Verlag A, 2010
+    Verlag B, 2020
+
+Manifestation:
+    EPUB
+    MOBI
+    AZW3
+    PDF
+
+File:
+    /books/...
+```
+
+Damit könnte FolioTone sagen:
+
+> „Diese drei Dateien sind verschiedene technische Repräsentationen derselben Edition.“
+
+und gleichzeitig:
+
+> „Diese Datei ist zwar dasselbe Werk, aber eine andere Übersetzung.“
+
+Der aktuelle Match-Ansatz unterscheidet bereits `EXACT_DUPLICATE`, `SAME_EDITION` und `SAME_WORK`; genau deshalb wäre eine explizitere bibliografische Modellierung der nächste logische Schritt. Der Autor hält derzeit bibliografische Kandidaten bewusst reviewpflichtig. ([GitHub][1])
+
+---
+
+# 4. Es fehlt eine „Best Version“-Engine
+
+Das halte ich für eine **riesige Chance**.
+
+Angenommen:
+
+```text
+A.epub
+B.epub
+C.azw3
+D.pdf
+E.epub
+```
+
+FolioTone könnte feststellen:
+
+```text
+A:
+  Metadaten       90%
+  Text            100%
+  Cover           gut
+  EPUBCheck       sauber
+
+B:
+  Metadaten       100%
+  Text            100%
+  Cover           hervorragend
+  EPUBCheck       sauber
+
+C:
+  Text            100%
+  Format          proprietär
+
+D:
+  OCR erforderlich
+
+E:
+  beschädigtes EPUB
+```
+
+Dann:
+
+> **B ist wahrscheinlich die beste digitale Repräsentation dieser Edition.**
+
+Nicht automatisch löschen.
+
+Sondern:
+
+```text
+Preferred representation: B
+Alternatives: A, C
+Problematic: E
+Legacy/archive: D
+```
+
+Das wäre wesentlich wertvoller als ein einfacher Duplicate Cleaner.
+
+---
+
+# 5. Quality ist momentan zu sehr Diagnose und zu wenig Entscheidungshilfe
+
+Der Autor hat hier sogar bewusst keinen skalaren Quality Score eingeführt. Stattdessen gibt es getrennte Dimensionen `METADATA`, `TEXT`, `COVER`, `STRUCTURE`, `FORMAT_RISK` und feste Befundcodes. Das ist technisch sauber. ([GitHub][2])
+
+Aber daraus könnte später ein **konfigurierbares Utility-Modell** entstehen.
+
+Zum Beispiel:
+
+```text
+Quality Profile: "Archiv"
+
+Text             25%
+Metadata         20%
+Cover            15%
+Format           20%
+Accessibility    10%
+EPUB validity    10%
+```
+
+oder:
+
+```text
+Quality Profile: "Kindle"
+
+AZW3             +20
+DRM-free         +30
+Cover            +10
+Metadata         +20
+...
+```
+
+Oder noch besser:
+
+**nicht ein globaler Score, sondern eine Pareto-/Policy-Analyse.**
+
+> „B ist in jeder für dich relevanten Dimension mindestens so gut wie A.“
+
+Das wäre wesentlich aussagekräftiger.
+
+---
+
+# 6. Nutzerpräferenzen fehlen als eigene Wissensschicht
+
+Das ist meiner Meinung nach eine der größten Lücken.
+
+FolioTone fragt momentan:
+
+> Was ist wahr?
+
+Es sollte zusätzlich fragen:
+
+> **Was möchte der Benutzer?**
+
+Beispiel:
+
+```yaml
+preferences:
+  keep_formats:
+    - epub
+
+  preferred_language:
+    - de
+    - en
+
+  keep_translations: true
+
+  keep_multiple_editions: false
+
+  keep_highest_quality_only: true
+
+  preserve_original_files: true
+```
+
+Dann wird aus:
+
+```text
+Analyse
+```
+
+eine:
+
+```text
+Analyse + Benutzerpolitik
+```
+
+und daraus:
+
+```text
+Decision
+```
+
+Das ist ein riesiger Unterschied.
+
+---
+
+# 7. Ein Policy Engine fehlt
+
+Darauf aufbauend würde ich eine deklarative Regelengine bauen:
+
+```text
+IF
+  same_edition
+  AND quality(A) < quality(B)
+  AND user.prefers_epub
+  AND A is not unique
+THEN
+  recommend archive(A)
+```
+
+Oder:
+
+```text
+IF
+  exact_duplicate
+  AND same_sha256
+  AND one copy is in backup
+THEN
+  mark redundant
+```
+
+Oder:
+
+```text
+IF
+  same_work
+  AND different_language
+THEN
+  KEEP
+```
+
+Oder:
+
+```text
+IF
+  same_work
+  AND same_language
+  AND different_edition
+THEN
+  REVIEW
+```
+
+Damit wird FolioTone zu einer **Decision Engine**.
+
+---
+
+# 8. Backup-/Archiv-Management fehlt als naheliegende Erweiterung
+
+Das ist ein sehr großer Anwendungsfall.
+
+FolioTone weiß ohnehin:
+
+* SHA-256
+* Dateigröße
+* Pfad
+* Observation
+* Zeit
+* Historie
+* Status.
+
+Damit könnte es extrem gut beantworten:
+
+> **Ist mein Backup vollständig?**
+
+Beispiel:
+
+```text
+Master Library
+       │
+       ├── NAS
+       ├── USB Backup
+       └── Cold Storage
+```
+
+Dann:
+
+```text
+12.481 Dateien
+12.481 im NAS
+12.479 auf USB
+12.480 auf Cold Storage
+
+2 fehlen auf USB
+1 fehlt auf Cold Storage
+```
+
+Und sogar:
+
+> „Diese Datei existiert auf dem Backup, aber nicht mehr im Master.“
+
+Das wäre **sehr wertvoll** und erfordert erstaunlich wenig neue Kernarchitektur.
+
+---
+
+# 9. Noch besser: Storage Health
+
+FolioTone könnte zum Medien-Integrity-System werden.
+
+Beispielsweise:
+
+```text
+Library Health
+
+Files                  83,412
+Unique contents        71,903
+Exact duplicates        8,124
+Broken files               17
+Missing files              43
+Unverified files        2,113
+Backup gaps                11
+Metadata incomplete      604
+Potential variants      1,827
+```
+
+Und:
+
+```text
+Last verified:
+    2026-08-18
+
+Next recommended scan:
+    2026-09-18
+```
+
+Das ist ein **dauerhaft nützliches Programm**, selbst wenn man niemals eine einzige Datei löschen möchte.
+
+---
+
+# 10. Die Zeitdimension könnte viel stärker genutzt werden
+
+Der Autor speichert bereits Scan-Historie und Resume-Lineage. ([GitHub][2])
+
+Damit könnte FolioTone etwas machen, das normale Duplicate Cleaner kaum können:
+
+### Bibliotheks-Diff
+
+```text
+Library 2026-07-01
+vs.
+Library 2026-08-18
+```
+
+Ergebnis:
+
+```text
++ 412 files
+- 38 files
+~ 127 modified
++ 83 new editions
++ 21 new works
+
+12 files disappeared unexpectedly
+```
+
+Noch interessanter:
+
+> **„Was hat sich seit meinem letzten Backup verändert?“**
+
+Oder:
+
+> „Welche Dateien wurden seit letzter Woche geändert?“
+
+Das wäre fast schon ein **Git für Medienbibliotheken**.
+
+---
+
+# 11. Und daraus folgt eine noch größere Idee: Media Git
+
+Das Projekt hat bereits einen starken Provenance-Gedanken.
+
+Warum nicht:
+
+```text
+Collection Snapshot #1
+Collection Snapshot #2
+Collection Snapshot #3
+```
+
+mit:
+
+```text
+diff
+rollback information
+provenance
+decision history
+```
+
+Dann könnte man einen geplanten Cleanup ausführen und anschließend sagen:
+
+> „Was wurde durch diesen Plan verändert?“
+
+und:
+
+> „Welche Entscheidungen haben dazu geführt?“
+
+Das wäre für ein potentiell destruktives System extrem stark.
+
+---
+
+# 12. Quarantäne statt sofortiger Löschung
+
+Der aktuelle Plan sieht W10 als spätere gated execution vor; Delete/Move/Rename/Retag etc. sind derzeit noch blockiert. ([GitHub][2])
+
+Ich würde aber **nicht direkt Delete implementieren**.
+
+Sondern:
+
+```text
+KEEP
+MOVE
+QUARANTINE
+ARCHIVE
+DELETE
+```
+
+wobei:
+
+```text
+QUARANTINE
+```
+
+beispielsweise bedeutet:
+
+```text
+.quarantine/
+   2026-08-18/
+       plan-00042/
+```
+
+mit Manifest:
+
+```text
+original path
+sha256
+reason
+decision
+timestamp
+plan id
+```
+
+Dann kann man 30 Tage später sagen:
+
+> „Alles noch okay? Dann endgültig entfernen.“
+
+Das wäre erheblich sicherer.
+
+---
+
+# 13. Ein „Undo“ sollte ein Primärkonzept sein
+
+Nicht:
+
+> Delete mit Backup.
+
+Sondern:
+
+> **Jede Mutation erzeugt eine reversible Operation.**
+
+```text
+Plan 42
+
+MOVE:
+A → archive/A
+
+RENAME:
+old → new
+
+METADATA:
+old → new
+```
+
+Dann:
+
+```text
+foliotone undo 42
+```
+
+Das wäre ein enormer Sicherheitsgewinn.
+
+---
+
+# 14. Die Calibre-Integration könnte viel mächtiger werden
+
+Der README sagt selbst, dass `calibredb` zunächst zurückgestellt wird, bis ein Library-Reconciliation-Vertrag existiert. ([GitHub][3])
+
+Ich würde das später unbedingt nutzen.
+
+Denn dann könnte FolioTone zwei Wahrheiten vergleichen:
+
+```text
+Filesystem
+     ↕
+FolioTone
+     ↕
+Calibre Library
+```
+
+Beispiel:
+
+```text
+Filesystem:
+  Dune.epub
+
+Calibre:
+  Dune — Frank Herbert
+  ID: 1234
+
+FolioTone:
+  Work: Dune
+  Edition: ...
+
+```
+
+Dann:
+
+> „Calibre enthält einen Datensatz ohne entsprechende Datei.“
+
+oder:
+
+> „Datei existiert, ist aber nicht in Calibre.“
+
+oder:
+
+> „Calibre und Dateisystem meinen offenbar unterschiedliche Editionen.“
+
+Das wäre **extrem nützlich** für Leute mit großen calibre-Bibliotheken.
+
+---
+
+# 15. Ein „Inbox“-Workflow fehlt
+
+Das wäre mein persönlicher Favorit.
+
+Statt Dateien sofort in die endgültige Bibliothek zu kopieren:
+
+```text
+Downloads/
+Incoming/
+```
+
+FolioTone analysiert:
+
+```text
+incoming/
+    Dune-new.epub
+    Dune2.epub
+    Foundation.epub
+```
+
+und sagt:
+
+```text
+Dune-new.epub
+  → SAME_EDITION as existing #382
+  → quality: BETTER
+  → recommendation: REPLACE
+
+Dune2.epub
+  → NEW EDITION
+  → recommendation: ADD
+
+Foundation.epub
+  → SAME_WORK as #882
+  → different language
+  → recommendation: KEEP
+```
+
+Dann:
+
+```text
+foliotone import-plan incoming/
+```
+
+und später:
+
+```text
+foliotone import-apply PLAN-42
+```
+
+Das wäre ein **sehr konkreter Alltagsnutzen**.
+
+---
+
+# 16. Der Autor unterschätzt möglicherweise „Acquisition Intelligence“
+
+Wenn FolioTone weiß:
+
+```text
+Was habe ich?
+Was fehlt mir?
+Welche Editionen habe ich?
+Welche Werke habe ich?
+```
+
+kann es auch sagen:
+
+> „Dieses Werk hast du bereits.“
+
+oder:
+
+> „Du hast die deutsche Ausgabe, aber nicht die englische.“
+
+oder:
+
+> „Du besitzt 4 Dateien, aber nur 2 tatsächliche Editionen.“
+
+Das ist der Schritt von **Cleanup** zu **Collection Management**.
+
+---
+
+# 17. Eine richtige Suchmaschine wäre eine logische Folge
+
+Wenn die Knowledge-Schicht vorhanden ist:
+
+```text
+foliotone search "books by Asimov"
+```
+
+oder:
+
+```text
+foliotone search --missing-cover
+```
+
+oder:
+
+```text
+foliotone search --duplicate
+```
+
+oder:
+
+```text
+foliotone search --language de --quality-good
+```
+
+Noch besser:
+
+```text
+foliotone query \
+  --same-work \
+  --language de \
+  --no-exact-duplicate \
+  --format epub
+```
+
+Der Evidence Layer würde dadurch zu einer **Abfrageschicht über der Sammlung**.
+
+---
+
+# 18. Ein Graph wäre besser als nur relationale Tabellen
+
+Der Autor hat bereits `Agent`, `Work`, `Edition`, `Series`, `Contribution`, `Relation`, `Evidence` usw. Das schreit geradezu nach einem Knowledge Graph. ([GitHub][3])
+
+Zum Beispiel:
+
+```text
+Author
+  │
+  ├── wrote ──> Work
+  │              │
+  │              ├── hasEdition ──> Edition
+  │              │                     │
+  │              │                     └── representedBy ──> File
+  │              │
+  │              └── translatedTo ──> Translation
+  │
+  └── contributedTo ──> Work
+```
+
+Dann werden Fragen möglich wie:
+
+> „Zeige mir alle Dateien, die wahrscheinlich zur selben Edition gehören, deren Autor dieselbe Person ist und die keine EPUBCheck-Probleme haben.“
+
+Das ist sehr viel mächtiger als „Duplicate Finder“.
+
+---
+
+# 19. Externe Knowledge Provider sollten stärker zum Herzstück werden
+
+Der Autor hat das bereits vorgesehen: Knowledge Provider, Authority/Entity Resolution und externe Quellen sind Teil der Zielarchitektur. Persistierte Authority-Entscheidungen und Provider-Cache sind aber noch geplant. ([GitHub][2])
+
+Hier würde ich massiv investieren.
+
+Für Bücher beispielsweise:
+
+```text
+Open Library
+Library of Congress
+ISBNdb / andere ISBN-Quellen
+Google Books
+publisher metadata
+Wikidata
+```
+
+Für Musik:
+
+```text
+MusicBrainz
+Discogs
+AcoustID
+...
+```
+
+Aber ganz wichtig:
+
+**Nicht eine Quelle zur Wahrheit machen.**
+
+Sondern:
+
+```text
+Source A: title = ...
+Source B: title = ...
+Source C: title = ...
+
+Agreement = 3/3
+```
+
+Dann:
+
+```text
+Authority confidence
+```
+
+---
+
+# 20. Confidence Calibration fehlt als wissenschaftlich interessante Schicht
+
+Hier würde ich sogar noch weiter gehen.
+
+FolioTone hat aktuell bewusst sehr konservatives Matching. Gleicher vollständiger SHA-256 kann automatisch bestätigt werden; bibliografische Kandidaten bleiben zunächst `REVIEW_REQUIRED`, und harte Contradictions dürfen nicht durch Tool-Agreement überstimmt werden. ([GitHub][1])
+
+Das ist gut.
+
+Aber irgendwann sollte es lernen:
+
+```text
+Candidate:
+
+SAME_EDITION
+
+Probability:
+    97.4%
+
+Evidence:
+    ISBN              +++++
+    Title             ++++
+    Author            ++++
+    Publisher         +++
+    Year              ++
+    Text fingerprint  +++++
+    Cover             +++
+    Path              +
+```
+
+Und noch wichtiger:
+
+**Diese 97,4 % sollten empirisch kalibriert sein.**
+
+Also:
+
+```text
+1000 reviewed cases
+    ↓
+970 correct
+30 wrong
+
+→ confidence calibration
+```
+
+Das wäre wissenschaftlich wesentlich sauberer als ein frei erfundener Score.
+
+---
+
+# 21. Human-in-the-loop könnte zum Lernsystem werden
+
+Derzeit:
+
+```text
+ACCEPT
+REJECT
+DEFER
+```
+
+Das ist bereits vorhanden. ([GitHub][1])
+
+Aber warum nicht:
+
+```text
+User accepted:
+  author similarity
+  title similarity
+  ISBN agreement
+  same text
+  same cover
+```
+
+und daraus lernen:
+
+> Welche Kriterien sind **für diesen Benutzer** zuverlässig?
+
+Beispielsweise:
+
+```text
+User X:
+  Cover similarity = sehr wichtig
+
+User Y:
+  Cover similarity = unwichtig
+
+User X:
+  verschiedene Editionen = KEEP
+
+User Y:
+  verschiedene Editionen = MERGE
+```
+
+Dann wird FolioTone personalisiert.
+
+---
+
+# 22. KI wäre hier sinnvoll – aber erst sehr spät
+
+Ich würde **nicht** als Erstes einen LLM in den Core bauen.
+
+Aber wenn die Evidence-Schicht fertig ist, wäre ein LLM sehr interessant als:
+
+### Explanation Layer
+
+Nicht:
+
+> „GPT entscheidet, ob das Buch dasselbe ist.“
+
+Sondern:
+
+> „GPT bekommt ausschließlich die bereits ermittelte Evidence und erklärt dem Benutzer, warum FolioTone diese beiden Dateien als mögliche SAME_EDITION-Kandidaten betrachtet.“
+
+Beispiel:
+
+> Beide Dateien enthalten dieselbe ISBN und denselben normalisierten Text. Die Publikationsjahre unterscheiden sich jedoch. Das spricht für dieselbe Edition bzw. eine technische Neuveröffentlichung. Eine automatische Konsolidierung wird deshalb nicht empfohlen.
+
+Das ist viel sicherer.
+
+---
+
+# 23. Noch interessanter: natürliche Sprache als Query Interface
+
+Dann könnte man irgendwann fragen:
+
+> „Zeig mir alle Bücher, von denen ich mehr als drei Exemplare habe.“
+
+oder:
+
+> „Welche meiner Bücher sind wahrscheinlich beschädigt?“
+
+oder:
+
+> „Welche deutschen Bücher habe ich doppelt, wenn unterschiedliche Editionen behalten werden dürfen?“
+
+oder:
+
+> „Welche Dateien könnte ich ohne Informationsverlust archivieren?“
+
+Das wäre eine perfekte Anwendung für die bereits vorhandene Evidence-/Knowledge-Schicht.
+
+---
+
+# 24. ZIP/RAR/7z/CBZ/CBR ist eine interessante Erweiterung
+
+Und hier sieht man sogar, dass der Autor diese Richtung inzwischen selbst erkannt hat: W3-018 ist bereits als geplanter Punkt für ZIP/RAR/7z/TAR/CBR/CBZ-Discovery und Integritätsanalyse vorgesehen. ([GitHub][3])
+
+Ich würde das aber breiter denken:
+
+```text
+EPUB
+PDF
+MOBI
+AZW
+AZW3
+
+CBZ
+CBR
+ZIP
+7z
+...
+
+MP3
+FLAC
+M4A
+OGG
+...
+
+M4B
+MP4
+...
+```
+
+Denn das eigentliche Modell ist **Medienobjekt**, nicht EPUB.
+
+---
+
+# 25. Audio ist nicht einfach „noch ein Adapter“
+
+Hier sehe ich eine interessante konzeptionelle Gefahr.
+
+Bei Büchern ist:
+
+```text
+Text fingerprint
+ISBN
+Edition
+Cover
+```
+
+sehr hilfreich.
+
+Bei Musik brauchst du aber andere Identitäten:
+
+```text
+Work
+Recording
+Release
+Release Group
+Track
+Disc
+ISRC
+AcoustID
+```
+
+Der Autor hat Teile davon bereits im Modell vorgesehen. ([GitHub][2])
+
+Aber die eigentliche Frage lautet:
+
+> **Welche Einheit möchte der Benutzer besitzen?**
+
+Ein Album kann sein:
+
+```text
+Release
+   ↓
+CD
+Vinyl
+Digital
+Remaster
+Deluxe Edition
+```
+
+und dieselbe Aufnahme kann in mehreren Releases vorkommen.
+
+Das ist ein komplett anderes Matchingproblem.
+
+Hier könnte FolioTone einen echten Mehrwert gegenüber normalen Music Taggern entwickeln.
+
+---
+
+# 26. Ein weiterer großer fehlender Bereich: Accessibility
+
+Bei E-Books könnte FolioTone zusätzlich analysieren:
+
+* alt text
+* heading hierarchy
+* navigation
+* language tags
+* semantic structure
+* accessibility metadata
+* font embedding
+* contrast/reflow-relevante Probleme
+* MathML
+* table structure
+
+Dann könnte es beispielsweise sagen:
+
+> „Von fünf EPUBs derselben Edition ist B strukturell und hinsichtlich Accessibility die beste Version.“
+
+Das ist wesentlich wertvoller als nur „EPUBCheck passed“.
+
+---
+
+# 27. OCR / Textqualität könnte ein eigenes Subsystem werden
+
+Bei PDFs ist momentan unter anderem Textanalyse vorgesehen; `NO_TEXT` ist ein expliziter Zustand. ([GitHub][3])
+
+Daraus könnte man:
+
+```text
+PDF
+ ↓
+text extraction
+ ↓
+NO_TEXT?
+ ↓
+OCR candidate
+```
+
+machen.
+
+Dann:
+
+```text
+Dune.pdf
+  pages: 412
+  extracted text: 0
+  OCR candidate: YES
+```
+
+Später:
+
+```text
+OCR quality
+language detection
+text fingerprint
+```
+
+Das wäre gerade für alte eingescannten Bücher sehr nützlich.
+
+---
+
+# 28. Ein „Collection Health Score“ wäre trotzdem sinnvoll – aber anders als der Quality Score
+
+Ich würde den vom Autor bewusst abgelehnten globalen Qualitäts-Score **nicht für einzelne Bücher** einführen.
+
+Aber auf Sammlungsebene:
+
+```text
+Collection Health: 87/100
+```
+
+könnte sinnvoll sein.
+
+Zum Beispiel:
+
+```text
+Integrity          98
+Metadata           81
+Duplicates         76
+Backup             93
+Accessibility      72
+Coverage           89
+```
+
+Also ein **Dashboard für den Zustand der Sammlung**, nicht eine Behauptung darüber, wie „gut“ ein einzelnes Buch ist.
+
+---
+
+# 29. Automatisierung fehlt als übergeordnete Ebene
+
+Der aktuelle Fokus auf CLI und read-only ist bewusst. Das ist nachvollziehbar. ([GitHub][2])
+
+Aber später:
+
+```text
+foliotone daemon
+```
+
+oder:
+
+```text
+foliotone watch /books
+```
+
+könnte:
+
+```text
+neue Datei
+    ↓
+automatischer Scan
+    ↓
+Analyse
+    ↓
+Matching
+    ↓
+Inbox
+    ↓
+Benachrichtigung
+```
+
+machen.
+
+Beispielsweise:
+
+> „3 neue Dateien erkannt. 2 sind bekannte Editionen, 1 ist neu.“
+
+Das wäre ein viel stärkerer Alltagsnutzen.
+
+---
+
+# 30. Eine API wäre langfristig fast unvermeidlich
+
+Der Autor sagt momentan ausdrücklich:
+
+> CLI only.
+
+Das ist als Entwicklungsstrategie vernünftig. Eine Web-API/Dashboard ist aktuell bewusst nicht im Scope. ([GitHub][2])
+
+Aber **architektonisch sollte die CLI nicht das Endprodukt bleiben**.
+
+Denn sobald die Datenmenge und Knowledge-Schicht wachsen, wollen andere Programme darauf zugreifen:
+
+```text
+FolioTone
+    │
+    ├── CLI
+    ├── REST API
+    ├── MCP
+    ├── Web UI
+    ├── calibre integration
+    ├── backup tools
+    └── automation
+```
+
+Der Core könnte dabei komplett UI-neutral bleiben.
+
+---
+
+# 31. MCP wäre für dieses Projekt geradezu ideal
+
+Das halte ich für eine besonders interessante aktuelle Erweiterung.
+
+FolioTone könnte einen lokalen MCP-Server anbieten:
+
+```text
+search_collection
+find_duplicates
+get_book
+compare_files
+get_edition
+list_review_candidates
+get_collection_health
+get_backup_gaps
+```
+
+Dann könnte ein AI-Agent fragen:
+
+> „Welche Bücher in meiner Sammlung sind wahrscheinlich doppelt?“
+
+FolioTone liefert **strukturierte Evidence**.
+
+Der Agent interpretiert sie.
+
+Damit bleibt die kritische Wahrheitsschicht deterministisch.
+
+Das passt meiner Meinung nach hervorragend zu der bestehenden Architektur.
+
+---
+
+# 32. Der Autor hat außerdem einen strategischen Widerspruch
+
+Das Projekt ist **nicht Open Source** und nutzt eine Custom Community & Attribution License; zugleich ist die Architektur stark auf ToolProvider, Knowledge Provider und externe Spezialisten ausgelegt. ([GitHub][2])
+
+Das könnte langfristig problematisch werden.
+
+Denn der größte Wert des Projekts wäre:
+
+> viele Leute bringen Provider, Matcher, Parser, Knowledge Sources und Regeln ein.
+
+Die aktuelle Lizenz und die fehlende Community könnten genau diesen Netzwerkeffekt bremsen.
+
+Das Repository hat aktuell **0 Stars, 0 Forks und keine offenen Issues**; es gibt einen Pull Request. ([GitHub][2])
+
+Das ist kein Qualitätsurteil über den Code – aber ein Hinweis darauf, dass der Community-/Ökosystem-Aspekt bisher kaum aktiviert ist.
+
+---
+
+# 33. Ich würde deshalb das Projekt in drei Ebenen aufteilen
+
+### Ebene 1 – Evidence Engine
+
+Das macht der Autor gerade sehr gut:
+
+```text
+Filesystem
+Tools
+Fingerprints
+Metadata
+Provenance
+Quality
+```
+
+**Beibehalten.**
+
+### Ebene 2 – Knowledge Engine
+
+Hier würde ich deutlich mehr investieren:
+
+```text
+Work
+Edition
+Person
+Recording
+Release
+Authority
+Relations
+History
+Collection state
+```
+
+**Das ist meiner Meinung nach die größte nächste Chance.**
+
+### Ebene 3 – Decision/Automation Engine
+
+Dann:
+
+```text
+User policies
+Rules
+Recommendations
+Review
+Plans
+Quarantine
+Apply
+Undo
+```
+
+Damit wird aus dem Analyseprojekt ein Produkt.
+
+---
+
+# Meine Prioritätenliste für den Autor
+
+Wenn ich dem Autor **nicht 50 neue Features**, sondern eine sinnvolle Reihenfolge geben dürfte:
+
+| Priorität | Feature                                                      | Nutzen                         |
+| --------- | ------------------------------------------------------------ | ------------------------------ |
+| 🔥 1      | **Collection Knowledge Graph / State**                       | extrem hoch                    |
+| 🔥 2      | **Work/Expression/Edition/Manifestation sauber modellieren** | extrem hoch                    |
+| 🔥 3      | **Best-Representation / Preferred-Copy Engine**              | sehr hoch                      |
+| 🔥 4      | **User Policies + Decision Engine**                          | sehr hoch                      |
+| 🔥 5      | **Backup-/Integrity-Vergleich**                              | sehr hoch                      |
+| 🔥 6      | **Collection Snapshots + Diff**                              | sehr hoch                      |
+| 🔥 7      | **Inbox/Import Workflow**                                    | sehr hoch                      |
+| 🔥 8      | **Quarantine + Undo**                                        | sehr hoch                      |
+| 9         | Calibre Reconciliation                                       | hoch                           |
+| 10        | Authority/External Knowledge                                 | hoch                           |
+| 11        | Natural-language Query / MCP                                 | hoch                           |
+| 12        | Accessibility/OCR                                            | mittel-hoch                    |
+| 13        | Music                                                        | hoch, aber eigenes Teilprojekt |
+| 14        | Web UI                                                       | später                         |
+| 15        | „AI entscheidet automatisch“                                 | **ganz zuletzt**               |
+
+---
+
+# Und die wichtigste Änderung an der Produktidee
+
+Ich würde **nicht** versuchen, FolioTone primär zu:
+
+> „dem besseren Duplicate Cleaner“
+
+zu machen.
+
+Davon gibt es bereits viele.
+
+Die viel interessantere Position wäre:
+
+> ### **„FolioTone weiß, was sich in deiner digitalen Bibliothek befindet.“**
+
+Und daraus:
+
+```text
+Was besitze ich?
+Was ist dasselbe?
+Was ist nur ähnlich?
+Welche Edition habe ich?
+Welche Datei ist die beste?
+Was fehlt?
+Was ist kaputt?
+Was hat sich geändert?
+Was ist gesichert?
+Was kann ich archivieren?
+Was sollte ich behalten?
+Warum glaubt FolioTone das?
+Was habe ich selbst bereits entschieden?
+```
+
+**Dann wird das Projekt plötzlich wesentlich größer als sein aktueller Name vermuten lässt.**
+
+Der Autor hat dafür sogar schon einen überraschend großen Teil des Fundaments gebaut: Provenance, Observation, Evidence, Versionierung, Scan-Historie, `Work`/`Edition`, `Agent`, Relations, Matching-Candidates und Review sind bereits vorhanden. ([GitHub][2])
+
+Das eigentliche Problem ist deshalb meiner Ansicht nach **nicht**, dass ihm noch mehr Parser fehlen.
+
+Das Problem ist eher:
+
+> **Er hat einen sehr guten Motor gebaut, aber die Frage „Welche Produkte und Entscheidungen kann ich aus diesem Motor ableiten?“ noch nicht weit genug ausformuliert.**
+
+Und genau dort steckt meiner Meinung nach der größte zusätzliche Nutzen.
+
+[FolioTone – aktuelles Repository](https://github.com/gecompat/FolioTone?utm_source=chatgpt.com)
+[FolioTone – aktueller Projektstatus](https://github.com/gecompat/FolioTone/blob/main/docs/planning/PROJECT_STATUS.md?utm_source=chatgpt.com)
+[FolioTone – Backlog](https://github.com/gecompat/FolioTone/blob/main/docs/planning/BACKLOG.md?utm_source=chatgpt.com) 
+
+[1]: https://github.com/gecompat/FolioTone/blob/main/docs/planning/PROJECT_STATUS.md "FolioTone/docs/planning/PROJECT_STATUS.md at main · gecompat/FolioTone · GitHub"
+[2]: https://github.com/gecompat/FolioTone "GitHub - gecompat/FolioTone: Orchestrate specialist tools to reconcile, analyze, and deduplicate e-book and music collections. · GitHub"
+[3]: https://github.com/gecompat/FolioTone/blob/main/docs/planning/BACKLOG.md "FolioTone/docs/planning/BACKLOG.md at main · gecompat/FolioTone · GitHub"
