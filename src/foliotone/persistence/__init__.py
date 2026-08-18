@@ -45,6 +45,10 @@ from foliotone.persistence.evidence_queries import (
     ObservationEvidenceRecords,
     load_observation_evidence,
 )
+from foliotone.persistence.relation_candidates import (
+    RelationCandidateStoreError,
+    SQLiteRelationCandidateStore,
+)
 from foliotone.persistence.resolution_review import (
     MAX_RESOLUTION_EVIDENCE,
     MAX_RESOLUTION_PAGE,
@@ -115,8 +119,10 @@ __all__ = [
     "ScanRootWriteOwnerKind",
     "ResolutionCandidatePage",
     "ResolutionReviewStoreError",
+    "RelationCandidateStoreError",
     "ReviewItemPage",
     "SQLiteResolutionReviewStore",
+    "SQLiteRelationCandidateStore",
     "SQLiteScanRootWriteLeaseStore",
     "scan_root_write_scope",
     "alembic_config",

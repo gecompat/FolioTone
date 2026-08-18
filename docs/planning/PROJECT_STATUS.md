@@ -11,8 +11,16 @@ Matcherprofile für `EXACT_DUPLICATE`, `SAME_EDITION` und `SAME_WORK`.
 Nur gleicher vollständiger `FILE_SHA256` darf automatisch `CONFIRMED`
 erzeugen. Erstmalige bibliografische Kandidaten bleiben immer
 `REVIEW_REQUIRED`; harte lokale Contradictions können nicht durch Provider-
-oder Tool-Agreement überstimmt werden. Persistenz und Matching-Review folgen
-getrennt in EB-06B.
+oder Tool-Agreement überstimmt werden.
+
+EB-06B ergänzt mit ADR-0031 und Alembic `0014` insert-only
+`RelationCandidate`-Snapshots und konkrete Feature-Evidence-Links. Der Store
+reproduziert das Matcher-Ergebnis vor dem Insert, validiert abgeschlossene
+Scan-Lineage und persistierte Evidence atomar und reiht bibliografische Fälle
+in den bestehenden append-only Review-Core ein. Semantisch kompatible ACCEPT-
+und REJECT-Entscheidungen können trotz neuer technischer Matcher-Version
+wiederverwendet werden; DEFER bleibt reviewbar. Eine `Relation`-Projektion,
+der begrenzte Orchestrator und die CLI folgen getrennt in EB-06C.
 
 **Empirisch für EB-06A:** Der gezielte Matching-/Blocking-Verbundlauf bestand
 24 synthetische Tests in 62,55 Sekunden. Er prüft vollständige Hash-
@@ -21,6 +29,12 @@ bibliografischer Kandidaten, Übersetzungs- und Text-Fingerprint-Grenzen,
 Fingerprint-Stabilität sowie den bestehenden Candidate-Blocking-Vertrag.
 Ruff war für das Repository erfolgreich; Mypy prüfte 110 Source-Dateien ohne
 Befund. Der vollständige Gate läuft genau einmal am Pull Request.
+
+**Empirisch für EB-06B vor dem PR-Gate:** Der fokussierte Persistenz-,
+Migrations-, Review- und Matching-Verbundlauf bestand 36 synthetische Tests in
+284,37 Sekunden. Ruff war für den betroffenen Scope erfolgreich; Mypy prüfte
+114 Source-Dateien ohne Befund. Es wurden keine realen Sammlungsdaten und
+keine Runtime-Datenbank verwendet.
 
 Der kontrollierte Runtime-Cutover, die Trennung zwischen synthetischen
 Entwicklungs-Gates und privatem Hintergrundlauf sowie die langfristige
