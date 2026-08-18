@@ -145,7 +145,7 @@ noch implementiert.
 | FG-03A | Cache-Payload-Regel je Provider, TTL-/Freshness-Regeln, Cache-Key-Kanonisierung und Transaktionsgrenze. |
 | FG-03B | Erneut geprüfte Provider-Primärdokumentation, Lizenz-/Cache-Regeln, feste Endpoints, Rate Limits und DTO-Mapping. |
 | FG-04 | Classification-Taxonomie, Projection-Priorität, Konfliktstatus und Profilversion. |
-| FG-07 | Vollständige read-only `calibredb`-Command-Shapes, Toolmanifest und Snapshot-/Ownership-Vertrag. |
+| FG-07 | Durch [ADR-0033](../decisions/ADR-0033-read-only-calibredb-library-reconciliation.md) akzeptiert: vollständige read-only `calibredb`-Command-Shapes, Toolmanifest, Snapshot-Lineage sowie Ownership-/Sidecar-Vertrag. |
 | FG-08 | Finale `ConsolidationPlan`-DTOs, Blocker, Precondition-Semantik, kanonische Serialisierung und Persistenzschema. |
 | FG-A | Archivtoolentscheidung, Format-Allowlist, sichere Secret-Übergabe und Extraktions-/Sandbox-Grenzen. |
 
