@@ -3912,3 +3912,731 @@ Das ist die Richtung, in die ich das Projekt nach unseren Gesprächen entwickeln
 Und wenn man es auf einen **deutschen Einzeiler für die README** reduzieren will:
 
 > **FolioTone baut aus einer heterogenen Dateisammlung eine nachvollziehbare Wissensbasis über digitale Assets, ihre Identität, Beziehungen, Herkunft, Qualität und Redundanz – und hilft dabei, fundierte und reversible Entscheidungen über deren Verwaltung und Erhaltung zu treffen.**
+
+
+---
+---
+
+Ja. Ich habe Gedanken_für_die_Zukunft vollständig durchgesehen – die Datei hat aktuell 3.914 Zeilen bzw. rund 79,8 KB. 
+G
+GitHub
+Und nachdem ich sie gelesen habe, würde ich meine vorherige Einschätzung von FolioTone deutlich erweitern: Das Dokument ist weniger eine konkrete Roadmap als ein gedanklicher Entwurf dafür, was FolioTone werden könnte, wenn man die bereits aufgebaute Evidence-/Provenance-Schicht konsequent weiterdenkt.
+
+Gedanken_für_die_Zukunft im Repository
+
+Der zentrale Gedanke
+Der entscheidende Satz des Dokuments ist sinngemäß:
+FolioTone sollte nicht primär fragen „Welche Dateien sind Duplikate?“, sondern „Was befindet sich tatsächlich in meiner Sammlung?“
+Das ist ein fundamentaler Perspektivwechsel. 
+G
+GitHub
+Heute ist die Pipeline ungefähr:
+
+Dateien
+  ↓
+Beobachtungen
+  ↓
+Evidence
+  ↓
+Matching
+  ↓
+Review
+  ↓
+Konsolidierung
+
+Die Zukunftsidee geht eher in Richtung:
+                 Collection
+                     │
+        ┌────────────┼────────────┐
+        ▼            ▼            ▼
+      Files        Works       Editions
+        │            │            │
+        └────────────┼────────────┘
+                     ▼
+              Knowledge Model
+                     │
+        ┌────────────┼────────────┐
+        ▼            ▼            ▼
+      Quality     Ownership     History
+        │            │            │
+        └────────────┼────────────┘
+                     ▼
+              User Preferences
+                     │
+                     ▼
+                Policy Engine
+                     │
+                     ▼
+                Decisions
+                     │
+                     ▼
+              Reversible Plans
+
+Das wäre kein Duplicate Cleaner mehr, sondern ein Collection Management / Knowledge System.
+1. CollectionState ist wahrscheinlich die wichtigste Idee
+Das Dokument schlägt explizit eine neue Projektion CollectionState vor.
+Beispielsweise:
+
+Der Herr der Ringe
+
+Besitz:
+  EPUB: 3
+  AZW3: 2
+  PDF: 1
+
+Works:
+  1
+
+Editions:
+  4
+
+Sprachen:
+  DE: 3
+  EN: 3
+
+Physische Dateien:
+  6
+
+vermutlich redundant:
+  2
+
+einzigartige Inhalte:
+  4
+
+beste Qualität:
+  EPUB #4
+
+fehlende Metadaten:
+  1
+
+beschädigt:
+  0
+
+
+G
+GitHub
+Das halte ich für einen sehr starken Gedanken.
+Denn die ganzen technischen Observations- und Evidence-Schichten haben erst dann einen hohen Benutzerwert, wenn sie auf eine verständliche Frage projiziert werden:
+
+„Wie sieht meine Bibliothek aus?“
+Die bestehende Architektur ist dafür eigentlich bereits erstaunlich gut vorbereitet.
+2. Der Autor trifft auf ein echtes bibliografisches Problem
+Sehr interessant ist die Diskussion:
+Work
+└── Expression
+    └── Edition
+        └── Manifestation
+            └── File
+
+
+G
+GitHub
+Beispielsweise:
+Work
+  Der kleine Prinz
+
+Expression
+  ├── Französisch
+  ├── Deutsch
+  └── Englisch
+
+Edition
+  ├── Verlag A, 2010
+  └── Verlag B, 2020
+
+Manifestation
+  ├── EPUB
+  ├── MOBI
+  ├── AZW3
+  └── PDF
+
+File
+  ├── /books/...
+  └── /archive/...
+
+Das löst ein wichtiges Problem:
+EPUB und AZW3 können unterschiedliche Dateien, aber dieselbe digitale Repräsentation einer Edition sein.
+
+Und eine deutsche EPUB-Datei kann gleichzeitig:
+
+dasselbe Werk,
+aber eine andere Expression,
+und eine andere Edition
+darstellen.
+Damit wird klar:
+
+Duplicate Detection ist eigentlich nur ein kleiner Spezialfall von bibliografischer Entity Resolution.
+Das Dokument erkennt das sehr gut. 
+G
+GitHub
++1
+3. „Best Version“ könnte der eigentliche Killer-Feature werden
+Das ist für mich eine der besten Ideen des Dokuments.
+Nicht:
+
+„A und B sind Duplikate.“
+Sondern:
+A.epub
+  Text       100 %
+  Metadata    90 %
+  Cover       gut
+  EPUBCheck   OK
+
+B.epub
+  Text       100 %
+  Metadata   100 %
+  Cover       hervorragend
+  EPUBCheck   OK
+
+C.azw3
+  Text       100 %
+  proprietär
+
+D.pdf
+  OCR nötig
+
+E.epub
+  beschädigt
+
+Dann:
+Preferred:
+  B
+
+Alternative:
+  A, C
+
+Legacy:
+  D
+
+Problematic:
+  E
+
+
+G
+GitHub
++1
+Das ist wesentlich wertvoller als:
+duplicate = true
+
+Denn der Benutzer will meistens nicht wissen:
+„Welche Dateien sind gleich?“
+Er will wissen:
+„Welche Version soll ich behalten?“
+Und das kann FolioTone aufgrund seiner Evidence-Struktur tatsächlich irgendwann beantworten.
+4. Besonders wichtig: kein globaler Quality Score
+Interessant ist, dass das Dokument hier nicht einfach die aktuelle Entscheidung des Projekts kritisiert.
+FolioTone hat bewusst keinen einzigen Quality Score eingeführt. Stattdessen:
+
+METADATA
+TEXT
+COVER
+STRUCTURE
+FORMAT_RISK
+
+
+G
+GitHub
+Das Dokument schlägt als Zukunftsidee eher ein konfigurierbares Utility-/Policy-Modell vor.
+Ich würde sogar noch einen Schritt weitergehen:
+
+Der eigentliche Qualitätswert ist relational.
+
+Nicht:
+
+B = 87/100
+A = 82/100
+
+sondern:
+B dominates A
+
+wenn B in allen für den Benutzer relevanten Dimensionen mindestens genauso gut ist und in mindestens einer besser.
+Das ist im Grunde eine Pareto-Front für digitale Repräsentationen.
+
+Das passt hervorragend zu FolioTones konservativer Philosophie.
+
+5. Dann kommt der entscheidende Schritt: Benutzerpräferenzen
+Hier wird das Dokument meiner Meinung nach besonders interessant.
+Momentan versucht FolioTone herauszufinden:
+
+Was ist wahr?
+Das Dokument schlägt zusätzlich vor:
+Was möchte der Benutzer?
+Beispielsweise:
+preferences:
+  keep_formats:
+    - epub
+
+  preferred_language:
+    - de
+    - en
+
+  keep_translations: true
+  keep_multiple_editions: false
+  keep_highest_quality_only: true
+  preserve_original_files: true
+
+
+G
+GitHub
+Das ist ein enorm wichtiger Unterschied.
+Denn aus
+
+Evidence
+
+kann man nicht automatisch
+Decision
+
+ableiten.
+Man braucht:
+
+Evidence
++
+User Policy
+=
+Decision
+
+Das ist meines Erachtens eine der zentralen Architekturideen für die Zukunft.
+6. Daraus entsteht die Policy Engine
+Das Dokument geht konsequent weiter:
+IF
+  same_edition
+  AND quality(A) < quality(B)
+  AND user.prefers_epub
+  AND A is not unique
+
+THEN
+  recommend archive(A)
+
+oder:
+IF
+  same_work
+  AND different_language
+
+THEN
+  KEEP
+
+oder:
+IF
+  same_work
+  AND same_language
+  AND different_edition
+
+THEN
+  REVIEW
+
+
+G
+GitHub
+Damit würde FolioTone von einem Analyse-System zu einer Decision Engine.
+Und das ist eine sehr natürliche Erweiterung der bereits vorhandenen Architektur.
+
+7. Backup Management ist ein überraschend logischer nächster Schritt
+Das Dokument stellt eine hervorragende Frage:
+Ist mein Backup vollständig?
+FolioTone besitzt ohnehin:
+SHA-256
+Größe
+Pfad
+Zeit
+Observation
+Historie
+Status
+
+G
+GitHub
+Damit könnte man beispielsweise mehrere Roots vergleichen:
+Master
+ ├── NAS
+ ├── USB Backup
+ └── Cold Storage
+
+und feststellen:
+Master:       12,481
+USB:          12,479
+Cold Storage: 12,480
+
+USB:
+  2 fehlen
+
+Cold Storage:
+  1 fehlt
+
+Das ist ein komplett anderer Use Case als Cleanup.
+Und er hat einen großen Vorteil:
+
+Der Nutzer braucht niemals eine Datei zu löschen, damit FolioTone wertvoll ist.
+
+8. Daraus folgt „Media Git“
+Das ist wahrscheinlich die ambitionierteste Idee:
+Snapshot #1
+Snapshot #2
+Snapshot #3
+
+mit:
+diff
+rollback
+provenance
+decision history
+
+
+G
+GitHub
+Also:
+Git für Medienbibliotheken.
+Das ist mehr als ein hübscher Vergleich.
+FolioTone hat bereits wesentliche Zutaten:
+
+ScanRun
+FileObservation
+FileScanEvent
+Hash
+Resume-Lineage
+Evidence
+Review Decision
+
+Damit wäre ein historischer Collection-State tatsächlich plausibel.
+Dann könnte man fragen:
+
+Was hat sich seit gestern geändert?
+
+Was kam seit dem Backup hinzu?
+
+Was ist verschwunden?
+
+Welche Editionen sind neu?
+
+Welche Dateien wurden verändert?
+
+Welche Änderungen kamen durch Plan #42?
+
+Das ist eine sehr starke Richtung.
+9. Quarantäne + Undo finde ich noch wichtiger als Delete
+Hier würde ich dem Dokument ausdrücklich zustimmen.
+Nicht:
+
+DELETE
+
+sondern:
+KEEP
+MOVE
+QUARANTINE
+ARCHIVE
+DELETE
+
+
+G
+GitHub
+Und beispielsweise:
+.quarantine/
+  2026-08-18/
+    plan-00042/
+
+mit:
+original path
+sha256
+reason
+decision
+timestamp
+plan id
+
+Danach könnte nach 30 Tagen endgültig gelöscht werden.
+Noch besser:
+
+Jede Mutation erzeugt eine reversible Operation.
+Also:
+Plan 42
+
+MOVE:
+  A → archive/A
+
+RENAME:
+  old → new
+
+METADATA:
+  old → new
+
+und:
+foliotone undo 42
+
+
+G
+GitHub
+Das würde ich sogar als architektonisches Primärprinzip betrachten.
+Nicht „Delete mit Backup“, sondern reversible state transition.
+
+10. Calibre-Reconciliation könnte enorm nützlich werden
+Das Dokument schlägt vor, drei Perspektiven miteinander zu vergleichen:
+Filesystem
+     ↕
+FolioTone
+     ↕
+Calibre
+
+
+G
+GitHub
+Dann wären Aussagen möglich wie:
+Calibre enthält Datensatz ohne Datei
+
+Datei existiert, aber nicht in Calibre
+
+Calibre und Datei scheinen unterschiedliche Editions
+zu repräsentieren
+
+Das passt perfekt zu FolioTones eigentlichem Charakter:
+nicht ersetzen, sondern Wahrnehmungen verschiedener Systeme reconciliieren.
+
+11. Der Inbox-Workflow könnte praktisch sogar wichtiger sein als Cleanup
+Das ist für mich ebenfalls ein Volltreffer.
+Downloads/
+Incoming/
+
+Neue Dateien landen zunächst dort.
+FolioTone analysiert sie gegen die bestehende Sammlung:
+
+Dune-new.epub
+  SAME_EDITION #382
+  QUALITY BETTER
+  → REPLACE
+
+Dune2.epub
+  NEW_EDITION
+  → ADD
+
+Foundation.epub
+  SAME_WORK #882
+  DIFFERENT_LANGUAGE
+  → KEEP
+
+Dann:
+foliotone import-plan incoming/
+
+und erst später:
+foliotone import-apply PLAN-42
+
+
+G
+GitHub
+Das könnte ein extrem gutes erstes End-to-End-Produkt sein.
+Man muss nicht erst 500.000 bestehende Dateien perfekt auflösen.
+
+Man kann mit der nächsten Datei anfangen:
+
+Download
+   ↓
+Inbox
+   ↓
+Analyse
+   ↓
+bestehende Sammlung vergleichen
+   ↓
+ADD / REPLACE / KEEP / REVIEW
+   ↓
+Plan
+   ↓
+Apply
+
+12. Der große Sprung: von Cleanup zu Collection Management
+Das Dokument formuliert diesen Übergang sehr schön.
+Wenn FolioTone weiß:
+
+Was habe ich?
+Was fehlt mir?
+Welche Werke?
+Welche Editionen?
+
+kann es sagen:
+„Dieses Werk hast du bereits.“
+oder:
+„Du hast die deutsche Ausgabe, aber nicht die englische.“
+oder:
+„Du besitzt vier Dateien, aber nur zwei tatsächliche Editionen.“
+
+G
+GitHub
+Das ist eine völlig andere Produktkategorie.
+13. Und dann ist Search fast zwangsläufig
+Beispiele aus dem Dokument:
+foliotone search "books by Asimov"
+
+foliotone search --missing-cover
+
+foliotone search --duplicate
+
+foliotone search --language de --quality-good
+
+oder komplexer:
+foliotone query \
+  --same-work \
+  --language de \
+  --no-exact-duplicate \
+  --format epub
+
+
+G
+GitHub
+Dann wird Evidence nicht nur für Cleanup verwendet.
+Sie wird zum Query Layer über der Sammlung.
+
+14. Knowledge Graph
+Das Dokument denkt anschließend konsequent weiter:
+Author
+  │
+  ├── wrote → Work
+  │              │
+  │              └── hasEdition → Edition
+  │                                  │
+  │                                  └── representedBy → File
+  │
+  └── contributedTo → Work
+
+
+G
+GitHub
+Ich würde hier allerdings nicht sofort eine Graphdatenbank einführen.
+Die bestehende relationale Architektur reicht wahrscheinlich zunächst völlig.
+
+Wichtiger ist, dass die semantischen Beziehungen sauber modelliert werden.
+
+Ein Knowledge Graph kann später eine Projektion sein.
+
+15. Externe Knowledge Provider
+Hier sehe ich ebenfalls viel Potenzial:
+Open Library
+Library of Congress
+ISBN-Datenbanken
+Google Books
+Publisher
+Wikidata
+
+und für Musik:
+MusicBrainz
+Discogs
+AcoustID
+
+
+G
+GitHub
+Aber das Dokument macht einen entscheidenden Punkt:
+Keine Quelle darf automatisch zur Wahrheit werden.
+
+Statt:
+
+Open Library = Wahrheit
+
+besser:
+Source A → title X
+Source B → title X
+Source C → title X
+
+Agreement = 3/3
+
+→ höhere Authority Confidence.
+Das ist exakt konsistent mit FolioTones Evidence-Philosophie.
+
+16. Confidence + Human Feedback
+Zum Schluss wird es richtig interessant.
+Das Dokument schlägt empirisch kalibrierte Wahrscheinlichkeiten vor:
+
+SAME_EDITION
+
+Probability:
+97.4 %
+
+Evidence:
+ISBN          +++++
+Title         ++++
+Author        ++++
+Publisher     +++
+Year          ++
+Text          +++++
+Cover         +++
+Path          +
+
+
+G
+GitHub
+Aber der wichtige Punkt ist:
+97,4 % darf nicht einfach ein erfundener Score sein.
+Er müsste beispielsweise aus 1.000 bereits von Menschen geprüften Fällen kalibriert werden.
+Das ist eine sehr gute wissenschaftliche Haltung.
+
+Und daraus folgt:
+
+Candidate
+   ↓
+Human ACCEPT / REJECT
+   ↓
+Training data
+   ↓
+Calibration
+   ↓
+besseres Matching
+
+Das Dokument schlägt sogar vor, die Präferenzen pro Benutzer zu lernen. 
+G
+GitHub
+Meine wichtigste Erkenntnis nach dem Lesen
+Das Dokument verändert für mich die Interpretation des gesamten Projekts.
+Ich würde FolioTone jetzt nicht mehr primär so beschreiben:
+
+„Tool zum Aufräumen großer E-Book-Sammlungen.“
+Sondern:
+FolioTone könnte eine lokale, provenance-basierte Wissens- und Entscheidungsschicht für persönliche digitale Sammlungen werden.
+Und die eigentliche Architektur wäre dann:
+                 ┌──────────────────┐
+                 │ External Sources  │
+                 │ OpenLibrary       │
+                 │ MusicBrainz       │
+                 │ Wikidata          │
+                 └────────┬─────────┘
+                          │
+                          ▼
+Files ──► Observations ──► Evidence
+                          │
+                          ▼
+                 Entity Resolution
+                          │
+                          ▼
+                 Collection State
+                          │
+             ┌────────────┼────────────┐
+             ▼            ▼            ▼
+          Quality      History       Ownership
+             │            │            │
+             └────────────┼────────────┘
+                          ▼
+                  User Preferences
+                          │
+                          ▼
+                    Policy Engine
+                          │
+                          ▼
+                     Decisions
+                          │
+                          ▼
+                       Plans
+                          │
+                          ▼
+                Quarantine / Apply
+                          │
+                          ▼
+                       Undo
+
+Das ist wesentlich größer als Duplicate Detection.
+Und noch etwas: Ich glaube, die Datei beschreibt unbewusst einen sehr wichtigen strategischen Punkt. Die bereits gebaute Evidence-/Provenance-Infrastruktur ist möglicherweise wertvoller als die spätere Cleanup-Funktion selbst. Wenn diese Schicht gut genug ist, können CollectionState, Backup Health, Media Git, Inbox, Search, Acquisition Intelligence, Best-Version-Auswahl und Policy Engine alle darauf aufsetzen. Genau diese Wiederverwendbarkeit macht die Vision interessant. 
+G
+GitHub
++2
+
+Wenn ich das Projekt weiterentwickeln würde, wäre mein nächster großer Schritt deshalb nicht Music, nicht Delete und auch nicht sofort Knowledge Graph.
+
+Ich würde zuerst den Weg
+
+Evidence → CollectionState → Query → User Policy → Decision → reversible Plan
+
+als durchgängigen vertikalen Slice bauen. Das würde aus der momentan sehr guten technischen Grundlage erstmals ein Produkt mit einem klaren täglichen Nutzen machen.
+
+
+G
+Quellen
