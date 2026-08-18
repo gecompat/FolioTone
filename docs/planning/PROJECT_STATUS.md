@@ -4,7 +4,7 @@ Stand: 2026-08-18
 
 ## Aktuelle Welle
 
-**EB-06 in Bearbeitung — versioniertes E-Book-Matching und Review**
+**EB-06 abgeschlossen — versioniertes E-Book-Matching und Review**
 
 EB-06A ergänzt mit ADR-0030 zunächst reine, relation-spezifische
 Matcherprofile für `EXACT_DUPLICATE`, `SAME_EDITION` und `SAME_WORK`.
@@ -19,8 +19,18 @@ reproduziert das Matcher-Ergebnis vor dem Insert, validiert abgeschlossene
 Scan-Lineage und persistierte Evidence atomar und reiht bibliografische Fälle
 in den bestehenden append-only Review-Core ein. Semantisch kompatible ACCEPT-
 und REJECT-Entscheidungen können trotz neuer technischer Matcher-Version
-wiederverwendet werden; DEFER bleibt reviewbar. Eine `Relation`-Projektion,
-der begrenzte Orchestrator und die CLI folgen getrennt in EB-06C.
+wiederverwendet werden; DEFER bleibt reviewbar.
+
+EB-06C schließt die Welle mit ADR-0032 und
+`ebook-matching-workflow/v1` ab. Der bounded Offline-Orchestrator verarbeitet
+`FILE_SHA256`, `EDITION_IDENTIFIER` und `AGENT_TITLE` ohne Source-Zugriff.
+Exakte Hashgruppen werden repräsentantenbasiert statt quadratisch erweitert;
+bibliografische Kandidaten bleiben reviewpflichtig. `ebook-match`,
+`ebook-match-review-list` und `ebook-match-review-decide` stellen den
+path-freien CLI-Vertrag für Ausführung, Explanation und optimistisch
+gefencete ACCEPT-/REJECT-/DEFER-Entscheidungen bereit. Eine kanonische
+`Relation`-Projektion bleibt bewusst aus, bis ein eigener Projektionsvertrag
+vorliegt.
 
 **Empirisch für EB-06A:** Der gezielte Matching-/Blocking-Verbundlauf bestand
 24 synthetische Tests in 62,55 Sekunden. Er prüft vollständige Hash-
@@ -35,6 +45,12 @@ Migrations-, Review- und Matching-Verbundlauf bestand 36 synthetische Tests in
 284,37 Sekunden. Ruff war für den betroffenen Scope erfolgreich; Mypy prüfte
 114 Source-Dateien ohne Befund. Es wurden keine realen Sammlungsdaten und
 keine Runtime-Datenbank verwendet.
+
+**Empirisch für EB-06C vor dem PR-Gate:** Der gezielte Workflow-, CLI-,
+Blocking-, Persistenz- und Scoring-Verbundlauf bestand 30 synthetische Tests
+in 182,08 Sekunden. Ruff war erfolgreich; Mypy prüfte 115 Source-Dateien ohne
+Befund. Die adversarial Profile bestätigen weiterhin ausschließlich gleiche
+vollständige File-Hashes automatisch.
 
 Der kontrollierte Runtime-Cutover, die Trennung zwischen synthetischen
 Entwicklungs-Gates und privatem Hintergrundlauf sowie die langfristige

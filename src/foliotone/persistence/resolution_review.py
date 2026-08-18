@@ -136,9 +136,13 @@ class SQLiteResolutionReviewStore:
                 )
             )
         with self._engine.connect() as connection:
-            rows = connection.execute(
-                statement.order_by(table.c.created_at, table.c.id).limit(limit + 1)
-            ).mappings().all()
+            rows = (
+                connection.execute(
+                    statement.order_by(table.c.created_at, table.c.id).limit(limit + 1)
+                )
+                .mappings()
+                .all()
+            )
         has_more = len(rows) > limit
         items = tuple(self._candidate_codec.decode(row) for row in rows[:limit])
         cursor = None
@@ -158,15 +162,19 @@ class SQLiteResolutionReviewStore:
             raise ValueError("after_ordinal must be at least -1")
         table = rr_schema.resolution_candidate_evidence
         with self._engine.connect() as connection:
-            rows = connection.execute(
-                select(table)
-                .where(
-                    table.c.resolution_candidate_id == str(candidate_id),
-                    table.c.ordinal > after_ordinal,
+            rows = (
+                connection.execute(
+                    select(table)
+                    .where(
+                        table.c.resolution_candidate_id == str(candidate_id),
+                        table.c.ordinal > after_ordinal,
+                    )
+                    .order_by(table.c.ordinal)
+                    .limit(limit + 1)
                 )
-                .order_by(table.c.ordinal)
-                .limit(limit + 1)
-            ).mappings().all()
+                .mappings()
+                .all()
+            )
         if len(rows) > limit:
             raise ResolutionReviewStoreError("candidate evidence exceeds the requested bound")
         return tuple(self._evidence_codec.decode(row) for row in rows)
@@ -207,12 +215,15 @@ class SQLiteResolutionReviewStore:
         *,
         limit: int = 100,
         after: tuple[datetime, EntityId] | None = None,
+        review_type: ReviewType | None = None,
     ) -> ReviewItemPage:
         _validate_limit(limit, MAX_REVIEW_PAGE)
         table = rr_schema.review_items
         statement = select(table).where(
             table.c.state.in_([ReviewItemState.PENDING.value, ReviewItemState.DEFERRED.value])
         )
+        if review_type is not None:
+            statement = statement.where(table.c.review_type == review_type.value)
         if after is not None:
             encoded = _required_datetime(after[0])
             statement = statement.where(
@@ -222,15 +233,34 @@ class SQLiteResolutionReviewStore:
                 )
             )
         with self._engine.connect() as connection:
-            rows = connection.execute(
-                statement.order_by(table.c.created_at, table.c.id).limit(limit + 1)
-            ).mappings().all()
+            rows = (
+                connection.execute(
+                    statement.order_by(table.c.created_at, table.c.id).limit(limit + 1)
+                )
+                .mappings()
+                .all()
+            )
         has_more = len(rows) > limit
         items = tuple(self._review_codec.decode(row) for row in rows[:limit])
         cursor = None
         if has_more and items:
             cursor = (items[-1].created_at, items[-1].id)
         return ReviewItemPage(items=items, next_cursor=cursor)
+
+    def get_review_item(self, item_id: EntityId) -> ReviewItem | None:
+        """Return one review item without resolving private Evidence values."""
+
+        with self._engine.connect() as connection:
+            row = (
+                connection.execute(
+                    select(rr_schema.review_items).where(
+                        rr_schema.review_items.c.id == str(item_id)
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+        return None if row is None else self._review_codec.decode(row)
 
     def append_decision(
         self,
@@ -268,9 +298,7 @@ class SQLiteResolutionReviewStore:
             if decision.sequence_no != expected_sequence:
                 raise ResolutionReviewStoreError("review decision sequence is not current")
             connection.execute(
-                insert(rr_schema.review_decisions).values(
-                    **self._decision_codec.encode(decision)
-                )
+                insert(rr_schema.review_decisions).values(**self._decision_codec.encode(decision))
             )
             state = (
                 ReviewItemState.DEFERRED
@@ -300,15 +328,19 @@ class SQLiteResolutionReviewStore:
             raise ValueError("after_sequence must not be negative")
         table = rr_schema.review_decisions
         with self._engine.connect() as connection:
-            rows = connection.execute(
-                select(table)
-                .where(
-                    table.c.review_item_id == str(item_id),
-                    table.c.sequence_no > after_sequence,
+            rows = (
+                connection.execute(
+                    select(table)
+                    .where(
+                        table.c.review_item_id == str(item_id),
+                        table.c.sequence_no > after_sequence,
+                    )
+                    .order_by(table.c.sequence_no)
+                    .limit(limit + 1)
                 )
-                .order_by(table.c.sequence_no)
-                .limit(limit + 1)
-            ).mappings().all()
+                .mappings()
+                .all()
+            )
         if len(rows) > limit:
             raise ResolutionReviewStoreError("review history exceeds the requested bound")
         return tuple(self._decision_codec.decode(row) for row in rows)
@@ -333,8 +365,7 @@ class SQLiteResolutionReviewStore:
                 candidates.c.candidate_kind == candidate.candidate_kind.value,
                 candidates.c.candidate_entity_id == str(candidate.candidate_entity_id),
                 candidates.c.resolver_name == candidate.resolver_name,
-                items.c.decision_compatibility_version
-                == candidate.decision_compatibility_version,
+                items.c.decision_compatibility_version == candidate.decision_compatibility_version,
                 items.c.evidence_fingerprint == candidate.evidence_fingerprint,
                 items.c.candidate_set_fingerprint == candidate.candidate_set_fingerprint,
             )
@@ -368,8 +399,7 @@ class SQLiteResolutionReviewStore:
         if resolution_evidence_fingerprint(evidence) != candidate.evidence_fingerprint:
             raise ResolutionReviewStoreError("candidate evidence fingerprint does not match")
         if candidate.disposition is ResolutionDisposition.AUTO_SAFE and not any(
-            link.evidence_kind is ResolutionEvidenceKind.REVIEW_DECISION
-            for link in evidence
+            link.evidence_kind is ResolutionEvidenceKind.REVIEW_DECISION for link in evidence
         ):
             raise ResolutionReviewStoreError("AUTO_SAFE requires prior accepted local knowledge")
 
@@ -394,9 +424,7 @@ class SQLiteResolutionReviewStore:
                 decision,
                 candidate,
             ):
-                raise ResolutionReviewStoreError(
-                    "ACCEPT decision is not compatible with candidate"
-                )
+                raise ResolutionReviewStoreError("ACCEPT decision is not compatible with candidate")
 
     @staticmethod
     def _accepted_decision_matches_candidate(
@@ -417,8 +445,7 @@ class SQLiteResolutionReviewStore:
                 candidates.c.candidate_kind == candidate.candidate_kind.value,
                 candidates.c.candidate_entity_id == str(candidate.candidate_entity_id),
                 candidates.c.resolver_name == candidate.resolver_name,
-                items.c.decision_compatibility_version
-                == candidate.decision_compatibility_version,
+                items.c.decision_compatibility_version == candidate.decision_compatibility_version,
                 items.c.evidence_fingerprint == candidate.evidence_fingerprint,
                 items.c.candidate_set_fingerprint == candidate.candidate_set_fingerprint,
             )
@@ -445,11 +472,15 @@ class SQLiteResolutionReviewStore:
         connection: Connection,
         candidate_id: EntityId,
     ) -> ResolutionCandidate | None:
-        row = connection.execute(
-            select(rr_schema.resolution_candidates).where(
-                rr_schema.resolution_candidates.c.id == str(candidate_id)
+        row = (
+            connection.execute(
+                select(rr_schema.resolution_candidates).where(
+                    rr_schema.resolution_candidates.c.id == str(candidate_id)
+                )
             )
-        ).mappings().one_or_none()
+            .mappings()
+            .one_or_none()
+        )
         return None if row is None else self._candidate_codec.decode(row)
 
     def _candidate_by_snapshot(
@@ -458,20 +489,24 @@ class SQLiteResolutionReviewStore:
         candidate: ResolutionCandidate,
     ) -> ResolutionCandidate | None:
         table = rr_schema.resolution_candidates
-        row = connection.execute(
-            select(table).where(
-                table.c.subject_kind == candidate.subject_kind.value,
-                table.c.subject_id == str(candidate.subject_id),
-                table.c.candidate_kind == candidate.candidate_kind.value,
-                table.c.candidate_entity_id == str(candidate.candidate_entity_id),
-                table.c.resolver_name == candidate.resolver_name,
-                table.c.resolver_version == candidate.resolver_version,
-                table.c.decision_compatibility_version
-                == candidate.decision_compatibility_version,
-                table.c.evidence_fingerprint == candidate.evidence_fingerprint,
-                table.c.candidate_set_fingerprint == candidate.candidate_set_fingerprint,
+        row = (
+            connection.execute(
+                select(table).where(
+                    table.c.subject_kind == candidate.subject_kind.value,
+                    table.c.subject_id == str(candidate.subject_id),
+                    table.c.candidate_kind == candidate.candidate_kind.value,
+                    table.c.candidate_entity_id == str(candidate.candidate_entity_id),
+                    table.c.resolver_name == candidate.resolver_name,
+                    table.c.resolver_version == candidate.resolver_version,
+                    table.c.decision_compatibility_version
+                    == candidate.decision_compatibility_version,
+                    table.c.evidence_fingerprint == candidate.evidence_fingerprint,
+                    table.c.candidate_set_fingerprint == candidate.candidate_set_fingerprint,
+                )
             )
-        ).mappings().one_or_none()
+            .mappings()
+            .one_or_none()
+        )
         return None if row is None else self._candidate_codec.decode(row)
 
     def _evidence_for_candidate(
@@ -480,11 +515,15 @@ class SQLiteResolutionReviewStore:
         candidate_id: EntityId,
     ) -> tuple[ResolutionEvidenceLink, ...]:
         table = rr_schema.resolution_candidate_evidence
-        rows = connection.execute(
-            select(table)
-            .where(table.c.resolution_candidate_id == str(candidate_id))
-            .order_by(table.c.ordinal)
-        ).mappings().all()
+        rows = (
+            connection.execute(
+                select(table)
+                .where(table.c.resolution_candidate_id == str(candidate_id))
+                .order_by(table.c.ordinal)
+            )
+            .mappings()
+            .all()
+        )
         return tuple(self._evidence_codec.decode(row) for row in rows)
 
     def _review_by_exact_case(
@@ -493,20 +532,23 @@ class SQLiteResolutionReviewStore:
         item: ReviewItem,
     ) -> ReviewItem | None:
         table = rr_schema.review_items
-        row = connection.execute(
-            select(table).where(
-                table.c.review_type == item.review_type.value,
-                table.c.subject_kind == item.subject_kind.value,
-                table.c.subject_id == str(item.subject_id),
-                table.c.candidate_kind == item.candidate_kind.value,
-                table.c.candidate_id == str(item.candidate_id),
-                table.c.producer_name == item.producer_name,
-                table.c.decision_compatibility_version
-                == item.decision_compatibility_version,
-                table.c.evidence_fingerprint == item.evidence_fingerprint,
-                table.c.candidate_set_fingerprint == item.candidate_set_fingerprint,
+        row = (
+            connection.execute(
+                select(table).where(
+                    table.c.review_type == item.review_type.value,
+                    table.c.subject_kind == item.subject_kind.value,
+                    table.c.subject_id == str(item.subject_id),
+                    table.c.candidate_kind == item.candidate_kind.value,
+                    table.c.candidate_id == str(item.candidate_id),
+                    table.c.producer_name == item.producer_name,
+                    table.c.decision_compatibility_version == item.decision_compatibility_version,
+                    table.c.evidence_fingerprint == item.evidence_fingerprint,
+                    table.c.candidate_set_fingerprint == item.candidate_set_fingerprint,
+                )
             )
-        ).mappings().one_or_none()
+            .mappings()
+            .one_or_none()
+        )
         return None if row is None else self._review_codec.decode(row)
 
     def _latest_decision(
@@ -515,12 +557,16 @@ class SQLiteResolutionReviewStore:
         item_id: EntityId,
     ) -> ReviewDecision | None:
         table = rr_schema.review_decisions
-        row = connection.execute(
-            select(table)
-            .where(table.c.review_item_id == str(item_id))
-            .order_by(table.c.sequence_no.desc())
-            .limit(1)
-        ).mappings().one_or_none()
+        row = (
+            connection.execute(
+                select(table)
+                .where(table.c.review_item_id == str(item_id))
+                .order_by(table.c.sequence_no.desc())
+                .limit(1)
+            )
+            .mappings()
+            .one_or_none()
+        )
         return None if row is None else self._decision_codec.decode(row)
 
     def _get_decision(
@@ -528,11 +574,15 @@ class SQLiteResolutionReviewStore:
         connection: Connection,
         decision_id: EntityId,
     ) -> ReviewDecision | None:
-        row = connection.execute(
-            select(rr_schema.review_decisions).where(
-                rr_schema.review_decisions.c.id == str(decision_id)
+        row = (
+            connection.execute(
+                select(rr_schema.review_decisions).where(
+                    rr_schema.review_decisions.c.id == str(decision_id)
+                )
             )
-        ).mappings().one_or_none()
+            .mappings()
+            .one_or_none()
+        )
         return None if row is None else self._decision_codec.decode(row)
 
 
