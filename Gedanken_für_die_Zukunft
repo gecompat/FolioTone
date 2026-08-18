@@ -1455,3 +1455,751 @@ Und genau dort steckt meiner Meinung nach der größte zusätzliche Nutzen.
 [1]: https://github.com/gecompat/FolioTone/blob/main/docs/planning/PROJECT_STATUS.md "FolioTone/docs/planning/PROJECT_STATUS.md at main · gecompat/FolioTone · GitHub"
 [2]: https://github.com/gecompat/FolioTone "GitHub - gecompat/FolioTone: Orchestrate specialist tools to reconcile, analyze, and deduplicate e-book and music collections. · GitHub"
 [3]: https://github.com/gecompat/FolioTone/blob/main/docs/planning/BACKLOG.md "FolioTone/docs/planning/BACKLOG.md at main · gecompat/FolioTone · GitHub"
+
+
+---
+---
+Ja – **aber ich würde FolioTone nicht einfach mit möglichst vielen Programmen vollstopfen.** Ich würde eine kleine Anzahl von Spezialisten gezielt als **Evidence Provider** einsetzen.
+
+Der entscheidende Architekturgedanke wäre:
+
+> **Externe Software darf Fakten liefern. FolioTone bleibt die Instanz, die Fakten zusammenführt, widersprüchliche Aussagen bewertet und Entscheidungen trifft.**
+
+Das passt sehr gut zu dem, was der Autor bereits aufgebaut hat.
+
+## Meine Top-Empfehlungen
+
+| Software / Dienst                 | Priorität | Aufgabe in FolioTone                            |
+| --------------------------------- | --------: | ----------------------------------------------- |
+| **Open Library**                  |    🔥🔥🔥 | bibliografische Work-/Edition-Auflösung         |
+| **MusicBrainz + AcoustID/Picard** |    🔥🔥🔥 | Musik-Identität                                 |
+| **Apache Tika**                   |      🔥🔥 | universeller Fallback für Metadaten/Text        |
+| **OCRmyPDF + Tesseract**          |      🔥🔥 | PDFs in analysierbare Dokumente verwandeln      |
+| **calibre**                       |    🔥🔥🔥 | E-Book-Metadaten, Konvertierung, Reconciliation |
+| **EPUBCheck**                     |    🔥🔥🔥 | EPUB-Standardkonformität                        |
+| **ffprobe/FFmpeg**                |    🔥🔥🔥 | technische Audio-/Videoanalyse                  |
+| **restic**                        |      🔥🔥 | Backup-/Integritätswissen                       |
+| **7-Zip**                         |        🔥 | Container-/Archivprüfung                        |
+| **Wikidata**                      |      🔥🔥 | Personen, Werke, Beziehungen, Authority Data    |
+
+Und ich würde **nicht** versuchen, diese Programme direkt miteinander kommunizieren zu lassen. FolioTone sollte dazwischen sitzen.
+
+---
+
+# 1. Open Library – wahrscheinlich die wichtigste Ergänzung
+
+[Open Library API](https://openlibrary.org/developers/api?utm_source=chatgpt.com)
+
+Das würde ich **sehr früh** einbauen.
+
+Open Library hat explizit getrennte APIs für **Works, Editions, Authors und Identifiers** und kann Suchergebnisse liefern, die Work- und Edition-Informationen kombinieren. ([Open Library][1])
+
+Das passt exakt zu dem Problem, über das wir gesprochen haben.
+
+FolioTone findet beispielsweise:
+
+```text
+Dune.epub
+
+ISBN: 978...
+title: Dune
+author: Frank Herbert
+publisher: ...
+year: 2015
+```
+
+Open Library könnte daraus Kandidaten machen:
+
+```text
+Work:
+    Dune
+
+Edition:
+    OLxxxxxxM
+
+Author:
+    OLxxxxxxA
+```
+
+FolioTone speichert dann **nicht**:
+
+```text
+"Open Library sagt: Das ist Dune."
+```
+
+sondern:
+
+```text
+Evidence:
+    source = OpenLibrary
+    entity = OLxxxxxxM
+    confidence = ...
+    observed_at = ...
+```
+
+Das ist genau die Evidence-Philosophie des Projekts.
+
+### Besonders wertvoll
+
+Open Library kann dir helfen, **Work vs. Edition** zu unterscheiden.
+
+Das würde ich höher priorisieren als irgendeinen weiteren lokalen EPUB-Parser.
+
+---
+
+# 2. Wikidata – für den Knowledge Graph
+
+[Wikidata](https://www.wikidata.org/?utm_source=chatgpt.com)
+
+Open Library ist gut für Bibliografie.
+
+**Wikidata ist gut für Beziehungen.**
+
+Beispielsweise:
+
+```text
+Frank Herbert
+   │
+   ├── occupation → writer
+   ├── country → USA
+   └── creator → Dune
+
+Dune
+   ├── author → Frank Herbert
+   ├── publication date → ...
+   └── followed by → Dune Messiah
+```
+
+Damit könnte FolioTone irgendwann Dinge wissen wie:
+
+> „Das ist nicht nur irgendein Buch mit dem Titel Dune – es gehört zu einem Werk, dessen Autor Frank Herbert ist und das mit anderen Werken/Personen in Beziehung steht.“
+
+Das ist für deinen vorgeschlagenen **Collection Knowledge Graph** enorm wertvoll.
+
+Aber:
+
+**Wikidata niemals als alleinige Wahrheit verwenden.**
+
+Es sollte eine weitere Evidence Source sein.
+
+---
+
+# 3. Apache Tika – ich würde es tatsächlich hinzufügen
+
+[Apache Tika](https://tika.apache.org/?utm_source=chatgpt.com)
+
+Tika ist für FolioTone interessant, weil es **Metadaten und Text aus mehr als tausend Dateitypen** extrahieren kann. ([Apache Tika][2])
+
+Das macht es zu einem hervorragenden **Fallback Provider**.
+
+Beispielsweise:
+
+```text
+EPUB
+PDF
+DOCX
+HTML
+RTF
+...
+```
+
+FolioTone könnte dann haben:
+
+```text
+EPUB Analyzer
+PDF Analyzer
+Tika Analyzer
+```
+
+und wenn ein Spezialparser versagt:
+
+```text
+specialized parser → FAILED
+Tika → SUCCESS
+```
+
+Dann entsteht:
+
+```text
+Evidence:
+  parser = Tika
+  title = ...
+```
+
+### Aber wichtig:
+
+Ich würde Tika **nicht zum primären E-Book-Parser machen**.
+
+Für EPUB ist ein spezialisierter Parser besser.
+
+Tika wäre:
+
+> **„Universal Backup / Discovery Parser“**
+
+Das ist eine sehr gute Rolle.
+
+---
+
+# 4. OCRmyPDF – für PDFs halte ich das für fast Pflicht
+
+[OCRmyPDF](https://ocrmypdf.readthedocs.io/?utm_source=chatgpt.com)
+
+Das Projekt kann gescannte PDFs mit einer durchsuchbaren OCR-Textschicht versehen und verwendet dafür Tesseract. Es kann außerdem zwischen bereits textbasierten und gescannten PDFs sinnvoll unterscheiden. ([OCRmyPDF][3])
+
+Das eröffnet einen sehr schönen FolioTone-Workflow:
+
+```text
+PDF
+ │
+ ├── Text vorhanden
+ │      ↓
+ │   normal analysieren
+ │
+ └── NO_TEXT
+        ↓
+     OCR Candidate
+        ↓
+     OCRmyPDF
+        ↓
+     Text
+        ↓
+     Fingerprint
+        ↓
+     Matching
+```
+
+Dann wird plötzlich möglich:
+
+> „Diese PDF-Datei sieht völlig anders aus als dein EPUB, enthält aber wahrscheinlich denselben Buchtext.“
+
+**Das ist ein massiver Gewinn für Entity Resolution.**
+
+---
+
+# 5. calibre – unbedingt behalten und sogar stärker ausnutzen
+
+[calibre](https://calibre-ebook.com/?utm_source=chatgpt.com)
+
+Hier würde ich sogar noch weiter gehen als der aktuelle Plan.
+
+calibre kann über `calibredb` Metadaten auslesen und auch Metadaten in Dateien einbetten; außerdem besitzt es eine umfangreiche Konvertierungspipeline. ([Calibre User Manual][4])
+
+Ich würde calibre aber **nicht als Master** einsetzen.
+
+Sondern:
+
+```text
+                    ┌── calibre
+Filesystem ──→ FolioTone ──→ Open Library
+                    │
+                    ├── EPUBCheck
+                    ├── Tika
+                    └── ...
+```
+
+Dann kann FolioTone feststellen:
+
+```text
+Filesystem
+    title = Dune
+    author = Frank Herbert
+
+Calibre
+    title = Dune
+    author = Herbert, Frank
+
+Open Library
+    title = Dune
+    author = Frank Herbert
+    edition = ...
+
+EPUB
+    dc:title = Dune
+    dc:creator = Herbert, Frank
+```
+
+Und daraus:
+
+```text
+AGREEMENT = 4 sources
+```
+
+Das ist viel stärker als calibre allein.
+
+---
+
+# 6. EPUBCheck – nicht nur „valid/invalid“
+
+[EPUBCheck](https://www.w3.org/publishing/epubcheck/?utm_source=chatgpt.com)
+
+EPUBCheck ist der offizielle EPUB-Konformitätschecker und prüft Struktur, Package-Metadaten, Markup und interne Referenzen. ([W3C][5])
+
+Der interessante Schritt wäre aber:
+
+**FolioTone sollte aus EPUBCheck kein simples Boolean machen.**
+
+Nicht:
+
+```text
+valid = false
+```
+
+sondern:
+
+```text
+EPUBCheck:
+    fatal: 0
+    error: 2
+    warning: 7
+
+issues:
+    broken_internal_reference
+    missing_metadata
+    ...
+```
+
+Dann könnte der Decision Engine später sagen:
+
+> EPUB A und B haben denselben Inhalt, aber B hat deutlich bessere strukturelle Integrität.
+
+---
+
+# 7. MusicBrainz + AcoustID + Picard – für Musik praktisch ideal
+
+[MusicBrainz API](https://musicbrainz.org/doc/MusicBrainz_API?utm_source=chatgpt.com)
+
+[MusicBrainz Picard](https://picard.musicbrainz.org/?utm_source=chatgpt.com)
+
+Hier würde ich **nicht** versuchen, FolioTone selbst eine komplette MusicBrainz-Datenbank bauen zu lassen.
+
+MusicBrainz besitzt bereits eine API für Entity Lookup und Suche. ([MusicBrainz][6])
+
+Und Picard kann vorhandene Dateien anhand von Metadaten, Disc IDs und **AcoustID-Fingerprints** MusicBrainz-Entities zuordnen. ([MusicBrainz Picard][7])
+
+AcoustID ist besonders interessant, weil es nicht vom Dateinamen abhängt. ([MusicBrainz][8])
+
+FolioTone könnte also speichern:
+
+```text
+file.mp3
+
+SHA256:
+    abc...
+
+AcoustID:
+    xyz...
+
+MusicBrainz Recording:
+    mbid...
+
+Release:
+    mbid...
+
+Release Group:
+    mbid...
+```
+
+Dann kann FolioTone sehr viel besser erkennen:
+
+```text
+Track A
+Track B
+Track C
+```
+
+sind möglicherweise **dieselbe Aufnahme**, obwohl:
+
+```text
+Dateiname ≠
+Tags ≠
+Release ≠
+```
+
+Das ist für Musik **Gold wert**.
+
+---
+
+# 8. ffprobe/FFmpeg – aber als technischer Sensor
+
+[FFmpeg](https://ffmpeg.org/?utm_source=chatgpt.com)
+
+Hier würde ich ffprobe nicht als „Musikmanager“ betrachten.
+
+Sondern als:
+
+> **Physical/technical evidence provider**
+
+Beispielsweise:
+
+```text
+codec
+container
+duration
+sample rate
+channels
+bit depth
+bitrate
+embedded metadata
+stream layout
+```
+
+Damit könnte FolioTone später feststellen:
+
+```text
+Track A:
+FLAC
+24-bit
+96 kHz
+
+Track B:
+MP3
+320 kbps
+
+Track C:
+MP3
+128 kbps
+```
+
+und dann eine **Quality/Representation Decision** treffen.
+
+Das ist genau die Art von Information, die der Knowledge Layer braucht.
+
+---
+
+# 9. restic – überraschend wichtig
+
+[restic](https://restic.net/?utm_source=chatgpt.com)
+
+Das klingt zunächst nicht nach einem Medienanalyseprogramm.
+
+Aber wenn FolioTone zu:
+
+> „Was besitze ich und wie gesund ist meine Sammlung?“
+
+werden soll, ist Backup-Wissen extrem wertvoll.
+
+restic kann Repository-Konsistenz und Datenintegrität mit `check` prüfen; mit `--read-data` lässt sich auch die tatsächliche gespeicherte Datenintegrität überprüfen. ([Restic Dokumentation][9])
+
+FolioTone könnte also irgendwann sagen:
+
+```text
+Book A
+    Master: YES
+    Backup 1: YES
+    Backup 2: YES
+
+Book B
+    Master: YES
+    Backup 1: YES
+    Backup 2: NO
+
+Book C
+    Master: YES
+    Backup 1: CORRUPTED
+```
+
+Das ist **viel wertvoller als nur Duplicate Detection**.
+
+---
+
+# 10. 7-Zip – klein, aber nützlich
+
+[7-Zip](https://www.7-zip.org/?utm_source=chatgpt.com)
+
+Gerade weil FolioTone künftig ZIP/RAR/7z/CBZ/CBR etc. analysieren soll, würde ich einen etablierten Archiv-Tester verwenden.
+
+Nicht zum Entpacken aller Archive.
+
+Sondern für:
+
+```text
+archive integrity
+container structure
+compression information
+embedded files
+```
+
+Also wieder:
+
+**Sensor statt Business Logic.**
+
+---
+
+# 11. Was ich NICHT machen würde
+
+Das ist genauso wichtig.
+
+## Nicht 15 Metadatenanbieter parallel abfragen
+
+So etwas würde ich vermeiden:
+
+```text
+Open Library
+Google Books
+ISBNdb
+WorldCat
+Goodreads
+...
+```
+
+und dann 17 widersprüchliche Titel erzeugen.
+
+Besser:
+
+### Tier 1 – lokale Evidence
+
+```text
+EPUB metadata
+PDF metadata
+filename
+text
+cover
+hash
+```
+
+### Tier 2 – etablierte Spezialsoftware
+
+```text
+calibre
+EPUBCheck
+Tika
+ffprobe
+AcoustID
+```
+
+### Tier 3 – Authority Sources
+
+```text
+Open Library
+MusicBrainz
+Wikidata
+```
+
+### Tier 4 – User
+
+```text
+ACCEPT
+REJECT
+DEFER
+```
+
+Das ergibt eine **Evidence Hierarchy**.
+
+---
+
+# 12. Noch eine Software würde ich für den Knowledge Layer prüfen: Meilisearch / OpenSearch
+
+Hier würde ich tatsächlich überlegen, ob SQLite langfristig allein reicht.
+
+Nicht als Ersatz für die relationale Datenbank.
+
+Sondern zusätzlich:
+
+```text
+SQLite
+  = Wahrheit / Transaktionen / Provenance
+
+Search Engine
+  = Suche / Volltext / Facetten
+```
+
+Wenn die Sammlung irgendwann 500.000+ Dokumente umfasst, möchtest du Fragen wie:
+
+```text
+"alle Werke von Frank Herbert"
+```
+
+oder:
+
+```text
+title contains "Foundation"
+AND language = de
+AND epubcheck_errors = 0
+AND duplicate = false
+```
+
+sehr schnell beantworten können.
+
+Ich würde **aber noch keine Suchmaschine einbauen**.
+
+Erst wenn der Knowledge Layer steht.
+
+---
+
+# 13. Und für AI würde ich etwas ganz anderes machen
+
+Ich würde **keine AI zur Analyse der Dateien** als ersten Schritt einsetzen.
+
+Stattdessen:
+
+```text
+                    AI
+                     │
+                     ▼
+              FolioTone Query
+                     │
+                     ▼
+             Evidence Database
+```
+
+Beispiel:
+
+> „Welche meiner Dune-Dateien sollte ich behalten?“
+
+FolioTone liefert:
+
+```text
+Edition A
+    3 representations
+
+A.epub
+    EPUBCheck: clean
+    text: complete
+    cover: excellent
+
+B.mobi
+    same text
+    lower quality
+
+C.pdf
+    same work
+    different edition
+```
+
+Dann kann die AI daraus eine verständliche Erklärung erzeugen.
+
+**Die AI entscheidet nicht über die Wahrheit.**
+
+Sie erklärt die Wahrheit.
+
+Das wäre aus meiner Sicht die richtige Architektur.
+
+---
+
+# Meine konkrete Zielarchitektur
+
+Ich würde FolioTone letztlich so aufbauen:
+
+```text
+                       ┌───────────────┐
+                       │   User / AI   │
+                       └───────┬───────┘
+                               │
+                         Query / Decision
+                               │
+                    ┌──────────▼──────────┐
+                    │    FOLIOTONE CORE   │
+                    │                     │
+                    │ Knowledge Graph     │
+                    │ Evidence            │
+                    │ Provenance          │
+                    │ Matching             │
+                    │ Policies             │
+                    │ Decisions            │
+                    └──────────┬──────────┘
+                               │
+               ┌───────────────┼────────────────┐
+               │               │                │
+          Local Sensors    Authority      Backup State
+               │               │                │
+       ┌───────┼───────┐       │                │
+       │       │       │       │                │
+   calibre  Tika   EPUBCheck  OpenLibrary      restic
+       │       │       │       │
+       └───────┴───────┴───────┘
+                       │
+                 E-BOOK EVIDENCE
+
+
+                 MUSIC EVIDENCE
+                       │
+              ┌────────┼─────────┐
+              │        │         │
+           ffprobe   AcoustID  Picard
+              │        │         │
+              └────────┼─────────┘
+                       │
+                  MusicBrainz
+```
+
+Das wäre meines Erachtens eine **sehr starke Architektur**.
+
+---
+
+# Wenn ich nur 6 Dinge auswählen dürfte
+
+Dann wären es:
+
+### 1. 🥇 Open Library
+
+Für **Work/Edition/Author Resolution**. ([Open Library][1])
+
+### 2. 🥈 MusicBrainz + AcoustID
+
+Für **Music Entity Resolution**. ([MusicBrainz][8])
+
+### 3. 🥉 Apache Tika
+
+Als **universeller Fallback-Parser**. ([Apache Tika][2])
+
+### 4. OCRmyPDF
+
+Um aus „PDF ohne Text“ → „analysierbares Dokument“ zu machen. ([OCRmyPDF][3])
+
+### 5. restic
+
+Um FolioTone von einem **Cleaner** zu einem **Collection Integrity System** weiterzuentwickeln. ([Restic Dokumentation][9])
+
+### 6. calibre + EPUBCheck + ffprobe
+
+Diese drei würde ich als **Spezialisten** behalten bzw. vertiefen: calibre für E-Book-Reconciliation, EPUBCheck für formale EPUB-Qualität und ffprobe für technische Medienfakten. ([Calibre User Manual][4])
+
+---
+
+## Aber der entscheidende Punkt
+
+Ich würde **keine dieser Softwarelösungen direkt zum „Gehirn“ von FolioTone machen**.
+
+FolioTone sollte stattdessen etwas bauen, was die anderen Programme **nicht** haben:
+
+> **Eine gemeinsame, versionierte Evidence- und Identity-Schicht über allen diesen Werkzeugen.**
+
+Dann kann ein und dieselbe Datei gleichzeitig sein:
+
+```text
+Filesystem object
+        ↓
+EPUB
+        ↓
+calibre book
+        ↓
+Open Library edition
+        ↓
+Work
+        ↓
+Author
+        ↓
+Series
+        ↓
+Collection item
+        ↓
+Backup object
+```
+
+und **FolioTone kennt die Beziehungen zwischen all diesen Ebenen.**
+
+Das ist meiner Meinung nach die eigentliche Killerfunktion.
+
+Die externen Programme liefern die Augen, Ohren und Messgeräte.
+
+**FolioTone sollte das Gedächtnis und das Entscheidungsmodell sein.** 
+
+[1]: https://openlibrary.org/developers/api?utm_source=chatgpt.com "APIs | Open Library"
+[2]: https://tika.apache.org/?utm_source=chatgpt.com "Apache Tika – Apache Tika"
+[3]: https://ocrmypdf.readthedocs.io/en/stable/introduction.html?utm_source=chatgpt.com "Introduction — ocrmypdf 17.7.0 documentation"
+[4]: https://manual.calibre-ebook.com/generated/en/calibredb.html?utm_source=chatgpt.com "calibredb — calibre 9.11.0 documentation"
+[5]: https://www.w3.org/publishing/epubcheck/?utm_source=chatgpt.com "EPUBCheck"
+[6]: https://musicbrainz.org/doc/MusicBrainz_API?utm_source=chatgpt.com "MusicBrainz API - MusicBrainz"
+[7]: https://picard.musicbrainz.org/quick-start/?l=en&utm_source=chatgpt.com "Quick Start - MusicBrainz Picard"
+[8]: https://musicbrainz.org/doc/AcoustID?utm_source=chatgpt.com "AcoustID - MusicBrainz"
+[9]: https://restic.readthedocs.io/en/stable/045_working_with_repos.html?utm_source=chatgpt.com "Working with repositories — restic 0.19.1 documentation"
