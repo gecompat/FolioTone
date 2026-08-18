@@ -1,0 +1,12 @@
+{
+  "cases": {
+    "A": {"code": "FILESYSTEM_ONLY", "observation_id": "00000000-0000-4000-8000-000000001001", "relative_path": "Loose/Filesystem Only.epub"},
+    "B": {"calibre_record_ids": [102], "code": "CALIBRE_RECORD_WITHOUT_FILE"},
+    "C": {"calibre_record_ids": [103, 104], "code": "CALIBRE_DUPLICATE_RECORD_CANDIDATE", "file_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+    "D": {"calibre_record_ids": [105], "code": "CALIBRE_MULTI_FORMAT_RECORD", "formats": ["EPUB", "MOBI", "PDF"]},
+    "E": {"calibre_record_ids": [106], "calibre_title": "Calibre Heading", "code": "CALIBRE_METADATA_CONFLICT", "embedded_title": "Embedded Heading"},
+    "F": {"calibre_author": "Zora Zeta", "calibre_record_ids": [107], "code": "CALIBRE_AUTHORITY_CONFLICT", "resolved_agent_id": "00000000-0000-4000-8000-000000002107"},
+    "G": {"calibre_record_ids": [108], "code": "CALIBRE_SIDECAR_DEPENDENCY", "sidecars": ["Eli Eta/Sidecar Owner (108)/cover.jpg", "Eli Eta/Sidecar Owner (108)/data/notes.txt", "Eli Eta/Sidecar Owner (108)/metadata.opf"]}
+  },
+  "profile": "calibre-library-fixture/v1"
+}
