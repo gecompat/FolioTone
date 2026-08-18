@@ -233,4 +233,3 @@ Bestandteil des CI-Gates.
 
 - https://manual.calibre-ebook.com/en/generated/en/calibredb.html
 - https://manual.calibre-ebook.com/en/db_api.html
-
