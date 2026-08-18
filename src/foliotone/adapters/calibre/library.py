@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+import re
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
 
 from foliotone.core import ToolCapability
 from foliotone.tooling.runtime import LocalCommand
+from foliotone.tooling.structured import StructuredOutputError, parse_json_output
 
 from .common import calibre_version_policy
 
@@ -48,6 +52,167 @@ MAX_CALIBRE_LIST_STDOUT_BYTES = 64 * 1024 * 1024
 MAX_CALIBRE_SEARCH_STDOUT_BYTES = 1024 * 1024
 MAX_CALIBRE_METADATA_STDOUT_BYTES = 4 * 1024 * 1024
 MAX_CALIBRE_CATEGORIES_STDOUT_BYTES = 16 * 1024 * 1024
+MAX_CALIBRE_RECORDS_PER_PAGE = CALIBRE_LIBRARY_MAX_PAGE_SIZE
+MAX_CALIBRE_FORMATS_PER_RECORD = 256
+MAX_CALIBRE_AUTHORS_PER_RECORD = 256
+MAX_CALIBRE_IDENTIFIERS_PER_RECORD = 128
+MAX_CALIBRE_FIELD_CHARS = 4096
+
+_FORMAT_LABEL = re.compile(r"[A-Z0-9]{1,16}")
+
+
+class CalibreLibraryParseError(ValueError):
+    """A path-free failure while parsing bounded ``calibredb`` output."""
+
+
+@dataclass(frozen=True, slots=True)
+class ParsedCalibreLibraryFormat:
+    """One normalized format locator from a machine-readable inventory page."""
+
+    format_label: str
+    relative_locator: str
+
+
+@dataclass(frozen=True, slots=True)
+class ParsedCalibreLibraryRecord:
+    """Adapter-local record projection; canonical book identity is resolved later."""
+
+    record_id: int
+    title: str | None
+    uuid: str | None
+    authors: tuple[str, ...]
+    identifiers: tuple[tuple[str, str], ...]
+    formats: tuple[ParsedCalibreLibraryFormat, ...]
+
+
+def parse_calibredb_inventory_page(data: bytes) -> tuple[ParsedCalibreLibraryRecord, ...]:
+    """Parse one bounded, strictly increasing ``calibredb list`` JSON page."""
+    try:
+        value = parse_json_output(data, max_bytes=MAX_CALIBRE_LIST_STDOUT_BYTES)
+        if not isinstance(value, list):
+            raise CalibreLibraryParseError("calibre inventory page must be a JSON array")
+        if len(value) > MAX_CALIBRE_RECORDS_PER_PAGE:
+            raise CalibreLibraryParseError("calibre inventory page exceeds the record limit")
+
+        records: list[ParsedCalibreLibraryRecord] = []
+        previous_record_id = -1
+        for raw_record in value:
+            if not isinstance(raw_record, dict):
+                raise CalibreLibraryParseError("calibre inventory record must be an object")
+            record = _parse_record(raw_record)
+            if record.record_id <= previous_record_id:
+                raise CalibreLibraryParseError("calibre inventory IDs must be strictly increasing")
+            previous_record_id = record.record_id
+            records.append(record)
+        return tuple(records)
+    except StructuredOutputError as error:
+        raise CalibreLibraryParseError("calibre inventory output is invalid") from error
+
+
+def _parse_record(raw_record: Mapping[str, object]) -> ParsedCalibreLibraryRecord:
+    record_id = _parse_record_id(raw_record.get("id"))
+    if "formats" not in raw_record:
+        raise CalibreLibraryParseError("calibre formats field is missing")
+    formats = _parse_formats(raw_record["formats"])
+    return ParsedCalibreLibraryRecord(
+        record_id=record_id,
+        title=_parse_optional_text(raw_record.get("title"), "title"),
+        uuid=_parse_optional_text(raw_record.get("uuid"), "uuid"),
+        authors=_parse_text_list(raw_record.get("authors", []), "authors"),
+        identifiers=_parse_identifiers(raw_record.get("identifiers", {})),
+        formats=formats,
+    )
+
+
+def _parse_record_id(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise CalibreLibraryParseError("calibre inventory record ID is invalid")
+    return value
+
+
+def _parse_optional_text(value: object, field_name: str) -> str | None:
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str) or len(value) > MAX_CALIBRE_FIELD_CHARS:
+        raise CalibreLibraryParseError(f"calibre {field_name} field is invalid")
+    if any(ord(character) < 32 for character in value):
+        raise CalibreLibraryParseError(f"calibre {field_name} field is invalid")
+    return value
+
+
+def _parse_text_list(value: object, field_name: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list) or len(value) > MAX_CALIBRE_AUTHORS_PER_RECORD:
+        raise CalibreLibraryParseError(f"calibre {field_name} field is invalid")
+    parsed: list[str] = []
+    for item in value:
+        text = _parse_optional_text(item, field_name)
+        if text is None:
+            raise CalibreLibraryParseError(f"calibre {field_name} field is invalid")
+        parsed.append(text)
+    return tuple(parsed)
+
+
+def _parse_identifiers(value: object) -> tuple[tuple[str, str], ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, dict) or len(value) > MAX_CALIBRE_IDENTIFIERS_PER_RECORD:
+        raise CalibreLibraryParseError("calibre identifiers field is invalid")
+    parsed: list[tuple[str, str]] = []
+    for namespace, identifier in value.items():
+        if not isinstance(namespace, str):
+            raise CalibreLibraryParseError("calibre identifier namespace is invalid")
+        parsed_namespace = _parse_optional_text(namespace, "identifier namespace")
+        parsed_identifier = _parse_optional_text(identifier, "identifier value")
+        if parsed_namespace is None or parsed_identifier is None:
+            raise CalibreLibraryParseError("calibre identifier is invalid")
+        parsed.append((parsed_namespace, parsed_identifier))
+    return tuple(sorted(parsed))
+
+
+def _parse_formats(value: object) -> tuple[ParsedCalibreLibraryFormat, ...]:
+    if not isinstance(value, list) or len(value) > MAX_CALIBRE_FORMATS_PER_RECORD:
+        raise CalibreLibraryParseError("calibre formats field is invalid")
+    parsed: list[ParsedCalibreLibraryFormat] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise CalibreLibraryParseError("calibre format locator is invalid")
+        relative_locator = _normalize_format_locator(item)
+        suffix = PurePosixPath(relative_locator).suffix
+        format_label = suffix[1:].upper() if suffix else ""
+        if _FORMAT_LABEL.fullmatch(format_label) is None:
+            raise CalibreLibraryParseError("calibre format label is invalid")
+        parsed.append(
+            ParsedCalibreLibraryFormat(
+                format_label=format_label,
+                relative_locator=relative_locator,
+            )
+        )
+    ordered = tuple(sorted(parsed, key=lambda item: (item.format_label, item.relative_locator)))
+    if len({item.relative_locator for item in ordered}) != len(ordered):
+        raise CalibreLibraryParseError("calibre format locators must be unique")
+    return ordered
+
+
+def _normalize_format_locator(value: str) -> str:
+    if not value or len(value) > MAX_CALIBRE_FIELD_CHARS:
+        raise CalibreLibraryParseError("calibre format locator is invalid")
+    if any(ord(character) < 32 for character in value):
+        raise CalibreLibraryParseError("calibre format locator is invalid")
+    normalized = value.replace("\\", "/")
+    prefix = f"{CALIBRE_LIBRARY_PREFIX}/"
+    if not normalized.startswith(prefix):
+        raise CalibreLibraryParseError("calibre format locator is outside the pseudo-root")
+    relative = normalized[len(prefix) :]
+    if not relative or relative.startswith("/") or ":" in relative:
+        raise CalibreLibraryParseError("calibre format locator is unsafe")
+    path = PurePosixPath(relative)
+    if any(part in {"", ".", ".."} for part in relative.split("/")):
+        raise CalibreLibraryParseError("calibre format locator is unsafe")
+    if path.is_absolute() or path.as_posix() != relative:
+        raise CalibreLibraryParseError("calibre format locator is unsafe")
+    return relative
 
 
 def build_calibredb_version_command() -> LocalCommand:
