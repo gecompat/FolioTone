@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from foliotone.core import ToolCapability
+from foliotone.tooling import ToolProviderDescriptor
 from foliotone.tooling.runtime import LocalCommand
 from foliotone.tooling.structured import StructuredOutputError, parse_json_output
 
@@ -20,6 +21,13 @@ CALIBRE_LIBRARY_PREFIX = "__FOLIOTONE_CALIBRE_ROOT__"
 CALIBRE_LIBRARY_TIMEOUT_SECONDS = 120.0
 CALIBRE_LIBRARY_MAX_PAGE_SIZE = 500
 CALIBRE_LIBRARY_CONFIG_DIRECTORY = "calibre-config"
+
+CALIBRE_LIBRARY_PROVIDER = ToolProviderDescriptor(
+    provider_id="calibre-library",
+    display_name="calibredb library reconciliation",
+    adapter_version=CALIBRE_LIBRARY_ADAPTER_VERSION,
+    capabilities=frozenset({ToolCapability.LIBRARY_READ}),
+)
 
 CALIBRE_LIBRARY_FIELDS = (
     "authors",
