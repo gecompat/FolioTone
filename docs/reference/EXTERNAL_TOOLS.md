@@ -60,13 +60,20 @@ Preferred integration:
   fixed UTF-8, Unix-newline, plain-text and no-line-wrap options;
 - `CLI`: the implemented fixed `calibre-debug -e` helper, which stages source
   privately and disables rendered EPUB fallback covers;
-- `CLI`: a future explicit read-command allowlist for `calibredb`, not arbitrary subcommands;
+- `CLI`: die durch ADR-0033 festgelegten lokalen read-only Shapes für
+  `list --for-machine`, Exact-ID-`search`, `show_metadata --as-opf` und
+  `list_categories --csv`; keine beliebigen Subcommands, Optionen,
+  Suchausdrücke oder Remote-Content-Server;
 - `SERVICE`: calibre Content Server where useful, using documented interfaces rather than reverse-engineered web UI calls;
 - `CONTAINER_JOB`: optional external calibre container.
 
 Important boundary:
 
-`calibredb` can modify a calibre library. FolioTone must initially use only read-oriented operations and must not make Calibre the canonical FolioTone database.
+`calibredb` can modify a calibre library. ADR-0033 erlaubt deshalb nur vier
+vollständig erzeugte read-only Command Shapes. Der lokale Bibliothekspfad
+bleibt Runtime-Konfiguration; absolute Pfade werden bereits in der
+maschinenlesbaren Ausgabe durch eine feste Pseudowurzel ersetzt. Calibre bleibt
+Evidence Source und wird nicht zur kanonischen FolioTone-Datenbank.
 
 `ebook-meta` is also a read/write executable. The implemented adapter exposes no
 setter arguments, isolates `CALIBRE_CONFIG_DIRECTORY`, persists a bounded OPF

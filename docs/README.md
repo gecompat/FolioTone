@@ -54,6 +54,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0030](decisions/ADR-0030-versioned-ebook-matcher-profiles.md) definiert relation-spezifische E-Book-Matcherprofile und konservatives Review-Routing.
 - [ADR-0031](decisions/ADR-0031-persisted-relation-candidates-and-review-reuse.md) definiert insert-only Relation-Candidate-Snapshots, konkrete Feature-Evidence und kompatible Matching-Review-Wiederverwendung.
 - [ADR-0032](decisions/ADR-0032-bounded-offline-ebook-matching-workflow.md) definiert den begrenzten Offline-Matching-Workflow, path-freie Review-CLI und weiterhin deaktivierte bibliografische Auto-Confirmation.
+- [ADR-0033](decisions/ADR-0033-read-only-calibredb-library-reconciliation.md) definiert die festen lokalen read-only `calibredb`-Shapes, konsistente Library-Snapshots sowie Calibre-Ownership- und Sidecar-Evidence.
 
 ## Qualität, Sprache und Dokumentationsregeln
 
