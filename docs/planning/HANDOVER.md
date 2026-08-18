@@ -863,8 +863,12 @@ ausgeschlossen. EB-03A kann getrennt als Provider-Cache-Welle vorbereitet
 werden. EB-00, EB-01/E4, EB-02, EB-05 und EB-06 sind abgeschlossen. Die
 Reihenfolge, Stop-Gates und zulässigen Spark-Pakete stehen in
 `EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` und
-`EBOOK_SPARK_WORK_PACKAGES.md`. Private Pfade, Runtime-Daten, Kennzahlen und
-Berichte bleiben außerhalb von Git; Source Media bleibt unverändert.
+`EBOOK_SPARK_WORK_PACKAGES.md`. Modell-, Thinking- und Agentenauswahl folgen
+repositoryweit `MODEL_ROUTING_POLICY.md`; insbesondere werden Statusprüfungen
+mit 5.6 Luna, atomare festgelegte Coding-Pakete bevorzugt mit 5.3 Codex Spark
+und Frontier-/Security-Verträge nur mit der dort festgelegten höheren
+Risikoklasse ausgeführt. Private Pfade, Runtime-Daten, Kennzahlen und Berichte
+bleiben außerhalb von Git; Source Media bleibt unverändert.
 
 Die langfristige Produktvision und Medienfolge stehen als nicht statussetzende
 Entwürfe in `docs/vision/EVIDENCE_DRIVEN_COLLECTION_INTELLIGENCE.md` und
