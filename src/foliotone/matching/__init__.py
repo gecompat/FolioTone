@@ -25,6 +25,13 @@ from foliotone.matching.ebook_blocking import (
     EbookCandidateBlockSnapshot,
     SQLiteEbookCandidateBlockReader,
 )
+from foliotone.matching.relation_candidates import (
+    MAX_RELATION_CANDIDATE_EVIDENCE,
+    RelationCandidate,
+    RelationCandidateEvidenceKind,
+    RelationCandidateEvidenceLink,
+    relation_candidate_set_fingerprint,
+)
 from foliotone.matching.scoring import (
     EBOOK_MATCHER_PROFILES,
     MATCHER_DECISION_COMPATIBILITY,
@@ -60,6 +67,7 @@ __all__ = [
     "EbookRelationMatcher",
     "EBOOK_MATCHER_PROFILES",
     "MATCHER_DECISION_COMPATIBILITY",
+    "MAX_RELATION_CANDIDATE_EVIDENCE",
     "MatcherExplanationEntry",
     "MatcherFeature",
     "MatcherFeatureCode",
@@ -68,11 +76,15 @@ __all__ = [
     "MatcherFeatureState",
     "MatcherOutcome",
     "MatcherProfile",
+    "RelationCandidate",
+    "RelationCandidateEvidenceKind",
+    "RelationCandidateEvidenceLink",
     "RelationContract",
     "RelationIdentityEffect",
     "SQLiteEbookCandidateBlockReader",
     "build_candidate_block_key",
     "relation_contract_for",
+    "relation_candidate_set_fingerprint",
     "matcher_evidence_fingerprint",
     "matcher_profile_for",
     "validate_relation_endpoints",

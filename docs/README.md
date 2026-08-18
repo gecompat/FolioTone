@@ -52,6 +52,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0028](decisions/ADR-0028-persisted-resolution-and-review-core.md) definiert persistierte Resolution Candidates, materielle Evidence-Links und append-only Review-Entscheidungen.
 - [ADR-0029](decisions/ADR-0029-bounded-ebook-candidate-blocking.md) definiert begrenztes read-only E-Book-Candidate-Blocking und book-only Relation Contracts.
 - [ADR-0030](decisions/ADR-0030-versioned-ebook-matcher-profiles.md) definiert relation-spezifische E-Book-Matcherprofile und konservatives Review-Routing.
+- [ADR-0031](decisions/ADR-0031-persisted-relation-candidates-and-review-reuse.md) definiert insert-only Relation-Candidate-Snapshots, konkrete Feature-Evidence und kompatible Matching-Review-Wiederverwendung.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

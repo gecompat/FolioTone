@@ -94,6 +94,11 @@ class ReviewItem:
             and self.candidate_kind is not ReviewCandidateKind.RESOLUTION_CANDIDATE
         ):
             raise ValueError("authority review requires a resolution candidate")
+        if (
+            self.review_type is ReviewType.MATCH_RELATION
+            and self.candidate_kind is not ReviewCandidateKind.RELATION
+        ):
+            raise ValueError("matching review requires a relation candidate")
         require_aware_datetime(self.created_at, "created_at")
 
 

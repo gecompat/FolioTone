@@ -51,6 +51,10 @@ from foliotone.persistence import (
     migrate,
     repository,
 )
+from foliotone.persistence.relation_candidate_schema import (
+    relation_candidate_evidence,
+    relation_candidates,
+)
 from foliotone.persistence.resolution_review_schema import (
     resolution_candidate_evidence,
     resolution_candidates,
@@ -113,6 +117,8 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
         resolution_candidate_evidence.name,
         review_items.name,
         review_decisions.name,
+        relation_candidates.name,
+        relation_candidate_evidence.name,
     }
     assert table_names == expected
     file_columns = {column["name"] for column in inspector.get_columns("file_records")}
@@ -154,6 +160,11 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
             "ix_review_items_subject_history",
         },
         "review_decisions": {"ix_review_decisions_item_sequence"},
+        "relation_candidates": {
+            "ix_relation_candidates_pair_created",
+            "ix_relation_candidates_reuse",
+        },
+        "relation_candidate_evidence": {"ix_relation_candidate_evidence_source"},
     }
     for table_name, names in expected_indexes.items():
         assert names <= {str(index["name"]) for index in inspector.get_indexes(table_name)}
@@ -175,11 +186,8 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
                 "target_id": "00000000-0000-0000-0000-000000000001",
             },
         ).all()
-    assert revision == "0013_resolution_review_core"
-    assert any(
-        "ix_fingerprints_target_profile_id_value" in str(row[-1])
-        for row in query_plan
-    )
+    assert revision == "0014_relation_candidates"
+    assert any("ix_fingerprints_target_profile_id_value" in str(row[-1]) for row in query_plan)
 
 
 def test_read_only_engine_cannot_write_or_create_storage(
@@ -265,7 +273,7 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0013_resolution_review_core"
+    assert revision == "0014_relation_candidates"
 
 
 def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
@@ -275,24 +283,18 @@ def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
     migrate(path, "0009_scan_run_leases")
     legacy = create_sqlite_engine(path)
     assert "ix_fingerprints_target_profile_id_value" not in {
-        str(index["name"])
-        for index in inspect(legacy).get_indexes("fingerprints")
+        str(index["name"]) for index in inspect(legacy).get_indexes("fingerprints")
     }
     legacy.dispose()
 
     migrate(path)
     upgraded = create_sqlite_engine(path)
-    indexes = {
-        str(index["name"])
-        for index in inspect(upgraded).get_indexes("fingerprints")
-    }
+    indexes = {str(index["name"]) for index in inspect(upgraded).get_indexes("fingerprints")}
     with upgraded.connect() as connection:
-        revision = connection.execute(
-            text("SELECT version_num FROM alembic_version")
-        ).scalar_one()
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
 
     assert "ix_fingerprints_target_profile_id_value" in indexes
-    assert revision == "0013_resolution_review_core"
+    assert revision == "0014_relation_candidates"
 
 
 def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
@@ -332,9 +334,7 @@ def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
     upgraded = create_sqlite_engine(path)
     inspector = inspect(upgraded)
     with upgraded.connect() as connection:
-        revision = connection.execute(
-            text("SELECT version_num FROM alembic_version")
-        ).scalar_one()
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         duplicate_count = connection.execute(
             text("SELECT count(*) FROM fingerprints WHERE value = 'same-value'")
         ).scalar_one()
@@ -343,12 +343,9 @@ def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
     assert {
         "uq_ebook_candidate_hash_runs_active_root",
         "ix_ebook_candidate_hash_runs_root_started",
-    } <= {
-        str(index["name"])
-        for index in inspector.get_indexes(ebook_candidate_hash_runs.name)
-    }
+    } <= {str(index["name"]) for index in inspector.get_indexes(ebook_candidate_hash_runs.name)}
     assert duplicate_count == 2
-    assert revision == "0013_resolution_review_core"
+    assert revision == "0014_relation_candidates"
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:

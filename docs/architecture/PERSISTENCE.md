@@ -267,6 +267,24 @@ Fingerprint, vollständiger Candidate-Set-Fingerprint und
 Migration `0013` ist additiv und verweigert einen Daten verlierenden Downgrade,
 solange Resolution- oder Review-Daten existieren. Details stehen in ADR-0028.
 
+### Persistierte Relation Candidates
+
+Alembic `0014_relation_candidates` ergänzt die insert-only Tabellen
+`relation_candidates` und `relation_candidate_evidence`. Jeder Snapshot ist
+an einen expliziten abgeschlossenen `ScanRun`, kanonische Endpoints, ein
+versioniertes Matcherprofil sowie materielle Evidence- und Candidate-Set-
+Fingerprints gebunden. Der dedizierte Store reproduziert das reine
+Matcher-Ergebnis vor dem Insert und validiert polymorphe Evidence-Referenzen
+atomar gegen ihre konkrete Tabelle.
+
+Matching-Review verwendet `ReviewType.MATCH_RELATION` und
+`ReviewCandidateKind.RELATION` im bestehenden append-only Review-Core.
+Kompatible ACCEPT-/REJECT-Entscheidungen dürfen bei unveränderter fachlicher
+Semantik trotz neuer technischer Matcher-Version wiederverwendet werden;
+DEFER bleibt reviewbar. Migration `0014` verweigert einen Daten verlierenden
+Downgrade bei vorhandenen Relation-Candidate-Daten. Details stehen in
+ADR-0031.
+
 ### Selektiver Kandidaten-Hash-Lookup
 
 `DuplicateHashCandidateService` schränkt die Quick-Evidence zuerst auf die
