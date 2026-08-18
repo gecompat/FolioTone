@@ -3708,3 +3708,207 @@ Dann sind Bücher, Musik und Bilder nur noch drei unterschiedliche Domänen, die
 
 ---
 ---
+
+Wenn ich **alle bisherigen Überlegungen als umgesetzt voraussetze**, würde ich FolioTone nicht mehr als „Datei-/Medienmanager“ beschreiben. Das wäre zu klein gedacht.
+
+### Meine Kurzbeschreibung
+
+> **FolioTone ist eine lokale, domänenübergreifende Knowledge- und Reconciliation-Engine für digitale Sammlungen. Sie analysiert Dateien, ermittelt deren Identität, Herkunft, Beziehungen, Qualität und Redundanzen, führt lokale und externe Evidenz zusammen und unterstützt nachvollziehbare Entscheidungen zur Organisation, Konsolidierung und langfristigen Erhaltung digitaler Assets.**
+
+Noch etwas verständlicher:
+
+> **FolioTone verwandelt eine ungeordnete Sammlung digitaler Dateien in eine nachvollziehbare Wissensbasis darüber, was tatsächlich vorhanden ist, was zusammengehört, was redundant oder abgeleitet ist, welche Version die beste ist und welche Dateien sicher archiviert, behalten oder entfernt werden können.**
+
+---
+
+## Und wenn ich es als Projekt-Pitch formulieren müsste
+
+> **FolioTone is a local-first digital asset intelligence platform.**
+>
+> It builds a persistent knowledge graph over heterogeneous collections of books, music, images, documents and other digital assets. Rather than merely organizing files, FolioTone determines their identity, relationships, provenance, representations, quality and redundancy by combining filesystem evidence, specialized analysis tools and authoritative external sources.
+>
+> **Every conclusion is evidence-based, traceable and reversible.**
+>
+> FolioTone does not blindly modify a collection. It observes, analyzes, reconciles, explains and proposes actions — with humans remaining in control of destructive decisions.
+
+Das letzte Stück halte ich für **besonders wichtig**.
+
+---
+
+# Die eigentliche Idee in einem Satz
+
+Wenn man alles auf eine einzige Aussage reduziert:
+
+> **FolioTone beantwortet nicht nur „Welche Dateien habe ich?“, sondern „Was habe ich eigentlich?“**
+
+Das ist meiner Meinung nach der Kern des gesamten Projekts.
+
+---
+
+## Was FolioTone dann konkret „weiß“
+
+Zum Beispiel:
+
+```text
+Dune.epub
+```
+
+ist nicht mehr einfach:
+
+```text
+FILE
+```
+
+sondern:
+
+```text
+FILE
+ └── REPRESENTATION
+      └── EDITION
+           └── WORK
+                └── AUTHOR
+```
+
+Eine FLAC-Datei:
+
+```text
+FILE
+ └── AUDIO REPRESENTATION
+      └── RECORDING
+           └── RELEASE
+                └── ARTIST
+```
+
+Ein Foto:
+
+```text
+FILE
+ └── REPRESENTATION
+      └── IMAGE ASSET
+           └── CAPTURE
+                ├── RAW
+                ├── JPEG
+                └── WEBP derivative
+```
+
+Und bei einem Scan:
+
+```text
+physical source
+      ↓
+image scans
+      ↓
+OCR
+      ↓
+PDF
+      ↓
+EPUB
+```
+
+FolioTone kennt dabei die **Beziehungen zwischen diesen Dingen**.
+
+---
+
+# Der vielleicht wichtigste Unterschied zu existierender Software
+
+Die meisten Programme optimieren **einen Arbeitsschritt**:
+
+```text
+calibre       → E-Books verwalten
+beets         → Musik taggen
+Czkawka       → Duplikate finden
+Hydrus        → Dateien/Metadaten organisieren
+ExifTool      → Metadaten lesen
+Archivematica  → digitale Preservation
+```
+
+FolioTone würde darüber liegen:
+
+```text
+             ┌─────────────────────────┐
+             │        FOLIOTONE         │
+             │                         │
+             │  Identity               │
+             │  Evidence               │
+             │  Provenance              │
+             │  Relationships          │
+             │  Reconciliation         │
+             │  Quality                │
+             │  Decisions              │
+             │  Policies               │
+             └────────────┬────────────┘
+                          │
+       ┌──────────────────┼──────────────────┐
+       ↓                  ↓                  ↓
+    calibre            beets             ExifTool
+    Czkawka            Tika              ffprobe
+    EPUBCheck          OCR               OpenLibrary
+    MusicBrainz        Wikidata          restic
+```
+
+Die externen Werkzeuge sind dann **Sensoren und Spezialisten**.
+
+FolioTone ist die **Wissens-, Bewertungs- und Entscheidungsschicht**.
+
+---
+
+# Und dadurch verändert sich auch das Ziel der Software
+
+Es geht nicht mehr primär um:
+
+> **„Räume deine Festplatte auf.“**
+
+sondern um:
+
+> **„Verstehe deine digitale Sammlung.“**
+
+Und daraus entstehen dann Funktionen wie:
+
+* Was besitze ich tatsächlich?
+* Welche Dateien repräsentieren dasselbe Werk / dieselbe Aufnahme / dasselbe Bild?
+* Welche Dateien sind echte Duplikate?
+* Welche sind nur verschiedene Repräsentationen?
+* Wo sind bessere Versionen vorhanden?
+* Welche Metadaten sind glaubwürdig?
+* Wo widersprechen sich Quellen?
+* Welche Dateien stammen voneinander ab?
+* Was fehlt mir?
+* Welche Daten sind gefährdet?
+* Was ist nicht gesichert?
+* Was kann ich gefahrlos entfernen?
+* Was sollte ich archivieren?
+* Welche Aktion hätte welche Konsequenz?
+
+---
+
+# Und ich würde einen Begriff ins Zentrum stellen
+
+## **Evidence-driven Collection Intelligence**
+
+Das beschreibt meines Erachtens die eigentliche technische Innovation am besten.
+
+Nicht:
+
+**Media Manager**
+
+Nicht:
+
+**Duplicate Finder**
+
+Nicht:
+
+**Digital Asset Manager**
+
+Nicht:
+
+**Personal Knowledge Graph**
+
+sondern eine Kombination daraus:
+
+> ### **Evidence-driven Digital Collection Intelligence**
+
+Das ist die Richtung, in die ich das Projekt nach unseren Gesprächen entwickeln würde.
+
+Und wenn man es auf einen **deutschen Einzeiler für die README** reduzieren will:
+
+> **FolioTone baut aus einer heterogenen Dateisammlung eine nachvollziehbare Wissensbasis über digitale Assets, ihre Identität, Beziehungen, Herkunft, Qualität und Redundanz – und hilft dabei, fundierte und reversible Entscheidungen über deren Verwaltung und Erhaltung zu treffen.**
