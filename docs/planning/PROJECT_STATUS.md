@@ -4,7 +4,28 @@ Stand: 2026-08-18
 
 ## Aktuelle Welle
 
-**EB-06 abgeschlossen — versioniertes E-Book-Matching und Review**
+**EB-07 begonnen — read-only Calibre Library Reconciliation**
+
+Das Frontier-Gate ADR-0033 legt feste lokale read-only
+`calibredb`-Command-Shapes, Snapshot-Konsistenz, Calibre-Ownership,
+Sidecar-Evidence und die Finding-Fälle A bis G fest. S-EB07-01 ergänzt den
+vollständig synthetischen Fixture-Korpus für diese Fälle, eine leere
+Bibliothek und malformed JSON-, CSV- und OPF-Ausgaben. Das Paket wurde mit
+PR #62 gemergt; der Post-Merge-Contract auf Commit
+`709877fd38e24ade8dfb547b8d828ac753bc9454` war erfolgreich.
+
+Der nächste atomare Schritt ist S-EB07-02: feste Command Builder dürfen
+ausschließlich die in ADR-0033 erlaubten read-only Shapes erzeugen. Eine
+reale Calibre-Bibliothek, freie Argumentweitergabe und jede schreibende oder
+exportierende Operation bleiben außerhalb dieses Scopes.
+
+Die langfristige Produktausrichtung und Medienfolge wurden als ausdrücklich
+nicht statussetzender Entwurf in
+`docs/vision/EVIDENCE_DRIVEN_COLLECTION_INTELLIGENCE.md` und
+`docs/planning/FUTURE_CAPABILITY_MAP.md` konsolidiert. Der Entwurf ändert
+weder die EB-Reihenfolge noch die W10-Sperre.
+
+**Abgeschlossene Voraussetzung: EB-06 — versioniertes E-Book-Matching und Review**
 
 EB-06A ergänzt mit ADR-0030 zunächst reine, relation-spezifische
 Matcherprofile für `EXACT_DUPLICATE`, `SAME_EDITION` und `SAME_WORK`.
@@ -1111,11 +1132,12 @@ paketierten Schema-Head, die gemeinsame Scan-/Hash-/Collection-Lineage, die
 Inventarartefakte bytegenau und die begrenzte Formatabdeckung über dieselbe
 echte Read-only-Verbindung, ohne Source Media zu öffnen. Der vollständige
 private Inventar-/Collection-Lauf und Bericht werden noch abgeschlossen.
-Der nächste Frontier-Schritt ist EB-06: versioniertes Scoring, Explanation und
-vollständiges Matching-Review auf Basis der EB-05-Blocks und Relation Contracts.
-EB-03A kann als getrennte Provider-Cache-Welle vorbereitet werden. Music W4
-bleibt bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
-ausschließlich die CLI.
+EB-06 ist abgeschlossen. EB-07 ist nach ADR-0033 und dem gemergten
+synthetischen Paket S-EB07-01 aktiv; der nächste atomare Schritt ist
+S-EB07-02 mit festen read-only `calibredb`-Command-Buildern. EB-03A kann als
+getrennte Provider-Cache-Welle vorbereitet werden. Music W4 bleibt bis zur
+E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt ausschließlich die
+CLI.
 
 ## Nicht implementiert
 
@@ -1123,13 +1145,17 @@ Noch nicht vorhanden sind unter anderem:
 
 - weitere Formate außerhalb der expliziten EPUB/MOBI/AZW/AZW3-Text-Allowlist
   sowie alle Music-ToolProvider;
-- calibre Library Reconciliation;
+- Calibre Library Reconciliation über den synthetischen Fixture- und
+  ADR-Vertrag hinaus;
 - vollständiger Offline-Orchestrator und Review-CLI für Entity Resolution;
 - externe Knowledge Provider und Provider Cache;
 - Classification Engine;
-- Matching Engine;
+- Music- und medienübergreifende Matching-Profile; das book-only Offline-
+  Matching für `EXACT_DUPLICATE`, `SAME_EDITION` und `SAME_WORK` ist
+  implementiert;
 - vollständiger realer Sammlungslauf und zusätzliche qpdf-Struktur-Evidence;
-- Classification-/Matching-/Keep-Preference-Review über den generischen Core;
+- Classification-, kanonische Relation-Projektion und Keep-Preference-Review
+  über den generischen Core;
 - Consolidation Planning und Execution;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 
