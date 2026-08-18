@@ -2203,3 +2203,1508 @@ Die externen Programme liefern die Augen, Ohren und Messgeräte.
 [7]: https://picard.musicbrainz.org/quick-start/?l=en&utm_source=chatgpt.com "Quick Start - MusicBrainz Picard"
 [8]: https://musicbrainz.org/doc/AcoustID?utm_source=chatgpt.com "AcoustID - MusicBrainz"
 [9]: https://restic.readthedocs.io/en/stable/045_working_with_repos.html?utm_source=chatgpt.com "Working with repositories — restic 0.19.1 documentation"
+
+
+
+---
+---
+Ja – und nach der Recherche würde ich sogar sagen: **Es gibt mehrere Projekte, die einzelne Teile der FolioTone-Idee bereits sehr gut lösen. Aber ich kenne keines, das die gesamte Kombination aus Evidence, Provenance, Entity Resolution, Medien-Identität, Qualitätsbewertung, Collection State und sicherer Konsolidierung so zusammenführt, wie wir es für FolioTone skizziert haben.**
+
+Das ist wichtig: FolioTone muss nicht alles selbst erfinden. Es könnte sich an den besten Teilen dieser Projekte bedienen bzw. sie als Provider einbinden.
+
+## Die interessantesten Vergleichsprojekte
+
+### 1. 🥇 Hydrus Network – überraschend nah an der eigentlichen Idee
+
+Hydrus Network
+
+[Hydrus Network](https://hydrusnetwork.github.io/hydrus/?utm_source=chatgpt.com)
+
+Hydrus ist **kein E-Book-Manager**. Es ist ein lokaler Client zur Verwaltung großer persönlicher Medienbestände, ursprünglich stark auf Bilder ausgerichtet.
+
+Aber konzeptionell gibt es bemerkenswerte Überschneidungen.
+
+Hydrus identifiziert Dateien primär über ihren **Hash** und hängt Metadaten, Tags, Ratings, URLs und Notizen an diese Identität. Dadurch bleiben Metadaten mit einer Datei verbunden, selbst wenn sie verschoben oder neu importiert wird. ([hydrusnetwork.github.io][1])
+
+Noch interessanter: Hydrus besitzt einen regelrechten **Duplicate-Relationship-Workflow**. Es findet potentielle Duplikate, der Benutzer bestätigt Beziehungen und diese Entscheidungen können anschließend transitive Auswirkungen auf weitere Kandidaten haben. Es gibt sogar eine API dafür. ([hydrusnetwork.github.io][2])
+
+Das ist **sehr nah an dem Human-in-the-loop-Modell**, das ich für FolioTone vorgeschlagen habe.
+
+### Was FolioTone von Hydrus lernen sollte
+
+Hydrus zeigt:
+
+> **Die Datei sollte nicht der primäre Träger der Identität sein.**
+
+Statt:
+
+```text
+/path/foo/bar.epub
+```
+
+sollte FolioTone denken:
+
+```text
+FileIdentity
+    ↓
+Evidence
+    ↓
+Relations
+    ↓
+Metadata
+```
+
+Das passt hervorragend zu FolioTone.
+
+**Unterschied:** Hydrus ist extrem stark bei Dateien, Tags, Beziehungen und Benutzerorganisation, aber nicht auf bibliografische Entity Resolution von Büchern/Editionen spezialisiert.
+
+---
+
+# 2. 🥈 beets – das Music-Pendant zu FolioTone
+
+[beets](https://beets.io/?utm_source=chatgpt.com)
+
+Für Musik ist **beets** wahrscheinlich eines der wichtigsten Projekte, die der FolioTone-Autor studieren sollte.
+
+beets nutzt MusicBrainz-basierte Metadaten, kann Musik importieren, taggen und organisieren und besitzt sogar ein Duplicate-Plugin. Das kann Duplikate anhand von MusicBrainz-IDs oder anderen frei definierbaren Feldern erkennen. ([docs.beets.io][3])
+
+Das Interessante ist der Workflow:
+
+```text
+Dateien
+  ↓
+Analyse
+  ↓
+MusicBrainz Matching
+  ↓
+Benutzer bestätigt
+  ↓
+Metadaten / Organisation
+```
+
+Das ist ziemlich nah an:
+
+```text
+FolioTone
+  ↓
+Evidence
+  ↓
+Candidate
+  ↓
+Review
+  ↓
+Decision
+```
+
+### Aber FolioTone könnte darüber hinausgehen
+
+beets möchte letztlich **Musik korrekt taggen und organisieren**.
+
+FolioTone könnte dagegen fragen:
+
+> Welche Dateien repräsentieren dieselbe Aufnahme?
+
+> Welche Releases habe ich?
+
+> Welche Version ist technisch besser?
+
+> Welche Dateien sind redundant?
+
+> Welche Releases möchte ich behalten?
+
+Das wäre die nächste Abstraktionsebene.
+
+---
+
+# 3. 🥉 Komga – zeigt, wie weit man mit einer Medienbibliothek kommen kann
+
+Komga
+
+[Komga](https://komga.org/?utm_source=chatgpt.com)
+
+Komga verwaltet:
+
+* Comics
+* Manga
+* Magazine
+* EPUB
+* PDF
+* CBZ/CBR
+
+und kann Metadaten automatisch importieren, Bibliotheken organisieren, Collections bilden und Metadaten bearbeiten. Es gibt außerdem REST API, OPDS und **Duplicate File Detection**. ([komga.org][4])
+
+Das ist für FolioTone interessant, weil Komga zeigt, wie man aus:
+
+```text
+Dateien + Metadaten
+```
+
+eine echte:
+
+```text
+Bibliothek
+```
+
+macht.
+
+### Der entscheidende Unterschied
+
+Komga denkt hauptsächlich:
+
+> „Wie präsentiere und verwalte ich meine Bücher?“
+
+FolioTone könnte denken:
+
+> **„Was sind diese Dateien tatsächlich und wie hängen sie miteinander zusammen?“**
+
+Komga wäre deshalb für mich eher ein **Consumer der FolioTone-Daten**, nicht unbedingt ein Konkurrent.
+
+---
+
+# 4. Kavita – noch stärker auf „Bibliothek“ fokussiert
+
+Kavita
+
+Kavita ist ein selbstgehosteter Server für E-Books, Comics, Manga usw.
+
+[Kavita](https://www.kavitareader.com/?utm_source=chatgpt.com)
+
+Es organisiert Bibliotheken, Serien, Volumes, Autoren, Tags und Leselisten und bietet eine Benutzeroberfläche für die eigentliche Nutzung einer Sammlung.
+
+Das ist also die **Library Experience**, die FolioTone bewusst noch nicht besitzt.
+
+Aber auch hier:
+
+```text
+Kavita:
+    "Zeige mir meine Bibliothek."
+
+FolioTone:
+    "Erkläre mir meine Bibliothek."
+```
+
+Das sind zwei verschiedene Dinge.
+
+---
+
+# 5. Czkawka – für die reine Dateianalyse sehr interessant
+
+Czkawka
+
+[Czkawka](https://github.com/qarmin/czkawka?utm_source=chatgpt.com)
+
+Czkawka ist wahrscheinlich der interessanteste **technische Duplicate-Cleaner**, den ich mir für FolioTone ansehen würde.
+
+Es kann unter anderem:
+
+* identische Dateien finden
+* ähnliche Dateien finden
+* defekte Dateien erkennen
+* falsche Dateiendungen erkennen
+* Musik anhand von Tags vergleichen
+* Musik anhand von Audio-Fingerprints vergleichen
+* Ergebnisse cachen. ([GitHub][5])
+
+Das Musikmodul ist besonders interessant: Es kann entweder Metadaten vergleichen oder Audio-Fingerprints verwenden, um ähnliche Musikdateien zu finden. ([GitHub][5])
+
+### Für FolioTone bedeutet das:
+
+Nicht selbst implementieren:
+
+```text
+"Wie finde ich Byte-Duplikate?"
+```
+
+sondern:
+
+```text
+Czkawka
+   ↓
+Evidence Provider
+   ↓
+FolioTone
+```
+
+---
+
+# 6. Archivematica – hier wird es richtig interessant
+
+Archivematica
+
+[Archivematica](https://www.archivematica.org/?utm_source=chatgpt.com)
+
+Archivematica ist ein Open-Source-System zur **digitalen Langzeitarchivierung**. Es verarbeitet digitale Objekte von Ingest bis Preservation und arbeitet mit Standards wie:
+
+* OAIS
+* METS
+* PREMIS
+* Dublin Core
+* BagIt. ([archivematica.org][6])
+
+Und es besitzt **Fixity Checking**, also die Überprüfung, ob Dateien sich unerwartet verändert haben. ([archivematica.org][7])
+
+Das ist genau der Bereich, den ich vorher als große Erweiterung für FolioTone vorgeschlagen habe:
+
+```text
+Was habe ich?
+Was hat sich verändert?
+Ist mein Backup noch korrekt?
+Ist mein Archiv intakt?
+```
+
+Archivematica ist hier wesentlich weiter als FolioTone.
+
+### Aber:
+
+Archivematica ist primär für **institutionelle digitale Preservation** gedacht.
+
+FolioTone könnte daraus eine viel leichtere Variante für:
+
+> **„Meine private 500-GB-/5-TB-/20-TB-Mediensammlung“**
+
+machen.
+
+Das wäre ein interessantes Produktsegment.
+
+---
+
+# 7. Czkawka + Hydrus + Archivematica ergeben bereits erstaunlich viel
+
+Wenn man die drei gedanklich kombiniert:
+
+```text
+Czkawka
+    │
+    ├── Duplicate Detection
+    ├── Similarity
+    ├── Broken Files
+    └── Fingerprints
+          │
+          ▼
+Hydrus
+    │
+    ├── File Identity
+    ├── Metadata
+    ├── Relationships
+    ├── User Decisions
+    └── Search
+          │
+          ▼
+Archivematica
+    │
+    ├── Provenance
+    ├── Fixity
+    ├── Preservation
+    └── Packaging
+```
+
+fehlt eigentlich hauptsächlich:
+
+```text
+          ↓
+
+Bibliographic / Media Entity Resolution
+          ↓
+Work / Edition / Recording / Release
+          ↓
+Decision Engine
+```
+
+Und **genau dort sehe ich die Nische für FolioTone.**
+
+---
+
+# 8. Für E-Books ist calibre natürlich der große Platzhirsch
+
+calibre
+
+[calibre](https://calibre-ebook.com/?utm_source=chatgpt.com)
+
+Aber calibre ist aus meiner Sicht **kein direkter Ersatz für FolioTone**.
+
+calibre ist hervorragend bei:
+
+* E-Book-Verwaltung
+* Metadaten
+* Konvertierung
+* Formaten
+* Bibliothek
+* Lesen
+* Synchronisation
+* manueller Kuration.
+
+FolioTone wäre interessant, wenn es darüber eine Ebene setzt:
+
+```text
+calibre
+   ↓
+"Das ist mein Buchbestand."
+
+FolioTone
+   ↓
+"Das ist, was tatsächlich auf deinem Dateisystem existiert,
+welche Dateien dieselben Inhalte repräsentieren,
+welche Editionen es gibt,
+welche Version besser ist,
+welche Datenquellen sich widersprechen
+und was du gefahrlos konsolidieren kannst."
+```
+
+Das ist eine echte Differenzierung.
+
+---
+
+# 9. Es gibt noch eine interessante Kategorie: Media Server
+
+Beispielsweise:
+
+Jellyfin
+
+[Jellyfin](https://jellyfin.org/?utm_source=chatgpt.com)
+
+oder Plex/Emby.
+
+Die sind aber **noch weiter vom eigentlichen FolioTone-Konzept entfernt**.
+
+Sie beantworten:
+
+> „Wie spiele ich meine Medien ab?“
+
+FolioTone:
+
+> „Was sind meine Medien?“
+
+Deshalb würde ich diese eher als **potentielle Nutzer der FolioTone-Metadaten** betrachten.
+
+---
+
+# 10. Wo FolioTone tatsächlich eine Lücke besetzt
+
+Ich würde die bestehenden Projekte ungefähr so positionieren:
+
+| Projekt            | Dateien | Duplikate | Metadaten | Entity Resolution | Provenance | Preservation | Entscheidungen |
+| ------------------ | ------: | --------: | --------: | ----------------: | ---------: | -----------: | -------------: |
+| Czkawka            |   ⭐⭐⭐⭐⭐ |     ⭐⭐⭐⭐⭐ |        ⭐⭐ |                 ⭐ |          ⭐ |            ⭐ |             ⭐⭐ |
+| Hydrus             |   ⭐⭐⭐⭐⭐ |     ⭐⭐⭐⭐⭐ |     ⭐⭐⭐⭐⭐ |                ⭐⭐ |        ⭐⭐⭐ |           ⭐⭐ |          ⭐⭐⭐⭐⭐ |
+| beets              |    ⭐⭐⭐⭐ |      ⭐⭐⭐⭐ |     ⭐⭐⭐⭐⭐ |              ⭐⭐⭐⭐ |         ⭐⭐ |           ⭐⭐ |           ⭐⭐⭐⭐ |
+| calibre            |    ⭐⭐⭐⭐ |       ⭐⭐⭐ |     ⭐⭐⭐⭐⭐ |               ⭐⭐⭐ |         ⭐⭐ |           ⭐⭐ |           ⭐⭐⭐⭐ |
+| Komga              |     ⭐⭐⭐ |       ⭐⭐⭐ |      ⭐⭐⭐⭐ |               ⭐⭐⭐ |          ⭐ |            ⭐ |            ⭐⭐⭐ |
+| Kavita             |     ⭐⭐⭐ |        ⭐⭐ |      ⭐⭐⭐⭐ |               ⭐⭐⭐ |          ⭐ |            ⭐ |            ⭐⭐⭐ |
+| Archivematica      |    ⭐⭐⭐⭐ |        ⭐⭐ |      ⭐⭐⭐⭐ |                ⭐⭐ |      ⭐⭐⭐⭐⭐ |        ⭐⭐⭐⭐⭐ |            ⭐⭐⭐ |
+| **FolioTone-Ziel** |   ⭐⭐⭐⭐⭐ |     ⭐⭐⭐⭐⭐ |     ⭐⭐⭐⭐⭐ |         **⭐⭐⭐⭐⭐** |  **⭐⭐⭐⭐⭐** |        ⭐⭐⭐⭐⭐ |      **⭐⭐⭐⭐⭐** |
+
+Das letzte Feld ist natürlich meine qualitative Einschätzung, **nicht eine objektive Benchmark**.
+
+---
+
+# 11. Der wirklich interessante Konkurrent ist deshalb nicht ein einzelnes Programm
+
+Sondern die Kombination:
+
+```text
+calibre
++
+Czkawka
++
+beets
++
+Hydrus
++
+Archivematica
++
+Open Library
++
+MusicBrainz
+```
+
+Das kann heute schon einen erstaunlichen Teil dessen abdecken, was wir für FolioTone beschrieben haben.
+
+Aber:
+
+**Die Systeme kennen einander nicht.**
+
+Das ist die Lücke.
+
+---
+
+# 12. Beispiel: Was heute mit mehreren Programmen passiert
+
+Du hast:
+
+```text
+/books/
+  Dune.epub
+  Dune.mobi
+  Dune-2015.epub
+  Dune-DE.epub
+  Dune.pdf
+```
+
+Dann könnte heute passieren:
+
+### calibre
+
+```text
+Dune
+Frank Herbert
+...
+```
+
+### Czkawka
+
+```text
+Dune.epub
+Dune-2015.epub
+→ möglicherweise ähnlich
+```
+
+### Open Library
+
+```text
+Work = Dune
+Edition = ...
+```
+
+### EPUBCheck
+
+```text
+Dune.epub = valid
+Dune-2015.epub = warnings
+```
+
+### Hydrus
+
+```text
+SHA256
+metadata
+relationships
+```
+
+Aber niemand sagt zuverlässig:
+
+> **„Das sind 5 Dateien, 1 Werk, 3 Editionen, 4 technische Repräsentationen, 1 echte Dublette; B ist die beste Archivkopie und D ist eine andere deutsche Übersetzung.“**
+
+**Das wäre FolioTone.**
+
+---
+
+# 13. Genau deshalb würde ich dem Autor nicht empfehlen, diese Projekte zu bekämpfen
+
+Im Gegenteil.
+
+Ich würde FolioTone als **Orchestrator und Knowledge Layer** positionieren.
+
+Zum Beispiel:
+
+```text
+                  FOLIOTONE
+                      │
+        ┌─────────────┼─────────────┐
+        ▼             ▼             ▼
+     calibre       Czkawka       Tika
+        │             │             │
+        └─────────────┼─────────────┘
+                      ▼
+                   Evidence
+                      │
+        ┌─────────────┼─────────────┐
+        ▼             ▼             ▼
+   Open Library    Wikidata      MusicBrainz
+        │             │             │
+        └─────────────┼─────────────┘
+                      ▼
+                 Identity Graph
+                      │
+                      ▼
+               Decision Engine
+                      │
+          ┌───────────┼───────────┐
+          ▼           ▼           ▼
+       KEEP       QUARANTINE    ARCHIVE
+```
+
+Das wäre meiner Meinung nach wesentlich stärker als ein weiterer monolithischer „Media Manager“.
+
+---
+
+## Mein Ranking für den Autor
+
+Wenn ich ihm sagen müsste **„Schau dir diese Projekte unbedingt an“**, wäre meine Reihenfolge:
+
+### 🔥 1. Hydrus Network
+
+**Warum:** File Identity, Hash-basierte Identität, Metadaten, Beziehungen, User Decisions, Duplicate Review und API. Das ist konzeptionell extrem lehrreich. ([hydrusnetwork.github.io][1])
+
+### 🔥 2. Archivematica
+
+**Warum:** Provenance, Fixity, Preservation, Packaging, langfristige Integrität. Hier kann FolioTone sehr viel lernen. ([archivematica.org][6])
+
+### 🔥 3. beets
+
+**Warum:** Das beste Beispiel dafür, wie man externe Authority-Daten (MusicBrainz) in einen automatisierten Import-/Matching-Workflow einbindet. ([docs.beets.io][3])
+
+### 🔥 4. Czkawka
+
+**Warum:** Sehr gute technische Grundlage für Duplicate-/Similarity-/Integrity-Provider, inklusive Musik-Fingerprints und Caching. ([GitHub][5])
+
+### 🔥 5. calibre
+
+**Warum:** E-Book-Domainwissen und vorhandene Infrastruktur nicht neu erfinden.
+
+### 🔥 6. Komga
+
+**Warum:** Zeigt, wie aus einer Dateisammlung eine nutzbare E-Book-/Comic-Bibliothek wird, inklusive REST API und Duplicate Detection. ([GitHub][8])
+
+### 🔥 7. Open Library + MusicBrainz + Wikidata
+
+**Warum:** Nicht als Konkurrenz, sondern als **externe Wissensquellen**, die FolioTone zu Evidence Providern machen könnte.
+
+---
+
+## Und damit wird die strategische Frage für FolioTone ziemlich spannend
+
+Nach dieser Recherche würde ich dem Autor **nicht** empfehlen:
+
+> „Baue noch mehr EPUB-Parser.“
+
+Ich würde ihm empfehlen:
+
+> **„Baue eine Schicht, die all diese bereits existierenden Spezialisten miteinander semantisch verbindet.“**
+
+Das wäre tatsächlich etwas, das ich derzeit deutlich weniger häufig sehe:
+
+**eine lokale, nachvollziehbare, versionierte Medien-Wissensbasis, die Dateien nicht nur verwaltet, sondern ihre Identität, Herkunft, Beziehungen, Qualität, Redundanz und Erhaltungszustand kennt.**
+
+Und genau da könnte FolioTone gegenüber calibre, Hydrus, beets, Czkawka, Komga und Archivematica eine eigenständige Position bekommen. 
+
+[1]: https://hydrusnetwork.github.io/hydrus/faq.html?utm_source=chatgpt.com "FAQ - hydrus network"
+[2]: https://hydrusnetwork.github.io/hydrus/developer_api.html?utm_source=chatgpt.com "API documentation - hydrus network"
+[3]: https://docs.beets.io/en/v1.3.9/plugins/duplicates.html?utm_source=chatgpt.com "Duplicates Plugin — beets 1.3.9 documentation"
+[4]: https://komga.org/?utm_source=chatgpt.com "Komga"
+[5]: https://github.com/qarmin/czkawka/blob/master/instructions/Instruction_Core.md?utm_source=chatgpt.com "czkawka/instructions/Instruction_Core.md at master · qarmin/czkawka · GitHub"
+[6]: https://www.archivematica.org/en/?utm_source=chatgpt.com "Archivematica: open-source digital preservation system"
+[7]: https://archivematica.org/en/docs/storage-service-0.20/fixity/?utm_source=chatgpt.com "Fixity | Documentation (Archivematica Storage Service 0.20.1) | Archivematica: open-source digital preservation system"
+[8]: https://github.com/gotson/komga/blob/master/README.md?utm_source=chatgpt.com "komga/README.md at master · gotson/komga · GitHub"
+
+
+
+---
+---
+
+Ja – **ich würde Bilder definitiv aufnehmen**. Und sogar noch weiter: Wenn das langfristige Ziel wirklich eine **allgemeine lokale Media Knowledge-/Reconciliation-Engine** ist, sind Bilder wahrscheinlich der logischste dritte Bereich nach E-Books und Musik.
+
+Allerdings würde ich **nicht einfach „Image Support“ als weiteren Analyzer** hinzufügen. Bilder verändern einige Teile des Modells und eröffnen gleichzeitig sehr interessante Möglichkeiten.
+
+## Warum Bilder so gut passen
+
+Die grundlegenden Probleme sind tatsächlich fast identisch:
+
+```text
+Dateien
+  ↓
+technische Identität
+  ↓
+Inhaltliche Identität
+  ↓
+Metadaten
+  ↓
+externe Identität
+  ↓
+Varianten
+  ↓
+Duplikate
+  ↓
+Qualität
+  ↓
+beste Repräsentation
+  ↓
+Entscheidung
+```
+
+Bei einem Bild hast du beispielsweise:
+
+```text
+IMG_4821.jpg
+photo.jpg
+scan_001.tif
+export-final.webp
+```
+
+und möchtest wissen:
+
+> Sind das vier verschiedene Bilder oder vier Repräsentationen desselben Bildes?
+
+Das ist exakt die Art Problem, für die FolioTone interessant wird.
+
+---
+
+# Aber Bilder sind sogar schwieriger als Bücher
+
+Bei einem Buch kannst du relativ gut sagen:
+
+```text
+gleiche ISBN
+gleicher Text
+gleicher Autor
+→ wahrscheinlich gleiche Edition
+```
+
+Bei Bildern ist die Frage:
+
+```text
+gleiches Motiv?
+gleiche Aufnahme?
+gleiche Datei?
+gleicher Scan?
+gleiche Bearbeitung?
+```
+
+viel komplizierter.
+
+Beispielsweise:
+
+```text
+original.jpg
+    ↓
+Photoshop
+    ↓
+cropped.jpg
+    ↓
+resize.jpg
+    ↓
+watermark.jpg
+    ↓
+converted.webp
+```
+
+Alle könnten **dasselbe Foto** darstellen.
+
+Aber:
+
+```text
+original.jpg
+```
+
+und
+
+```text
+crop.jpg
+```
+
+sind technisch nicht identisch und möglicherweise auch nicht semantisch identisch.
+
+FolioTone müsste deshalb mehrere Ebenen unterscheiden.
+
+---
+
+# Ich würde bei Bildern mindestens 5 Identitäten unterscheiden
+
+## 1. Byte Identity
+
+```text
+SHA-256
+```
+
+> Sind die Dateien exakt gleich?
+
+Das hat FolioTone bereits.
+
+---
+
+## 2. Binary/Perceptual Similarity
+
+Zum Beispiel:
+
+* pHash
+* dHash
+* aHash
+* wHash
+* ggf. PDQ für Bilder
+
+> Sieht das Bild praktisch gleich aus?
+
+Das ist der klassische Duplicate-Finder.
+
+---
+
+## 3. Visual Content Identity
+
+Hier wird es interessanter.
+
+```text
+Foto A
+Foto B
+```
+
+könnten leicht unterschiedlich sein:
+
+* Crop
+* Rotation
+* Farbe
+* Auflösung
+* Kompression
+
+aber dasselbe Motiv zeigen.
+
+Dafür würde ich **nicht nur pHash** verwenden.
+
+Man könnte später zusätzlich Embeddings bzw. lokale Feature-Verfahren einsetzen.
+
+---
+
+## 4. Semantic Identity
+
+Beispielsweise:
+
+```text
+Foto 1:
+  "Eiffelturm bei Nacht"
+
+Foto 2:
+  "Eiffelturm bei Nacht aus anderer Perspektive"
+```
+
+Die Bilder sind semantisch ähnlich, aber **nicht dasselbe Foto**.
+
+Das sollte FolioTone auseinanderhalten.
+
+---
+
+## 5. Provenance / Derivation
+
+Und das halte ich für besonders interessant:
+
+```text
+RAW
+ ↓
+TIFF
+ ↓
+JPEG
+ ↓
+WEBP
+ ↓
+thumbnail
+```
+
+FolioTone könnte irgendwann wissen:
+
+> Diese Dateien sind nicht einfach „ähnlich“. Sie stammen wahrscheinlich voneinander ab.
+
+Das ist **viel interessanter als ein gewöhnlicher Image Duplicate Finder**.
+
+---
+
+# Genau hier sehe ich einen großen Vorteil gegenüber einem normalen Foto-Manager
+
+Stell dir vor:
+
+```text
+IMG_1234.CR3
+IMG_1234.JPG
+IMG_1234-edit.jpg
+IMG_1234-web.jpg
+IMG_1234.webp
+```
+
+Ein gewöhnlicher Duplicate Finder sagt vielleicht:
+
+> 4 ähnliche Dateien.
+
+FolioTone könnte sagen:
+
+```text
+PHOTO GROUP #3821
+
+Original:
+    IMG_1234.CR3
+
+Camera JPEG:
+    IMG_1234.JPG
+
+Edited derivative:
+    IMG_1234-edit.jpg
+
+Web derivative:
+    IMG_1234.webp
+```
+
+Und dann:
+
+```text
+RAW:
+    preserve
+
+Original JPEG:
+    preserve
+
+Edited:
+    preserve
+
+Web:
+    archive/delete candidate
+```
+
+Das ist ein **viel höherer Informationsgehalt**.
+
+---
+
+# Bilder passen hervorragend zu dem „Best Representation“-Konzept
+
+Beispiel:
+
+```text
+Bildgruppe #1847
+
+RAW:
+    6048 × 4024
+    32 MB
+    CR3
+
+TIFF:
+    6048 × 4024
+    142 MB
+
+JPEG:
+    6048 × 4024
+    8 MB
+
+WEBP:
+    1600 × 1064
+    220 KB
+```
+
+Dann kann FolioTone nicht einfach sagen:
+
+> „JPEG ist Duplicate.“
+
+Sondern:
+
+```text
+Master:
+    CR3
+
+Archive derivative:
+    TIFF
+
+Presentation derivative:
+    JPEG
+
+Web derivative:
+    WEBP
+```
+
+**Damit wird aus Duplicate Detection tatsächlich Asset Management.**
+
+---
+
+# Und jetzt kommt ein noch wichtiger Punkt: EXIF
+
+Für Bilder würde ich EXIF zu einer der wichtigsten Evidence-Quellen machen.
+
+Beispielsweise:
+
+```text
+Camera:
+    Canon EOS R5
+
+Lens:
+    RF 24-70mm F2.8
+
+Date:
+    2025-04-17 18:32:11
+
+GPS:
+    ...
+
+Exposure:
+    1/250
+
+ISO:
+    400
+
+Focal length:
+    50mm
+```
+
+Dazu:
+
+* IPTC
+* XMP
+* ICC profile
+* orientation
+* embedded thumbnail
+* software history
+
+Damit könnte FolioTone beispielsweise erkennen:
+
+```text
+photo-A.jpg
+photo-B.jpg
+```
+
+haben unterschiedliche Dateiinhalte, aber:
+
+```text
+same capture timestamp
+same camera
+same lens
+same dimensions
+same visual fingerprint
+```
+
+→ **sehr wahrscheinlich dasselbe Originalfoto bzw. dieselbe Aufnahme.**
+
+---
+
+# Noch besser: Kamera-Originale und Derivate erkennen
+
+Das wäre eine starke Funktion:
+
+```text
+IMG_4832.CR3
+IMG_4832.JPG
+```
+
+werden automatisch als:
+
+```text
+SAME_CAPTURE
+```
+
+gruppiert.
+
+Dann:
+
+```text
+IMG_4832-edited.jpg
+```
+
+als:
+
+```text
+DERIVATIVE_OF
+```
+
+und:
+
+```text
+IMG_4832-thumbnail.webp
+```
+
+als:
+
+```text
+DERIVATIVE_OF
+```
+
+Das wäre für Fotografen enorm nützlich.
+
+---
+
+# Scans sind ein weiterer riesiger Anwendungsfall
+
+Hier überschneiden sich Bilder und E-Books sogar direkt.
+
+Du hast beispielsweise:
+
+```text
+book_scan/
+    page001.tif
+    page002.tif
+    ...
+```
+
+und später:
+
+```text
+book.pdf
+```
+
+FolioTone könnte erkennen:
+
+```text
+PDF
+  ├── page 1 ≈ page001.tif
+  ├── page 2 ≈ page002.tif
+  └── ...
+```
+
+und daraus eine **Provenance-Kette** erstellen:
+
+```text
+physical scan
+      ↓
+TIFF pages
+      ↓
+OCR
+      ↓
+PDF
+      ↓
+EPUB
+```
+
+Das wäre extrem interessant für ein Archivsystem.
+
+---
+
+# Bilder würden außerdem den Begriff „Media Asset“ erzwingen
+
+Und das halte ich für **gut**.
+
+Ich würde langfristig nicht mehr primär denken:
+
+```text
+Book
+Music
+Image
+```
+
+sondern:
+
+```text
+Asset
+```
+
+mit domänenspezifischen Erweiterungen:
+
+```text
+Asset
+ ├── BookAsset
+ ├── MusicAsset
+ ├── ImageAsset
+ ├── VideoAsset
+ └── DocumentAsset
+```
+
+Darunter:
+
+```text
+AssetIdentity
+Evidence
+Derivation
+Representation
+Metadata
+ExternalIdentity
+Quality
+Relations
+```
+
+Das wäre die eigentliche Generalisierung des Projekts.
+
+---
+
+# Welche externe Software würde ich für Bilder verwenden?
+
+Hier wird es spannend.
+
+## 1. ExifTool – für mich Pflicht
+
+[ExifTool](https://exiftool.org/?utm_source=chatgpt.com)
+
+Das wäre vermutlich **der wichtigste externe Image Provider**.
+
+ExifTool kann eine sehr große Bandbreite an Metadaten aus Bilddateien lesen und schreiben und unterstützt eine enorme Anzahl an Dateiformaten und Metadatenstandards.
+
+FolioTone sollte die Daten aber zunächst **read-only als Evidence** übernehmen:
+
+```text
+ExifTool
+    ↓
+EXIF
+IPTC
+XMP
+ICC
+MakerNotes
+...
+```
+
+Nicht sofort die Originaldatei verändern.
+
+---
+
+# 2. ImageMagick
+
+[ImageMagick](https://imagemagick.org/?utm_source=chatgpt.com)
+
+Perfekt für technische Eigenschaften:
+
+* Dimensionen
+* Farbräume
+* Format
+* Kompression
+* Konvertierbarkeit
+* beschädigte Dateien
+* Pixelinformationen
+
+Damit könnte FolioTone beispielsweise feststellen:
+
+```text
+file.jpg
+    6000×4000
+    sRGB
+    JPEG quality ~92
+```
+
+und:
+
+```text
+file.webp
+    1600×1067
+```
+
+---
+
+# 3. libvips
+
+[libvips](https://www.libvips.org/?utm_source=chatgpt.com)
+
+Für große Bildbestände würde ich **libvips sehr ernsthaft prüfen**.
+
+Der Vorteil gegenüber ImageMagick:
+
+libvips ist für große Bilder und hohe Verarbeitungsgeschwindigkeit extrem interessant und arbeitet stark streaming-/pipeline-orientiert.
+
+Bei:
+
+```text
+500.000 Fotos
+```
+
+ist das relevant.
+
+Ich würde daher eher:
+
+```text
+ExifTool → Metadaten
+libvips → technische Bildanalyse
+```
+
+verwenden.
+
+ImageMagick wäre zusätzlicher Fallback/ToolProvider.
+
+---
+
+# 4. ExifTool + libvips + pHash
+
+Für die erste Version könnte man damit schon sehr weit kommen:
+
+```text
+                 Image
+                   │
+          ┌────────┼─────────┐
+          ▼        ▼         ▼
+      ExifTool   libvips   pHash
+          │        │         │
+          ▼        ▼         ▼
+       Metadata Technical Similarity
+```
+
+Dann:
+
+```text
+FolioTone
+   ↓
+Evidence
+   ↓
+Candidate Groups
+```
+
+Das ist ein sehr guter MVP.
+
+---
+
+# 5. OpenCV – später
+
+[OpenCV](https://opencv.org/?utm_source=chatgpt.com)
+
+Damit könnte man später anspruchsvollere Bildvergleiche machen:
+
+* Feature Matching
+* Homography
+* Rotation
+* Cropping
+* lokale Bildmerkmale
+* Near-Duplicate Detection
+
+Aber ich würde OpenCV **nicht als erste externe Abhängigkeit** hinzufügen.
+
+Erst wenn FolioTone wirklich feststellt:
+
+> pHash reicht für unsere Fälle nicht.
+
+---
+
+# 6. CLIP / moderne Vision Embeddings – erst viel später
+
+Hier würde ich sehr vorsichtig sein.
+
+Embeddings könnten Fragen beantworten wie:
+
+> „Sind diese Bilder semantisch ähnlich?“
+
+Aber:
+
+```text
+Katze auf Sofa
+```
+
+und
+
+```text
+Katze auf Teppich
+```
+
+sind semantisch ähnlich, aber nicht dasselbe Foto.
+
+Deshalb:
+
+```text
+pHash
+   ↓
+near duplicate
+
+Embedding
+   ↓
+semantic similarity
+```
+
+**nicht umgekehrt.**
+
+---
+
+# 7. Gesichtserkennung würde ich zunächst NICHT integrieren
+
+Das ist technisch interessant, aber konzeptionell ein völlig neues Fass:
+
+```text
+Person
+  ↓
+Face embedding
+  ↓
+Identity
+```
+
+Damit kommen Datenschutz, Identitätsmodelle und erhebliche Fehlerrisiken hinein.
+
+Für FolioTone ist das für die erste Image-Version **nicht notwendig**.
+
+---
+
+# 8. Was Bilder für das Gesamtprojekt besonders wertvoll macht
+
+Jetzt kommt der wichtigste Punkt.
+
+Mit Büchern hast du:
+
+```text
+Work
+Edition
+File
+```
+
+Mit Musik:
+
+```text
+Work
+Recording
+Release
+File
+```
+
+Mit Bildern:
+
+```text
+Capture
+Original
+Derivative
+Representation
+File
+```
+
+Damit zwingt dich die dritte Domäne dazu, eine **generische Asset-Relationship-Schicht** zu bauen.
+
+Und das halte ich für architektonisch sehr gesund.
+
+---
+
+# Ich würde deshalb das Datenmodell etwas verändern
+
+Nicht:
+
+```text
+BookFile
+MusicFile
+ImageFile
+```
+
+als völlig getrennte Welten.
+
+Sondern:
+
+```text
+Asset
+ │
+ ├── File
+ │
+ ├── Representation
+ │
+ ├── Evidence
+ │
+ ├── ExternalIdentity
+ │
+ ├── Derivation
+ │
+ └── Relation
+```
+
+und dann domänenspezifisch:
+
+```text
+Book
+ └── Work / Edition
+
+Music
+ └── Recording / Release
+
+Image
+ └── Capture / Asset Group
+```
+
+---
+
+# Ein Beispiel, bei dem die ganze Vision sichtbar wird
+
+Angenommen, du hast:
+
+```text
+/books/Dune.epub
+
+/music/Pink Floyd - Money.flac
+
+/photos/IMG_1234.CR3
+/photos/IMG_1234.jpg
+/photos/IMG_1234-web.webp
+```
+
+FolioTone könnte daraus machen:
+
+```text
+COLLECTION
+│
+├── BOOK
+│   └── Dune
+│       └── Edition 2015
+│           ├── EPUB
+│           └── ...
+│
+├── MUSIC
+│   └── Money
+│       └── Recording #...
+│           └── FLAC
+│
+└── IMAGE
+    └── Capture #1234
+        ├── CR3       ← MASTER
+        ├── JPEG      ← CAMERA DERIVATIVE
+        └── WEBP      ← PRESENTATION DERIVATIVE
+```
+
+Und für jedes Asset:
+
+```text
+Identity
+Evidence
+Quality
+Provenance
+Relationships
+Backup state
+User decisions
+```
+
+**Das ist dann tatsächlich eine lokale digitale Asset Knowledge Base.**
+
+---
+
+# Würde ich Bilder jetzt schon aufnehmen?
+
+**Ja – aber nicht sofort als großes Feature.**
+
+Ich würde die Roadmap ungefähr so ändern:
+
+### Phase A
+
+E-Book-System fertigstellen:
+
+```text
+Evidence
+Identity
+Matching
+Review
+Policy
+Planning
+```
+
+### Phase B
+
+Generische Asset-Schicht stabilisieren:
+
+```text
+Asset
+Representation
+Derivation
+Evidence
+ExternalIdentity
+```
+
+### Phase C
+
+Image Provider:
+
+```text
+ExifTool
+libvips
+pHash
+```
+
+### Phase D
+
+Image Matching:
+
+```text
+exact duplicate
+near duplicate
+derivative
+same capture
+```
+
+### Phase E
+
+erst danach:
+
+```text
+semantic image similarity
+OCR
+object detection
+face/person
+```
+
+---
+
+## Mein Urteil
+
+**Bilder sind keine unnötige Scope-Ausweitung. Im Gegenteil: Sie sind ein sehr guter Test, ob FolioTone wirklich zu einer generischen Media-Knowledge-Engine werden kann.**
+
+Und ich würde sogar behaupten:
+
+> **Wenn FolioTone nur Bücher und Musik kann, bleibt es ein spezialisierter Medien-Cleaner. Wenn es Bücher, Musik und Bilder über ein gemeinsames Evidence-/Identity-/Provenance-Modell beherrscht, entsteht etwas wesentlich Eigenständigeres.**
+
+Die wichtigste Änderung wäre dabei, **nicht „Bilder“ in das bestehende Buchmodell hineinzuzwingen**, sondern die gemeinsamen Konzepte herauszuziehen:
+
+**Asset → Representation → Evidence → Identity → Relation → Derivation → Decision.**
+
+Dann sind Bücher, Musik und Bilder nur noch drei unterschiedliche Domänen, die dieselbe Engine benutzen. Das wäre aus meiner Sicht die deutlich stärkere langfristige Architektur.
+
+
+---
+---
