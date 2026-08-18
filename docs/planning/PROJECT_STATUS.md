@@ -1,10 +1,26 @@
 # Projektstatus
 
-Stand: 2026-08-17
+Stand: 2026-08-18
 
 ## Aktuelle Welle
 
-**EB-02 abgeschlossen — persistierte Entity Resolution und Review Core**
+**EB-06 in Bearbeitung — versioniertes E-Book-Matching und Review**
+
+EB-06A ergänzt mit ADR-0030 zunächst reine, relation-spezifische
+Matcherprofile für `EXACT_DUPLICATE`, `SAME_EDITION` und `SAME_WORK`.
+Nur gleicher vollständiger `FILE_SHA256` darf automatisch `CONFIRMED`
+erzeugen. Erstmalige bibliografische Kandidaten bleiben immer
+`REVIEW_REQUIRED`; harte lokale Contradictions können nicht durch Provider-
+oder Tool-Agreement überstimmt werden. Persistenz und Matching-Review folgen
+getrennt in EB-06B.
+
+**Empirisch für EB-06A:** Der gezielte Matching-/Blocking-Verbundlauf bestand
+24 synthetische Tests in 62,55 Sekunden. Er prüft vollständige Hash-
+Confirmation, harte lokale Contradictions, unvermeidbares Review erstmaliger
+bibliografischer Kandidaten, Übersetzungs- und Text-Fingerprint-Grenzen,
+Fingerprint-Stabilität sowie den bestehenden Candidate-Blocking-Vertrag.
+Ruff war für das Repository erfolgreich; Mypy prüfte 110 Source-Dateien ohne
+Befund. Der vollständige Gate läuft genau einmal am Pull Request.
 
 Der kontrollierte Runtime-Cutover, die Trennung zwischen synthetischen
 Entwicklungs-Gates und privatem Hintergrundlauf sowie die langfristige

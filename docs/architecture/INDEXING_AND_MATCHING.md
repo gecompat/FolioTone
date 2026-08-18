@@ -233,6 +233,19 @@ status: PROBABLE
 
 Thresholds for automatic acceptance/review/rejection are not fixed in W0. They must be calibrated with synthetic/public test corpora and false-positive protection.
 
+EB-06A implementiert dafür getrennte Profile
+`ebook-exact-duplicate/1`, `ebook-same-edition/1` und
+`ebook-same-work/1`. Confidence ist das profilspezifische Verhältnis
+unterstützender zu insgesamt bewerteter Feature-Gewichte und keine
+Wahrscheinlichkeit. Fehlende Evidence wird als unbekannt behandelt und nicht
+als Widerspruch gewertet. Nur gleicher vollständiger `FILE_SHA256` darf
+`EXACT_DUPLICATE` automatisch `CONFIRMED` setzen. Erstmalige
+bibliografische Kandidaten bleiben `REVIEW_REQUIRED`; ausdrücklich harte
+lokale Contradictions setzen den Candidate auf `REJECTED`. Ein anderer
+normalisierter Text-Hash allein ist kein materieller Inhaltswiderspruch, und
+abweichende Sprache oder Titel schließen `SAME_WORK` wegen möglicher
+Übersetzungen nicht aus. ADR-0030 fixiert den Vertrag.
+
 ## Identity levels matter
 
 A match must state the level at which equality/relationship is claimed.
