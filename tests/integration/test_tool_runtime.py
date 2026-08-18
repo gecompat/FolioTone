@@ -6,6 +6,14 @@ from pathlib import Path
 import pytest
 
 import foliotone.tooling.runtime as runtime_module
+from foliotone.adapters.calibre.library import (
+    CALIBRE_LIBRARY_PROVIDER,
+    build_calibredb_exact_id_command,
+    build_calibredb_inventory_command,
+    build_calibredb_list_categories_command,
+    build_calibredb_show_metadata_command,
+    build_calibredb_version_command,
+)
 from foliotone.core import ToolCapability, ToolExecutionStatus
 from foliotone.persistence import create_sqlite_engine, migrate, repository
 from foliotone.tooling import (
@@ -109,6 +117,41 @@ def test_local_probe_is_read_only_and_applies_version_policy(tmp_path: Path) -> 
     assert not rejected.usable
     assert rejected.error_summary == "version rejected"
     assert repository(engine, ToolExecution).list_all() == []
+
+
+def test_calibre_library_descriptor_accepts_only_fixed_read_command_capability(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tool_runtime = runtime(tmp_path)
+    library_path = tmp_path / "synthetic-calibre-library"
+    commands = (
+        build_calibredb_version_command(),
+        build_calibredb_inventory_command(
+            library_path,
+            after_record_id=0,
+            limit=1,
+        ),
+        build_calibredb_exact_id_command(library_path, record_id=0),
+        build_calibredb_show_metadata_command(library_path, record_id=0),
+        build_calibredb_list_categories_command(library_path),
+    )
+    monkeypatch.setattr(runtime_module.shutil, "which", lambda _executable: None)
+
+    probes = tuple(
+        tool_runtime.probe_local(CALIBRE_LIBRARY_PROVIDER, command) for command in commands
+    )
+    assert all(not probe.usable for probe in probes)
+
+    with pytest.raises(ValueError, match="does not declare capability"):
+        tool_runtime.probe_local(
+            CALIBRE_LIBRARY_PROVIDER,
+            LocalCommand(
+                executable=sys.executable,
+                args=("-c", "raise SystemExit('must not run')"),
+                capability=ToolCapability.STATUS_REPORT,
+            ),
+        )
 
 
 def test_opt_in_local_probe_cache_is_shared_across_worker_threads(

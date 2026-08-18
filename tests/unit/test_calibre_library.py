@@ -13,6 +13,7 @@ from foliotone.adapters.calibre.library import (
     CALIBRE_LIBRARY_CONFIG_DIRECTORY,
     CALIBRE_LIBRARY_FIELDS,
     CALIBRE_LIBRARY_PREFIX,
+    CALIBRE_LIBRARY_PROVIDER,
     MAX_CALIBRE_CATEGORIES_STDOUT_BYTES,
     MAX_CALIBRE_LIST_STDOUT_BYTES,
     MAX_CALIBRE_METADATA_STDOUT_BYTES,
@@ -88,6 +89,13 @@ def test_fixed_read_only_command_shapes_match_adr_0033() -> None:
         "--categories",
         ",".join(CALIBRE_LIBRARY_CATEGORIES),
     )
+
+
+def test_library_provider_descriptor_registers_only_read_capability() -> None:
+    assert CALIBRE_LIBRARY_PROVIDER.provider_id == "calibre-library"
+    assert CALIBRE_LIBRARY_PROVIDER.adapter_version == "calibredb-library/1"
+    assert CALIBRE_LIBRARY_PROVIDER.capabilities == frozenset({ToolCapability.LIBRARY_READ})
+    assert CALIBRE_LIBRARY_PROVIDER.default_read_only
 
 
 def test_every_builder_applies_the_same_closed_read_only_runtime_policy() -> None:
