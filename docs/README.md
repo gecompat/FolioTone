@@ -53,6 +53,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0029](decisions/ADR-0029-bounded-ebook-candidate-blocking.md) definiert begrenztes read-only E-Book-Candidate-Blocking und book-only Relation Contracts.
 - [ADR-0030](decisions/ADR-0030-versioned-ebook-matcher-profiles.md) definiert relation-spezifische E-Book-Matcherprofile und konservatives Review-Routing.
 - [ADR-0031](decisions/ADR-0031-persisted-relation-candidates-and-review-reuse.md) definiert insert-only Relation-Candidate-Snapshots, konkrete Feature-Evidence und kompatible Matching-Review-Wiederverwendung.
+- [ADR-0032](decisions/ADR-0032-bounded-offline-ebook-matching-workflow.md) definiert den begrenzten Offline-Matching-Workflow, path-freie Review-CLI und weiterhin deaktivierte bibliografische Auto-Confirmation.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

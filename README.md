@@ -128,6 +128,11 @@ Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
 - CLI `ebook-postscan-verify` für die echte SQLite-Read-only-Prüfung von
   Schema, Scan-/Hash-Lineage, bytegenauen Inventarartefakten und begrenzter
   formatabdeckender Collection-Analyse ohne Source-Media-Zugriff;
+- `ebook-matching-workflow/v1` und CLI `ebook-match` für begrenzte,
+  idempotente Relation Candidates aus persistierten Hash-, Edition-Identifier-
+  und Agent/Titel-Blöcken sowie `ebook-match-review-list` und
+  `ebook-match-review-decide` für path-freies append-only
+  ACCEPT/REJECT/DEFER-Review;
 - rohe OPF-Beobachtungen und versionierte, gruppierte Kandidaten für ISBN und
   andere Identifier, Contributors/Rollen/Sortiernamen, Sprache, Verlag,
   Publikationsdatum, Serie und weitere Felder;

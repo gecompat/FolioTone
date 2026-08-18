@@ -138,9 +138,9 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 |---|---|---|
 | W6-001 | PLANNED | Book-only Endpoint-, Identity- und Evidence-Verträge sind durch EB-05 abgeschlossen; MusicWork/Recording/ReleaseGroup/Release bleiben offen. |
 | W6-002 | PLANNED | EB-05 implementiert bounded read-only E-Book-Blocking für Hashes, Identifier, Resolution, Agent/Titel, Text und Series-Kontext; Music-, Audio- und weitere Kontextblöcke bleiben offen. |
-| W6-003 | PLANNED | EB-06A implementiert reine versionierte Profile für Exact Duplicate, Same Edition und Same Work; persistierter Workflow und Music-Profile bleiben offen. |
-| W6-004 | PLANNED | EB-06B persistiert book-only Relation-Candidate-Feature-Links mit konkreter ToolExecution-fähiger Provenance; vollständige human-readable Projektion und Music-Fälle bleiben offen. |
-| W6-005 | PLANNED | Calibrate review thresholds using controlled fixtures; prioritize false-positive protection. |
+| W6-003 | PLANNED | EB-06 schließt versionierte book-only Profile und den persistierten bounded Workflow für Exact Duplicate, Same Edition und Same Work ab; Music-Profile bleiben offen. |
+| W6-004 | PLANNED | EB-06B/EB-06C persistieren book-only Relation-Candidate-Feature-Links und projizieren eine path-freie Explanation; Music-Fälle bleiben offen. |
+| W6-005 | PLANNED | EB-06 kalibriert die konservative book-only Grenze am kontrollierten adversarial Korpus; bibliografische Auto-Confirmation und Music-Kalibrierung bleiben offen. |
 | W6-006 | PLANNED | EB-06A schützt book-only Profile gegen das Überstimmen harter lokaler Contradictions; Recording-/Music-Fälle bleiben offen. |
 | W6-007 | PLANNED | Match archive members, physical files and publication containers at separate file/content/Edition levels; an online password result or equal filename is never sufficient identity Evidence. |
 
@@ -149,7 +149,7 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 | ID | Status | Item |
 |---|---|---|
 | W7-001 | DONE | Persist the generic review queue and append-only accept/reject/defer decision history with optimistic snapshot fencing. |
-| W7-002 | PLANNED | EB-06B integriert ACCEPT/REJECT/DEFER und kompatible Wiederverwendung für book-only Relation Candidates; Authority-UI/CLI, Alias- und Music-Fälle bleiben offen. |
+| W7-002 | PLANNED | EB-06 integriert CLI-basiertes ACCEPT/REJECT/DEFER und kompatible Wiederverwendung für book-only Relation Candidates; Authority-CLI, Alias- und Music-Fälle bleiben offen. |
 | W7-003 | DONE | Reuse compatible ACCEPT/REJECT authority decisions while keeping DEFER reviewable; material or compatibility changes create a new case. |
 
 ## W8 — Calibre Library Adapter

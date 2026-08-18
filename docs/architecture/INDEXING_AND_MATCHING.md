@@ -58,6 +58,22 @@ Streaming-Hash und ist über denselben CLI-Aufruf fortsetzbar.
 Quick-Kollisionen bleiben Kandidaten; gleiche vollständige SHA-256-Werte
 liefern erst die exakte Datei-Evidence. ADR-0023 ist verbindlich.
 
+## Begrenzter E-Book-Matching-Workflow
+
+`ebook-matching-workflow/v1` liest einen expliziten neuesten abgeschlossenen
+Scan-Snapshot und expandiert ausschließlich begrenzte Candidate Blocks.
+`FILE_SHA256`-Gruppen verwenden einen kanonischen Repräsentanten;
+`EDITION_IDENTIFIER` und `AGENT_TITLE` erzeugen nur Kandidaten zwischen
+unterschiedlichen bereits aufgelösten Entity-IDs. Persistierte Feature-Links
+werden vor dem Insert erneut durch das versionierte Matcherprofil bewertet.
+
+Erstmalige `SAME_EDITION`- und `SAME_WORK`-Fälle bleiben unabhängig von ihrer
+Confidence im Review. Die CLI zeigt nur opake Endpoints und aggregierte
+Feature-Codes. ACCEPT, REJECT und DEFER werden append-only und optimistisch
+gefencet; eine kompatible ACCEPT-/REJECT-Entscheidung kann wiederverwendet
+werden. Der Workflow erzeugt keine kanonische `Relation` und öffnet keine
+Source Media. Details stehen in ADR-0030 bis ADR-0032.
+
 ## Move/rename candidate detection
 
 Path is not file identity. W2 therefore treats possible relocation as a candidate-generation problem rather than rewriting `FileRecord` identity.

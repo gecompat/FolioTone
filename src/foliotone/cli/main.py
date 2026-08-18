@@ -33,6 +33,11 @@ from foliotone.core import (
     FileRecord,
     MediaType,
     RelocationCandidateKind,
+    ReviewActorKind,
+    ReviewDecision,
+    ReviewDecisionValue,
+    ReviewItemState,
+    ReviewType,
     ScanRoot,
     ScanRun,
     ToolExecutionStatus,
@@ -56,12 +61,15 @@ from foliotone.persistence import (
     EbookCollectionReportStoreError,
     EbookCollectionStoreError,
     EbookInventoryReportStoreError,
+    ResolutionReviewStoreError,
     ScanRootWriteLeaseError,
     ScanRootWriteOwnerKind,
     SQLiteEbookCandidateHashRunStore,
     SQLiteEbookCollectionReportStore,
     SQLiteEbookCollectionStore,
     SQLiteEbookInventoryReportStore,
+    SQLiteRelationCandidateStore,
+    SQLiteResolutionReviewStore,
     SQLiteScanRootWriteLeaseStore,
     create_sqlite_engine,
     create_sqlite_read_only_engine,
@@ -91,6 +99,8 @@ from foliotone.workflows import (
     EbookInventoryReportError,
     EbookInventoryReportLimits,
     EbookInventoryReportService,
+    EbookMatchingError,
+    EbookMatchingService,
     PostscanCompletionVerifier,
     candidate_hash_status_payload,
     ebook_analysis_format,
@@ -106,6 +116,25 @@ _HASH_MODES = {
     "quick": HashMode.QUICK,
     "full": HashMode.FULL,
 }
+
+
+def _optional_entity_id(value: str) -> EntityId | None:
+    if value.strip().upper() == "NONE":
+        return None
+    try:
+        return EntityId.parse(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("expected NONE or a valid entity ID") from error
+
+
+def _aware_datetime(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("expected an ISO-8601 timestamp") from error
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise argparse.ArgumentTypeError("timestamp must include a timezone offset")
+    return parsed
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -586,8 +615,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar=f"1..{MAX_EBOOK_COLLECTION_WORKERS}",
         help=(
-            "Bounded analyzer worker count for a new run; defaults to 1 and is "
-            "preserved on resume."
+            "Bounded analyzer worker count for a new run; defaults to 1 and is preserved on resume."
         ),
     )
     ebook_collection_maintain.add_argument(
@@ -620,9 +648,7 @@ def build_parser() -> argparse.ArgumentParser:
     ebook_collection_maintain.add_argument(
         "--artifact-root",
         type=Path,
-        default=Path(
-            os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")
-        ),
+        default=Path(os.environ.get("FOLIOTONE_TOOL_ARTIFACT_ROOT", "/data/tool-artifacts")),
         help="Durable private tool-artifact root; defaults to /data/tool-artifacts.",
     )
     ebook_collection_maintain.add_argument(
@@ -911,6 +937,64 @@ def build_parser() -> argparse.ArgumentParser:
             "without opening source media."
         ),
     )
+
+    ebook_match = subparsers.add_parser(
+        "ebook-match",
+        help="Persist bounded offline E-book relation candidates for one completed scan.",
+    )
+    ebook_match.add_argument("--scan-root", required=True, help="Existing logical EBOOK root.")
+    ebook_match.add_argument(
+        "--scan-run",
+        required=True,
+        type=EntityId.parse,
+        help="Explicit latest completed ScanRun ID.",
+    )
+    ebook_match.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="SQLite database path; defaults to /data/foliotone.db.",
+    )
+    ebook_match.add_argument("--block-limit", type=int, default=100)
+    ebook_match.add_argument("--candidate-limit", type=int, default=200)
+    ebook_match.add_argument("--pairwise-limit", type=int, default=32)
+    ebook_match.add_argument("--output", choices=("text", "json"), default="text")
+
+    match_review_list = subparsers.add_parser(
+        "ebook-match-review-list",
+        help="List bounded pending/deferred matching review items without source access.",
+    )
+    match_review_list.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+    )
+    match_review_list.add_argument("--limit", type=int, default=100)
+    match_review_list.add_argument("--after-created-at", type=_aware_datetime)
+    match_review_list.add_argument("--after-id", type=EntityId.parse)
+    match_review_list.add_argument("--output", choices=("text", "json"), default="text")
+
+    match_review_decide = subparsers.add_parser(
+        "ebook-match-review-decide",
+        help="Append an optimistically fenced matching review decision.",
+    )
+    match_review_decide.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+    )
+    match_review_decide.add_argument("--review-item", required=True, type=EntityId.parse)
+    match_review_decide.add_argument(
+        "--decision", required=True, choices=("accept", "reject", "defer")
+    )
+    match_review_decide.add_argument("--reason-code", required=True)
+    match_review_decide.add_argument(
+        "--expected-latest-decision",
+        required=True,
+        type=_optional_entity_id,
+        metavar="NONE|UUID",
+    )
+    match_review_decide.add_argument("--output", choices=("text", "json"), default="text")
     postscan_verify.add_argument(
         "--scan-root",
         required=True,
@@ -1138,8 +1222,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             "available through ebook-inventory-report."
         )
         print(
-            "The bounded postscan lineage can be verified read-only through "
-            "ebook-postscan-verify."
+            "The bounded postscan lineage can be verified read-only through ebook-postscan-verify."
+        )
+        print(
+            "Bounded offline relation candidates and append-only matching review are "
+            "available through ebook-match and ebook-match-review-* commands."
         )
         print("Read-only PDF metadata and text analysis is available through pdf-analyze.")
         print("Read-only EPUB conformance evidence is available through epub-validate.")
@@ -1182,6 +1269,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-postscan-verify":
         return _run_ebook_postscan_verify(args)
+
+    if args.command == "ebook-match":
+        return _run_ebook_match(args)
+
+    if args.command == "ebook-match-review-list":
+        return _run_ebook_match_review_list(args)
+
+    if args.command == "ebook-match-review-decide":
+        return _run_ebook_match_review_decide(args)
 
     if args.command == "ebook-compare":
         return _run_ebook_compare(args)
@@ -1727,14 +1823,9 @@ def _run_ebook_collection_inventory_report(
             return 2
         root = roots[0]
         if root.media_type is not MediaType.EBOOK or not root.enabled:
-            print(
-                "E-book inventory report failed: ScanRoot must be an enabled "
-                "EBOOK root."
-            )
+            print("E-book inventory report failed: ScanRoot must be an enabled EBOOK root.")
             return 2
-        outcome = EbookInventoryReportService(
-            SQLiteEbookInventoryReportStore(engine)
-        ).generate(
+        outcome = EbookInventoryReportService(SQLiteEbookInventoryReportStore(engine)).generate(
             root.id,
             report_root,
             limits=limits,
@@ -1759,9 +1850,7 @@ def _run_ebook_collection_inventory_report(
     print(f"Observations: {outcome.observations}")
     print(f"Total bytes: {outcome.total_bytes}")
     for aggregate in outcome.formats:
-        observation_label = (
-            "observation" if aggregate.observations == 1 else "observations"
-        )
+        observation_label = "observation" if aggregate.observations == 1 else "observations"
         print(
             f"Format {aggregate.format_name}: {aggregate.observations} "
             f"{observation_label}, {aggregate.total_bytes} bytes"
@@ -1769,10 +1858,7 @@ def _run_ebook_collection_inventory_report(
     print(f"Full-hash observations: {outcome.full_hash_observations}")
     print(f"Quick candidate groups: {outcome.quick_candidate_groups}")
     print(f"Quick candidate observations: {outcome.quick_candidate_observations}")
-    print(
-        "Quick candidates missing full hash: "
-        f"{outcome.quick_candidates_missing_full_hash}"
-    )
+    print(f"Quick candidates missing full hash: {outcome.quick_candidates_missing_full_hash}")
     print(f"Exact duplicate groups: {outcome.exact_duplicate_groups}")
     print(f"Exact duplicate observations: {outcome.exact_duplicate_members}")
     print(f"Potential redundant bytes: {outcome.redundant_bytes}")
@@ -1805,8 +1891,7 @@ def _run_ebook_collection_analysis(
         or args.plan_per_format is not None
     ):
         raise ValueError(
-            "--fresh, --workers, --plan-limit, and --plan-per-format cannot "
-            "change a resumed run."
+            "--fresh, --workers, --plan-limit, and --plan-per-format cannot change a resumed run."
         )
 
     migrate(args.database)
@@ -2071,6 +2156,281 @@ def _ebook_postscan_verify_error(
     else:
         print("E-book postscan verification failed: read-only state is unavailable.")
     return 2
+
+
+def _run_ebook_match(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    if not database.is_file():
+        return _ebook_match_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        migrate(database)
+        engine = create_sqlite_engine(database)
+        try:
+            roots = tuple(
+                root
+                for root in repository(engine, ScanRoot).list_all()
+                if root.name == args.scan_root.strip()
+                and root.enabled
+                and root.media_type is MediaType.EBOOK
+            )
+            if len(roots) != 1:
+                return _ebook_match_error(args, "SCAN_ROOT_NOT_FOUND")
+            outcome = EbookMatchingService(engine).run(
+                roots[0].id,
+                args.scan_run,
+                block_limit=args.block_limit,
+                candidate_limit=args.candidate_limit,
+                pairwise_limit=args.pairwise_limit,
+            )
+        finally:
+            engine.dispose()
+    except KeyboardInterrupt:
+        return 130
+    except (EbookMatchingError, OperationalError, OSError, ValueError):
+        return _ebook_match_error(args, "MATCHING_FAILED")
+
+    payload = {
+        "schema_version": 1,
+        "command": "ebook-match",
+        "ok": True,
+        "scan_root": args.scan_root.strip(),
+        "scan_run_id": str(outcome.scan_run_id),
+        "profile": outcome.profile,
+        "blocks_seen": outcome.blocks_seen,
+        "candidates_available": outcome.candidates_available,
+        "candidates_processed": outcome.candidates_processed,
+        "confirmed": outcome.confirmed,
+        "rejected": outcome.rejected,
+        "review_queued": outcome.review_queued,
+        "decisions_reused": outcome.decisions_reused,
+        "truncated": outcome.truncated,
+    }
+    if args.output == "json":
+        _emit_json(payload)
+    else:
+        print(f"ScanRoot: {payload['scan_root']}")
+        print(f"Source ScanRun: {payload['scan_run_id']}")
+        print(f"Matching profile: {outcome.profile}")
+        print(f"Candidate blocks: {outcome.blocks_seen}")
+        print(f"Candidates available: {outcome.candidates_available}")
+        print(f"Candidates processed: {outcome.candidates_processed}")
+        print(f"Exact duplicates confirmed: {outcome.confirmed}")
+        print(f"Candidates rejected: {outcome.rejected}")
+        print(f"Review items queued: {outcome.review_queued}")
+        print(f"Prior decisions reused: {outcome.decisions_reused}")
+        print(f"Status: {'BOUNDED' if outcome.truncated else 'COMPLETED'}")
+    return 3 if outcome.truncated else 0
+
+
+def _ebook_match_error(args: argparse.Namespace, code: str) -> int:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": "ebook-match",
+                "ok": False,
+                "error": {"code": code},
+            }
+        )
+    else:
+        print("E-book matching failed: persisted state is unavailable or inconsistent.")
+    return 2
+
+
+def _run_ebook_match_review_list(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    if not database.is_file():
+        return _ebook_match_review_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        if (args.after_created_at is None) != (args.after_id is None):
+            raise ValueError("both review cursor fields are required")
+        after = (
+            None
+            if args.after_created_at is None
+            else (args.after_created_at, args.after_id)
+        )
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            review_store = SQLiteResolutionReviewStore(engine)
+            candidate_store = SQLiteRelationCandidateStore(engine)
+            page = review_store.list_queue(
+                limit=args.limit,
+                after=after,
+                review_type=ReviewType.MATCH_RELATION,
+            )
+            items = []
+            for item in page.items:
+                candidate = candidate_store.get(item.candidate_id)
+                if candidate is None:
+                    raise ResolutionReviewStoreError("matching candidate is unavailable")
+                items.append(
+                    (
+                        item,
+                        review_store.get_effective_decision(item.id),
+                        candidate,
+                        candidate_store.evidence(candidate.id),
+                    )
+                )
+        finally:
+            engine.dispose()
+    except (OperationalError, OSError, ResolutionReviewStoreError, ValueError):
+        return _ebook_match_review_error(args, "REVIEW_READ_FAILED")
+    payload = {
+        "schema_version": 1,
+        "command": "ebook-match-review-list",
+        "ok": True,
+        "items": [
+            {
+                "id": str(item.id),
+                "candidate_id": str(candidate.id),
+                "state": item.state.value,
+                "relation_type": candidate.relation_type.value,
+                "status": candidate.status.value,
+                "confidence": candidate.confidence,
+                "left": {"kind": candidate.left_kind.value, "id": str(candidate.left_id)},
+                "right": {"kind": candidate.right_kind.value, "id": str(candidate.right_id)},
+                "producer": item.producer_name,
+                "producer_version": item.producer_version,
+                "created_at": item.created_at.isoformat(),
+                "explanation": [
+                    {"code": code, "state": state, "evidence_count": count}
+                    for (code, state), count in sorted(
+                        Counter(
+                            (link.feature_code.value, link.feature_state.value) for link in evidence
+                        ).items()
+                    )
+                ],
+                "latest_decision": (
+                    None
+                    if decision is None
+                    else {
+                        "id": str(decision.id),
+                        "sequence_no": decision.sequence_no,
+                        "decision": decision.decision.value,
+                    }
+                ),
+            }
+            for item, decision, candidate, evidence in items
+        ],
+        "has_more": page.next_cursor is not None,
+        "next_cursor": (
+            None
+            if page.next_cursor is None
+            else {
+                "created_at": page.next_cursor[0].isoformat(),
+                "id": str(page.next_cursor[1]),
+            }
+        ),
+    }
+    if args.output == "json":
+        _emit_json(payload)
+    else:
+        print(f"Matching review items: {len(items)}")
+        for item, decision, candidate, evidence in items:
+            latest = "NONE" if decision is None else str(decision.id)
+            print(
+                f"{item.id} {item.state.value} {candidate.relation_type.value} "
+                f"{candidate.left_kind.value}:{candidate.left_id} "
+                f"{candidate.right_kind.value}:{candidate.right_id} "
+                f"candidate={candidate.id} latest={latest}"
+            )
+            counts = Counter(link.feature_code.value for link in evidence)
+            for code, count in sorted(counts.items()):
+                print(f"  {code}: {count} Evidence link(s)")
+        print(f"More items: {'yes' if page.next_cursor is not None else 'no'}")
+        if page.next_cursor is not None:
+            print(f"Next created-at: {page.next_cursor[0].isoformat()}")
+            print(f"Next ID: {page.next_cursor[1]}")
+    return 0
+
+
+def _run_ebook_match_review_decide(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    if not database.is_file():
+        return _ebook_match_review_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        migrate(database)
+        engine = create_sqlite_engine(database)
+        try:
+            store = SQLiteResolutionReviewStore(engine)
+            item = store.get_review_item(args.review_item)
+            if item is None or item.review_type is not ReviewType.MATCH_RELATION:
+                return _ebook_match_review_error(args, "REVIEW_ITEM_NOT_FOUND")
+            if item.state not in {ReviewItemState.PENDING, ReviewItemState.DEFERRED}:
+                return _ebook_match_review_error(args, "REVIEW_ITEM_NOT_ACTIVE")
+            latest = store.get_effective_decision(item.id)
+            latest_id = None if latest is None else latest.id
+            if latest_id != args.expected_latest_decision:
+                return _ebook_match_review_error(args, "REVIEW_HISTORY_CHANGED")
+            decision_value = {
+                "accept": ReviewDecisionValue.ACCEPT,
+                "reject": ReviewDecisionValue.REJECT,
+                "defer": ReviewDecisionValue.DEFER,
+            }[args.decision]
+            decision = ReviewDecision(
+                EntityId.new(),
+                item.id,
+                1 if latest is None else latest.sequence_no + 1,
+                decision_value,
+                args.reason_code,
+                item.evidence_fingerprint,
+                item.candidate_set_fingerprint,
+                item.decision_compatibility_version,
+                ReviewActorKind.USER,
+                datetime.now(UTC),
+            )
+            stored = store.append_decision(
+                decision,
+                expected_latest_decision_id=args.expected_latest_decision,
+            )
+        finally:
+            engine.dispose()
+    except (OperationalError, OSError, ResolutionReviewStoreError, ValueError):
+        return _ebook_match_review_error(args, "REVIEW_WRITE_FAILED")
+    payload = {
+        "schema_version": 1,
+        "command": "ebook-match-review-decide",
+        "ok": True,
+        "review_item_id": str(stored.review_item_id),
+        "decision_id": str(stored.id),
+        "sequence_no": stored.sequence_no,
+        "decision": stored.decision.value,
+    }
+    if args.output == "json":
+        _emit_json(payload)
+    else:
+        print(f"Review item: {stored.review_item_id}")
+        print(f"Decision: {stored.decision.value}")
+        print(f"Sequence: {stored.sequence_no}")
+        print(f"Decision ID: {stored.id}")
+    return 0
+
+
+def _ebook_match_review_error(args: argparse.Namespace, code: str) -> int:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": args.command,
+                "ok": False,
+                "error": {"code": code},
+            }
+        )
+    else:
+        print("E-book matching review failed: persisted state is unavailable or stale.")
+    return 2
+
+
+def _emit_json(payload: object) -> None:
+    print(
+        json.dumps(
+            payload,
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    )
 
 
 def _ebook_analysis_orchestrator(
