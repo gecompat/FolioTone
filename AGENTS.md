@@ -26,15 +26,16 @@ Read these files in order:
 2. `docs/planning/HANDOVER.md`
 3. `docs/planning/IMPLEMENTATION_PLAN.md`
 4. `docs/planning/BACKLOG.md`
-5. `docs/quality/DOCUMENTATION_STYLE.md` when documentation prose is touched
-6. `docs/quality/LANGUAGE_AND_TERMINOLOGY.md` when documentation prose or terminology is touched
-7. `docs/reference/GLOSSARY.md` when domain terminology is touched
-8. `docs/architecture/OVERVIEW.md`
-9. `docs/architecture/DOMAIN_MODEL.md`
-10. `docs/architecture/AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`
-11. `docs/reference/EXTERNAL_TOOLS.md` when work touches media analysis/tool orchestration
-12. `docs/reference/EXTERNAL_DATA_SOURCES.md` when work touches external knowledge/providers
-13. relevant files under `docs/architecture/` and `docs/decisions/`
+5. `docs/planning/MODEL_ROUTING_POLICY.md` before selecting a model or delegating work
+6. `docs/quality/DOCUMENTATION_STYLE.md` when documentation prose is touched
+7. `docs/quality/LANGUAGE_AND_TERMINOLOGY.md` when documentation prose or terminology is touched
+8. `docs/reference/GLOSSARY.md` when domain terminology is touched
+9. `docs/architecture/OVERVIEW.md`
+10. `docs/architecture/DOMAIN_MODEL.md`
+11. `docs/architecture/AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`
+12. `docs/reference/EXTERNAL_TOOLS.md` when work touches media analysis/tool orchestration
+13. `docs/reference/EXTERNAL_DATA_SOURCES.md` when work touches external knowledge/providers
+14. relevant files under `docs/architecture/` and `docs/decisions/`
 
 If repository code and documentation disagree, treat the discrepancy as a defect. Determine the actual state, then update code and documentation together.
 
@@ -85,6 +86,11 @@ Outgoing provider requests must not contain absolute local paths. Send only the 
 ## 4. Development workflow
 
 Work in the currently active wave unless a blocking dependency requires another documented task.
+
+Select models, Thinking levels and agent delegation according to
+`docs/planning/MODEL_ROUTING_POLICY.md`. A wave-specific plan may impose a
+stricter model or stop condition, but it may not weaken the repository-wide
+risk classification.
 
 For each coherent change:
 

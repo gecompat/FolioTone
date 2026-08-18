@@ -17,8 +17,9 @@ Maßgeblich bleiben:
 3. `IMPLEMENTATION_PLAN.md` für die W0-bis-W10-Folge;
 4. `EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` und
    `EBOOK_SPARK_WORK_PACKAGES.md` für die E-Book-Pakete;
-5. `EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md` für Archive;
-6. akzeptierte ADRs für Architektur- und Sicherheitsverträge.
+5. `MODEL_ROUTING_POLICY.md` für Modell-, Thinking- und Agentenauswahl;
+6. `EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md` für Archive;
+7. akzeptierte ADRs für Architektur- und Sicherheitsverträge.
 
 Die Einordnungen in diesem Dokument unterscheiden:
 
@@ -44,7 +45,7 @@ Statusachse und keine öffentlichen Runtime-Literale.
   gleichwertiges im bestehenden Plan vorgesehenes Frontier-Gate.
 - Eine Fähigkeit wird erst dann in `BACKLOG.md` übernommen, wenn ihr
   Nutzerergebnis, Scope, Preconditions, Privacy-Grenze, Abnahmekriterium und
-  Modellwahl feststehen.
+  Modellwahl gemäß `MODEL_ROUTING_POLICY.md` feststehen.
 - Source-Media-Mutation, Quarantäne, Purge, Retagging und
   Verzeichnisbereinigung bleiben unabhängig von dieser Map durch W10
   blockiert.

@@ -28,17 +28,20 @@ keinen unfertigen Zustand auf `main` hinterlässt.
 
 ## Adaptive Modell- und Thinking-Regel
 
-Der koordinierende Codex-Task wählt Modell und Thinking automatisch anhand der
-Aufgabenklasse. Eine erneute Benutzerfrage ist nicht erforderlich, solange die
-Arbeit innerhalb des genehmigten E-Book-Scopes und der nachstehenden Grenzen
-bleibt.
+Der repositoryweite Vertrag steht in
+[`MODEL_ROUTING_POLICY.md`](MODEL_ROUTING_POLICY.md). Der koordinierende
+Codex-Task wählt Modell und Thinking automatisch anhand dieser Richtlinie und
+der nachstehenden strengeren E-Book-Grenzen. Eine erneute Benutzerfrage ist
+nicht erforderlich, solange die Arbeit innerhalb des genehmigten E-Book-Scopes
+und dieser Grenzen bleibt.
 
 | Aufgabenklasse | Modell | Standard | Zulässige Eskalation |
 |---|---|---|---|
-| Atomare Pakete dieses Dokuments | `gpt-5.3-codex-spark` | `high` | `xhigh` nur für komplexe Integration oder schwer reproduzierbare Testfehler innerhalb eines bereits festgelegten Vertrags |
-| Statusabgleich, Planpflege, gewöhnliche Reviews, CI-Triage und Merge-Verifikation | `gpt-5.6-sol` | `medium` | `high`, wenn mehrere kanonische Verträge oder Wellen konsistent abgeglichen werden müssen |
-| Frontier-Gates für Provider, Classification, Calibre, Persistenz und nicht ausführbare Planung | `gpt-5.6-sol` | `high` | `xhigh`, wenn eine der kritischen Risikoklassen betroffen ist |
-| EB-01, EB-02, EB-05, EB-06, Archive-Security und vergleichbare kritische Architekturarbeit | `gpt-5.6-sol` | `xhigh` | `max` nur nach den unten festgelegten Kriterien |
+| Atomare Pakete dieses Dokuments | `gpt-5.3-codex-spark` | `high` | Wechsel zu 5.4 Mini oder 5.6 Terra nur nach dem repositoryweiten Fallback-Vertrag; eine offene Architekturfrage stoppt das Paket |
+| Statusabgleich, gewöhnliche Reviews, CI-Triage und Merge-Verifikation | `gpt-5.6-luna` | `low` oder `medium` | 5.4 Mini oder 5.6 Terra nur bei Kapazitäts- oder Qualitätsbedarf |
+| Gewöhnliche Integration innerhalb akzeptierter Verträge | `gpt-5.6-terra` | `medium` | `high`, wenn mehrere Schichten oder ein ungeklärter reproduzierbarer Fehler betroffen sind |
+| Frontier-Gates für Provider, Classification, Calibre, Persistenz und nicht ausführbare Planung | `gpt-5.6-sol` | `medium` | `high`, wenn neue öffentliche Verträge oder mehrere kanonische Schichten betroffen sind |
+| EB-01, EB-02, EB-05, EB-06, Archive-Security und vergleichbare kritische Architekturarbeit | `gpt-5.6-sol` | `high` | `xhigh` nur für die unten genannten kritischen Risikoklassen; `max` nur nach den festgelegten Kriterien |
 | W10-Entscheidung oder bestätigter datenverlustrelevanter Fehler | `gpt-5.6-sol` | `max` | keine automatische Erweiterung des genehmigten Scopes |
 
 Eine Eskalation von `medium` auf `high` erfolgt, wenn mindestens eines der
@@ -52,7 +55,8 @@ folgenden Merkmale vorliegt:
   ungeklärt;
 - ein Pull Request verändert mehrere Schichten trotz bereits begrenztem Scope.
 
-Eine Eskalation auf `xhigh` erfolgt nur bei:
+Eine Eskalation des nach der Modellmatrix zuständigen Frontier-Modells auf
+`xhigh` erfolgt nur bei:
 
 - Lease, Fencing, stale Takeover, atomaren Writes oder anderer Nebenläufigkeit;
 - Identity Resolution, Relation Taxonomy, Candidate Blocking, Scoring,
@@ -286,20 +290,22 @@ Ein Paket ist nur abgeschlossen, wenn:
 ## Wiederverwendbarer Ausführungsauftrag
 
 Der folgende Auftrag wird immer nur für genau eine Paket-ID verwendet. Die
-Platzhalter werden vor Start durch einen koordinierenden Frontier-Task ersetzt.
+Platzhalter werden vor Start durch den koordinierenden Task ersetzt.
 
 ```text
 Arbeite im FolioTone-Repository unter C:\rep und implementiere ausschließlich
 das Paket <PAKET-ID> aus
 docs/planning/EBOOK_SPARK_WORK_PACKAGES.md.
 
-Dieser Task ist für 5.3 Codex Spark mit Thinking `high` vorgesehen. Der
-koordinierende Task darf auf `xhigh` wechseln, wenn die im Katalog definierten
-Eskalationskriterien innerhalb des bereits festgelegten Vertrags erfüllt sind.
+Dieser Task ist für 5.3 Codex Spark mit Thinking `high` vorgesehen. Wenn die
+Aufgabe trotz des bereits festgelegten Vertrags mehrere Schichten integriert
+oder einen schwer reproduzierbaren Fehler betrifft, darf der koordinierende
+Task gemäß `MODEL_ROUTING_POLICY.md` auf 5.6 Terra mit `high` wechseln.
 Eine fehlende Architektur- oder Sicherheitsentscheidung ist kein
 Eskalationsgrund, sondern eine Stoppbedingung für dieses Paket.
 
 Ausgangsbasis ist origin/main bei <COMMIT>. Lies AGENTS.md,
+docs/planning/MODEL_ROUTING_POLICY.md,
 docs/planning/EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md und den vollständigen
 Paketeintrag. Prüfe zuerst Voraussetzungen, Vorgänger, Dirty State und den
 erlaubten Dateibereich. Verwende bei vorhandenen Benutzeränderungen einen

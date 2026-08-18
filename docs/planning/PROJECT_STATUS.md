@@ -25,6 +25,13 @@ nicht statussetzender Entwurf in
 `docs/planning/FUTURE_CAPABILITY_MAP.md` konsolidiert. Der Entwurf ändert
 weder die EB-Reihenfolge noch die W10-Sperre.
 
+Die repositoryweite Ausführungsrichtlinie
+`docs/planning/MODEL_ROUTING_POLICY.md` ordnet kommende Aufgaben
+ressourcenbewusst 5.3 Codex Spark, 5.6 Luna, 5.6 Terra oder 5.6 Sol zu. Neue
+Wellen müssen Aufgabenklasse, Thinking, Fallback, erlaubte Dateien, Checks und
+Stopbedingungen vor Implementierung festlegen. Die Richtlinie ändert keinen
+fachlichen Wellenstatus und autorisiert keine Source-Media-Mutation.
+
 **Abgeschlossene Voraussetzung: EB-06 — versioniertes E-Book-Matching und Review**
 
 EB-06A ergänzt mit ADR-0030 zunächst reine, relation-spezifische
