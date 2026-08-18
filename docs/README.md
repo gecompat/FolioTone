@@ -2,6 +2,12 @@
 
 Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwicklung sind `AGENTS.md`, Projektstatus, Handover, Backlog und die relevanten ADRs maßgeblich. Für fachliche Nutzung führen Einstieg, Architektur und Referenzen von der allgemeinen Orientierung zu den technischen Details.
 
+## Produktvision und langfristige Einordnung
+
+- [Evidence-driven Collection Intelligence](vision/EVIDENCE_DRIVEN_COLLECTION_INTELLIGENCE.md) beschreibt als strategischer Entwurf die langfristige local-first Produktthese, Medienfolge und Informationsgrenzen. Das Dokument entscheidet keine neuen Architekturverträge oder Aufgabenstatus.
+- [Future Capability Map](planning/FUTURE_CAPABILITY_MAP.md) ordnet die vorgeschlagenen Fähigkeiten kollisionsfrei den bestehenden W-, EB-, EA- und FUT-Plänen zu.
+- [Persönliche Ideen und Gedankensammlungen](ideas/owner-notes/README.md) archivieren nichtkanonische Rohnotizen. Der Bereich ist im öffentlichen Repository ebenfalls öffentlich und darf keine vertraulichen Daten enthalten.
+
 ## Einstieg und aktueller Stand
 
 1. [Projektstatus](planning/PROJECT_STATUS.md) beschreibt den tatsächlich implementierten Stand, Verifikation und nächste Arbeitsschritte.

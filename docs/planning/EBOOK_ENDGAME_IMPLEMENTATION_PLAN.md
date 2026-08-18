@@ -1,6 +1,6 @@
 # FolioTone – detaillierte Planung der nächsten E-Book-Wellen
 
-**Planungsstand:** 2026-08-17
+**Planungsstand:** 2026-08-18
 **Basis:** maßgeblicher Implementierungsstand aus `PROJECT_STATUS.md` und
 `BACKLOG.md` zum genannten Planungsstand
 **Scope:** E-Book-Linie einschließlich Authority Resolution, Enrichment,
@@ -57,6 +57,7 @@ Die eigentliche E-Book-Analysebasis ist inzwischen weit entwickelt:
 
 - W3-001 bis W3-017 sind gemäß `BACKLOG.md` abgeschlossen; E4 sowie E6 bis
   E12 sind davon getrennte book-only Folgewellen.
+- EB-00, EB-01/E4, EB-02, EB-05 und EB-06 sind abgeschlossen;
 - inkrementeller Scan, Resume und Recovery sind vorhanden;
 - Quick- und Full-Hashing sind vorhanden;
 - selektives SHA-256-Hashing für Duplicate Candidates ist vorhanden;
@@ -65,36 +66,33 @@ Die eigentliche E-Book-Analysebasis ist inzwischen weit entwickelt:
 - `ebook-comparison/v1` liefert bereits provider-neutrale Vergleichsfakten;
 - Collection-Analyse und deterministische Reports sind vorhanden;
 - lokale Name-/Identifier-Normalisierung und erste Entity Candidates sind vorhanden;
+- persistierte Resolution Candidates, Evidence-Links sowie append-only
+  ACCEPT-/REJECT-/DEFER-Entscheidungen sind vorhanden;
+- begrenztes Candidate Blocking, versionierte Matcherprofile, persistierte
+  Relation Candidates und der book-only Offline-Matching-Workflow sind
+  vorhanden;
 - strukturierte Knowledge-Provider-Verträge sind vorhanden;
 - multidimensionale Classification-Verträge sind vorhanden.
+- ADR-0033 und der vollständig synthetische S-EB07-01-Fixture-Korpus bilden
+  den begonnenen read-only Calibre-Reconciliation-Vertrag.
 
 Noch nicht vorhanden bzw. nicht vollständig:
 
-- gemeinsame `ScanRoot`-Write-Lease für alle Writer;
-- persistierte Entity Resolution;
-- persistierte akzeptierte und abgelehnte Authority-Entscheidungen;
-- generischer Review-/Decision-Vertrag;
 - persistenter Provider Cache;
 - realer Book Knowledge Provider;
 - vollständige persistierte Classification-Projektion;
-- Candidate Blocking für Matching;
-- versioniertes Matching/Scoring;
-- persistierte Match Relations samt vollständiger Explanation;
-- Review Queue und Decision History;
-- read-only Calibre-Library-Reconciliation;
+- read-only Calibre-Library-Reconciliation über Vertrag und synthetische
+  Fixtures hinaus;
+- kanonische Relation-Projektion aus bestätigten book-only
+  Relation Candidates;
 - Keep Preference;
 - nicht ausführbarer `ConsolidationPlan`;
 - Archive-/Sidecar-/Archive-Member-Analyse.
 
-Die Pakete
-
-- `foliotone.matching`,
-- `foliotone.review`,
-- `foliotone.consolidation`
-
-sind aktuell im Wesentlichen noch Gerüste. Das ist ein guter Zeitpunkt,
-die Verträge sauber festzulegen, bevor sich mehrere inkompatible
-Teilimplementierungen etablieren.
+`foliotone.matching` und `foliotone.review` besitzen inzwischen die
+book-only Verträge und Workflows aus EB-05/EB-06.
+`foliotone.consolidation` bleibt bis FG-08/EB-08 bewusst ohne
+ausführbaren Planungs- oder Mutationspfad.
 
 ---
 
@@ -2214,6 +2212,10 @@ SOURCE MEDIA READ-ONLY
 
 # 36. Empfohlene konkrete Entwicklungsreihenfolge
 
+EB-00, EB-01, EB-02, EB-05 und EB-06 sind abgeschlossen. EB-07 ist nach
+ADR-0033 und S-EB07-01 aktiv. Die Tabelle bleibt als Abhängigkeitsfolge
+maßgeblich; sie ist keine zweite Statusquelle.
+
 | Reihenfolge | Welle | Inhalt | Priorität | Abhängigkeit |
 |---:|---|---|---|---|
 | 0 | EB-00 | Status-/Provider-Contract bereinigen | P0 | keine |
@@ -2443,15 +2445,18 @@ ohne die Fähigkeit, Source Media zu verändern.
 
 # 42. Empfohlener unmittelbarer nächster Implementierungsschritt
 
-EB-00, EB-01/E4, EB-02 und EB-05 sind abgeschlossen. Unmittelbar als Nächstes:
+EB-00, EB-01/E4, EB-02, EB-05 und EB-06 sind abgeschlossen. ADR-0033 und
+S-EB07-01 haben EB-07 begonnen. Unmittelbar als Nächstes:
 
-**EB-06 – versioniertes Scoring, Explanation und vollständiges Matching-Review.**
+**S-EB07-02 – feste read-only `calibredb`-Command-Builder gemäß
+ADR-0033.**
 
 Provider-Cache-/Provider-Research (EB-03A) und Archive-EA1 können in
 getrennten Entwicklungszweigen vorbereitet werden.
 
-Das gibt die geringste Wahrscheinlichkeit, später Persistenz-, Review- oder
-Matching-Verträge erneut umbauen zu müssen.
+Danach werden die verbleibenden S-EB07-Pakete abhängigkeitsgerecht
+fortgesetzt. Freie Argumentweitergabe, reale Calibre-Library-Daten in CI und
+schreibende oder exportierende Operationen bleiben ausgeschlossen.
 
 ---
 
