@@ -93,4 +93,4 @@ jobs:
           set -euo pipefail
           parent_count="$(git rev-list --parents -n 1 HEAD | awk '{print NF - 1}')"
           test "$parent_count" -eq 2
-          git diff-tree --check HEAD^1 HEAD
+          git diff-tree -M --check HEAD^1 HEAD

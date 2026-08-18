@@ -122,3 +122,9 @@ def test_docker_build_context_is_restricted_to_packaged_application_inputs() -> 
         if line and not line.startswith("#")
     )
     assert rules == DOCKER_CONTEXT_ALLOWLIST
+
+
+def test_post_merge_diff_check_preserves_byte_identical_renames() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert "git diff-tree -M --check HEAD^1 HEAD" in workflow
+    assert "git diff-tree --check HEAD^1 HEAD" not in workflow
