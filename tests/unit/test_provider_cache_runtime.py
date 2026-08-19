@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import http.client
+import socket
+import urllib.request
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 from hashlib import sha256
@@ -36,6 +39,16 @@ class _Transport:
     def fetch(self) -> ProviderCacheTransportResult:
         self.calls += 1
         return self.result
+
+
+@dataclass
+class _SentinelTransport:
+    calls: int = 0
+
+    def fetch(self) -> ProviderCacheTransportResult:
+        self.calls += 1
+        urllib.request.urlopen("https://example.invalid")
+        raise AssertionError("offline transport path should not be executed")
 
 
 @dataclass
@@ -121,6 +134,16 @@ def _transport(
     return _Transport(ProviderCacheTransportResult(status, slots, payload))
 
 
+def _offline_network_block(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _blocked_network(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("offline test network sentinel")
+
+    monkeypatch.setattr(socket, "create_connection", _blocked_network)
+    monkeypatch.setattr(http.client.HTTPConnection, "connect", _blocked_network)
+    monkeypatch.setattr(http.client.HTTPSConnection, "connect", _blocked_network)
+    monkeypatch.setattr(urllib.request, "urlopen", _blocked_network)
+
+
 def _runtime(
     policy: ProviderCachePolicy, access: ProviderAccessMode = ProviderAccessMode.ONLINE_STRUCTURED
 ) -> ProviderCacheRuntime:
@@ -142,12 +165,67 @@ def test_no_cache_fetches_once_without_cache_read_or_write() -> None:
     assert cache.writes == 0
 
 
-def test_offline_no_cache_returns_no_provider_result_without_fetch() -> None:
-    transport = _transport(ProviderCacheResultStatus.SUCCESS)
+def test_offline_no_cache_returns_no_provider_result_without_fetch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _offline_network_block(monkeypatch)
+    transport = _SentinelTransport()
 
     result = _runtime(ProviderCachePolicy.NO_CACHE, ProviderAccessMode.OFFLINE).resolve(
         source_cache_key=_KEY, now=_NOW, cache=None, transport=transport
     )
+
+    assert result.source_status is None
+    assert result.slots is None
+    assert transport.calls == 0
+
+
+def test_offline_use_if_fresh_fresh_success_does_not_fetch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _offline_network_block(monkeypatch)
+    cache = _Cache(
+        ProviderCacheRuntimeEntry(1, ProviderCacheSlots(content_slot=_content()), "cached")
+    )
+    transport = _SentinelTransport()
+
+    result = _runtime(
+        ProviderCachePolicy.USE_IF_FRESH, ProviderAccessMode.OFFLINE
+    ).resolve(source_cache_key=_KEY, now=_NOW, cache=cache, transport=transport)
+
+    assert result.source_status is ProviderCacheResultStatus.SUCCESS
+    assert result.payload == "cached"
+    assert transport.calls == 0
+
+
+def test_offline_use_if_fresh_fresh_not_found_does_not_fetch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _offline_network_block(monkeypatch)
+    cache = _Cache(
+        ProviderCacheRuntimeEntry(
+            1,
+            ProviderCacheSlots(content_slot=_content(ProviderCacheResultStatus.NOT_FOUND)),
+            None,
+        )
+    )
+    transport = _SentinelTransport()
+
+    result = _runtime(
+        ProviderCachePolicy.USE_IF_FRESH, ProviderAccessMode.OFFLINE
+    ).resolve(source_cache_key=_KEY, now=_NOW, cache=cache, transport=transport)
+
+    assert result.source_status is ProviderCacheResultStatus.NOT_FOUND
+    assert transport.calls == 0
+
+
+def test_offline_use_if_fresh_miss_does_not_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
+    _offline_network_block(monkeypatch)
+    transport = _SentinelTransport()
+
+    result = _runtime(
+        ProviderCachePolicy.USE_IF_FRESH, ProviderAccessMode.OFFLINE
+    ).resolve(source_cache_key=_KEY, now=_NOW, cache=_Cache(None), transport=transport)
 
     assert result.source_status is None
     assert result.slots is None
