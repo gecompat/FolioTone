@@ -156,6 +156,12 @@ list_all()
 
 `save()` is an ID-based insert-or-update operation. It does not infer identity from metadata or external IDs.
 
+Dieser generische Update-by-ID-Vertrag ist für die immutable book-only
+Classification-Lineage und Projection aus ADR-0037 ausdrücklich nicht
+zulässig. EB-04 verwendet dafür einen dedizierten insert-only Store; die seit
+`0001` bestehende Tabelle `classification_assertions` wird nicht neu angelegt
+oder umgedeutet.
+
 ### Begrenzter Evidence-Lesepfad
 
 Paarvergleich und exakte Evidence-Wiederverwendung verwenden nicht
