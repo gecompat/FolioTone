@@ -8,6 +8,13 @@ from foliotone.consolidation.blockers import (
     build_consolidation_hard_blockers,
 )
 from foliotone.consolidation.contracts import *  # noqa: F403
+from foliotone.consolidation.keep_preference import (
+    KeepPreferenceAssessment,
+    KeepPreferenceInputs,
+    build_keep_preference,
+    build_keep_preference_outcome,
+    evaluate_keep_preference,
+)
 from foliotone.consolidation.preconditions import (
     ConsolidationFilePreconditionInputs,
     build_consolidation_file_preconditions,
@@ -29,6 +36,11 @@ __all__ = [
     "serialize_consolidation_plan",
     "ConsolidationFilePreconditionInputs",
     "build_consolidation_file_preconditions",
+    "KeepPreferenceAssessment",
+    "KeepPreferenceInputs",
+    "build_keep_preference",
+    "build_keep_preference_outcome",
+    "evaluate_keep_preference",
     "ConsolidationBlockerInputs",
     "ConsolidationHardBlockerInputs",
     "build_consolidation_blockers",
