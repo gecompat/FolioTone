@@ -915,6 +915,15 @@ Nicht als erste bibliografische Quelle.
 **Priorität:** P1
 **Komplexität:** mittel
 
+**Verbindlicher Vertrag:** [ADR-0037](../decisions/ADR-0037-book-classification-assertions-and-projections.md)
+erhält die seit Migration `0001` vorhandenen `classification_assertions` und
+ergänzt mit `0018` ausschließlich fehlende immutable Lineage- und Projection-
+Tabellen. Legacy-Assertions ohne Profil werden nicht umgedeutet. Der EB-04-
+Store ist insert-only und darf den generischen Update-by-ID-Pfad nicht nutzen.
+Die exakten Facets, Source-/Priority-/Confidence-Regeln, Konfliktliterale,
+Bounds, Profile, Compatibility, Reprojection und Privacy-Grenzen stehen in der
+ADR. W5C-001 und W5C-002 bleiben `DONE`; EB-04 schließt nur W5C-004.
+
 Die DTO-Verträge existieren bereits.
 
 Jetzt fehlen vor allem:

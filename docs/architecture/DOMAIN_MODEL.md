@@ -303,6 +303,11 @@ Music:
 
 Different provider/tool classifications may coexist. `Classical` as a broad music domain is distinct from the `Classical period` as an era.
 
+Für die book-only Projection trennt ADR-0037 immutable Source Assertions von
+versionierten lokalen Projection Snapshots. Der bestehende generische
+Assertion-Datensatz bleibt Source Evidence; Projection-Werte überschreiben ihn
+nicht und sind niemals allein Identity-Beweis.
+
 ## Entity-resolution layer
 
 ### FieldCandidate
@@ -435,6 +440,7 @@ W9 introduces `ConsolidationPlan` only. Plans describe candidate actions and pre
 - `ADR-0006-authority-entity-resolution-provenance.md`
 - `ADR-0007-music-work-and-release-group.md`
 - `ADR-0008-multidimensional-classification.md`
+- `ADR-0037-book-classification-assertions-and-projections.md`
 - `ADR-0009-external-enrichment-and-privacy.md`
 - `ADR-0010-tool-provider-orchestration.md`
 - `AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`
