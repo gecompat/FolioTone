@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Datum: 2026-08-19
+- Ergänzt: 2026-08-20
 
 ## Kontext
 
@@ -37,13 +38,15 @@ kommerziellen Provider-Backend werden, gilt diese ADR nicht als ausreichende
 Freigabe; vor weiterer Nutzung ist Open Library zu kontaktieren und ein neues
 Gate erforderlich.
 
-Die festen Versionswerte der ersten Implementierung lauten:
+Die festen Versionswerte des um den Contributor-Vertrag ergänzten Adapters
+lauten:
 
 ```text
-provider_adapter_version = openlibrary-book-adapter/v1
-provider_source_version = openlibrary-web-api-docs-2026-08-19
-mapping_profile_version = openlibrary-book-mapping/v1
-normalized_source_profile = openlibrary-source-record/v1
+provider_adapter_version = openlibrary-book-adapter/v2
+provider_source_version = openlibrary-web-api-docs-2026-08-20
+mapping_profile_version = openlibrary-book-mapping/v2
+normalized_source_profile = openlibrary-source-record/v2
+payload_codec = json/openlibrary-source-dto-v2
 ```
 
 Eine Änderung an Endpoint-Shapes, erlaubten Feldern, Identifiernormalisierung,
@@ -51,6 +54,15 @@ DTO-Semantik oder Mapping erhöht die betroffene Version. Open Library stellt
 keine versionierte API-Semver bereit; deshalb bindet
 `provider_source_version` die geprüfte Dokumentationsbasis und Endpoint-
 Allowlist an dieses Datum.
+
+Die v2-Erhöhung ist erforderlich, weil die erste Parser-/Mapper-Umsetzung den
+angeforderten Search-Wert `author_name` verwarf und dadurch den Vertrag von
+S-EB03B-05 für Contributor ohne `OL<number>A`-Referenz nicht erfüllen konnte.
+`openlibrary-source-record/v1` und `json/openlibrary-source-dto-v1` werden
+nicht als v2 interpretiert oder in-place umgeschrieben. Der Wechsel von
+`provider_adapter_version` trennt gemäß ADR-0035 auch den `source_cache_key`;
+`openlibrary-book-mapping/v2` erzeugt einen getrennten `mapping_input_key`.
+Query-Reihenfolge, HTTP-Shapes, Transportgrenzen und TTLs ändern sich nicht.
 
 ## Freigegebene Query-Reihenfolge
 
@@ -216,7 +228,7 @@ Titel, Author, Identifierwert, Pfad und Dateiname erscheinen nicht darin.
 
 `SUCCESS` verwendet ausschließlich
 `ProviderCachePayloadKind.NORMALIZED_SOURCE_DTO` mit Codec
-`json/openlibrary-source-dto-v1`. Transportierte Rohbytes werden nach
+`json/openlibrary-source-dto-v2`. Transportierte Rohbytes werden nach
 erfolgreicher Validierung verworfen und niemals im Provider Cache oder einem
 Diagnoseartefakt persistiert. `NOT_FOUND` verwendet
 `ProviderCachePayloadKind.NONE`. Technische Fehler dürfen als Failure-Slot
@@ -241,7 +253,7 @@ Retention aus ADR-0035 löschbar. Es gibt kein Stale-on-error.
 
 ## Normalisierte Source-DTOs
 
-Die Cache-Hülle `openlibrary-source-record/v1` enthält ausschließlich:
+Die Cache-Hülle `openlibrary-source-record/v2` enthält ausschließlich:
 
 ```text
 profile
@@ -299,6 +311,28 @@ author_olid, name, alternate_names, birth_date, death_date, truncated
 ```
 
 Search-Records behalten `Work`- und eingebettete `Edition`-Teile getrennt.
+Zusätzlich besitzt jeder `SearchSourceRecord` genau das Feld
+`contributor_names`. Das JSON-Feld ist immer vorhanden und enthält ein Array
+aus höchstens 32 eigenständigen Namenskandidaten aus dem Top-Level-Search-Feld
+`author_name`. Ein fehlendes oder `null`-wertiges `author_name` wird zu `[]`;
+ein anderer Topologie-Typ macht den Search-Record malformed. Jeder Eintrag
+wird nach NFC normalisiert, muss danach nichtleer sein und darf höchstens 512
+Unicode-Codepoints besitzen. Leere, typfalsche oder zu lange Einträge werden
+verworfen und setzen `truncated=true`; mehr als 32 Eingänge werden nach dem
+32. Eingang verworfen und setzen ebenfalls `truncated=true`. Die behaltenen
+Werte werden nach exaktem NFC-String dedupliziert und lexikografisch nach
+Unicode-Codepoints sortiert. Groß-/Kleinschreibung, Interpunktion,
+Diakritika und Schreibweise bleiben erhalten.
+
+`contributor_names` und `WorkSourceRecord.author_refs` sind unabhängige
+Mengen. Die offizielle Search-Dokumentation zeigt `author_name` und
+`author_key`, garantiert aber weder gleiche Länge noch positionsgleiche
+Identität und bezeichnet das Search-Schema ausdrücklich als nicht stabil
+garantiert. Der Adapter zippt, paart oder ergänzt diese Arrays daher nicht.
+Direkte `WorkSourceRecord`- und `EditionSourceRecord`-DTOs bleiben ref-only;
+Namen gelangen dort ausschließlich über einen separat geladenen
+`AuthorSourceRecord` hinein.
+
 Beschreibung, Bio, Excerpts, Volltext, Inhaltsverzeichnis, Coverbytes/-URLs,
 Internet-Archive-Identifier, Availability, Lending-Status, Ratings,
 Reading-Logs, Nutzerlisten, Source-Records, Änderungsverlauf und beliebige
@@ -315,6 +349,31 @@ externe Links werden weder normalisiert noch gecacht.
 - `/authors/OL…A` erzeugt ausschließlich einen externen Agent-Kandidaten mit
   `openlibrary.author`-Identifier. Gleicher Name, Alias oder gleiche
   Schreibweise bestätigt keine lokale `Agent`-Identität.
+- Ein `AuthorSourceRecord` erzeugt genau einen OLID-gebundenen externen
+  Agent-Kandidaten. Sein `name` bleibt `source_field=name`; jeder Wert aus
+  `alternate_names` bleibt eine eigene Assertion mit
+  `source_field=alternate_names`. Exakte NFC-Duplikate werden je Source-Feld
+  dedupliziert; `name` und Alias werden nicht allein wegen Wertgleichheit zu
+  einer lokalen Identitätsbestätigung zusammengezogen.
+- Jeder Wert aus `SearchSourceRecord.contributor_names` erzeugt einen
+  ungebundenen Agent-Namenskandidaten mit `candidate_kind=AGENT`,
+  `source_field=author_name`, `ValueState.EXTERNAL`, `confidence=null` und der
+  vollständigen Provider-/Source-/Adapter-/Source-Profil-/Mapping-Provenance.
+  Der Kandidat besitzt weder lokale `EntityId`/`target_ref` noch
+  `openlibrary.author`-Identifier. Seine `source_record_refs` sind die
+  deduplizierten providerseitigen Identitätsrefs desselben Search-Records.
+  Sie werden zuerst nach der festen Kategorie `openlibrary.work`,
+  `openlibrary.edition`, `isbn10`, `isbn13` und innerhalb einer Kategorie
+  lexikografisch sortiert. Enthalten sind der vorhandene
+  `openlibrary.work:OL…W`-Ref und zusätzlich vorhandene
+  `openlibrary.edition:OL…M`-, `isbn10:`- oder `isbn13:`-Refs. Das Feld ist
+  nichtleer, wird jedoch niemals als Agent-Identität interpretiert.
+- OLID-gebundene Author-Kandidaten und ungebundene Search-Namenskandidaten
+  bleiben auch bei gleichem Namen getrennt. Ohne eine separat beobachtete
+  `AuthorSourceRecord`-Zuordnung oder eine spätere lokale
+  Entity-Resolution-Entscheidung wird keine Verbindung erzeugt. Verschiedene
+  `source_record_refs` erhalten getrennte Kandidaten, damit Homonyme und
+  widersprüchliche Search-Docs nicht kollabieren.
 - ISBN, OCLC und LCCN bleiben namespaced Edition-Identifier. Ein Identifier-
   Treffer darf einen Kandidaten stärken, aber keine erstmalige Resolution
   automatisch `USER_CONFIRMED` oder `CANONICAL` machen.
@@ -323,6 +382,20 @@ externe Links werden weder normalisiert noch gecacht.
   `source_field`, Provider-, Source-, Adapter- und Mapping-Version.
 - Search-Relevanz ist keine FolioTone-Confidence. Der Adapter setzt aus einer
   Resultposition keine automatische Identity-Confidence oder Relation ab.
+
+Agent-Kandidaten werden deterministisch nach Kandidatenart,
+`source_record_refs`, OLID-Namespace/-Wert, `source_field` und exaktem
+NFC-Namenswert sortiert. Dedupliziert wird nur bei vollständig gleichem
+Schlüssel; casefold-ähnliche Namen, Aliase, Homonyme und Konflikte bleiben
+getrennt. Kein Provider-Kandidat setzt `USER_CONFIRMED`, `CANONICAL`, eine
+automatische Resolution oder einen lokalen Alias.
+
+Namen und Identifier dürfen nur im privaten normalisierten Cache und in der
+expliziten Evidence-Projektion vorkommen. `repr` von Source-Records,
+Namenskandidaten, Mapping-Ergebnissen und Exceptions bleibt wertfrei
+redigiert; Fehler, Logs und Reports enthalten weder Namen noch
+`source_record_refs`. Die bestehende Grenze von 262.144 Byte für die
+normalisierte Hülle bleibt unverändert.
 
 Sparse Records sind valide, wenn ein syntaktisch gültiger OLID-Key und die zur
 Entity-Ebene erforderliche Struktur vorhanden sind. Ein einzelner malformed
@@ -410,8 +483,17 @@ versioniert.
 
 ## Konsequenzen
 
-- FG-03B ist akzeptiert; S-EB03B-01 bis S-EB03B-08 dürfen in Reihenfolge
-  mechanisch umgesetzt werden.
+- FG-03B ist mit dem v2-Contributor-Vertrag akzeptiert. Vor S-EB03B-05 wird
+  zuerst das begrenzte Parser-Addendum S-EB03B-03A umgesetzt; S-EB03B-05
+  implementiert danach ausschließlich die festgelegte Mapping-Projektion.
+- S-EB03B-03A erhöht Adapter-, Provider-Source-, normalisiertes Source-Profil
+  und Codec. Das bestehende ref-only `openlibrary-book-mapping/v1` bleibt bis
+  zur Implementierung der Name-only-Projektion gültig; erst S-EB03B-05 erhöht
+  das Mappingprofil auf `openlibrary-book-mapping/v2`.
+- S-EB03B-03A stoppt, wenn `author_name` nicht ohne Positionsannahme,
+  Profilvermischung oder Erweiterung der Search-Allowlist bewahrt werden kann.
+  S-EB03B-05 stoppt, wenn ein Name-only-Kandidat eine lokale Agent-ID, eine
+  OLID-Zuordnung oder eine automatische Resolution benötigen würde.
 - Open Library bleibt erster realer Book Provider, aber nicht Bulk-Backend oder
   kanonische Wahrheit.
 - GND/DNB bleibt der vorgesehene zweite spezialisierte Authority Provider;
