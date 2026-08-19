@@ -117,8 +117,8 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 | W5B-004 | DONE | FG-03B accepts Open Library as the first bounded real book provider through ADR-0036; fixed endpoint, privacy, rate, cache, license and bulk boundaries are recorded before adapter code. GND/DNB remains the planned second authority source and Wikidata supplementary. |
 | W5B-005 | PLANNED | Review and select first music knowledge providers from MusicBrainz and AcoustID; Chromaprint/fpcalc remains a local ToolProvider concern. |
 | W5B-006 | PLANNED | Evaluate/import official bulk/local datasets where they are more appropriate than per-file API lookup. |
-| W5B-007 | NEXT | Implement the accepted Open Library book adapter as S-EB03B-01 through S-EB03B-08, beginning with synthetic fixtures only; the structured music adapter remains planned. |
-| W5B-008 | PLANNED | Add offline/provider-failure/cache-hit/cache-refresh tests. |
+| W5B-007 | DONE | Implement the accepted Open Library book adapter as S-EB03B-01 through S-EB03B-08 with synthetic fixtures only; the structured music adapter remains planned. |
+| W5B-008 | DONE | Add and verify offline/provider-failure/cache-hit/cache-refresh tests for the bounded Open Library provider. |
 | W5B-009 | PLANNED | Define generic web research fallback interface; keep it separately enabled and candidate-only. |
 | W5B-010 | PLANNED | Evaluate a local MusicBrainz mirror/container deployment only if scale/rate/latency justifies its operational cost. |
 | W5B-011 | PLANNED | Resolve the user-supplied `Newzcrabber` name to a concrete maintained service and evaluate it plus suitable alternatives as explicit opt-in archive-password candidate providers; require a documented interface, current terms/license/privacy review, path-free queries, local cache and Secret Handles, otherwise record a non-integration decision. |

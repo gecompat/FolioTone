@@ -1,10 +1,10 @@
 # Projektstatus
 
-Stand: 2026-08-19
+Stand: 2026-08-20
 
 ## Aktuelle Welle
 
-**FG-03B akzeptiert — EB-03B-Implementierung als nächstes**
+**EB-03B DONE — nächster Schritt: FG-04 gemäß Endgame-Plan**
 
 ADR-0036 akzeptiert Open Library als ersten realen, optionalen und begrenzten
 Book Provider. Der Vertrag erlaubt nur feste JSON-Endpoints für `Work`,
@@ -19,10 +19,18 @@ Die Open-Library-Lizenzseite begründet keine Redistribution einzelner
 Beiträge, weshalb v1 ausschließlich private normalisierte Cache-Daten mit
 bounded Retention zulässt.
 
-FG-03B ändert keinen Produktionscode, kein Schema, keine Runtimekonfiguration
-und keine privaten Daten. Der nächste atomare Schritt ist S-EB03B-01:
-vollständig handgeschriebene synthetische Response-Fixtures und ihr
-Strukturtest, ohne Netzwerkzugriff.
+EB-03B ist mit S-EB03B-01 bis S-EB03B-08 abgeschlossen. Der bounded
+Open-Library-Vertical-Slice verwendet ausschließlich die festgelegten
+JSON-Routen, einen identifizierenden `User-Agent`, Concurrency 1, die
+Transport- und Payload-Grenzen aus ADR-0036 sowie normalisierte
+`openlibrary-source-record/v2`-Cache-DTOs. Die Provider-/Cache-Matrix deckt
+Fresh-Hit, Offline-Hit/Miss, negative und technische Failure-TTLs,
+Mapping-Reanalyse ohne Refetch, getrennte v1/v2-Keys und die
+`BULK_DATASET_REQUIRED`-Schwellen ab. Query, Cache, Fehler und Reports bleiben
+frei von lokalen Pfaden, Filenames, Rohantworten, Inventaren und nicht
+freigegebenen Archive.org-/Cover-/Availability-Daten. Es wurden ausschließlich
+synthetische Daten und Fake-Transporte verwendet; es gab keinen Live-
+Netzwerkzugriff und keine Runtime- oder Source-Media-Änderung.
 
 ADR-0035 legt für den künftigen Provider Cache den kanonischen
 `provider-cache-entry/v1`-Vertrag fest: Result-Status, Payload-Kind,
@@ -1187,9 +1195,9 @@ EB-06, EB-07 und EB-08 sind abgeschlossen. EB-07 liefert die persistierte
 read-only Reconciliation und den pfadfreien CLI-Report; die Capture-
 Orchestrierung bleibt offen. EB-08 liefert den nicht ausführbaren,
 content-addressed ConsolidationPlan einschließlich read-only Report und
-statischem Non-Execution-Gate. FG-03A/EB-03A sind abgeschlossen und FG-03B ist
-durch ADR-0036 akzeptiert; der nächste maßgebliche Implementierungsschritt ist
-S-EB03B-01 als Beginn des Open-Library-Adapters. Die
+statischem Non-Execution-Gate. FG-03A/EB-03A und EB-03B sind abgeschlossen;
+der nächste maßgebliche Implementierungsschritt ist das im Endgame-Plan
+vorgesehene FG-04-Gate. Die
 Archivstrecke bleibt eine getrennte Folgearbeit. W10 bleibt unverändert
 gesperrt. Music W4 bleibt
 bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
