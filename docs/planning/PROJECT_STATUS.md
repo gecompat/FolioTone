@@ -4,7 +4,25 @@ Stand: 2026-08-19
 
 ## Aktuelle Welle
 
-**EB-03A abgeschlossen — FG-03B als nächstes**
+**FG-03B akzeptiert — EB-03B-Implementierung als nächstes**
+
+ADR-0036 akzeptiert Open Library als ersten realen, optionalen und begrenzten
+Book Provider. Der Vertrag erlaubt nur feste JSON-Endpoints für `Work`,
+`Edition`, referenzierte `Author`-Records, ISBN, OCLC/LCCN und einen auf zwei
+Seiten begrenzten Titel-plus-resolved-Author-Fallback. Ein identifizierender
+`User-Agent`, genau ein Request pro Sekunde, Concurrency 1, feste Timeouts und
+Responsegrenzen sowie ein strikt normalisierter Minimal-DTO-Cache sind
+verbindlich. Rohantworten, reale Response-Fixtures, Archive.org-Inhaltszugriff
+und Open Library als Collection- oder Bulk-Backend bleiben verboten; größere
+Mengen wechseln nach einem getrennten Gate zu den offiziellen Monats-Dumps.
+Die Open-Library-Lizenzseite begründet keine Redistribution einzelner
+Beiträge, weshalb v1 ausschließlich private normalisierte Cache-Daten mit
+bounded Retention zulässt.
+
+FG-03B ändert keinen Produktionscode, kein Schema, keine Runtimekonfiguration
+und keine privaten Daten. Der nächste atomare Schritt ist S-EB03B-01:
+vollständig handgeschriebene synthetische Response-Fixtures und ihr
+Strukturtest, ohne Netzwerkzugriff.
 
 ADR-0035 legt für den künftigen Provider Cache den kanonischen
 `provider-cache-entry/v1`-Vertrag fest: Result-Status, Payload-Kind,
@@ -122,8 +140,10 @@ einer zukünftigen akzeptierten W10-ADR blockiert.
 Die lokalen Authority-Grundlagen aus `PR #36`, der synthetische E5-
 Performance-/Restart-Vertrag aus `PR #37`, die strukturierten Provider-
 Verträge aus `PR #38` und die mehrdimensionalen E-Book-Klassifikationsverträge
-aus `PR #39` sind auf `main` integriert. Persistierte Authority-Entscheidungen,
-Provider-Cache und reale Provider-Auswahl bleiben weiterhin geplant.
+aus `PR #39` sind auf `main` integriert. Persistierte Authority-Entscheidungen
+und die Open-Library-Adapterimplementierung bleiben weiterhin geplant; der
+Provider Cache ist implementiert und die erste reale Provider-Auswahl ist durch
+ADR-0036 abgeschlossen.
 
 ADR-0026 ist durch S-EB00-01 bis S-EB00-04 umgesetzt. `ProviderAccessMode`
 trennt die vier Zugriffsarten aus ADR-0009 vom unabhängigen
@@ -1167,8 +1187,9 @@ EB-06, EB-07 und EB-08 sind abgeschlossen. EB-07 liefert die persistierte
 read-only Reconciliation und den pfadfreien CLI-Report; die Capture-
 Orchestrierung bleibt offen. EB-08 liefert den nicht ausführbaren,
 content-addressed ConsolidationPlan einschließlich read-only Report und
-statischem Non-Execution-Gate. FG-03A/EB-03A sind abgeschlossen; der nächste
-maßgebliche Implementierungsschritt ist das Provider-Auswahlgate FG-03B. Die
+statischem Non-Execution-Gate. FG-03A/EB-03A sind abgeschlossen und FG-03B ist
+durch ADR-0036 akzeptiert; der nächste maßgebliche Implementierungsschritt ist
+S-EB03B-01 als Beginn des Open-Library-Adapters. Die
 Archivstrecke bleibt eine getrennte Folgearbeit. W10 bleibt unverändert
 gesperrt. Music W4 bleibt
 bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt

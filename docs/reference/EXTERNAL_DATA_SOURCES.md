@@ -23,6 +23,10 @@ Never transmit absolute local paths, private collection inventories or unnecessa
 
 ### Open Library
 
+**Entscheidungsstand:** Als erster realer Book Provider durch
+[ADR-0036](../decisions/ADR-0036-open-library-first-book-provider.md) für einen
+begrenzten `ONLINE_STRUCTURED`-Vertical-Slice akzeptiert.
+
 Purpose:
 
 - author candidates;
@@ -40,11 +44,37 @@ Official references:
 
 - https://openlibrary.org/developers
 - https://openlibrary.org/developers/api
-- https://openlibrary.org/data
+- https://openlibrary.org/dev/docs/api/books
+- https://openlibrary.org/dev/docs/api/search
+- https://openlibrary.org/dev/docs/api/authors
+- https://openlibrary.org/dev/docs/restful_api
+- https://openlibrary.org/developers/dumps
+- https://openlibrary.org/developers/licensing
+- https://archive.org/about/terms
 
 Implementation note:
 
-Open Library explicitly distinguishes low-volume API use from bulk access and recommends data dumps rather than treating the API as a bulk backend. A FolioTone-wide author/work authority index should therefore evaluate local dump ingestion rather than issuing one online request per file.
+Open Library dokumentiert ein `Work`-/`Edition`-/`Author`-Modell und direkte
+JSON-Endpunkte. Die Usage Guidelines erlauben die API für gezielte,
+niedrigvolumige Echtzeitabfragen, fordern Caching und einen identifizierenden
+`User-Agent` und verweisen Bulk-Nutzung auf monatliche Dumps. ADR-0036 erlaubt
+deshalb nur feste Identifier- und begrenzte Titel-plus-resolved-Author-Shapes
+mit einem Request pro Sekunde, maximal zwei Requests je Query und höchstens
+einem online aktiven Transport pro Deployment. Ab mehr als 100 geplanten
+Lookups je Lauf oder mehr als 1.000 wiederholt ungelösten Records ist ein
+separater `LOCAL_DATASETS`-Import zu planen. Die 100/1.000-Schwellen sind
+konservative FolioTone-Policies und keine veröffentlichten Open-Library-
+Grenzen oder Rechtefreigabe.
+
+Die Open-Library-Lizenzseite beansprucht keine neuen Rechte an
+Datenbankmaterial, weist aber auf mögliche bestehende Rechte einzelner
+Beiträge hin. FolioTone speichert daher nur private normalisierte Minimal-DTOs
+mit maximal 180 Tagen Retention. Diese Retention und alle positiven,
+negativen sowie technischen TTLs sind konservative FolioTone-Policies, keine
+Open-Library-Grenzen oder Rechtefreigabe. Rohantworten, reale Response-Fixtures,
+Open-Library-Dumps und abgeleitete Kataloginventare werden nicht
+weiterverteilt. Archive.org-Availability, Covers, Volltext, Lending und
+Nutzerinhalte sind nicht Teil des v1-Adapters.
 
 ### GND / Deutsche Nationalbibliothek
 

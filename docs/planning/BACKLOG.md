@@ -114,10 +114,10 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 | W5B-001 | DONE | Separate provider access modes (`OFFLINE`/`LOCAL_DATASETS`/`ONLINE_STRUCTURED`/`ONLINE_WEB_RESEARCH`) from `ProviderCachePolicy`; retain `KnowledgeProviderMode` only as input to the exact deprecated compatibility mapping. |
 | W5B-002 | DONE | Implement persistent provider cache/import/version state under `/data` according to ADR-0035; no provider cache in Git. |
 | W5B-003 | DONE | Implement privacy-minimized query DTOs; never send absolute paths. |
-| W5B-004 | PLANNED | Review and select first book/authority providers from Open Library, GND/DNB and Wikidata; record current access/license constraints before coding adapters. |
+| W5B-004 | DONE | FG-03B accepts Open Library as the first bounded real book provider through ADR-0036; fixed endpoint, privacy, rate, cache, license and bulk boundaries are recorded before adapter code. GND/DNB remains the planned second authority source and Wikidata supplementary. |
 | W5B-005 | PLANNED | Review and select first music knowledge providers from MusicBrainz and AcoustID; Chromaprint/fpcalc remains a local ToolProvider concern. |
 | W5B-006 | PLANNED | Evaluate/import official bulk/local datasets where they are more appropriate than per-file API lookup. |
-| W5B-007 | PLANNED | Complete the initial structured-provider vertical slices: the synthetic book/authority provider contract is implemented; a selected real book adapter and the structured music adapter remain. |
+| W5B-007 | NEXT | Implement the accepted Open Library book adapter as S-EB03B-01 through S-EB03B-08, beginning with synthetic fixtures only; the structured music adapter remains planned. |
 | W5B-008 | PLANNED | Add offline/provider-failure/cache-hit/cache-refresh tests. |
 | W5B-009 | PLANNED | Define generic web research fallback interface; keep it separately enabled and candidate-only. |
 | W5B-010 | PLANNED | Evaluate a local MusicBrainz mirror/container deployment only if scale/rate/latency justifies its operational cost. |
