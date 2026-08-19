@@ -4,17 +4,34 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from foliotone.core import EntityId, EntityKind, FileObservation, Fingerprint
+from foliotone.core import (
+    EntityId,
+    EntityKind,
+    FileObservation,
+    Fingerprint,
+    ResolutionCandidate,
+    ResolutionDisposition,
+    ReviewCandidateKind,
+    ReviewItem,
+    ReviewItemState,
+    ReviewType,
+)
+from foliotone.tooling import ToolResult
 from foliotone.workflows.calibre_reconciliation import (
     CALIBRE_LIBRARY_SNAPSHOT_PROFILE,
     CalibreLibraryFormatSnapshot,
     CalibreLibraryRecordSnapshot,
+    CalibreLibrarySidecarKind,
+    CalibreLibrarySidecarSnapshot,
     CalibreLibrarySnapshot,
     CalibreLibrarySnapshotStatus,
     CalibreReconciliationFindingCode,
 )
 from foliotone.workflows.calibre_reconciliation_mapper import (
+    CalibreAuthorityConflict,
+    CalibreMetadataConflict,
     CalibreReconciliationMapper,
+    CalibreSidecarDependency,
 )
 
 NOW = datetime(2026, 8, 19, 10, 0, tzinfo=UTC)
@@ -84,6 +101,54 @@ def _fingerprint(observation: FileObservation, value: str) -> Fingerprint:
         "sha256",
         "1",
         value,
+        NOW,
+    )
+
+
+def _tool_result(observation: FileObservation, key: str, value: str) -> ToolResult:
+    return ToolResult(
+        EntityId.new(),
+        EntityId.new(),
+        "ebook_metadata_candidate",
+        EntityKind.FILE_OBSERVATION,
+        observation.id,
+        key,
+        value,
+    )
+
+
+def _candidate(subject_id: EntityId) -> ResolutionCandidate:
+    return ResolutionCandidate(
+        EntityId.new(),
+        EntityKind.FILE_OBSERVATION,
+        subject_id,
+        EntityKind.AGENT,
+        EntityId.new(),
+        "offline-book-resolution",
+        "1",
+        "authority-decision/v1",
+        DIGEST,
+        "b" * 64,
+        0.5,
+        ResolutionDisposition.REVIEW_REQUIRED,
+        NOW,
+    )
+
+
+def _review(candidate: ResolutionCandidate) -> ReviewItem:
+    return ReviewItem(
+        EntityId.new(),
+        ReviewType.AUTHORITY_RESOLUTION,
+        candidate.subject_kind,
+        candidate.subject_id,
+        ReviewCandidateKind.RESOLUTION_CANDIDATE,
+        candidate.id,
+        candidate.resolver_name,
+        candidate.resolver_version,
+        candidate.decision_compatibility_version,
+        candidate.evidence_fingerprint,
+        candidate.candidate_set_fingerprint,
+        ReviewItemState.PENDING,
         NOW,
     )
 
@@ -176,8 +241,6 @@ def test_finding_fingerprints_ignore_input_order_and_internal_row_ids() -> None:
     assert [item.finding_fingerprint for item in first.findings] == [
         item.finding_fingerprint for item in second.findings
     ]
-
-
 def test_inconsistent_full_hash_evidence_does_not_create_duplicate_candidate() -> None:
     snapshot = _snapshot()
     record_a = _record(snapshot, 1)
@@ -253,3 +316,285 @@ def test_duplicate_finding_fails_closed_above_reference_limit() -> None:
             fingerprints,
             created_at=NOW,
         )
+
+
+def test_cases_e_through_g_link_only_existing_evidence_and_require_review() -> None:
+    snapshot = _snapshot()
+    metadata_record = _record(snapshot, 106)
+    authority_record = _record(snapshot, 107)
+    sidecar_record = _record(snapshot, 108)
+    authority_observation = _observation(
+        "Zora Zeta/Authority Conflict (107)/Book.epub", snapshot.source_scan_run_id
+    )
+    metadata_observation = _observation(
+        "Meta/Metadata Conflict (106)/Book.epub", snapshot.source_scan_run_id
+    )
+    sidecar_observation = _observation(
+        "Eli Eta/Sidecar Owner (108)/metadata.opf", snapshot.source_scan_run_id
+    )
+    extra_observation = _observation(
+        "Eli Eta/Sidecar Owner (108)/data/notes.txt", snapshot.source_scan_run_id
+    )
+    format_observation = _observation(
+        "Eli Eta/Sidecar Owner (108)/Book.epub", snapshot.source_scan_run_id
+    )
+    sidecar_format = _format(sidecar_record, "EPUB", format_observation)
+    candidate = _candidate(authority_observation.id)
+    review = _review(candidate)
+    sidecar = CalibreLibrarySidecarSnapshot(
+        EntityId.new(),
+        sidecar_record.id,
+        CalibreLibrarySidecarKind.METADATA_OPF,
+        sidecar_observation.relative_path,
+        sidecar_observation.id,
+    )
+    metadata_conflict = CalibreMetadataConflict(
+        metadata_record.id,
+        "title",
+        _tool_result(metadata_observation, "title", "Calibre Heading"),
+        _tool_result(metadata_observation, "title", "Embedded Heading"),
+    )
+    authority_conflict = CalibreAuthorityConflict(
+        authority_record.id,
+        "Zora Zeta",
+        _tool_result(authority_observation, "author", "Zora Zeta"),
+        candidate,
+        review,
+    )
+
+    result = CalibreReconciliationMapper().map(
+        snapshot,
+        (metadata_record, authority_record, sidecar_record),
+        (sidecar_format,),
+        (
+            metadata_observation,
+            authority_observation,
+            sidecar_observation,
+            extra_observation,
+            format_observation,
+        ),
+        created_at=NOW,
+        metadata_conflicts=(metadata_conflict,),
+        authority_conflicts=(authority_conflict,),
+        sidecar_dependencies=(
+            CalibreSidecarDependency(
+                sidecar_record.id,
+                sidecar,
+                sidecar_observation.id,
+                (sidecar_format.id,),
+                (extra_observation.id,),
+                True,
+            ),
+        ),
+    )
+
+    by_code = {finding.code: finding for finding in result.findings}
+    for code in (
+        CalibreReconciliationFindingCode.CALIBRE_METADATA_CONFLICT,
+        CalibreReconciliationFindingCode.CALIBRE_AUTHORITY_CONFLICT,
+        CalibreReconciliationFindingCode.CALIBRE_SIDECAR_DEPENDENCY,
+    ):
+        assert by_code[code].review_required is True
+    authority_refs = result.refs_for(
+        by_code[CalibreReconciliationFindingCode.CALIBRE_AUTHORITY_CONFLICT]
+    )
+    assert {ref.ref_id for ref in authority_refs} >= {candidate.id, review.id}
+    assert [ref.ordinal for ref in authority_refs] == list(range(len(authority_refs)))
+    assert "Calibre Heading" not in repr(result)
+    assert "Embedded Heading" not in repr(result)
+    assert "Calibre Heading" not in repr(metadata_conflict)
+    assert "Embedded Heading" not in repr(metadata_conflict)
+    assert "Zora Zeta" not in repr(authority_conflict)
+
+
+def test_cases_e_to_g_fail_closed_for_invalid_evidence_or_ownership() -> None:
+    snapshot = _snapshot()
+    record = _record(snapshot, 1)
+    observation = _observation("Author/Book.epub", snapshot.source_scan_run_id)
+    candidate = _candidate(observation.id)
+    review = _review(candidate)
+    foreign_record = _record(snapshot, 2)
+    foreign_sidecar = CalibreLibrarySidecarSnapshot(
+        EntityId.new(),
+        foreign_record.id,
+        CalibreLibrarySidecarKind.COVER,
+        "Other/cover.jpg",
+    )
+
+    with pytest.raises(ValueError, match="same exact field"):
+        CalibreReconciliationMapper().map(
+            snapshot,
+            (record,),
+            (),
+            (observation,),
+            created_at=NOW,
+            metadata_conflicts=(
+                CalibreMetadataConflict(
+                    record.id,
+                    "title",
+                    _tool_result(observation, "author", "Calibre"),
+                    _tool_result(observation, "title", "Embedded"),
+                ),
+            ),
+        )
+    with pytest.raises(ValueError, match="must belong"):
+        CalibreReconciliationMapper().map(
+            snapshot,
+            (record, foreign_record),
+            (),
+            (observation,),
+            created_at=NOW,
+            sidecar_dependencies=(CalibreSidecarDependency(record.id, foreign_sidecar),),
+        )
+    mapped_format = _format(record, "EPUB", observation)
+    nested_sidecar = CalibreLibrarySidecarSnapshot(
+        EntityId.new(),
+        record.id,
+        CalibreLibrarySidecarKind.METADATA_OPF,
+        "Author/nested/metadata.opf",
+    )
+    with pytest.raises(ValueError, match="record directory"):
+        CalibreReconciliationMapper().map(
+            snapshot,
+            (record,),
+            (mapped_format,),
+            (observation,),
+            created_at=NOW,
+            sidecar_dependencies=(
+                CalibreSidecarDependency(
+                    record.id, nested_sidecar, format_ids=(mapped_format.id,)
+                ),
+            ),
+        )
+    direct_sidecar = CalibreLibrarySidecarSnapshot(
+        EntityId.new(), record.id, CalibreLibrarySidecarKind.COVER, "Author/cover.jpg"
+    )
+    with pytest.raises(ValueError, match="exact current observation"):
+        CalibreReconciliationMapper().map(
+            snapshot,
+            (record,),
+            (mapped_format,),
+            (),
+            created_at=NOW,
+            sidecar_dependencies=(
+                CalibreSidecarDependency(
+                    record.id, direct_sidecar, format_ids=(mapped_format.id,)
+                ),
+            ),
+        )
+    with pytest.raises(ValueError, match="must not use a decided"):
+        CalibreReconciliationMapper().map(
+            snapshot,
+            (record,),
+            (),
+            (observation,),
+            created_at=NOW,
+            authority_conflicts=(
+                CalibreAuthorityConflict(
+                    record.id,
+                    "Author",
+                    _tool_result(observation, "author", "Author"),
+                    candidate,
+                    ReviewItem(
+                        review.id,
+                        review.review_type,
+                        review.subject_kind,
+                        review.subject_id,
+                        review.candidate_kind,
+                        review.candidate_id,
+                        review.producer_name,
+                        review.producer_version,
+                        review.decision_compatibility_version,
+                        review.evidence_fingerprint,
+                        review.candidate_set_fingerprint,
+                        ReviewItemState.DECIDED,
+                        review.created_at,
+                    ),
+                ),
+            ),
+        )
+
+
+def test_case_e_fingerprints_are_stable_across_input_order() -> None:
+    snapshot = _snapshot()
+    record = _record(snapshot, 1)
+    observation = _observation("Author/Book.epub", snapshot.source_scan_run_id)
+    conflicts = tuple(
+        CalibreMetadataConflict(
+            record.id,
+            field_name,
+            _tool_result(observation, field_name, calibre_value),
+            _tool_result(observation, field_name, embedded_value),
+        )
+        for field_name, calibre_value, embedded_value in (
+            ("title", "Calibre title", "Embedded title"),
+            ("language", "de", "en"),
+        )
+    )
+    mapper = CalibreReconciliationMapper()
+    first = mapper.map(
+        snapshot,
+        (record,),
+        (),
+        (observation,),
+        created_at=NOW,
+        metadata_conflicts=conflicts,
+    )
+    second = mapper.map(
+        snapshot,
+        (record,),
+        (),
+        (observation,),
+        created_at=NOW,
+        metadata_conflicts=reversed(conflicts),
+    )
+    assert [item.finding_fingerprint for item in first.findings] == [
+        item.finding_fingerprint for item in second.findings
+    ]
+    same_material_new_rows = CalibreMetadataConflict(
+        record.id,
+        "title",
+        _tool_result(observation, "title", "Calibre title"),
+        _tool_result(observation, "title", "Embedded title"),
+    )
+    retry = mapper.map(
+        snapshot,
+        (record,),
+        (),
+        (observation,),
+        created_at=NOW,
+        metadata_conflicts=(same_material_new_rows,),
+    )
+    retry_fingerprint = next(
+        item.finding_fingerprint
+        for item in retry.findings
+        if item.code is CalibreReconciliationFindingCode.CALIBRE_METADATA_CONFLICT
+    )
+    assert retry_fingerprint in {
+        item.finding_fingerprint
+        for item in first.findings
+        if item.code is CalibreReconciliationFindingCode.CALIBRE_METADATA_CONFLICT
+    }
+
+    other_observation = _observation("Other/Book.epub", snapshot.source_scan_run_id)
+    other_target = mapper.map(
+        snapshot,
+        (record,),
+        (),
+        (observation, other_observation),
+        created_at=NOW,
+        metadata_conflicts=(
+            CalibreMetadataConflict(
+                record.id,
+                "title",
+                _tool_result(other_observation, "title", "Calibre title"),
+                _tool_result(other_observation, "title", "Embedded title"),
+            ),
+        ),
+    )
+    other_fingerprint = next(
+        item.finding_fingerprint
+        for item in other_target.findings
+        if item.code is CalibreReconciliationFindingCode.CALIBRE_METADATA_CONFLICT
+    )
+    assert other_fingerprint != retry_fingerprint

@@ -2,9 +2,12 @@
 
 from foliotone.workflows.calibre_reconciliation_mapper import (
     FULL_FILE_SHA256_PROFILE,
+    CalibreAuthorityConflict,
+    CalibreMetadataConflict,
     CalibreReconciliationMapper,
     CalibreReconciliationMapping,
     CalibreReconciliationOutcome,
+    CalibreSidecarDependency,
     map_calibre_reconciliation,
 )
 from foliotone.workflows.candidate_hash_status import candidate_hash_status_payload
@@ -166,6 +169,9 @@ __all__ = [
     "CalibreReconciliationMapper",
     "CalibreReconciliationMapping",
     "CalibreReconciliationOutcome",
+    "CalibreMetadataConflict",
+    "CalibreAuthorityConflict",
+    "CalibreSidecarDependency",
     "FULL_FILE_SHA256_PROFILE",
     "map_calibre_reconciliation",
 ]
