@@ -1,23 +1,26 @@
 # Projektstatus
 
-Stand: 2026-08-18
+Stand: 2026-08-19
 
 ## Aktuelle Welle
 
-**EB-07 begonnen — read-only Calibre Library Reconciliation**
+**EB-07 abgeschlossen — persistierte read-only Calibre Library Reconciliation**
 
 Das Frontier-Gate ADR-0033 legt feste lokale read-only
 `calibredb`-Command-Shapes, Snapshot-Konsistenz, Calibre-Ownership,
-Sidecar-Evidence und die Finding-Fälle A bis G fest. S-EB07-01 ergänzt den
-vollständig synthetischen Fixture-Korpus für diese Fälle, eine leere
-Bibliothek und malformed JSON-, CSV- und OPF-Ausgaben. Das Paket wurde mit
-PR #62 gemergt; der Post-Merge-Contract auf Commit
-`709877fd38e24ade8dfb547b8d828ac753bc9454` war erfolgreich.
+Sidecar-Evidence und die Finding-Fälle A bis G fest. S-EB07-01 bis S-EB07-08
+implementieren die synthetischen Adapter-, Snapshot-, Persistenz- und
+Mapper-Verträge. S-EB07-09 ergänzt den SELECT-only
+`SQLiteCalibreLibraryReportReader`, den pfadfreien Report
+`calibre-reconciliation-report/v1` und die CLI
+`calibre-reconciliation-report`. Die CLI verwendet ausschließlich eine
+SQLite-Read-only-Verbindung; sie führt keine Migration, keine Calibre-
+Capture und keine schreibende Operation aus.
 
-Der nächste atomare Schritt ist S-EB07-02: feste Command Builder dürfen
-ausschließlich die in ADR-0033 erlaubten read-only Shapes erzeugen. Eine
-reale Calibre-Bibliothek, freie Argumentweitergabe und jede schreibende oder
-exportierende Operation bleiben außerhalb dieses Scopes.
+Die Persistenz- und Reportstrecke von EB-07 ist damit abgeschlossen. Die
+Capture-Orchestrierung gegen eine konfigurierte Calibre-Bibliothek bleibt
+ausdrücklich offen. EB-08, die Archivstrecke und die W10-Sperre bleiben
+unverändert.
 
 Die langfristige Produktausrichtung und Medienfolge wurden als ausdrücklich
 nicht statussetzender Entwurf in
@@ -1139,12 +1142,12 @@ paketierten Schema-Head, die gemeinsame Scan-/Hash-/Collection-Lineage, die
 Inventarartefakte bytegenau und die begrenzte Formatabdeckung über dieselbe
 echte Read-only-Verbindung, ohne Source Media zu öffnen. Der vollständige
 private Inventar-/Collection-Lauf und Bericht werden noch abgeschlossen.
-EB-06 ist abgeschlossen. EB-07 ist nach ADR-0033 und dem gemergten
-synthetischen Paket S-EB07-01 aktiv; der nächste atomare Schritt ist
-S-EB07-02 mit festen read-only `calibredb`-Command-Buildern. EB-03A kann als
-getrennte Provider-Cache-Welle vorbereitet werden. Music W4 bleibt bis zur
-E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt ausschließlich die
-CLI.
+EB-06 und EB-07 sind abgeschlossen. EB-07 liefert die persistierte
+read-only Reconciliation und den pfadfreien CLI-Report; die Capture-
+Orchestrierung bleibt offen. EB-08, die Archivstrecke und die W10-Sperre
+werden dadurch nicht vorgezogen. EB-03A kann als getrennte Provider-Cache-
+Welle vorbereitet werden. Music W4 bleibt bis zur E-Book-Reife
+zurückgestellt. Die Produktoberfläche bleibt ausschließlich die CLI.
 
 ## Nicht implementiert
 

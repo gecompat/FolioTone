@@ -58,12 +58,14 @@ from foliotone.index import (
     SQLiteIndexStore,
 )
 from foliotone.persistence import (
+    CalibreLibraryReportReaderError,
     EbookCollectionReportStoreError,
     EbookCollectionStoreError,
     EbookInventoryReportStoreError,
     ResolutionReviewStoreError,
     ScanRootWriteLeaseError,
     ScanRootWriteOwnerKind,
+    SQLiteCalibreLibraryReportReader,
     SQLiteEbookCandidateHashRunStore,
     SQLiteEbookCollectionReportStore,
     SQLiteEbookCollectionStore,
@@ -1048,6 +1050,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format; defaults to text.",
     )
 
+    calibre_reconciliation_report = subparsers.add_parser(
+        "calibre-reconciliation-report",
+        help="Read a persisted Calibre reconciliation snapshot without opening Calibre.",
+    )
+    calibre_reconciliation_report.add_argument(
+        "--snapshot",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque persisted Calibre snapshot identifier.",
+    )
+    calibre_reconciliation_report.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="Existing SQLite database path; defaults to /data/foliotone.db.",
+    )
+    calibre_reconciliation_report.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format; defaults to text.",
+    )
+
     ebook_compare = subparsers.add_parser(
         "ebook-compare",
         help=(
@@ -1225,6 +1250,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "The bounded postscan lineage can be verified read-only through ebook-postscan-verify."
         )
         print(
+            "Persisted Calibre reconciliation snapshots can be inspected read-only through "
+            "calibre-reconciliation-report."
+        )
+        print(
             "Bounded offline relation candidates and append-only matching review are "
             "available through ebook-match and ebook-match-review-* commands."
         )
@@ -1269,6 +1298,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-postscan-verify":
         return _run_ebook_postscan_verify(args)
+
+    if args.command == "calibre-reconciliation-report":
+        return _run_calibre_reconciliation_report(args)
 
     if args.command == "ebook-match":
         return _run_ebook_match(args)
@@ -2155,6 +2187,71 @@ def _ebook_postscan_verify_error(
         )
     else:
         print("E-book postscan verification failed: read-only state is unavailable.")
+    return 2
+
+
+def _run_calibre_reconciliation_report(args: argparse.Namespace) -> int:
+    """Render a persisted Calibre reconciliation report without mutable access."""
+
+    try:
+        engine = create_sqlite_read_only_engine(args.database)
+        try:
+            report = SQLiteCalibreLibraryReportReader(engine).read(args.snapshot)
+        finally:
+            engine.dispose()
+    except CalibreLibraryReportReaderError:
+        return _calibre_reconciliation_report_error(args, "SNAPSHOT_UNAVAILABLE")
+    except OperationalError:
+        return _calibre_reconciliation_report_error(args, "SCHEMA_UNAVAILABLE")
+    except (OSError, ValueError):
+        return _calibre_reconciliation_report_error(args, "DATABASE_UNAVAILABLE")
+    except Exception:
+        return _calibre_reconciliation_report_error(args, "INTERNAL_READ_ERROR")
+
+    if args.output == "json":
+        print(
+            json.dumps(
+                report.payload(),
+                allow_nan=False,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+    else:
+        print(f"Snapshot: {report.snapshot_id}")
+        print(f"Scan root: {report.scan_root_id}")
+        print(f"Source scan run: {report.source_scan_run_id}")
+        print(f"Snapshot status: {report.snapshot_status}")
+        print(f"Report profile: {report.profile}")
+        print(f"Records: {report.counts.records}")
+        print(f"Formats: {report.counts.formats}")
+        print(f"Sidecars: {report.counts.sidecars}")
+        print(f"Findings: {report.counts.findings}")
+        print(f"Review required: {report.counts.review_required}")
+        print(f"Finding refs: {report.counts.refs}")
+        for code, count in report.finding_counts:
+            print(f"Finding {code}: {count}")
+    return 0
+
+
+def _calibre_reconciliation_report_error(args: argparse.Namespace, code: str) -> int:
+    if args.output == "json":
+        print(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "command": "calibre-reconciliation-report",
+                    "ok": False,
+                    "error": {"code": code},
+                },
+                allow_nan=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+    else:
+        print("Calibre reconciliation report failed: read-only state is unavailable.")
     return 2
 
 

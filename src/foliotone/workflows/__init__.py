@@ -10,6 +10,11 @@ from foliotone.workflows.calibre_reconciliation_mapper import (
     CalibreSidecarDependency,
     map_calibre_reconciliation,
 )
+from foliotone.workflows.calibre_reconciliation_report import (
+    CALIBRE_RECONCILIATION_REPORT_PROFILE,
+    CalibreReconciliationReport,
+    CalibreReconciliationReportSnapshot,
+)
 from foliotone.workflows.candidate_hash_status import candidate_hash_status_payload
 from foliotone.workflows.collection import (
     EBOOK_COLLECTION_CLAIM_FACTOR,
@@ -174,4 +179,7 @@ __all__ = [
     "CalibreSidecarDependency",
     "FULL_FILE_SHA256_PROFILE",
     "map_calibre_reconciliation",
+    "CALIBRE_RECONCILIATION_REPORT_PROFILE",
+    "CalibreReconciliationReport",
+    "CalibreReconciliationReportSnapshot",
 ]
