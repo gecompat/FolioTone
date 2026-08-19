@@ -1,5 +1,7 @@
 """Persistence implementations behind provider-independent core contracts."""
 
+from typing import TYPE_CHECKING, Any
+
 from foliotone.persistence.calibre_library import (
     CalibreLibraryStoreError,
     SQLiteCalibreLibraryStore,
@@ -88,9 +90,31 @@ from foliotone.persistence.sqlite import (
     transaction,
 )
 
+if TYPE_CHECKING:
+    from foliotone.persistence.consolidation import (
+        ConsolidationStoreError,
+        SQLiteConsolidationStore,
+    )
+
+
+def __getattr__(name: str) -> Any:
+    """Load consolidation persistence lazily to avoid workflow import cycles."""
+    if name in {"ConsolidationStoreError", "SQLiteConsolidationStore"}:
+        from foliotone.persistence.consolidation import (
+            ConsolidationStoreError,
+            SQLiteConsolidationStore,
+        )
+
+        return {
+            "ConsolidationStoreError": ConsolidationStoreError,
+            "SQLiteConsolidationStore": SQLiteConsolidationStore,
+        }[name]
+    raise AttributeError(name)
+
 __all__ = [
     "Repository",
     "CalibreLibraryStoreError",
+    "ConsolidationStoreError",
     "CALIBRE_RECONCILIATION_FINDING_CODES",
     "CALIBRE_RECONCILIATION_REPORT_PROFILE",
     "CalibreLibraryReportReaderError",
@@ -132,6 +156,7 @@ __all__ = [
     "SQLiteRepository",
     "SQLiteEbookCollectionStore",
     "SQLiteCalibreLibraryStore",
+    "SQLiteConsolidationStore",
     "SQLiteCalibreLibraryReportReader",
     "SQLiteEbookCandidateHashRunStore",
     "SQLiteEbookInventoryReportStore",
