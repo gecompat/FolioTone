@@ -1,6 +1,7 @@
 """External knowledge enrichment and provider boundaries."""
 
 from foliotone.enrichment.contracts import (
+    BOOK_KNOWLEDGE_QUERY_FINGERPRINT_DOMAIN,
     BookKnowledgeDTO,
     BookKnowledgeQuery,
     BookKnowledgeResponse,
@@ -12,6 +13,8 @@ from foliotone.enrichment.contracts import (
     provider_policy_from_legacy,
 )
 from foliotone.enrichment.provider_cache_contracts import (
+    PROVIDER_MAPPING_INPUT_KEY_DOMAIN,
+    PROVIDER_SOURCE_CACHE_KEY_DOMAIN,
     ProviderCacheContentSlot,
     ProviderCacheFailureSlot,
     ProviderCacheFreshness,
@@ -19,11 +22,16 @@ from foliotone.enrichment.provider_cache_contracts import (
     ProviderCachePayloadKind,
     ProviderCacheResultStatus,
     ProviderCacheSlots,
+    provider_mapping_input_key,
+    provider_mapping_input_key_bytes,
+    provider_source_cache_key,
+    provider_source_cache_key_bytes,
 )
 from foliotone.enrichment.providers import SyntheticBookKnowledgeProvider
 
 __all__ = [
     "BookKnowledgeDTO",
+    "BOOK_KNOWLEDGE_QUERY_FINGERPRINT_DOMAIN",
     "BookKnowledgeQuery",
     "BookKnowledgeResponse",
     "KnowledgeProviderDescriptor",
@@ -34,9 +42,15 @@ __all__ = [
     "ProviderCacheFailureSlot",
     "ProviderCacheFreshness",
     "ProviderCacheLimits",
+    "PROVIDER_MAPPING_INPUT_KEY_DOMAIN",
+    "PROVIDER_SOURCE_CACHE_KEY_DOMAIN",
     "ProviderCachePayloadKind",
     "ProviderCacheResultStatus",
     "ProviderCacheSlots",
+    "provider_mapping_input_key",
+    "provider_mapping_input_key_bytes",
+    "provider_source_cache_key",
+    "provider_source_cache_key_bytes",
     "StructuredKnowledgeBookResult",
     "SyntheticBookKnowledgeProvider",
     "provider_policy_from_legacy",
