@@ -4,15 +4,15 @@ Stand: 2026-08-19
 
 ## Aktuelle Welle
 
-**FG-03A akzeptiert — EB-03A-Implementierung offen**
+**EB-03A abgeschlossen — FG-03B als nächstes**
 
 ADR-0035 legt für den künftigen Provider Cache den kanonischen
 `provider-cache-entry/v1`-Vertrag fest: Result-Status, Payload-Kind,
 Freshness-Triade, getrennte Source-/Mapping-Keys, Negative-Cache-Regeln,
 Mapping-Reanalyse ohne Refetch, generation-gefencetes CAS und bounded
 Retention. Das Gate autorisiert weiterhin keinen realen
-Provider und keinen Netzwerkzugriff; S-EB03A-01 bis S-EB03A-09 bleiben deshalb
-`PLANNED`.
+Provider und keinen Netzwerkzugriff; S-EB03A-01 bis S-EB03A-09 wurden in dieser Welle
+mit rein synthetischen Tests abgeschlossen.
 
 **Abgeschlossene Voraussetzung: EB-08 — nicht ausführbarer ConsolidationPlan**
 
@@ -1167,10 +1167,10 @@ EB-06, EB-07 und EB-08 sind abgeschlossen. EB-07 liefert die persistierte
 read-only Reconciliation und den pfadfreien CLI-Report; die Capture-
 Orchestrierung bleibt offen. EB-08 liefert den nicht ausführbaren,
 content-addressed ConsolidationPlan einschließlich read-only Report und
-statischem Non-Execution-Gate. FG-03A ist akzeptiert; der nächste maßgebliche
-Implementierungsschritt ist S-EB03A-01 mit immutable Cache-DTOs und den in
-ADR-0035 festgelegten Result-/Freshness-Literalen. Die Archivstrecke bleibt
-eine getrennte Folgearbeit. W10 bleibt unverändert gesperrt. Music W4 bleibt
+statischem Non-Execution-Gate. FG-03A/EB-03A sind abgeschlossen; der nächste
+maßgebliche Implementierungsschritt ist das Provider-Auswahlgate FG-03B. Die
+Archivstrecke bleibt eine getrennte Folgearbeit. W10 bleibt unverändert
+gesperrt. Music W4 bleibt
 bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
 ausschließlich die CLI.
 
