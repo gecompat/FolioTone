@@ -60,6 +60,17 @@ from foliotone.persistence.evidence_queries import (
     ObservationEvidenceRecords,
     load_observation_evidence,
 )
+from foliotone.persistence.provider_cache_store import (
+    ProviderCacheStoreCandidate,
+    ProviderCacheStoreCapacityError,
+    ProviderCacheStoreConflictError,
+    ProviderCacheStoreEntry,
+    ProviderCacheStoreError,
+    SQLiteProviderCacheStore,
+    canonical_provider_cache_content_bytes,
+    canonical_provider_cache_content_payload,
+    provider_cache_content_hash,
+)
 from foliotone.persistence.relation_candidates import (
     RelationCandidateStoreError,
     SQLiteRelationCandidateStore,
@@ -143,6 +154,15 @@ __all__ = [
     "EbookInventoryFormatAggregate",
     "EbookInventoryReportSnapshot",
     "EbookInventoryReportStoreError",
+    "ProviderCacheStoreCapacityError",
+    "ProviderCacheStoreCandidate",
+    "ProviderCacheStoreConflictError",
+    "ProviderCacheStoreEntry",
+    "ProviderCacheStoreError",
+    "SQLiteProviderCacheStore",
+    "canonical_provider_cache_content_bytes",
+    "canonical_provider_cache_content_payload",
+    "provider_cache_content_hash",
     "EBOOK_COLLECTION_REPORT_FETCH_SIZE",
     "EbookCollectionCandidateGroup",
     "EbookCollectionCandidateMember",
