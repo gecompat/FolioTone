@@ -4,14 +4,16 @@ Stand: 2026-08-19
 
 ## Aktuelle Welle
 
-**FG-08 akzeptiert — EB-08-Implementierung offen**
+**EB-08 abgeschlossen — W9 bleibt dauerhaft nicht ausführbar**
 
-ADR-0034 legt die finalen nicht ausführbaren `ConsolidationPlan`-DTOs,
-Status-/Blocker-Literale, Identity-/Keeper-/Candidate-Grenzen, Preconditions,
-`canonical-json/v1`, das additive Ziel-Persistenzschema und die W10-Grenze
-fest. Das Gate implementiert noch keine DTOs, Migration, Persistenz, CLI oder
-Runtime. S-EB08-01 bis S-EB08-09 und W9 bleiben deshalb `PLANNED`; jeder Plan
-bleibt dauerhaft `NOT_EXECUTABLE`.
+ADR-0034 ist vollständig umgesetzt. `foliotone.consolidation` liefert
+immutable `ConsolidationPlan`-DTOs, `canonical-json/v1`, reine
+Precondition-/Blocker-Builder, die reviewpflichtige Keep Preference, Migration
+`0016`, insert-only Persistenz, den deterministischen pfadfreien Report
+`ebook-consolidation-report` und einen statischen Non-Execution-Gate-Test
+gegen Filesystem-Mutationen, mutierende Calibre-Command-Shapes und öffentliche
+Ausführungssurfaces. W9 ist damit `DONE`; jeder Plan bleibt dauerhaft
+`NOT_EXECUTABLE`.
 
 **Abgeschlossene Voraussetzung: EB-07 — persistierte read-only Calibre Library Reconciliation**
 
@@ -1151,12 +1153,15 @@ paketierten Schema-Head, die gemeinsame Scan-/Hash-/Collection-Lineage, die
 Inventarartefakte bytegenau und die begrenzte Formatabdeckung über dieselbe
 echte Read-only-Verbindung, ohne Source Media zu öffnen. Der vollständige
 private Inventar-/Collection-Lauf und Bericht werden noch abgeschlossen.
-EB-06 und EB-07 sind abgeschlossen. EB-07 liefert die persistierte
+EB-06, EB-07 und EB-08 sind abgeschlossen. EB-07 liefert die persistierte
 read-only Reconciliation und den pfadfreien CLI-Report; die Capture-
-Orchestrierung bleibt offen. EB-08, die Archivstrecke und die W10-Sperre
-werden dadurch nicht vorgezogen. EB-03A kann als getrennte Provider-Cache-
-Welle vorbereitet werden. Music W4 bleibt bis zur E-Book-Reife
-zurückgestellt. Die Produktoberfläche bleibt ausschließlich die CLI.
+Orchestrierung bleibt offen. EB-08 liefert den nicht ausführbaren,
+content-addressed ConsolidationPlan einschließlich read-only Report und
+statischem Non-Execution-Gate. Der nächste maßgebliche Frontier-Schritt ist
+FG-03A für den Provider-Cache-Vertrag von EB-03A; die Archivstrecke bleibt
+danach eine getrennte Folgearbeit. W10 bleibt unverändert gesperrt. Music W4
+bleibt bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
+ausschließlich die CLI.
 
 ## Nicht implementiert
 
@@ -1173,13 +1178,15 @@ Noch nicht vorhanden sind unter anderem:
   Matching für `EXACT_DUPLICATE`, `SAME_EDITION` und `SAME_WORK` ist
   implementiert;
 - vollständiger realer Sammlungslauf und zusätzliche qpdf-Struktur-Evidence;
-- Classification-, kanonische Relation-Projektion und Keep-Preference-Review
-  über den generischen Core;
-- Consolidation Planning und Execution;
+- Classification- und kanonische Relation-Projektion über den generischen Core;
+- externe Knowledge Provider und Provider Cache über den synthetischen Vertrag
+  hinaus;
+- jede W10-Ausführung einschließlich Quarantäne, Purge und
+  Verzeichnisbereinigung;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 
 ## Sicherheitsgrenze
 
 W10 bleibt ausdrücklich blockiert. Es gibt keine FolioTone-native oder externe Tool-Operation zum Löschen, Verschieben, Umbenennen oder Retaggen von Source Media.
 
-`DELETED`, `FileRelocationCandidate` und Scan-Resume sind ausschließlich Analyse-/Orchestrierungszustände. W9 darf später ausschließlich nicht ausführbare `ConsolidationPlan`-Einträge erzeugen.
+`DELETED`, `FileRelocationCandidate` und Scan-Resume sind ausschließlich Analyse-/Orchestrierungszustände. W9 erzeugt ausschließlich nicht ausführbare `ConsolidationPlan`-Einträge; W10 bleibt für jede Mutation, Quarantäne-, Purge- und Verzeichnisoperation blockiert.

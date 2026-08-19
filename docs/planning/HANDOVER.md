@@ -854,15 +854,19 @@ bleibt getrennt aktivierbar und darf weder Pfade noch Passwortmaterial loggen.
 W9 erzeugt nur nicht ausführbare Pläne; jede Quarantäne-, Lösch- oder
 Verzeichnisoperation bleibt W10-blockiert.
 
-EB-07 ist abgeschlossen. ADR-0034 akzeptiert FG-08 als reinen
-Architekturvertrag; S-EB08-01 bis S-EB08-09 sowie W9 bleiben offen. Der nächste
-atomare Schritt ist S-EB08-01 mit immutable `ConsolidationPlan`-DTOs und den
-festen Status-, Rollen- und Blocker-Literalen aus ADR-0034. Jede
+EB-07 und EB-08 sind abgeschlossen. ADR-0034 ist vollständig umgesetzt;
+S-EB08-01 bis S-EB08-09 sowie W9 sind `DONE`. `foliotone.consolidation`
+liefert immutable DTOs, `canonical-json/v1`, reine Preconditions und Blocker,
+die reviewpflichtige Keep Preference, Migration `0016`, insert-only Persistenz,
+den read-only Report `ebook-consolidation-report` und den statischen
+Non-Execution-Gate gegen Filesystem-Mutationen, mutierende
+Calibre-Command-Shapes und öffentliche Ausführungssurfaces. Jede
 Filesystem-Mutation, mutierende Calibre-Operation und ausführbare W10-Strecke
-bleibt ausgeschlossen. EB-03A kann getrennt als Provider-Cache-Welle
-vorbereitet werden. EB-00, EB-01/E4, EB-02, EB-05, EB-06 und EB-07 sind
-abgeschlossen. Die Reihenfolge, Stop-Gates und zulässigen Spark-Pakete stehen in
-`EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` und
+bleibt ausgeschlossen. Der nächste maßgebliche Schritt gemäß
+`EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` ist FG-03A als Frontier-Gate für den
+Provider-Cache-Vertrag von EB-03A. EB-00, EB-01/E4, EB-02, EB-05, EB-06,
+EB-07 und EB-08 sind abgeschlossen. Die Reihenfolge, Stop-Gates und zulässigen
+Spark-Pakete stehen in `EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` und
 `EBOOK_SPARK_WORK_PACKAGES.md`. Modell-, Thinking- und Agentenauswahl folgen
 repositoryweit `MODEL_ROUTING_POLICY.md`; insbesondere werden Statusprüfungen
 mit 5.6 Luna, atomare festgelegte Coding-Pakete bevorzugt mit 5.3 Codex Spark
