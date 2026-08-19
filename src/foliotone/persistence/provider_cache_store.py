@@ -487,7 +487,7 @@ def _row_to_failure_slot(row: RowMapping) -> ProviderCacheFailureSlot | None:
             None if row["failure_http_status"] is None else int(row["failure_http_status"])
         ),
         failure_at=_required_datetime(row["failure_at"], "failure_at"),
-        failure_retry_after_at=_required_datetime(
+        failure_retry_after_at=_optional_datetime(
             row["failure_retry_after_at"],
             "failure_retry_after_at",
         ),
@@ -577,6 +577,14 @@ def _serialize_timestamp(value: datetime | None) -> str | None:
 def _required_datetime(value: object, field_name: str) -> datetime:
     if value is None:
         raise ValueError(f"{field_name} is required")
+    if type(value) is str:
+        return _require_utc(required_datetime_from_db(value), field_name)
+    raise ValueError(f"{field_name} must be ISO-8601 UTC string")
+
+
+def _optional_datetime(value: object, field_name: str) -> datetime | None:
+    if value is None:
+        return None
     if type(value) is str:
         return _require_utc(required_datetime_from_db(value), field_name)
     raise ValueError(f"{field_name} must be ISO-8601 UTC string")

@@ -14,8 +14,10 @@ from foliotone.enrichment import (
     ProviderCacheFailureSlot,
     ProviderCacheLimits,
     ProviderCachePayloadKind,
+    ProviderCacheResultProjection,
     ProviderCacheResultStatus,
     ProviderCacheSlots,
+    project_provider_cache_status_to_slots,
     provider_source_cache_key,
 )
 from foliotone.persistence import create_sqlite_engine, w3_schema
@@ -105,6 +107,58 @@ def _candidate(
             with_failure=with_failure,
             fetched=fetched,
         ),
+    )
+
+
+def _projection_candidate(
+    source_name: str,
+    *,
+    status: ProviderCacheResultStatus,
+    fetched: datetime,
+    content_bytes: bytes = b"payload-bytes",
+    preserve_content_slot: ProviderCacheContentSlot | None = None,
+) -> ProviderCacheStoreCandidate:
+    projection = ProviderCacheResultProjection(
+        fetched_at=fetched,
+        positive_fresh_ttl=timedelta(minutes=2),
+        positive_expires_ttl=timedelta(minutes=5),
+        negative_fresh_ttl=timedelta(minutes=1),
+        negative_expires_ttl=timedelta(minutes=1),
+        technical_failure_expires_ttl=timedelta(minutes=1),
+    )
+    slots = project_provider_cache_status_to_slots(
+        status,
+        projection=projection,
+        payload_bytes=(
+            content_bytes if status is ProviderCacheResultStatus.SUCCESS else None
+        ),
+        payload_codec=(
+            "json/raw-response" if status is ProviderCacheResultStatus.SUCCESS else None
+        ),
+        payload_bytes_sha256=(
+            None
+            if status is not ProviderCacheResultStatus.SUCCESS
+            else sha256(content_bytes).hexdigest()
+        ),
+        payload_kind=(
+            ProviderCachePayloadKind.RAW_RESPONSE
+            if status is ProviderCacheResultStatus.SUCCESS
+            else ProviderCachePayloadKind.NONE
+        ),
+        failure_retry_after_at=(
+            fetched + timedelta(seconds=30)
+            if status is ProviderCacheResultStatus.RATE_LIMITED
+            else None
+        ),
+        preserve_content_slot=preserve_content_slot,
+    )
+    return ProviderCacheStoreCandidate(
+        source_cache_key=_source_key(source_name),
+        provider_id="provider",
+        provider_adapter_version="v1",
+        query_fingerprint=_fingerprint(source_name),
+        provider_source_version="source-v1",
+        slots=slots,
     )
 
 
@@ -481,6 +535,90 @@ def test_provider_cache_store_uses_failure_slot_when_present(
     assert row is not None
     assert row.slots.failure_slot is not None
     assert row.slots.failure_slot.failure_status is ProviderCacheResultStatus.RATE_LIMITED
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        ProviderCacheResultStatus.SUCCESS,
+        ProviderCacheResultStatus.NOT_FOUND,
+        ProviderCacheResultStatus.RATE_LIMITED,
+        ProviderCacheResultStatus.TEMPORARY_FAILURE,
+        ProviderCacheResultStatus.PERMANENT_FAILURE,
+        ProviderCacheResultStatus.INVALID_RESPONSE,
+    ],
+)
+def test_provider_cache_store_result_matrix_roundtrip_by_status(
+    head_database: Path,
+    status: ProviderCacheResultStatus,
+) -> None:
+    now = datetime(2026, 8, 19, 9, 20, tzinfo=UTC)
+    store = _make_store(head_database, limits=_limits(max_entries_total=8), clock=lambda: now)
+    candidate = _projection_candidate(
+        status.value,
+        status=status,
+        fetched=now,
+        content_bytes=b"matrix-payload",
+    )
+    written = store.compare_and_replace(candidate, expected_generation=0)
+    got = store.get(written.source_cache_key)
+    assert got is not None
+    assert got == written
+
+    if status in {ProviderCacheResultStatus.SUCCESS, ProviderCacheResultStatus.NOT_FOUND}:
+        assert got.slots.content_slot is not None
+        assert got.slots.content_slot.content_status is status
+        assert got.slots.failure_slot is None
+    else:
+        assert got.slots.content_slot is None
+        assert got.slots.failure_slot is not None
+        assert got.slots.failure_slot.failure_status is status
+        if status is ProviderCacheResultStatus.RATE_LIMITED:
+            assert got.slots.failure_slot.failure_retry_after_at is not None
+        else:
+            assert got.slots.failure_slot.failure_retry_after_at is None
+
+
+def test_provider_cache_store_preserves_existing_success_content_for_failure_projection(
+    head_database: Path,
+) -> None:
+    now = datetime(2026, 8, 19, 9, 21, tzinfo=UTC)
+    store = _make_store(head_database, limits=_limits(), clock=lambda: now)
+    written = store.compare_and_replace(
+        _projection_candidate(
+            "preserve-success",
+            status=ProviderCacheResultStatus.SUCCESS,
+            fetched=now,
+            content_bytes=b"matrix-success",
+        ),
+        expected_generation=0,
+    )
+    source_key = written.source_cache_key
+    existing = store.get(source_key)
+    assert existing is not None
+    existing_content = existing.slots.content_slot
+    assert existing_content is not None
+
+    failed = store.compare_and_replace(
+        _projection_candidate(
+            "preserve-success",
+            status=ProviderCacheResultStatus.RATE_LIMITED,
+            fetched=now + timedelta(minutes=1),
+            preserve_content_slot=existing_content,
+        ),
+        expected_generation=written.generation,
+    )
+    got = store.get(source_key)
+
+    assert got is not None
+    assert got.generation == failed.generation
+    assert got.slots.content_slot == existing_content
+    assert got.slots.failure_slot is not None
+    assert got.slots.failure_slot.failure_status is ProviderCacheResultStatus.RATE_LIMITED
+    assert got.slots.failure_slot.failure_retry_after_at == now + timedelta(
+        seconds=30,
+        minutes=1,
+    )
 
 
 def test_provider_cache_store_candidate_key_shape_is_canonical_provider_key(
