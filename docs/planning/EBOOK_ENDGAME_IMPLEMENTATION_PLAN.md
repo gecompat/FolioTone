@@ -2454,10 +2454,11 @@ ohne die Fähigkeit, Source Media zu verändern.
 EB-00, EB-01/E4, EB-02, EB-05, EB-06, EB-07 und EB-08/W9 sind abgeschlossen.
 Unmittelbar als Nächstes:
 
-**FG-03A – Provider-Cache-Vertrag mit Payload-Regeln je Provider,
-TTL-/Freshness-Regeln, Cache-Key-Kanonisierung und Transaktionsgrenze.**
+**S-EB03A-01 – immutable Content-/Failure-Slot-DTOs, Cache-Limits sowie feste
+Result-/Freshness-Literale nach ADR-0035.**
 
-Erst nach diesem Frontier-Gate beginnen die atomaren S-EB03A-Pakete. Archive
+FG-03A ist durch ADR-0035 akzeptiert. Danach folgen die atomaren
+S-EB03A-Pakete strikt in Katalogreihenfolge. Archive
 EA1 kann weiterhin nur innerhalb seines eigenen Gates vorbereitet werden.
 Jede Filesystem-Mutation, mutierende Calibre-Operation und ausführbare
 W10-Strecke bleibt ausgeschlossen.
