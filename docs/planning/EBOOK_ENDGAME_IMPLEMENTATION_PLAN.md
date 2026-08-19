@@ -1,6 +1,6 @@
 # FolioTone – detaillierte Planung der nächsten E-Book-Wellen
 
-**Planungsstand:** 2026-08-18
+**Planungsstand:** 2026-08-19
 **Basis:** maßgeblicher Implementierungsstand aus `PROJECT_STATUS.md` und
 `BACKLOG.md` zum genannten Planungsstand
 **Scope:** E-Book-Linie einschließlich Authority Resolution, Enrichment,
@@ -57,7 +57,7 @@ Die eigentliche E-Book-Analysebasis ist inzwischen weit entwickelt:
 
 - W3-001 bis W3-017 sind gemäß `BACKLOG.md` abgeschlossen; E4 sowie E6 bis
   E12 sind davon getrennte book-only Folgewellen.
-- EB-00, EB-01/E4, EB-02, EB-05 und EB-06 sind abgeschlossen;
+- EB-00, EB-01/E4, EB-02, EB-05, EB-06, EB-07 und EB-08/W9 sind abgeschlossen;
 - inkrementeller Scan, Resume und Recovery sind vorhanden;
 - Quick- und Full-Hashing sind vorhanden;
 - selektives SHA-256-Hashing für Duplicate Candidates ist vorhanden;
@@ -73,28 +73,24 @@ Die eigentliche E-Book-Analysebasis ist inzwischen weit entwickelt:
   vorhanden;
 - strukturierte Knowledge-Provider-Verträge sind vorhanden;
 - multidimensionale Classification-Verträge sind vorhanden.
-- ADR-0033 und der vollständig synthetische S-EB07-01-Fixture-Korpus bilden
-  den begonnenen read-only Calibre-Reconciliation-Vertrag.
+- die persistierte read-only Calibre-Library-Reconciliation, die Keep Preference
+  und ein pfadfreier, nicht ausführbarer `ConsolidationPlan` sind vorhanden.
 
 Noch nicht vorhanden bzw. nicht vollständig:
 
 - persistenter Provider Cache;
 - realer Book Knowledge Provider;
 - vollständige persistierte Classification-Projektion;
-- read-only Calibre-Library-Reconciliation über Vertrag und synthetische
-  Fixtures hinaus;
 - kanonische Relation-Projektion aus bestätigten book-only
   Relation Candidates;
-- Keep Preference;
-- nicht ausführbarer `ConsolidationPlan`;
 - Archive-/Sidecar-/Archive-Member-Analyse.
 
-`foliotone.matching` und `foliotone.review` besitzen inzwischen die
-book-only Verträge und Workflows aus EB-05/EB-06.
-ADR-0034 legt mit FG-08 den nicht ausführbaren Planungsvertrag fest.
-`foliotone.consolidation` bleibt bis zu S-EB08-01 ohne implementierte DTO-,
-Planungs- oder Persistenzstrecke und bis zu einer späteren akzeptierten
-W10-ADR ohne Mutationspfad.
+`foliotone.matching` und `foliotone.review` besitzen die book-only Verträge
+und Workflows aus EB-05/EB-06. ADR-0034 ist mit S-EB08-01 bis S-EB08-09
+vollständig umgesetzt: `foliotone.consolidation` enthält ausschließlich
+immutable DTOs, reine Planung und Validierung, insert-only Persistenz sowie
+pfadfreie read-only Projektionen. Bis zu einer späteren akzeptierten W10-ADR
+bleibt jeder Plan `NOT_EXECUTABLE` und es existiert kein Mutationspfad.
 
 ---
 
@@ -102,8 +98,10 @@ W10-ADR ohne Mutationspfad.
 
 ## Hauptempfehlung
 
-Die nächste Entwicklung sollte **nicht provider-first** und auch nicht
-**Calibre-first** erfolgen.
+Die abgeschlossene kritische Kette bleibt provider- und Calibre-unabhängig.
+Der nächste Schritt ist nun **FG-03A**, das Frontier-Gate für den
+Provider-Cache-Vertrag von EB-03A; es ist keine Provider- oder
+Calibre-Implementierung.
 
 Empfohlene kritische Kette:
 
@@ -1591,8 +1589,9 @@ Dateisystem vorbei löschen.
 **Priorität:** P0 – eigentliches Analyse-Endprodukt
 **Komplexität:** mittel bis hoch
 
-**Gate-Stand:** FG-08 ist durch ADR-0034 akzeptiert. Die Implementierung durch
-S-EB08-01 bis S-EB08-09 bleibt offen; die Gate-Abnahme ändert keinen W9-Status.
+**Status:** `DONE`. FG-08 ist durch ADR-0034 akzeptiert. S-EB08-01 bis
+S-EB08-09 implementieren den Vertrag vollständig; W9 erzeugt ausschließlich
+persistierte `NOT_EXECUTABLE`-Pläne.
 
 ## Zentrale Regel
 
@@ -1797,8 +1796,10 @@ Nicht:
 - mutierendes Calibre;
 - Shell Commands für Löschung.
 
-Sinnvoll wäre sogar ein statischer Test, der in diesem Package bekannte
-Filesystem-Mutations-APIs verbietet.
+Ein statischer adversarial Test prüft das vollständige Package gegen direkte,
+dynamische und injizierte Mutationsformen, gegen öffentliche Ausführungs- oder
+Passthrough-Surfaces sowie gegen mutierende Calibre-Command-Shapes. Er ist ein
+zusätzlicher Regressionstest und ersetzt keine W10-Autorisierung.
 
 W10 bleibt ausdrücklich blockiert.
 
@@ -2217,9 +2218,9 @@ SOURCE MEDIA READ-ONLY
 
 # 36. Empfohlene konkrete Entwicklungsreihenfolge
 
-EB-00, EB-01, EB-02, EB-05, EB-06 und EB-07 sind abgeschlossen. FG-08 ist
-durch ADR-0034 akzeptiert; S-EB08-01 bis S-EB08-09 bleiben offen. Die Tabelle
-bleibt als Abhängigkeitsfolge maßgeblich; sie ist keine zweite Statusquelle.
+EB-00, EB-01, EB-02, EB-05, EB-06, EB-07 und EB-08/W9 sind abgeschlossen.
+Als nächstes ist FG-03A für EB-03A erforderlich. Die Tabelle bleibt als
+Abhängigkeitsfolge maßgeblich; sie ist keine zweite Statusquelle.
 
 | Reihenfolge | Welle | Inhalt | Priorität | Abhängigkeit |
 |---:|---|---|---|---|
@@ -2450,18 +2451,16 @@ ohne die Fähigkeit, Source Media zu verändern.
 
 # 42. Empfohlener unmittelbarer nächster Implementierungsschritt
 
-EB-00, EB-01/E4, EB-02, EB-05, EB-06 und EB-07 sind abgeschlossen. ADR-0034
-hat FG-08 akzeptiert. Unmittelbar als Nächstes:
+EB-00, EB-01/E4, EB-02, EB-05, EB-06, EB-07 und EB-08/W9 sind abgeschlossen.
+Unmittelbar als Nächstes:
 
-**S-EB08-01 – immutable `ConsolidationPlan`-DTOs sowie feste Status-, Rollen-
-und Blocker-Literale gemäß ADR-0034.**
+**FG-03A – Provider-Cache-Vertrag mit Payload-Regeln je Provider,
+TTL-/Freshness-Regeln, Cache-Key-Kanonisierung und Transaktionsgrenze.**
 
-Provider-Cache-/Provider-Research (EB-03A) und Archive-EA1 können in
-getrennten Entwicklungszweigen vorbereitet werden.
-
-Danach werden S-EB08-02 bis S-EB08-09 abhängigkeitsgerecht fortgesetzt. Jede
-Filesystem-Mutation, mutierende Calibre-Operation und ausführbare W10-Strecke
-bleibt ausgeschlossen.
+Erst nach diesem Frontier-Gate beginnen die atomaren S-EB03A-Pakete. Archive
+EA1 kann weiterhin nur innerhalb seines eigenen Gates vorbereitet werden.
+Jede Filesystem-Mutation, mutierende Calibre-Operation und ausführbare
+W10-Strecke bleibt ausgeschlossen.
 
 ---
 
