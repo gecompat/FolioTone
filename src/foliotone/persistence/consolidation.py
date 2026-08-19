@@ -11,6 +11,8 @@ from sqlalchemy import Engine, Table, insert, select
 from sqlalchemy.engine import Connection, RowMapping
 
 from foliotone.consolidation.contracts import (
+    CONSOLIDATION_CANDIDATE_DECISION,
+    CONSOLIDATION_KEEP_PREFERENCE_DECISION,
     ConsolidationBlocker,
     ConsolidationBlockerCode,
     ConsolidationCandidateSnapshot,
@@ -41,6 +43,10 @@ from foliotone.consolidation.contracts import (
     KeepPreferenceOutcome,
     KeepPreferenceReasonCode,
     KeepPreferenceStatus,
+)
+from foliotone.consolidation.planner import (
+    consolidation_candidate_material_fingerprints,
+    consolidation_candidate_physical_preconditions,
 )
 from foliotone.consolidation.serialization import consolidation_plan_content_hash
 from foliotone.core import (
@@ -84,6 +90,166 @@ class ConsolidationStoreError(RuntimeError):
 class _Lineage(NamedTuple):
     scan_root_id: object
     source_scan_run_id: object
+
+
+_REVIEW_CONTRACT = {
+    ReviewType.KEEP_PREFERENCE: (
+        "ebook-keep-preference",
+        CONSOLIDATION_KEEP_PREFERENCE_DECISION,
+    ),
+    ReviewType.CONSOLIDATION_CANDIDATE: (
+        "ebook-consolidation-candidate",
+        CONSOLIDATION_CANDIDATE_DECISION,
+    ),
+}
+
+
+def _review_targets_plan(
+    plan: ConsolidationPlan, review: ConsolidationReviewSnapshot
+) -> bool:
+    """Check the review snapshot against immutable plan material, not just its row."""
+
+    expected = _REVIEW_CONTRACT.get(review.review_type)
+    if expected is None or (
+        review.producer_name != expected[0]
+        or review.decision_compatibility_version != expected[1]
+    ):
+        return False
+    if review.review_type is ReviewType.KEEP_PREFERENCE:
+        target: KeepPreferenceOutcome | ConsolidationCandidateSnapshot | None = (
+            plan.keep_preference
+        )
+    else:
+        target = plan.consolidation_candidate
+    return (
+        target is not None
+        and review.evidence_fingerprint == target.evidence_fingerprint
+        and review.candidate_set_fingerprint == target.candidate_set_fingerprint
+    )
+
+
+def _plan_status_is_consistent(plan: ConsolidationPlan) -> bool:
+    """Project ADR-0034 status priority from the immutable plan graph."""
+
+    if plan.blockers:
+        return plan.status is ConsolidationPlanStatus.BLOCKED
+    reviews = {item.review_type: item for item in plan.required_reviews}
+    waiting = {
+        review_type: item
+        for review_type, item in reviews.items()
+        if item.state in {ConsolidationReviewState.PENDING, ConsolidationReviewState.DEFERRED}
+    }
+    if waiting:
+        keep = reviews.get(ReviewType.KEEP_PREFERENCE)
+        candidate = reviews.get(ReviewType.CONSOLIDATION_CANDIDATE)
+        undirected_keep_waiting = (
+            set(reviews) == {ReviewType.KEEP_PREFERENCE}
+            and keep is not None
+            and keep.review_item_id is not None
+            and _review_targets_plan(plan, keep)
+            and plan.keep_preference is not None
+            and plan.keep_preference.status is KeepPreferenceStatus.PREFERRED
+            and plan.keeper is None
+            and plan.candidate is None
+            and plan.consolidation_candidate is None
+            and not plan.preconditions
+            and not plan.future_operation_intents
+        )
+        directed_candidate_waiting = (
+            set(reviews) == {ReviewType.KEEP_PREFERENCE, ReviewType.CONSOLIDATION_CANDIDATE}
+            and keep is not None
+            and candidate is not None
+            and candidate.review_item_id is not None
+            and keep.state is ConsolidationReviewState.ACCEPTED
+            and candidate.review_type in waiting
+            and _review_targets_plan(plan, keep)
+            and _review_targets_plan(plan, candidate)
+            and plan.keeper is not None
+            and plan.candidate is not None
+            and plan.consolidation_candidate is not None
+            and _has_exact_candidate_physical_preconditions(plan)
+        )
+        return (
+            plan.status is ConsolidationPlanStatus.REVIEW_REQUIRED
+            and (undirected_keep_waiting or directed_candidate_waiting)
+        )
+    required_precondition_codes = {
+        ConsolidationPreconditionCode.FILE_RECORD_UNCHANGED,
+        ConsolidationPreconditionCode.FILE_OBSERVATION_CURRENT,
+        ConsolidationPreconditionCode.PRESENCE_IS_PRESENT,
+        ConsolidationPreconditionCode.FULL_SHA256_MATCHES,
+        ConsolidationPreconditionCode.SIZE_MATCHES,
+        ConsolidationPreconditionCode.MODIFIED_AT_MATCHES,
+        ConsolidationPreconditionCode.CALIBRE_RELATIONSHIP_UNCHANGED,
+        ConsolidationPreconditionCode.SIDECAR_RELATIONSHIP_UNCHANGED,
+        ConsolidationPreconditionCode.ARCHIVE_RELATIONSHIP_UNCHANGED,
+        ConsolidationPreconditionCode.REVIEW_APPROVALS_UNCHANGED,
+    }
+    preconditions_by_role = {
+        role: {
+            item.code for item in plan.preconditions if item.file_role is role
+        }
+        for role in ConsolidationFileRole
+    }
+    approved = (
+        set(reviews) == {ReviewType.KEEP_PREFERENCE, ReviewType.CONSOLIDATION_CANDIDATE}
+        and all(item.state is ConsolidationReviewState.ACCEPTED for item in reviews.values())
+        and all(_review_targets_plan(plan, item) for item in reviews.values())
+        and plan.keeper is not None
+        and plan.candidate is not None
+        and plan.consolidation_candidate is not None
+        and plan.identity is not None
+        and plan.identity.relation_type is RelationType.EXACT_DUPLICATE
+        and plan.identity.left_kind is EntityKind.FILE
+        and plan.identity.right_kind is EntityKind.FILE
+        and plan.identity.status is MatchStatus.CONFIRMED
+        and len(plan.dependencies) == len(ConsolidationFileRole) * len(ConsolidationDependencyKind)
+        and {
+            (item.file_role, item.kind) for item in plan.dependencies
+        }
+        == {
+            (role, kind)
+            for role in ConsolidationFileRole
+            for kind in ConsolidationDependencyKind
+        }
+        and len(plan.quality_evidence) == len(ConsolidationFileRole)
+        and all(_dependency_is_safe_for_approved_plan(item) for item in plan.dependencies)
+        and set(preconditions_by_role[ConsolidationFileRole.CANDIDATE])
+        == required_precondition_codes
+        and set(preconditions_by_role[ConsolidationFileRole.KEEPER])
+        == required_precondition_codes | {ConsolidationPreconditionCode.KEEPER_READABLE}
+        and len(plan.preconditions) == 21
+    )
+    return approved and plan.status is ConsolidationPlanStatus.APPROVED_NON_EXECUTABLE
+
+
+def _has_exact_candidate_physical_preconditions(plan: ConsolidationPlan) -> bool:
+    if plan.keeper is None or plan.candidate is None:
+        return False
+    try:
+        expected = consolidation_candidate_physical_preconditions(
+            (plan.keeper, plan.candidate), plan.dependencies
+        )
+    except ValueError:
+        return False
+    return len(plan.preconditions) == len(expected) and set(plan.preconditions) == set(expected)
+
+
+def _dependency_is_safe_for_approved_plan(dependency: ConsolidationDependency) -> bool:
+    if dependency.state is ConsolidationDependencyState.UNKNOWN:
+        return False
+    if (
+        dependency.file_role is ConsolidationFileRole.CANDIDATE
+        and dependency.state is ConsolidationDependencyState.KNOWN_PRESENT
+    ):
+        return False
+    return (
+        dependency.state is not ConsolidationDependencyState.NOT_APPLICABLE
+        or (
+            dependency.snapshot_kind is not None
+            and dependency.snapshot_id is not None
+        )
+    )
 
 
 class SQLiteConsolidationStore:
@@ -358,6 +524,14 @@ class SQLiteConsolidationStore:
 
     @staticmethod
     def _validate_plan_lineage(connection: Connection, plan: ConsolidationPlan) -> None:
+        if not _plan_status_is_consistent(plan):
+            raise ConsolidationStoreError("plan status is inconsistent with ADR-0034 priority")
+        if (
+            plan.keeper is not None
+            and plan.candidate is not None
+            and plan.keeper.observation_id == plan.candidate.observation_id
+        ):
+            raise ConsolidationStoreError("plan keeper and candidate observations must differ")
         scan = connection.execute(select(schema.scan_runs.c.scan_root_id, schema.scan_runs.c.status).where(schema.scan_runs.c.id == str(plan.source_scan_run_id))).one_or_none()
         if scan is None or str(scan.scan_root_id) != str(plan.scan_root_id) or str(scan.status) != ScanRunStatus.COMPLETED.value:
             raise ConsolidationStoreError("plan requires its completed source scan")
@@ -398,6 +572,38 @@ class SQLiteConsolidationStore:
                 or candidate.candidate_file_id != plan.keep_preference.candidate_file_id
             ):
                 raise ConsolidationStoreError("plan candidate direction differs from preference")
+            assert plan.identity is not None
+            assert plan.keep_preference is not None
+            assert plan.keeper is not None
+            assert plan.candidate is not None
+            candidate_preconditions = (
+                plan.preconditions
+                if plan.preconditions
+                else consolidation_candidate_physical_preconditions(
+                    (plan.keeper, plan.candidate), plan.dependencies
+                )
+            )
+            try:
+                material = consolidation_candidate_material_fingerprints(
+                    identity=plan.identity,
+                    preference=plan.keep_preference,
+                    keeper=plan.keeper,
+                    candidate=plan.candidate,
+                    dependencies=plan.dependencies,
+                    preconditions=candidate_preconditions,
+                    intents=plan.future_operation_intents,
+                )
+            except ValueError as error:
+                raise ConsolidationStoreError(
+                    "plan candidate material is incomplete"
+                ) from error
+            if material != (
+                candidate.dependency_fingerprint,
+                candidate.precondition_fingerprint,
+                candidate.evidence_fingerprint,
+                candidate.candidate_set_fingerprint,
+            ):
+                raise ConsolidationStoreError("plan candidate material fingerprint differs")
         evidence_tables = {
             "RELATION_CANDIDATE": rc.relation_candidates,
             "RELATION_CANDIDATE_EVIDENCE": rc.relation_candidate_evidence,
@@ -487,15 +693,53 @@ class SQLiteConsolidationStore:
                 if compatible is None:
                     raise ConsolidationStoreError("precondition review binding is stale")
         for review in plan.required_reviews:
-            if review.review_type is ReviewType.KEEP_PREFERENCE and (
-                plan.keep_preference is None
-                or plan.keep_preference.status is not KeepPreferenceStatus.PREFERRED
-                or plan.keeper is None
-                or plan.candidate is None
-                or plan.keep_preference.keeper_file_id != plan.keeper.file_id
-                or plan.keep_preference.candidate_file_id != plan.candidate.file_id
-            ):
-                raise ConsolidationStoreError("keep-preference review requires exact preferred direction")
+            if not _review_targets_plan(plan, review):
+                raise ConsolidationStoreError("plan review does not match its target material")
+            if review.review_type is ReviewType.KEEP_PREFERENCE:
+                undirected = (
+                    plan.keep_preference is not None
+                    and plan.keep_preference.status is KeepPreferenceStatus.PREFERRED
+                    and plan.keeper is None
+                    and plan.candidate is None
+                    and plan.consolidation_candidate is None
+                    and not plan.preconditions
+                    and not plan.future_operation_intents
+                    and all(
+                        item.review_type is not ReviewType.CONSOLIDATION_CANDIDATE
+                        for item in plan.required_reviews
+                    )
+                )
+                directed = (
+                    plan.keep_preference is not None
+                    and plan.keep_preference.status is KeepPreferenceStatus.PREFERRED
+                    and plan.keeper is not None
+                    and plan.candidate is not None
+                    and plan.keep_preference.keeper_file_id == plan.keeper.file_id
+                    and plan.keep_preference.candidate_file_id == plan.candidate.file_id
+                )
+                if review.state is ConsolidationReviewState.ACCEPTED:
+                    valid_shape = directed
+                else:
+                    expected_status = (
+                        ConsolidationPlanStatus.REVIEW_REQUIRED
+                        if review.state
+                        in {
+                            ConsolidationReviewState.PENDING,
+                            ConsolidationReviewState.DEFERRED,
+                        }
+                        and not plan.blockers
+                        else ConsolidationPlanStatus.BLOCKED
+                    )
+                    valid_shape = undirected and plan.status is expected_status
+                if not valid_shape:
+                    raise ConsolidationStoreError(
+                        "keep-preference review requires exact preferred direction"
+                    )
+            if review.state in {
+                ConsolidationReviewState.PENDING,
+                ConsolidationReviewState.DEFERRED,
+            } and review.review_item_id is None:
+                raise ConsolidationStoreError("waiting plan review requires a review item")
             if review.review_item_id is None:
                 continue
             item = connection.execute(
@@ -530,7 +774,13 @@ class SQLiteConsolidationStore:
             if review.state is ConsolidationReviewState.PENDING and latest is not None:
                 raise ConsolidationStoreError("plan pending review has an unexpected decision")
             if review.state is ConsolidationReviewState.DEFERRED and (
-                latest is None or str(latest["decision"]) != "DEFER"
+                latest is None
+                or str(latest["decision"]) != "DEFER"
+                or str(latest["evidence_fingerprint"]) != review.evidence_fingerprint
+                or str(latest["candidate_set_fingerprint"])
+                != review.candidate_set_fingerprint
+                or str(latest["decision_compatibility_version"])
+                != review.decision_compatibility_version
             ):
                 raise ConsolidationStoreError("plan deferred review lacks its latest decision")
             if review.decision_id is not None and (

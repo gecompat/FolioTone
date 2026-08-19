@@ -792,6 +792,8 @@ class KeepPreferenceOutcome:
             self.left_file_id, self.right_file_id
         ):
             raise ValueError("keep-preference endpoints must be distinct and canonically ordered")
+        if self.left_observation_id == self.right_observation_id:
+            raise ValueError("keep-preference observations must be distinct")
         if not isinstance(self.status, KeepPreferenceStatus):
             raise ValueError("status must be a KeepPreferenceStatus")
         _unique(self.reason_codes, "reason_codes")
@@ -1174,6 +1176,8 @@ class ConsolidationPlan:
         if self.keeper is not None and self.candidate is not None:
             if self.keeper.file_id == self.candidate.file_id:
                 raise ValueError("keeper and candidate files must differ")
+            if self.keeper.observation_id == self.candidate.observation_id:
+                raise ValueError("keeper and candidate observations must differ")
             if self.keeper.expected_full_sha256 != self.candidate.expected_full_sha256:
                 raise ValueError("exact-duplicate endpoints require equal full SHA-256")
             if self.identity is not None and {
