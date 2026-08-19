@@ -30,6 +30,15 @@ from foliotone.enrichment.provider_cache_contracts import (
     provider_source_cache_key,
     provider_source_cache_key_bytes,
 )
+from foliotone.enrichment.provider_cache_runtime import (
+    ProviderCachePort,
+    ProviderCacheRuntime,
+    ProviderCacheRuntimeEntry,
+    ProviderCacheRuntimeResult,
+    ProviderCacheRuntimeWrite,
+    ProviderCacheTransport,
+    ProviderCacheTransportResult,
+)
 from foliotone.enrichment.providers import SyntheticBookKnowledgeProvider
 
 __all__ = [
@@ -52,6 +61,13 @@ __all__ = [
     "ProviderCachePayloadKind",
     "ProviderCacheResultStatus",
     "ProviderCacheSlots",
+    "ProviderCachePort",
+    "ProviderCacheRuntime",
+    "ProviderCacheRuntimeEntry",
+    "ProviderCacheRuntimeResult",
+    "ProviderCacheRuntimeWrite",
+    "ProviderCacheTransport",
+    "ProviderCacheTransportResult",
     "project_provider_cache_status_to_slots",
     "provider_mapping_input_key",
     "provider_mapping_input_key_bytes",
