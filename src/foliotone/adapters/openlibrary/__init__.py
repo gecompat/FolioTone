@@ -1,5 +1,20 @@
 """Open Library adapter boundaries."""
 
+from foliotone.adapters.openlibrary.mapping import (
+    MAPPING_PROFILE_VERSION,
+    PROVIDER_ADAPTER_VERSION,
+    PROVIDER_ID,
+    PROVIDER_SOURCE_VERSION,
+    SOURCE_PROFILE_VERSION,
+    OpenLibraryAgentCandidate,
+    OpenLibraryEvidenceProjection,
+    OpenLibraryIdentifierProjection,
+    OpenLibraryMappingProvenance,
+    OpenLibraryMappingResult,
+    OpenLibraryWorkCandidate,
+    map_openlibrary_record,
+    map_openlibrary_source,
+)
 from foliotone.adapters.openlibrary.query import (
     MAX_QUERY_TEXT_CODEPOINTS,
     OPENLIBRARY_HOST,
@@ -54,4 +69,17 @@ __all__ = [
     "SearchSourceRecord",
     "WorkSourceRecord",
     "parse_openlibrary_source",
+    "MAPPING_PROFILE_VERSION",
+    "PROVIDER_ADAPTER_VERSION",
+    "PROVIDER_ID",
+    "PROVIDER_SOURCE_VERSION",
+    "SOURCE_PROFILE_VERSION",
+    "OpenLibraryAgentCandidate",
+    "OpenLibraryEvidenceProjection",
+    "OpenLibraryIdentifierProjection",
+    "OpenLibraryMappingProvenance",
+    "OpenLibraryMappingResult",
+    "OpenLibraryWorkCandidate",
+    "map_openlibrary_record",
+    "map_openlibrary_source",
 ]
