@@ -216,6 +216,16 @@ eindeutiges `KeepPreferenceOutcome` und dessen kompatible ACCEPT-Entscheidung
 gerichtet. Lexikografische ID-Reihenfolge, Pfad, Dateiname oder
 Einfügereihenfolge darf keine Keep Preference festlegen.
 
+Die Rollen der zwei `ConsolidationQualityEvidence`-Referenzen sind innerhalb
+des `KeepPreferenceOutcome` statusabhängige Slots. Bei `PREFERRED` bezeichnen
+`KEEPER` und `CANDIDATE` die echte gerichtete Entscheidung. Bei `TIED` oder
+`BLOCKED` bezeichnet `KEEPER` ausschließlich den kanonischen linken und
+`CANDIDATE` ausschließlich den kanonischen rechten Vergleichsslot. Diese
+Slotbelegung autorisiert keine Richtung; `keeper_file_id` und
+`candidate_file_id` bleiben in beiden Zuständen leer. Nur `PREFERRED` mit
+kompatibler `ACCEPT`-Entscheidung darf gerichtete Endpoints, Candidate,
+Intents oder gerichtete Preconditions erzeugen.
+
 Der Keeper bezeichnet die Repräsentation, deren Fortbestand eine zukünftige
 Ausführung zuerst erneut beweisen müsste. Der Candidate bezeichnet nur den
 möglichen Gegenstand späterer W10-Intents. Er ist kein Löschauftrag und wird
@@ -331,7 +341,9 @@ Quality-Evidence-Referenzen sowie `candidate_set_fingerprint`. Der Candidate-
 Set-Fingerprint bindet die zwei möglichen gerichteten File-Paare, Profil,
 Konfigurationsfingerprint und beide Assessment-Fingerprints in kanonischer
 Reihenfolge. `PREFERRED` verlangt genau eine Richtung; `TIED` und `BLOCKED`
-dürfen keine Richtung enthalten.
+dürfen keine Richtung enthalten. Ihre geordneten Quality-Referenzen bleiben
+als kanonische linke/rechte Vergleichsslots erhalten und dürfen weder als
+Keeper-Entscheidung noch als Review-Freigabe interpretiert werden.
 
 Die Bewertung erfolgt in fester Reihenfolge:
 
