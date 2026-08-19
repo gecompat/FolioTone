@@ -173,20 +173,26 @@ W10-Sperre werden durch diesen Abschluss nicht vorgezogen.
 
 ## EB-08 — nicht ausführbarer ConsolidationPlan
 
-FG-08 ist durch ADR-0034 akzeptiert. Das Gate legt ausschließlich den
-Architekturvertrag fest; es implementiert noch kein W9-Verhalten.
+ADR-0034 ist vollständig umgesetzt. EB-08 liefert immutable
+`ConsolidationPlan`-DTOs, `canonical-json/v1`, reine Preconditions- und
+Blocker-Builder, eine reviewpflichtige Keep Preference, Migration `0016`,
+insert-only Persistenz, den deterministischen pfadfreien Report
+`ebook-consolidation-report` sowie einen statischen Non-Execution-Gate-Test
+gegen Filesystem-Mutationen, mutierende Calibre-Command-Shapes und
+öffentliche Ausführungssurfaces. Jeder Plan bleibt dauerhaft
+`NOT_EXECUTABLE`; W10 bleibt unverändert blockiert.
 
 | ID | Status | Item |
 |---|---|---|
-| S-EB08-01 | PLANNED | Immutable `ConsolidationPlan`-DTOs und feste Status-, Rollen- und Blocker-Literale. |
-| S-EB08-02 | PLANNED | Kanonische `canonical-json/v1`-Serialisierung und SHA-256-`content_hash`. |
-| S-EB08-03 | PLANNED | Reiner Precondition Builder für Candidate-/Keeper-Snapshots. |
-| S-EB08-04 | PLANNED | Hard Blocker für Root-, Review-, Calibre-, Sidecar-, Archive- und Lineage-Grenzen. |
-| S-EB08-05 | PLANNED | Reine, versionierte und reviewpflichtige Keep Preference. |
-| S-EB08-06 | PLANNED | Additive Migration `0016` und insert-only Planpersistenz. |
-| S-EB08-07 | PLANNED | Planner für actionable Identity, Quality Evidence, Keep Preference und Preconditions. |
-| S-EB08-08 | PLANNED | Deterministischer path-free Reporter und read-only CLI. |
-| S-EB08-09 | PLANNED | Statischer Non-Execution-Test und dokumentierter W9-Abschluss. |
+| S-EB08-01 | DONE | Immutable `ConsolidationPlan`-DTOs und feste Status-, Rollen- und Blocker-Literale. |
+| S-EB08-02 | DONE | Kanonische `canonical-json/v1`-Serialisierung und SHA-256-`content_hash`. |
+| S-EB08-03 | DONE | Reiner Precondition Builder für Candidate-/Keeper-Snapshots. |
+| S-EB08-04 | DONE | Hard Blocker für Root-, Review-, Calibre-, Sidecar-, Archive- und Lineage-Grenzen. |
+| S-EB08-05 | DONE | Reine, versionierte und reviewpflichtige Keep Preference. |
+| S-EB08-06 | DONE | Additive Migration `0016` und insert-only Planpersistenz. |
+| S-EB08-07 | DONE | Planner für actionable Identity, Quality Evidence, Keep Preference und Preconditions. |
+| S-EB08-08 | DONE | Deterministischer path-free Reporter und read-only CLI. |
+| S-EB08-09 | DONE | Statischer Non-Execution-Test und dokumentierter W9-Abschluss. |
 
 ## W8 — Calibre Library Adapter
 
@@ -200,11 +206,11 @@ Architekturvertrag fest; es implementiert noch kein W9-Verhalten.
 
 | ID | Status | Item |
 |---|---|---|
-| W9-001 | PLANNED | Implement non-executable consolidation plans and preconditions. |
-| W9-002 | PLANNED | Keep duplicate identity separate from quality ranking/keep preference. |
-| W9-003 | PLANNED | Represent changed-since-analysis checks needed by future execution. |
-| W9-004 | PLANNED | Produce a complete non-executable, content-addressed e-book deduplication plan with Keeper, quarantine, verification, rollback, purge, Calibre, sidecar, archive and empty-directory preconditions. |
-| W9-005 | PLANNED | Require Review approval for Keep preference and every future mutation candidate; keep exact duplicate identity, quality ranking and physical operation separate. |
+| W9-001 | DONE | Implement non-executable consolidation plans and preconditions. |
+| W9-002 | DONE | Keep duplicate identity separate from quality ranking/keep preference. |
+| W9-003 | DONE | Represent changed-since-analysis checks needed by future execution. |
+| W9-004 | DONE | Produce a complete non-executable, content-addressed e-book deduplication plan with Keeper, quarantine, verification, rollback, purge, Calibre, sidecar, archive and empty-directory preconditions. |
+| W9-005 | DONE | Require Review approval for Keep preference and every future mutation candidate; keep exact duplicate identity, quality ranking and physical operation separate. |
 
 ## W10 — Controlled Consolidation
 
