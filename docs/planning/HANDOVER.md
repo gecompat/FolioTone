@@ -862,11 +862,20 @@ den read-only Report `ebook-consolidation-report` und den statischen
 Non-Execution-Gate gegen Filesystem-Mutationen, mutierende
 Calibre-Command-Shapes und öffentliche Ausführungssurfaces. Jede
 Filesystem-Mutation, mutierende Calibre-Operation und ausführbare W10-Strecke
-bleibt ausgeschlossen. Der nächste maßgebliche Schritt gemäß
-`EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` ist FG-03A als Frontier-Gate für den
-Provider-Cache-Vertrag von EB-03A. EB-00, EB-01/E4, EB-02, EB-05, EB-06,
-EB-07 und EB-08 sind abgeschlossen. Die Reihenfolge, Stop-Gates und zulässigen
-Spark-Pakete stehen in `EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` und
+bleibt ausgeschlossen.
+
+FG-03A ist jetzt durch ADR-0035 akzeptiert. Das Gate legt den
+`provider-cache-entry/v1`-Vertrag mit Result-Status, Payload-Kind,
+Freshness-Triade, getrenntem vierteiligen Source- und fünfteiligen
+Mapping-Input-Key, Negative-Cache-Regeln, Mapping-Reanalyse ohne Refetch,
+generation-gefencetem CAS und bounded Retention fest. Der nächste
+maßgebliche Implementierungsschritt gemäß
+`EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` ist S-EB03A-01 mit immutable
+Cache-DTOs und den in ADR-0035 festgelegten Result-/Freshness-Literalen.
+
+EB-00, EB-01/E4, EB-02, EB-05, EB-06, EB-07 und EB-08 sind abgeschlossen. Die
+Reihenfolge, Stop-Gates und zulässigen Spark-Pakete stehen in
+`EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` und
 `EBOOK_SPARK_WORK_PACKAGES.md`. Modell-, Thinking- und Agentenauswahl folgen
 repositoryweit `MODEL_ROUTING_POLICY.md`; insbesondere werden Statusprüfungen
 mit 5.6 Luna, atomare festgelegte Coding-Pakete bevorzugt mit 5.3 Codex Spark

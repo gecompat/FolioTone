@@ -146,7 +146,7 @@ noch implementiert.
 | Gate | Muss vorliegen, bevor Spark beginnt |
 |---|---|
 | FG-00 | Durch [ADR-0026](../decisions/ADR-0026-provider-access-and-cache-policy.md) akzeptiert: exakte `ProviderAccessMode`-/`ProviderCachePolicy`-Literale, Legacy-Mapping und Deprecation-Regel. |
-| FG-03A | Cache-Payload-Regel je Provider, TTL-/Freshness-Regeln, Cache-Key-Kanonisierung und Transaktionsgrenze. |
+| FG-03A | Durch [ADR-0035](../decisions/ADR-0035-provider-cache-runtime-contract.md) akzeptiert: Cache-Payload-Regel je Provider, TTL-/Freshness-Regeln, getrennte Source-/Mapping-Keys, CAS-Transaktionsgrenze und bounded Retention. |
 | FG-03B | Erneut geprüfte Provider-Primärdokumentation, Lizenz-/Cache-Regeln, feste Endpoints, Rate Limits und DTO-Mapping. |
 | FG-04 | Classification-Taxonomie, Projection-Priorität, Konfliktstatus und Profilversion. |
 | FG-07 | Durch [ADR-0033](../decisions/ADR-0033-read-only-calibredb-library-reconciliation.md) akzeptiert: vollständige read-only `calibredb`-Command-Shapes, Toolmanifest, Snapshot-Lineage sowie Ownership-/Sidecar-Vertrag. |
@@ -171,10 +171,10 @@ FG-03A sind gemergt. Alle Pakete bleiben ohne echten Provider ausführbar.
 
 | Paket | Ergebnis | Erlaubter Dateibereich | Gezielter Nachweis |
 |---|---|---|---|
-| S-EB03A-01 | Immutable Cache-DTOs und die festgelegten Result-/Freshness-Literale werden implementiert. | neue Datei unter `src/foliotone/enrichment/`, `tests/unit/test_enrichment.py` | Konstruktion, ungültige Zustände und path-free Repräsentation sind getestet. |
-| S-EB03A-02 | Der kanonische Cache-Key-Builder erzeugt aus den fünf festgelegten Komponenten deterministische Bytes und einen Fingerprint. | Cache-Modul aus S-EB03A-01, neue fokussierte Unit-Testdatei | Reihenfolgeunabhängige Eingaben, Versionsänderungen und Unicode-Grenzfälle besitzen feste Golden Values. |
+| S-EB03A-01 | Immutable Content-/Failure-Slot-DTOs, Cache-Limits und die festgelegten Result-/Freshness-Literale werden implementiert. | neue Datei unter `src/foliotone/enrichment/`, tests/unit/test_enrichment.py | Sum-Type-Invarianten, Zeitgrenzen, Limits, ungültige Zustände und path-free Repräsentation sind getestet. |
+| S-EB03A-02 | `BookKnowledgeQuery` erhält den versionierten kanonischen v2-Fingerprint; Key-Builder erzeugen den vierteiligen `source_cache_key` und den um `mapping_profile_version` erweiterten fünfteiligen `mapping_input_key`. | `src/foliotone/enrichment/contracts.py`, Cache-Modul aus S-EB03A-01, neue fokussierte Unit-Testdatei | Delimiter-Angriffe, Reihenfolgeunabhängigkeit, Mapping-Reuse, Versionsänderungen und Unicode-Grenzfälle besitzen feste Golden Values. |
 | S-EB03A-03 | Eine additive Migration und Schemaobjekte speichern Cache-Metadaten ohne private Pfade. | genau eine neue Alembic-Migration, `src/foliotone/persistence/w3_schema.py` oder der durch FG-03A benannte Nachfolger, ein Migrationstest | Upgrade vom vorherigen Head, Indizes, Foreign Keys und Head-Eindeutigkeit sind geprüft. |
-| S-EB03A-04 | Ein Store bietet exakt die in FG-03A festgelegten Put-/Get-Operationen und atomare Ersetzung. | neue Persistenzdatei, `src/foliotone/persistence/__init__.py`, eine Integrationstestdatei | Hit, Miss, Replace und injizierter Rollback sind deterministisch getestet. |
+| S-EB03A-04 | Ein Store bietet `get`, generation-gefencetes `compare_and_replace` und bounded Expired-Pruning. | neue Persistenzdatei, `src/foliotone/persistence/__init__.py`, eine Integrationstestdatei | Hit, Miss, CAS-Konflikt, Capacity-Failure, Replace und injizierter Rollback sind deterministisch getestet. |
 | S-EB03A-05 | Ein reiner Freshness-Evaluator klassifiziert frisch, stale und abgelaufen mit injizierbarer Clock. | Cache-Modul, fokussierte Unit-Tests | Grenzzeitpunkte werden ohne Sleeps getestet. |
 | S-EB03A-06 | `NOT_FOUND` erhält die kürzere negative TTL; Failure-, Rate-Limit- und Timeout-Ergebnisse werden nicht als `NOT_FOUND` gespeichert. | Cache-Modul und Store-Test | Ergebnismatrix und Persistenzzeilen entsprechen exakt FG-03A. |
 | S-EB03A-07 | Die Provider Runtime nutzt Cache Hit, Stale Policy und Refresh, ohne Provider Mapping und Transport zu vermischen. | `src/foliotone/enrichment/providers.py`, Cache-Modul, `tests/unit/test_enrichment.py` | Fake Transport zählt Aufrufe; Hit verursacht null Fetches, Refresh genau einen Fetch. |

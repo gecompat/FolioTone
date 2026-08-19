@@ -4,7 +4,17 @@ Stand: 2026-08-19
 
 ## Aktuelle Welle
 
-**EB-08 abgeschlossen — W9 bleibt dauerhaft nicht ausführbar**
+**FG-03A akzeptiert — EB-03A-Implementierung offen**
+
+ADR-0035 legt für den künftigen Provider Cache den kanonischen
+`provider-cache-entry/v1`-Vertrag fest: Result-Status, Payload-Kind,
+Freshness-Triade, getrennte Source-/Mapping-Keys, Negative-Cache-Regeln,
+Mapping-Reanalyse ohne Refetch, generation-gefencetes CAS und bounded
+Retention. Das Gate autorisiert weiterhin keinen realen
+Provider und keinen Netzwerkzugriff; S-EB03A-01 bis S-EB03A-09 bleiben deshalb
+`PLANNED`.
+
+**Abgeschlossene Voraussetzung: EB-08 — nicht ausführbarer ConsolidationPlan**
 
 ADR-0034 ist vollständig umgesetzt. `foliotone.consolidation` liefert
 immutable `ConsolidationPlan`-DTOs, `canonical-json/v1`, reine
@@ -1157,10 +1167,11 @@ EB-06, EB-07 und EB-08 sind abgeschlossen. EB-07 liefert die persistierte
 read-only Reconciliation und den pfadfreien CLI-Report; die Capture-
 Orchestrierung bleibt offen. EB-08 liefert den nicht ausführbaren,
 content-addressed ConsolidationPlan einschließlich read-only Report und
-statischem Non-Execution-Gate. Der nächste maßgebliche Frontier-Schritt ist
-FG-03A für den Provider-Cache-Vertrag von EB-03A; die Archivstrecke bleibt
-danach eine getrennte Folgearbeit. W10 bleibt unverändert gesperrt. Music W4
-bleibt bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
+statischem Non-Execution-Gate. FG-03A ist akzeptiert; der nächste maßgebliche
+Implementierungsschritt ist S-EB03A-01 mit immutable Cache-DTOs und den in
+ADR-0035 festgelegten Result-/Freshness-Literalen. Die Archivstrecke bleibt
+eine getrennte Folgearbeit. W10 bleibt unverändert gesperrt. Music W4 bleibt
+bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
 ausschließlich die CLI.
 
 ## Nicht implementiert
@@ -1172,7 +1183,6 @@ Noch nicht vorhanden sind unter anderem:
 - Calibre Library Reconciliation über den synthetischen Fixture- und
   ADR-Vertrag hinaus;
 - vollständiger Offline-Orchestrator und Review-CLI für Entity Resolution;
-- externe Knowledge Provider und Provider Cache;
 - Classification Engine;
 - Music- und medienübergreifende Matching-Profile; das book-only Offline-
   Matching für `EXACT_DUPLICATE`, `SAME_EDITION` und `SAME_WORK` ist
