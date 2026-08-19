@@ -24,6 +24,11 @@ from foliotone.enrichment.provider_cache_contracts import (
     ProviderCacheSlots,
     provider_source_cache_key,
 )
+from foliotone.enrichment.provider_cache_runtime import (
+    ProviderCachePort,
+    ProviderCacheRuntimeEntry,
+    ProviderCacheRuntimeWrite,
+)
 from foliotone.persistence import w3_schema
 from foliotone.persistence._mapping import datetime_to_db, required_datetime_from_db
 
@@ -128,6 +133,76 @@ class ProviderCacheStoreEntry(ProviderCacheStoreCandidate):
             "content_hash",
             _require_content_hash(self.content_hash, "content_hash"),
         )
+
+
+class ProviderCacheStorePort(ProviderCachePort):
+    """Adapt `SQLiteProviderCacheStore` to the public runtime cache port."""
+
+    def __init__(
+        self,
+        store: SQLiteProviderCacheStore,
+        *,
+        provider_id: str,
+        provider_adapter_version: str,
+        provider_source_version: str,
+        query_fingerprint: str,
+    ) -> None:
+        if not isinstance(store, SQLiteProviderCacheStore):
+            raise ValueError("store must be a SQLiteProviderCacheStore")
+        self._store = store
+        self._provider_id = provider_id
+        self._provider_adapter_version = provider_adapter_version
+        self._provider_source_version = provider_source_version
+        self._query_fingerprint = query_fingerprint
+        self._source_cache_key = provider_source_cache_key(
+            provider_id=provider_id,
+            provider_adapter_version=provider_adapter_version,
+            query_fingerprint=query_fingerprint,
+            provider_source_version=provider_source_version,
+        )
+
+    def get(self, source_cache_key: str) -> ProviderCacheRuntimeEntry | None:
+        _validate_source_cache_key(source_cache_key, self._source_cache_key)
+        entry = self._store.get(source_cache_key)
+        if entry is None:
+            return None
+        return _entry_to_runtime_entry(entry)
+
+    def compare_and_replace(
+        self,
+        source_cache_key: str,
+        *,
+        slots: ProviderCacheSlots,
+        payload: object | None,
+        expected_generation: int,
+    ) -> ProviderCacheRuntimeWrite:
+        _validate_source_cache_key(source_cache_key, self._source_cache_key)
+        _validate_payload_slots(payload, slots)
+        candidate = ProviderCacheStoreCandidate(
+            source_cache_key=source_cache_key,
+            provider_id=self._provider_id,
+            provider_adapter_version=self._provider_adapter_version,
+            query_fingerprint=self._query_fingerprint,
+            provider_source_version=self._provider_source_version,
+            slots=slots,
+        )
+        expected_generation = _require_non_negative_int(
+            expected_generation,
+            "expected_generation",
+        )
+        try:
+            written = self._store.compare_and_replace(candidate, expected_generation)
+            return ProviderCacheRuntimeWrite(
+                True,
+                _entry_to_runtime_entry(written, payload),
+            )
+        except ProviderCacheStoreConflictError as error:
+            current = error.current
+            if current is None:
+                current = self._store.get(self._source_cache_key)
+            if current is None:
+                raise error
+            return ProviderCacheRuntimeWrite(False, _entry_to_runtime_entry(current))
 
 
 class SQLiteProviderCacheStore:
@@ -366,6 +441,69 @@ def provider_cache_content_hash(candidate: ProviderCacheStoreCandidate) -> str:
     """Compute canonical payload SHA-256 for one cache candidate."""
 
     return hashlib.sha256(canonical_provider_cache_content_bytes(candidate)).hexdigest()
+
+
+def _validate_source_cache_key(
+    source_cache_key: str,
+    expected_source_cache_key: str,
+) -> None:
+    source_cache_key = _require_cache_key(source_cache_key, "source_cache_key")
+    if source_cache_key != expected_source_cache_key:
+        raise ValueError("source_cache_key must match configured provider components")
+
+
+def _validate_payload_slots(payload: object | None, slots: ProviderCacheSlots) -> None:
+    content_slot = slots.content_slot
+    if payload is None:
+        if (
+            content_slot is not None
+            and content_slot.payload_kind is not ProviderCachePayloadKind.NONE
+        ):
+            raise ValueError("payload required for non-NONE content")
+        return
+    if type(payload) is not bytes:
+        raise ValueError("payload must be bytes")
+    if content_slot is None:
+        raise ValueError("payload requires a content slot")
+    if content_slot.payload_kind is ProviderCachePayloadKind.NONE:
+        raise ValueError("payload not allowed for NONE payload kind")
+    if content_slot.payload_bytes is None:
+        raise ValueError("content slot payload bytes required for non-NONE payload kind")
+    if content_slot.payload_bytes_sha256 != hashlib.sha256(payload).hexdigest():
+        raise ValueError("payload does not match content slot hash")
+    if content_slot.payload_bytes != payload:
+        raise ValueError("payload must match persisted content bytes")
+
+
+def _entry_to_runtime_entry(
+    entry: ProviderCacheStoreEntry,
+    payload: object | None = None,
+) -> ProviderCacheRuntimeEntry:
+    runtime_payload = payload
+    content_slot = entry.slots.content_slot
+    if content_slot is None:
+        if runtime_payload is not None:
+            raise ValueError("payload must be none when content slot is absent")
+        return ProviderCacheRuntimeEntry(entry.generation, entry.slots, None)
+
+    if runtime_payload is None:
+        if content_slot.payload_kind is not ProviderCachePayloadKind.NONE:
+            payload_bytes = content_slot.payload_bytes
+            if payload_bytes is None:
+                raise ValueError("payload bytes missing for non-NONE content slot")
+            runtime_payload = payload_bytes
+        else:
+            runtime_payload = None
+
+    if content_slot.payload_kind is ProviderCachePayloadKind.NONE and runtime_payload is not None:
+        raise ValueError("payload must be none for NONE payload kind")
+    if content_slot.payload_kind is not ProviderCachePayloadKind.NONE:
+        if type(runtime_payload) is not bytes:
+            raise ValueError("runtime entry payload must be bytes")
+        if content_slot.payload_bytes != runtime_payload:
+            raise ValueError("payload bytes mismatch")
+
+    return ProviderCacheRuntimeEntry(entry.generation, entry.slots, runtime_payload)
 
 
 def _row_to_entry(
@@ -704,6 +842,7 @@ def _key_already_exists(connection: Connection, source_cache_key: str) -> bool:
 __all__ = [
     "ProviderCacheClock",
     "ProviderCacheStoreCandidate",
+    "ProviderCacheStorePort",
     "ProviderCacheStoreCapacityError",
     "ProviderCacheStoreConflictError",
     "ProviderCacheStoreEntry",
