@@ -602,8 +602,14 @@ class ConsolidationFilePreconditionSnapshot:
     dependency_kind: ConsolidationDependencyKind | None = None
     dependency_state: ConsolidationDependencyState | None = None
     dependency_fingerprint: str | None = field(default=None, repr=False)
+    dependency_snapshot_kind: str | None = None
+    dependency_snapshot_id: EntityId | None = None
     review_item_id: EntityId | None = None
     review_decision_id: EntityId | None = None
+    review_decision_sequence_no: int | None = None
+    review_decision_compatibility_version: str | None = None
+    review_evidence_fingerprint: str | None = field(default=None, repr=False)
+    review_candidate_set_fingerprint: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.file_role, ConsolidationFileRole) or not isinstance(
@@ -638,6 +644,8 @@ class ConsolidationFilePreconditionSnapshot:
                 self.dependency_kind is None
                 or self.dependency_state is None
                 or self.dependency_fingerprint is None
+                or self.dependency_snapshot_kind is None
+                or self.dependency_snapshot_id is None
             ):
                 raise ValueError("relationship preconditions require dependency binding")
             object.__setattr__(
@@ -645,10 +653,18 @@ class ConsolidationFilePreconditionSnapshot:
                 "dependency_fingerprint",
                 _require_sha256(self.dependency_fingerprint, "dependency_fingerprint"),
             )
+            object.__setattr__(
+                self,
+                "dependency_snapshot_kind",
+                _text(self.dependency_snapshot_kind, "dependency_snapshot_kind"),
+            )
+            _id(self.dependency_snapshot_id, "dependency_snapshot_id")
         elif (
             self.dependency_kind is not None
             or self.dependency_state is not None
             or self.dependency_fingerprint is not None
+            or self.dependency_snapshot_kind is not None
+            or self.dependency_snapshot_id is not None
         ):
             raise ValueError("dependency binding is only valid for relationship preconditions")
         if (
@@ -656,10 +672,37 @@ class ConsolidationFilePreconditionSnapshot:
             and self.file_role is not ConsolidationFileRole.KEEPER
         ):
             raise ValueError("KEEPER_READABLE is only valid for the keeper")
-        if self.code is ConsolidationPreconditionCode.REVIEW_APPROVALS_UNCHANGED and (
-            self.review_item_id is None or self.review_decision_id is None
-        ):
-            raise ValueError("review preconditions require review bindings")
+        review_binding = (
+            self.review_item_id,
+            self.review_decision_id,
+            self.review_decision_sequence_no,
+            self.review_decision_compatibility_version,
+            self.review_evidence_fingerprint,
+            self.review_candidate_set_fingerprint,
+        )
+        if self.code is ConsolidationPreconditionCode.REVIEW_APPROVALS_UNCHANGED:
+            if any(value is None for value in review_binding):
+                raise ValueError("review preconditions require complete review bindings")
+            if (
+                isinstance(self.review_decision_sequence_no, bool)
+                or not isinstance(self.review_decision_sequence_no, int)
+                or self.review_decision_sequence_no < 1
+            ):
+                raise ValueError("review decision sequence must be a positive integer")
+            compatibility_version = self.review_decision_compatibility_version
+            assert compatibility_version is not None
+            object.__setattr__(
+                self,
+                "review_decision_compatibility_version",
+                _text(
+                    compatibility_version,
+                    "review_decision_compatibility_version",
+                ),
+            )
+            for name in ("review_evidence_fingerprint", "review_candidate_set_fingerprint"):
+                object.__setattr__(self, name, _require_sha256(getattr(self, name), name))
+        elif any(value is not None for value in review_binding):
+            raise ValueError("review bindings are only valid for review preconditions")
         for name in ("review_item_id", "review_decision_id"):
             value = getattr(self, name)
             if value is not None:
