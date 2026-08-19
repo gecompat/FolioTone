@@ -29,7 +29,6 @@ from foliotone.persistence import (
     SQLiteEbookCollectionReportStore,
     SQLiteEbookCollectionStore,
     create_sqlite_engine,
-    migrate,
     repository,
     w3_schema,
 )
@@ -54,12 +53,12 @@ TEXT_PROFILE = "synthetic-normalized-text/v1"
 
 def test_collection_report_is_actionable_bounded_private_and_deterministic(
     tmp_path: Path,
+    head_database: Path,
     capsys: CaptureFixture[str],
 ) -> None:
     media = tmp_path / "private-media"
     media.mkdir()
-    database = tmp_path / "data" / "foliotone.db"
-    database.parent.mkdir()
+    database = head_database
     engine, root, observations = _environment(
         database,
         media,
@@ -291,7 +290,6 @@ def _environment(
     media: Path,
     paths: tuple[str, ...],
 ) -> tuple[Engine, ScanRoot, dict[str, FileObservation]]:
-    migrate(database)
     engine = create_sqlite_engine(database)
     root = ScanRoot(id=EntityId.new(), name="synthetic-report", media_type=MediaType.EBOOK)
     scan = ScanRun(

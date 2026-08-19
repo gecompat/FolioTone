@@ -32,9 +32,11 @@ from foliotone.core import (
     ToolCapability,
     ToolExecutionStatus,
 )
-from foliotone.persistence import create_sqlite_engine, migrate, repository
+from foliotone.persistence import create_sqlite_engine, repository
 from foliotone.tooling import ToolArtifact, ToolExecution, ToolProviderDescriptor, ToolResult
 from foliotone.tooling.runtime import LocalCommand, ToolRunOutcome
+
+pytestmark = pytest.mark.usefixtures("head_database")
 
 NOW = datetime(2026, 8, 15, 10, 0, tzinfo=UTC)
 
@@ -154,7 +156,6 @@ def test_analyzer_uses_fixed_command_and_persists_cover_evidence(
     relative_path: str,
 ) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     source_root, source_file, observation = _synthetic_observation(
         tmp_path,
@@ -227,7 +228,6 @@ def test_analyzer_uses_fixed_command_and_persists_cover_evidence(
 
 def test_analyzer_records_no_embedded_cover_without_fingerprint(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     source_root, source_file, observation = _synthetic_observation(tmp_path)
     execution = _successful_execution(observation)
@@ -254,7 +254,6 @@ def test_analyzer_records_no_embedded_cover_without_fingerprint(tmp_path: Path) 
 
 def test_analyzer_rejects_changed_source_before_invoking_calibre(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     source_root, source_file, observation = _synthetic_observation(tmp_path)
     execution = _successful_execution(observation)
@@ -274,7 +273,6 @@ def test_analyzer_rejects_changed_source_before_invoking_calibre(tmp_path: Path)
 
 def test_analyzer_rejects_source_digest_change_during_analysis(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     source_root, _source_file, observation = _synthetic_observation(tmp_path)
     execution = _successful_execution(observation)
@@ -300,7 +298,6 @@ def test_analyzer_rejects_unsupported_format_before_invoking_calibre(
     suffix: str,
 ) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     source_root, _source_file, observation = _synthetic_observation(
         tmp_path,
@@ -324,7 +321,6 @@ def test_analyzer_rejects_unsupported_format_before_invoking_calibre(
 
 def test_failed_extraction_is_not_mislabeled_as_no_cover(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     source_root, source_file, observation = _synthetic_observation(tmp_path)
     execution = _execution(

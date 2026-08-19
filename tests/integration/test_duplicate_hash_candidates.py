@@ -35,7 +35,6 @@ from foliotone.index import (
 from foliotone.persistence import (
     SQLiteEbookCandidateHashRunStore,
     create_sqlite_engine,
-    migrate,
     repository,
     schema,
 )
@@ -322,14 +321,13 @@ def _full_hashed_observations(engine: Engine) -> set[str]:
 
 def _candidate_case(
     tmp_path: Path,
+    database: Path,
     name: str,
 ) -> tuple[Path, Engine, ScanRoot]:
     media = tmp_path / name
     media.mkdir()
     for filename in ("a.epub", "b.epub"):
         (media / filename).write_bytes(b"same candidate bytes")
-    database = tmp_path / f"{name}.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     store = SQLiteIndexStore(engine)
     root = store.get_or_create_root(name, MediaType.EBOOK)
@@ -484,6 +482,7 @@ def test_candidate_hash_cli_is_selective_path_free_and_restartable(
 
 def test_candidate_hash_materializes_only_the_current_snapshot_once(
     tmp_path: Path,
+    head_database: Path,
 ) -> None:
     media = tmp_path / "media"
     media.mkdir()
@@ -493,8 +492,7 @@ def test_candidate_hash_materializes_only_the_current_snapshot_once(
         "unique.pdf": b"unique",
     }.items():
         (media / name).write_bytes(content)
-    database = tmp_path / "foliotone.db"
-    migrate(database)
+    database = head_database
     engine = create_sqlite_engine(database)
     store = SQLiteIndexStore(engine)
     root = store.get_or_create_root("snapshot-once", MediaType.EBOOK)
@@ -547,8 +545,10 @@ def test_candidate_hash_materializes_only_the_current_snapshot_once(
     assert len(quick_hashes) == 9
 
 
-def test_candidate_hash_counts_multiple_existing_full_hashes(tmp_path: Path) -> None:
-    media, engine, root = _candidate_case(tmp_path, "already-full-hashed")
+def test_candidate_hash_counts_multiple_existing_full_hashes(
+    tmp_path: Path, head_database: Path
+) -> None:
+    media, engine, root = _candidate_case(tmp_path, head_database, "already-full-hashed")
     writer = FingerprintWriter(engine)
     observations = repository(engine, FileObservation).list_all()
     for observation in observations:
@@ -582,13 +582,13 @@ def test_candidate_hash_counts_multiple_existing_full_hashes(tmp_path: Path) -> 
 
 def test_candidate_hash_excludes_inconsistent_current_quick_evidence(
     tmp_path: Path,
+    head_database: Path,
 ) -> None:
     media = tmp_path / "media"
     media.mkdir()
     for name in ("a.epub", "b.epub", "conflicting.epub"):
         (media / name).write_bytes(b"same")
-    database = tmp_path / "foliotone.db"
-    migrate(database)
+    database = head_database
     engine = create_sqlite_engine(database)
     store = SQLiteIndexStore(engine)
     root = store.get_or_create_root("conflicting-quick", MediaType.EBOOK)
@@ -629,15 +629,16 @@ def test_candidate_hash_excludes_inconsistent_current_quick_evidence(
     assert conflicting.id not in full_hash_targets
 
 
-def test_candidate_hash_isolates_a_source_changed_after_scan(tmp_path: Path) -> None:
+def test_candidate_hash_isolates_a_source_changed_after_scan(
+    tmp_path: Path, head_database: Path
+) -> None:
     media = tmp_path / "media"
     media.mkdir()
     first = media / "a.epub"
     second = media / "b.epub"
     first.write_bytes(b"same")
     second.write_bytes(b"same")
-    database = tmp_path / "foliotone.db"
-    migrate(database)
+    database = head_database
     engine = create_sqlite_engine(database)
     store = SQLiteIndexStore(engine)
     root = store.get_or_create_root("changed-candidate", MediaType.EBOOK)
@@ -676,8 +677,9 @@ def test_candidate_hash_isolates_a_source_changed_after_scan(tmp_path: Path) -> 
 
 def test_keeper_failure_during_a_long_hash_is_path_free_and_fences_the_batch(
     tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    media, engine, root = _candidate_case(tmp_path, "keeper-failure")
+    media, engine, root = _candidate_case(tmp_path, head_database, "keeper-failure")
     hashing_started = Event()
     keeper_failed = Event()
     run_store = _KeeperFailureStore(engine, hashing_started, keeper_failed)
@@ -713,8 +715,10 @@ def test_keeper_failure_during_a_long_hash_is_path_free_and_fences_the_batch(
     ]
 
 
-def test_keeper_renews_while_one_full_hash_is_blocked(tmp_path: Path) -> None:
-    media, engine, root = _candidate_case(tmp_path, "long-hash-heartbeat")
+def test_keeper_renews_while_one_full_hash_is_blocked(
+    tmp_path: Path, head_database: Path
+) -> None:
+    media, engine, root = _candidate_case(tmp_path, head_database, "long-hash-heartbeat")
     hashing_started = Event()
     renewed = Event()
     run_store = _SignallingHeartbeatStore(engine, hashing_started, renewed)
@@ -746,8 +750,9 @@ def test_keeper_renews_while_one_full_hash_is_blocked(tmp_path: Path) -> None:
 
 def test_keyboard_interrupt_releases_the_run_and_rerun_hashes_only_missing(
     tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    media, engine, root = _candidate_case(tmp_path, "keyboard-interrupt")
+    media, engine, root = _candidate_case(tmp_path, head_database, "keyboard-interrupt")
     run_store = SQLiteEbookCandidateHashRunStore(engine)
     interrupted_service = DuplicateHashCandidateService(
         engine,
@@ -777,9 +782,9 @@ def test_keyboard_interrupt_releases_the_run_and_rerun_hashes_only_missing(
 
 def test_candidate_hash_scale_dataset_uses_single_candidate_materialization_and_indexed_plan(
     tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "scale.db"
-    migrate(database)
+    database = head_database
     engine = create_sqlite_engine(database)
     root, scan = _seed_scale_dataset(tmp_path, engine)
 
@@ -827,9 +832,9 @@ def test_candidate_hash_scale_dataset_uses_single_candidate_materialization_and_
 
 def test_candidate_hash_scale_restart_with_max_items_is_deterministic(
     tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "scale-restart.db"
-    migrate(database)
+    database = head_database
     engine = create_sqlite_engine(database)
     root, scan = _seed_scale_dataset(tmp_path, engine)
     ordered_observations = _ordered_candidate_observations(root, scan, engine)

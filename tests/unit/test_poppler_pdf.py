@@ -27,9 +27,11 @@ from foliotone.core import (
     ToolCapability,
     ToolExecutionStatus,
 )
-from foliotone.persistence import create_sqlite_engine, migrate, repository
+from foliotone.persistence import create_sqlite_engine, repository
 from foliotone.tooling import ToolArtifact, ToolExecution, ToolProviderDescriptor, ToolResult
 from foliotone.tooling.runtime import LocalCommand, ToolRunOutcome
+
+pytestmark = pytest.mark.usefixtures("head_database")
 
 NOW = datetime(2026, 8, 14, 14, 0, tzinfo=UTC)
 
@@ -180,7 +182,6 @@ class RecordingRuntime:
 
 def test_analyzer_uses_fixed_commands_and_persists_pdf_evidence(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     source_root, source_file, observation = _synthetic_observation(tmp_path)
     info_execution = _execution(
@@ -274,7 +275,6 @@ def test_analyzer_uses_fixed_commands_and_persists_pdf_evidence(tmp_path: Path) 
 
 def test_analyzer_records_no_text_without_fingerprint(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     source_root, _source_file, observation = _synthetic_observation(tmp_path)
     info_execution = _execution(
@@ -315,7 +315,6 @@ def test_analyzer_records_no_text_without_fingerprint(tmp_path: Path) -> None:
 
 def test_analyzer_keeps_text_evidence_when_pdfinfo_fails(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     source_root, _source_file, observation = _synthetic_observation(tmp_path)
     info_execution = _execution(
@@ -358,7 +357,6 @@ def test_analyzer_keeps_text_evidence_when_pdfinfo_fails(tmp_path: Path) -> None
 
 def test_analyzer_rejects_changed_source_between_tool_and_import(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     source_root, source_file, observation = _synthetic_observation(tmp_path)
     info_execution = _execution(
@@ -401,7 +399,6 @@ def test_analyzer_rejects_changed_source_between_tool_and_import(tmp_path: Path)
 
 def test_analyzer_rejects_non_pdf_before_invoking_poppler(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     source_root, _source_file, observation = _synthetic_observation(
         tmp_path,

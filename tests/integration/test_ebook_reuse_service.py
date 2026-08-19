@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 from PIL import Image
 from sqlalchemy import Engine
 
@@ -62,7 +63,7 @@ from foliotone.core import (
     ToolCapability,
     ToolExecutionStatus,
 )
-from foliotone.persistence import create_sqlite_engine, migrate, repository
+from foliotone.persistence import create_sqlite_engine, repository
 from foliotone.tooling import (
     ToolArtifact,
     ToolArtifactRequirement,
@@ -73,6 +74,8 @@ from foliotone.tooling import (
 )
 from foliotone.tooling.runtime import ToolRuntime
 from foliotone.workflows import EbookAnalysisReuseService
+
+pytestmark = pytest.mark.usefixtures("head_database")
 
 NOW = datetime(2026, 8, 15, 14, 0, tzinfo=UTC)
 SAMPLE_OPF = b"""<?xml version="1.0" encoding="utf-8"?>
@@ -368,7 +371,6 @@ def _environment(
     tmp_path: Path,
 ) -> tuple[Engine, Path, ToolRuntime, EbookAnalysisReuseService]:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     artifact_root = tmp_path / "artifacts"
     runtime = ToolRuntime(engine, artifact_root, work_root=tmp_path / "work")

@@ -32,7 +32,7 @@ from foliotone.index import (
     SQLiteIndexStore,
 )
 from foliotone.index.store import OwnedScanRun
-from foliotone.persistence import create_sqlite_engine, migrate, repository, schema
+from foliotone.persistence import create_sqlite_engine, repository, schema
 from foliotone.persistence.scan_root_lease import OwnedScanRootWriteLease
 
 NOW = datetime(2026, 8, 8, 20, 0, tzinfo=UTC)
@@ -80,11 +80,10 @@ class CoordinatedFingerprintWriter(FingerprintWriter):
 
 
 @pytest.fixture
-def index_environment(tmp_path: Path) -> IndexEnvironment:
-    database = tmp_path / "foliotone.db"
+def index_environment(tmp_path: Path, head_database: Path) -> IndexEnvironment:
+    database = head_database
     media = tmp_path / "media"
     media.mkdir()
-    migrate(database)
     engine = create_sqlite_engine(database)
     store = SQLiteIndexStore(engine)
     root = store.get_or_create_root("test", MediaType.EBOOK)
@@ -106,13 +105,14 @@ def test_logical_scan_root_is_reused_by_name(index_environment: IndexEnvironment
     assert len(repository(index_environment.engine, ScanRoot).list_all()) == 1
 
 
-def test_hash_workers_overlap_calculation_and_persist_one_batch(tmp_path: Path) -> None:
-    database = tmp_path / "foliotone.db"
+def test_hash_workers_overlap_calculation_and_persist_one_batch(
+    tmp_path: Path, head_database: Path
+) -> None:
+    database = head_database
     media = tmp_path / "media"
     media.mkdir()
     (media / "A.epub").write_bytes(b"alpha")
     (media / "B.epub").write_bytes(b"bravo")
-    migrate(database)
     engine = create_sqlite_engine(database)
     store = SQLiteIndexStore(engine)
     root = store.get_or_create_root("parallel-hash", MediaType.EBOOK)
@@ -136,9 +136,10 @@ def test_hash_workers_overlap_calculation_and_persist_one_batch(tmp_path: Path) 
     assert len(repository(engine, Fingerprint).list_all()) == 2
 
 
-def test_index_store_persists_each_discovery_batch_with_set_writes(tmp_path: Path) -> None:
-    database = tmp_path / "foliotone.db"
-    migrate(database)
+def test_index_store_persists_each_discovery_batch_with_set_writes(
+    tmp_path: Path, head_database: Path
+) -> None:
+    database = head_database
     engine = create_sqlite_engine(database)
     store = SQLiteIndexStore(engine)
     root = store.get_or_create_root("set-write", MediaType.EBOOK)
@@ -356,11 +357,12 @@ def test_deletion_confirmation_is_disabled_by_default(
         assert record.consecutive_missing_scans == expected_count
 
 
-def test_deletion_confirmation_requires_missing_count_and_age(tmp_path: Path) -> None:
-    database = tmp_path / "foliotone.db"
+def test_deletion_confirmation_requires_missing_count_and_age(
+    tmp_path: Path, head_database: Path
+) -> None:
+    database = head_database
     media = tmp_path / "media"
     media.mkdir()
-    migrate(database)
     engine = create_sqlite_engine(database)
     store = SQLiteIndexStore(engine)
     root = store.get_or_create_root("test", MediaType.EBOOK)
@@ -413,11 +415,12 @@ def test_deletion_confirmation_requires_missing_count_and_age(tmp_path: Path) ->
     assert record.consecutive_missing_scans == 0
 
 
-def test_failed_scan_does_not_advance_deletion_confirmation(tmp_path: Path) -> None:
-    database = tmp_path / "foliotone.db"
+def test_failed_scan_does_not_advance_deletion_confirmation(
+    tmp_path: Path, head_database: Path
+) -> None:
+    database = head_database
     media = tmp_path / "media"
     media.mkdir()
-    migrate(database)
     engine = create_sqlite_engine(database)
     store = SQLiteIndexStore(engine)
     root = store.get_or_create_root("test", MediaType.EBOOK)
@@ -545,11 +548,12 @@ def test_ambiguous_duplicate_fingerprint_does_not_create_relocation_candidate(
     assert repository(engine, FileRelocationCandidate).list_all() == []
 
 
-def test_full_hash_is_preferred_as_relocation_evidence(tmp_path: Path) -> None:
-    database = tmp_path / "foliotone.db"
+def test_full_hash_is_preferred_as_relocation_evidence(
+    tmp_path: Path, head_database: Path
+) -> None:
+    database = head_database
     media = tmp_path / "media"
     media.mkdir()
-    migrate(database)
     engine = create_sqlite_engine(database)
     store = SQLiteIndexStore(engine)
     root = store.get_or_create_root("test", MediaType.EBOOK)

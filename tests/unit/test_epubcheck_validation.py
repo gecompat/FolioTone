@@ -20,7 +20,7 @@ from foliotone.core import (
     ToolCapability,
     ToolExecutionStatus,
 )
-from foliotone.persistence import create_sqlite_engine, migrate, repository
+from foliotone.persistence import create_sqlite_engine, repository
 from foliotone.tooling import (
     JsonValue,
     ToolArtifact,
@@ -29,6 +29,8 @@ from foliotone.tooling import (
     ToolResult,
 )
 from foliotone.tooling.runtime import LocalCommand, ToolRunOutcome
+
+pytestmark = pytest.mark.usefixtures("head_database")
 
 NOW = datetime(2026, 8, 15, 8, 0, tzinfo=UTC)
 
@@ -198,7 +200,6 @@ class RecordingRuntime:
 
 def test_analyzer_uses_fixed_read_only_command_and_persists_evidence(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     source_root, source_file, observation = _synthetic_observation(tmp_path)
     execution = _execution(observation, exit_code=1)
@@ -250,7 +251,6 @@ def test_analyzer_uses_fixed_read_only_command_and_persists_evidence(tmp_path: P
 
 def test_analyzer_rejects_changed_source_before_importing_report(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     source_root, source_file, observation = _synthetic_observation(tmp_path)
     execution = _execution(observation, exit_code=0)
@@ -275,7 +275,6 @@ def test_analyzer_rejects_changed_source_before_importing_report(tmp_path: Path)
 
 def test_analyzer_rejects_non_epub_before_invoking_tool(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     source_root, _source_file, observation = _synthetic_observation(
         tmp_path,

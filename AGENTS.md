@@ -27,15 +27,16 @@ Read these files in order:
 3. `docs/planning/IMPLEMENTATION_PLAN.md`
 4. `docs/planning/BACKLOG.md`
 5. `docs/planning/MODEL_ROUTING_POLICY.md` before selecting a model or delegating work
-6. `docs/quality/DOCUMENTATION_STYLE.md` when documentation prose is touched
-7. `docs/quality/LANGUAGE_AND_TERMINOLOGY.md` when documentation prose or terminology is touched
-8. `docs/reference/GLOSSARY.md` when domain terminology is touched
-9. `docs/architecture/OVERVIEW.md`
-10. `docs/architecture/DOMAIN_MODEL.md`
-11. `docs/architecture/AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`
-12. `docs/reference/EXTERNAL_TOOLS.md` when work touches media analysis/tool orchestration
-13. `docs/reference/EXTERNAL_DATA_SOURCES.md` when work touches external knowledge/providers
-14. relevant files under `docs/architecture/` and `docs/decisions/`
+6. `docs/quality/COST_EFFICIENT_DEVELOPMENT.md` before planning tests, CI or agent work
+7. `docs/quality/DOCUMENTATION_STYLE.md` when documentation prose is touched
+8. `docs/quality/LANGUAGE_AND_TERMINOLOGY.md` when documentation prose or terminology is touched
+9. `docs/reference/GLOSSARY.md` when domain terminology is touched
+10. `docs/architecture/OVERVIEW.md`
+11. `docs/architecture/DOMAIN_MODEL.md`
+12. `docs/architecture/AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`
+13. `docs/reference/EXTERNAL_TOOLS.md` when work touches media analysis/tool orchestration
+14. `docs/reference/EXTERNAL_DATA_SOURCES.md` when work touches external knowledge/providers
+15. relevant files under `docs/architecture/` and `docs/decisions/`
 
 If repository code and documentation disagree, treat the discrepancy as a defect. Determine the actual state, then update code and documentation together.
 
@@ -103,6 +104,13 @@ For each coherent change:
 7. update `BACKLOG.md` and `PROJECT_STATUS.md` in the same change;
 8. update architecture/ADR/provider/tool documentation if behavior or a decision changed;
 9. leave the repository in a state where the next task is explicit.
+
+Testauswahl, lokale Logauswertung, Agentenkoordination und vollständige Gates
+folgen zusätzlich dem verbindlichen Vertrag unter
+`docs/quality/COST_EFFICIENT_DEVELOPMENT.md`. Vollständige Logs werden lokal
+aggregiert; nur neue Fehlersignaturen und entscheidungsrelevante Ausschnitte
+gelangen in den Modellkontext. Pro konsistenter Welle wird genau ein vollständiger
+PR-CI-Gate ausgeführt.
 
 Do not silently invent architecture decisions. If a material choice is needed, add an ADR with status `Proposed` or `Accepted` as appropriate.
 

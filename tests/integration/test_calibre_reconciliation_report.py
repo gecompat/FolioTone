@@ -19,7 +19,6 @@ SNAPSHOT_ID = "00000000-0000-0000-0000-000000000003"
 
 def _database(path: Path) -> None:
     engine = create_sqlite_engine(path)
-    migrate(path)
     ids = [f"00000000-0000-0000-0000-{index:012d}" for index in range(1, 40)]
     with engine.begin() as connection:
         connection.execute(
@@ -134,7 +133,6 @@ def _database(path: Path) -> None:
 
 def _non_completed_snapshot(path: Path, status: str) -> None:
     engine = create_sqlite_engine(path)
-    migrate(path)
     with engine.begin() as connection:
         connection.execute(
             insert(schema.scan_roots),
@@ -177,11 +175,11 @@ def _non_completed_snapshot(path: Path, status: str) -> None:
 
 
 def test_calibre_reconciliation_report_cli_is_read_only_and_path_free(
-    tmp_path: Path,
+    head_database: Path,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    database = tmp_path / "synthetic.db"
+    database = head_database
     _database(database)
     before = database.read_bytes()
     monkeypatch.setattr("foliotone.cli.main.migrate", lambda _path: pytest.fail("must not migrate"))
@@ -268,11 +266,11 @@ def test_calibre_reconciliation_report_rejects_invalid_snapshot_token() -> None:
 
 @pytest.mark.parametrize("status", ["RUNNING", "INVALIDATED", "FAILED"])
 def test_calibre_reconciliation_report_non_completed_snapshot_returns_null_counts(
-    tmp_path: Path,
+    head_database: Path,
     capsys: pytest.CaptureFixture[str],
     status: str,
 ) -> None:
-    database = tmp_path / f"non-completed-{status.lower()}.db"
+    database = head_database
     _non_completed_snapshot(database, status)
 
     assert main(

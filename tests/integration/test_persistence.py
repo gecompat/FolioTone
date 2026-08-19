@@ -100,13 +100,13 @@ def provenance() -> Provenance:
 
 
 @pytest.fixture
-def database(tmp_path: Path) -> Path:
-    path = tmp_path / "foliotone.db"
-    migrate(path)
-    return path
+def database(head_database: Path) -> Path:
+    return head_database
 
 
-def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> None:
+def test_migration_creates_current_schema_and_is_idempotent(tmp_path: Path) -> None:
+    database = tmp_path / "migration-head.db"
+    migrate(database)
     migrate(database)
     engine = create_sqlite_engine(database)
     inspector = inspect(engine)

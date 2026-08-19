@@ -66,6 +66,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 
 - [Verbindlicher Schreibstil](quality/DOCUMENTATION_STYLE.md) regelt fachliche Präzision, Nachvollziehbarkeit und den geschützten README-Lizenzblock.
 - [Sprach- und Terminologierichtlinie](quality/LANGUAGE_AND_TERMINOLOGY.md) definiert Deutsch als kanonische erklärende Dokumentationssprache und schützt technische Literale vor Übersetzung.
+- [Kosten- und kontexteffiziente Entwicklung](quality/COST_EFFICIENT_DEVELOPMENT.md) definiert Local-first-Logauswertung, gestufte Tests, isolierte SQLite-Template-Kopien und begrenzte Agentenübergaben.
 - [Glossar](reference/GLOSSARY.md) ist die zentrale Terminologiequelle.
 - [Lokaler W2-Smoke-Test](quality/LOCAL_SMOKE_TEST.md) dokumentiert den abgeschlossenen manuellen W2-Plattformtest.
 - [Synthetischer E-Book-Vergleichskorpus v1](../tests/fixtures/ebook_comparison/v1/README.md) dokumentiert die ursprüngliche Ground Truth für spätere Matching-Tests.
@@ -78,6 +79,7 @@ Automatische Dokumentationsprüfungen sind bewusst konservativ. Sie verhindern b
 1. Root-`AGENTS.md` lesen.
 2. `planning/PROJECT_STATUS.md` und `planning/HANDOVER.md` gegen den Repositorystand prüfen.
 3. `quality/DOCUMENTATION_STYLE.md` und `quality/LANGUAGE_AND_TERMINOLOGY.md` lesen, bevor Dokumentationsfreitext geändert wird.
-4. Für die aktuelle Aufgabe die relevanten Architektur- und ADR-Dokumente lesen.
-5. Bei Tool- oder Provider-Arbeit zusätzlich die jeweilige Registry und aktuelle externe Primärdokumentation prüfen.
-6. Code, Tests, Backlog und Projektstatus in einem konsistenten Stand halten.
+4. `quality/COST_EFFICIENT_DEVELOPMENT.md` vor Test-, Agenten- oder CI-Planung lesen.
+5. Für die aktuelle Aufgabe die relevanten Architektur- und ADR-Dokumente lesen.
+6. Bei Tool- oder Provider-Arbeit zusätzlich die jeweilige Registry und aktuelle externe Primärdokumentation prüfen.
+7. Code, Tests, Backlog und Projektstatus in einem konsistenten Stand halten.

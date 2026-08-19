@@ -25,7 +25,6 @@ from foliotone.persistence import (
     EbookInventoryReportStoreError,
     SQLiteEbookInventoryReportStore,
     create_sqlite_engine,
-    migrate,
     repository,
 )
 from foliotone.workflows import EbookInventoryReportLimits, EbookInventoryReportService
@@ -35,9 +34,9 @@ NOW = datetime(2026, 8, 15, 22, 0, tzinfo=UTC)
 
 def test_inventory_report_rejects_a_latest_non_completed_scan(
     tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "foliotone.db"
-    migrate(database)
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(
         id=EntityId.new(),
@@ -74,6 +73,7 @@ def test_inventory_report_rejects_a_latest_non_completed_scan(
 
 def test_inventory_report_is_scan_wide_actionable_private_and_deterministic(
     tmp_path: Path,
+    head_database: Path,
     capsys: CaptureFixture[str],
 ) -> None:
     media = tmp_path / "private-media"
@@ -85,9 +85,7 @@ def test_inventory_report_is_scan_wide_actionable_private_and_deterministic(
         "d.pdf": b"d" * 80,
         "e.mobi": b"z" * 20,
     }
-    database = tmp_path / "data" / "foliotone.db"
-    database.parent.mkdir()
-    migrate(database)
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(
         id=EntityId.new(),

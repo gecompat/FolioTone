@@ -22,7 +22,6 @@ from foliotone.persistence import (
     EbookCandidateHashLeaseError,
     SQLiteEbookCandidateHashRunStore,
     create_sqlite_engine,
-    migrate,
     repository,
     schema,
     w3_schema,
@@ -55,10 +54,9 @@ os._exit(17)
 
 
 def test_hard_process_abort_is_recovered_only_after_lease_expiry(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "hard-abort.db"
-    migrate(database)
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(
         id=EntityId.new(),
