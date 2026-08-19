@@ -176,3 +176,39 @@ def test_mapping_is_redacted_typed_and_requires_all_candidate_bindings():
             observed_at=NOW,
             target_bindings={"openlibrary.work:OL1W": "work-ref"},
         )
+
+
+@pytest.mark.parametrize(
+    ("left", "right"),
+    [
+        (
+            AuthorSourceRecord("OL10A", "Synthetic Alias", ("Synthetic Name",), None, None, False),
+            AuthorSourceRecord("OL11A", "Synthetic Alias", ("Synthetic Name",), None, None, False),
+        ),
+        (
+            AuthorSourceRecord("OL12A", "Synthetic Person", (), None, None, False),
+            AuthorSourceRecord("OL13A", "Synthetic Person", (), None, None, False),
+        ),
+        (
+            AuthorSourceRecord("OL14A", "Synthetic Name A", (), None, None, False),
+            AuthorSourceRecord("OL14A", "Synthetic Name B", (), None, None, False),
+        ),
+    ],
+)
+def test_author_candidates_keep_olid_alias_homonym_and_name_conflict_boundaries(left, right):
+    first = map_openlibrary_record(left, observed_at=NOW, target_id="agent-a")
+    second = map_openlibrary_record(right, observed_at=NOW, target_id="agent-b")
+
+    assert first.agent_candidates[0].author_olid != second.agent_candidates[0].author_olid or (
+        first.agent_candidates[0].values != second.agent_candidates[0].values
+    )
+    assert all(
+        value.state is ValueState.EXTERNAL
+        for value in first.values + second.values
+    )
+    assert all(not hasattr(candidate, "resolution") for candidate in first.agent_candidates)
+
+
+def test_missing_author_id_is_not_invented_by_mapping():
+    with pytest.raises(ValueError):
+        AuthorSourceRecord("", "Synthetic Name", (), None, None, False)

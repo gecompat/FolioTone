@@ -483,6 +483,13 @@ def _agent_candidates(
     bindings: Mapping[str, str],
     provenance: OpenLibraryMappingProvenance,
 ) -> tuple[OpenLibraryAgentCandidate, ...]:
+    """Project only ID-bearing references from Work/Edition source records.
+
+    The source contract currently exposes no contributor-name field on these
+    records.  Consequently this function intentionally creates an external
+    candidate only for a referenced Author OLID; it must not invent a local
+    identity or synthesize a candidate for a missing Author ID.
+    """
     return _sorted_unique(
         OpenLibraryAgentCandidate(
             _binding(bindings, f"openlibrary.author:{author_olid}"),
