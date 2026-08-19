@@ -15,6 +15,15 @@ from foliotone.consolidation.keep_preference import (
     build_keep_preference_outcome,
     evaluate_keep_preference,
 )
+from foliotone.consolidation.planner import (
+    ConsolidationPlannerInputs,
+    build_consolidation_plan,
+    build_non_executable_consolidation_plan,
+    consolidation_candidate_material_fingerprints,
+    consolidation_candidate_physical_preconditions,
+    consolidation_candidate_precondition_fingerprint,
+    consolidation_dependency_fingerprint,
+)
 from foliotone.consolidation.preconditions import (
     ConsolidationFilePreconditionInputs,
     build_consolidation_file_preconditions,
@@ -45,4 +54,11 @@ __all__ = [
     "ConsolidationHardBlockerInputs",
     "build_consolidation_blockers",
     "build_consolidation_hard_blockers",
+    "ConsolidationPlannerInputs",
+    "build_consolidation_plan",
+    "build_non_executable_consolidation_plan",
+    "consolidation_candidate_material_fingerprints",
+    "consolidation_candidate_physical_preconditions",
+    "consolidation_candidate_precondition_fingerprint",
+    "consolidation_dependency_fingerprint",
 ]
