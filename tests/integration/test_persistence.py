@@ -747,7 +747,7 @@ def test_migration_from_previous_head_adds_provider_cache_entries(
     assert provider_cache_entries.name in inspect(upgraded).get_table_names()
     with upgraded.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0017_provider_cache_schema"
+    assert revision == "0018_book_classification_projection"
 
     migrate(path)
     second = create_sqlite_engine(path)
