@@ -131,7 +131,10 @@ Die v1-Domainmodelle unterscheiden:
 - `CalibreLibrarySidecarSnapshot`: Record-Snapshot-ID, Sidecar-Art, relative
   Locator-Evidence und optional zugeordnete `FileObservation`;
 - `CalibreReconciliationFinding`: fester Finding-Code, Snapshot-/Record-/
-  Observation-Referenzen, Evidence-Referenzen und Reviewbedarf.
+  Observation-Referenzen, Evidence-Referenzen und Reviewbedarf;
+- `CalibreReconciliationFindingRef`: geordnete, typisierte Referenz eines
+  Findings auf einen Record, ein Format, ein Sidecar, eine `FileObservation`
+  oder konkrete persistierte Evidence.
 
 Absolute Pfade, Bibliothekswurzeln und Hostnamen sind in diesen DTOs verboten.
 Relative Locator dürfen nur in der privaten Persistenz und internen
@@ -191,13 +194,40 @@ Textgleichheit genügt dafür nicht.
 ## Persistenzgrenze für S-EB07-06
 
 Migration `0015_calibre_library_reconciliation` folgt auf `0014` und ergänzt
-eine separate Schemadatei `persistence/calibre_library_schema.py` mit genau den
+eine separate Schemadatei `persistence/calibre_library_schema.py` mit den
 Tabellen `calibre_library_snapshots`, `calibre_library_records`,
-`calibre_library_formats`, `calibre_library_sidecars` und
-`calibre_reconciliation_findings`. Snapshots sind insert-only. Record-,
-Format-, Sidecar- und Finding-Wiederholungen sind nur innerhalb desselben
-Snapshots über semantische Composite Keys idempotent; unterschiedliche
-Snapshots bleiben getrennt nachvollziehbar.
+`calibre_library_formats`, `calibre_library_sidecars`,
+`calibre_reconciliation_findings` und
+`calibre_reconciliation_finding_refs`. Die zusätzliche Referenztabelle ist
+erforderlich, weil insbesondere die Fälle C, D und G mehrere Records, Formate,
+Sidecars oder Evidence-Datensätze referenzieren können. Eine JSON-Liste in der
+Finding-Zeile würde Typvalidierung, begrenzte Abfragen und referenzielle
+Konsistenz verschlechtern.
+
+`CalibreReconciliationFinding` enthält Snapshot-ID, Finding-Code,
+`finding_fingerprint`, `review_required` und Erstellungszeitpunkt. Der
+semantische Idempotenzschlüssel ist
+`(snapshot_id, code, finding_fingerprint)`. Der Fingerprint entsteht aus dem
+Finding-Code und den kanonisch sortierten materiellen Referenzdeskriptoren.
+
+Jede `CalibreReconciliationFindingRef` enthält Finding-ID, eine bei null
+beginnende lückenlose Ordnungszahl, `ref_kind`, `ref_id`, `role` und einen
+materiellen Fingerprint. Zulässige `ref_kind`-Werte sind
+`CALIBRE_RECORD`, `CALIBRE_FORMAT`, `CALIBRE_SIDECAR`, `FILE_OBSERVATION`,
+`VALUE_ASSERTION`, `FINGERPRINT`, `TOOL_RESULT`, `RESOLUTION_CANDIDATE` und
+`REVIEW_ITEM`. Zulässige Rollen sind `PRIMARY`, `RELATED`, `SUPPORTING`,
+`CONTRADICTING` und `REVIEW`. Die Referenz-ID ist bewusst polymorph und besitzt
+keinen einzelnen SQL-Fremdschlüssel. Der dedizierte Store validiert innerhalb
+derselben Transaktion Typ, Existenz, Snapshot-/Scan-Lineage und zulässige
+Finding-Code-/Referenz-Kombinationen. Die Finding-ID besitzt einen normalen
+Fremdschlüssel auf `calibre_reconciliation_findings`.
+
+Snapshots sind insert-only. Record-, Format-, Sidecar- und
+Finding-Wiederholungen sind nur innerhalb desselben Snapshots über semantische
+Composite Keys idempotent; unterschiedliche Snapshots bleiben getrennt
+nachvollziehbar. Findings besitzen mindestens eine und höchstens 256
+Referenzen. Ein Retry mit demselben semantischen Schlüssel und abweichendem
+Payload schlägt geschlossen fehl.
 
 Konkrete Snapshot-/Record-Beziehungen verwenden Fremdschlüssel. Polymorphe
 Observation-, Evidence- und Review-Referenzen werden im dedizierten Store in
