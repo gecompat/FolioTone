@@ -16,9 +16,11 @@ from foliotone.enrichment import (
     ProviderCacheLimits,
     ProviderCachePayloadKind,
     ProviderCachePolicy,
+    ProviderCacheResultProjection,
     ProviderCacheResultStatus,
     ProviderCacheSlots,
     SyntheticBookKnowledgeProvider,
+    project_provider_cache_status_to_slots,
     provider_cache_freshness,
     provider_policy_from_legacy,
 )
@@ -316,6 +318,22 @@ def _build_content_slot(
         )
 
     raise ValueError("unsupported status for content slot helper")
+
+
+def _projection(
+    *,
+    fetched_at: datetime,
+    positive_fresh_ttl: timedelta = timedelta(minutes=2),
+    negative_fresh_ttl: timedelta = timedelta(minutes=2),
+) -> ProviderCacheResultProjection:
+    return ProviderCacheResultProjection(
+        fetched_at=fetched_at,
+        positive_fresh_ttl=positive_fresh_ttl,
+        positive_expires_ttl=timedelta(minutes=5),
+        negative_fresh_ttl=negative_fresh_ttl,
+        negative_expires_ttl=timedelta(minutes=2),
+        technical_failure_expires_ttl=timedelta(minutes=1),
+    )
 
 
 @pytest.mark.parametrize(
@@ -968,6 +986,266 @@ def test_provider_cache_slot_repr_is_path_free() -> None:
         content_expires_at=_CONTENT_AT,
     )
     assert "C:\\" not in repr(slot)
+
+
+def test_provider_cache_result_projection_preserves_expected_status_slots() -> None:
+    payload = b"projection-payload"
+    projection = _projection(fetched_at=_CONTENT_AT, positive_fresh_ttl=timedelta(minutes=3))
+    projected = {
+        status: project_provider_cache_status_to_slots(
+            status,
+            projection=projection,
+            payload_bytes=(
+                payload
+                if status is ProviderCacheResultStatus.SUCCESS
+                else None
+            ),
+            payload_codec="json/raw-response"
+            if status is ProviderCacheResultStatus.SUCCESS
+            else None,
+            payload_kind=(
+                ProviderCachePayloadKind.RAW_RESPONSE
+                if status is ProviderCacheResultStatus.SUCCESS
+                else ProviderCachePayloadKind.NONE
+            ),
+            content_http_status=200 if status is ProviderCacheResultStatus.SUCCESS else None,
+            payload_bytes_sha256=(
+                sha256(payload).hexdigest() if status is ProviderCacheResultStatus.SUCCESS else None
+            ),
+        )
+        for status in (
+            ProviderCacheResultStatus.SUCCESS,
+            ProviderCacheResultStatus.NOT_FOUND,
+            ProviderCacheResultStatus.RATE_LIMITED,
+            ProviderCacheResultStatus.TEMPORARY_FAILURE,
+            ProviderCacheResultStatus.PERMANENT_FAILURE,
+            ProviderCacheResultStatus.INVALID_RESPONSE,
+        )
+    }
+
+    assert projected[ProviderCacheResultStatus.SUCCESS].content_slot is not None
+    assert (
+        projected[ProviderCacheResultStatus.SUCCESS].content_slot.content_status
+        is ProviderCacheResultStatus.SUCCESS
+    )
+    assert projected[ProviderCacheResultStatus.SUCCESS].failure_slot is None
+
+    not_found_slots = projected[ProviderCacheResultStatus.NOT_FOUND]
+    assert not_found_slots.content_slot is not None
+    assert not_found_slots.content_slot.content_status is ProviderCacheResultStatus.NOT_FOUND
+    assert not_found_slots.content_slot.payload_kind is ProviderCachePayloadKind.NONE
+    assert not_found_slots.failure_slot is None
+
+    for status in (
+        ProviderCacheResultStatus.RATE_LIMITED,
+        ProviderCacheResultStatus.TEMPORARY_FAILURE,
+        ProviderCacheResultStatus.PERMANENT_FAILURE,
+        ProviderCacheResultStatus.INVALID_RESPONSE,
+    ):
+        failure_slots = projected[status]
+        assert failure_slots.content_slot is None
+        assert failure_slots.failure_slot is not None
+        assert failure_slots.failure_slot.failure_status is status
+
+
+def test_provider_cache_result_projection_enforces_negative_ttl_inequality() -> None:
+    with pytest.raises(
+        ValueError,
+        match="negative_fresh_ttl must be less than or equal to negative_expires_ttl",
+    ):
+        ProviderCacheResultProjection(
+            fetched_at=_CONTENT_AT,
+            positive_fresh_ttl=timedelta(minutes=2),
+            positive_expires_ttl=timedelta(minutes=5),
+            negative_fresh_ttl=timedelta(minutes=3),
+            negative_expires_ttl=timedelta(minutes=2),
+            technical_failure_expires_ttl=timedelta(minutes=1),
+        )
+    with pytest.raises(
+        ValueError,
+        match="negative_expires_ttl must be shorter than positive_expires_ttl",
+    ):
+        ProviderCacheResultProjection(
+            fetched_at=_CONTENT_AT,
+            positive_fresh_ttl=timedelta(minutes=2),
+            positive_expires_ttl=timedelta(minutes=2),
+            negative_fresh_ttl=timedelta(minutes=1),
+            negative_expires_ttl=timedelta(minutes=2),
+            technical_failure_expires_ttl=timedelta(minutes=1),
+        )
+
+
+def test_provider_cache_result_projection_not_found_uses_negative_fresh_ttl() -> None:
+    projection = ProviderCacheResultProjection(
+        fetched_at=_CONTENT_AT,
+        positive_fresh_ttl=timedelta(minutes=5),
+        positive_expires_ttl=timedelta(minutes=10),
+        negative_fresh_ttl=timedelta(minutes=1),
+        negative_expires_ttl=timedelta(minutes=4),
+        technical_failure_expires_ttl=timedelta(minutes=1),
+    )
+    slots = project_provider_cache_status_to_slots(
+        ProviderCacheResultStatus.NOT_FOUND,
+        projection=projection,
+        payload_bytes=None,
+        payload_codec=None,
+        payload_kind=ProviderCachePayloadKind.NONE,
+    )
+    assert slots.content_slot is not None
+    assert slots.content_slot.content_fresh_until_at == _CONTENT_AT + timedelta(minutes=1)
+    assert slots.content_slot.content_expires_at == _CONTENT_AT + timedelta(minutes=4)
+    assert provider_cache_freshness(slots.content_slot, _CONTENT_AT) is ProviderCacheFreshness.FRESH
+    assert provider_cache_freshness(
+        slots.content_slot, _CONTENT_AT + timedelta(minutes=1) - timedelta(microseconds=1)
+    ) is ProviderCacheFreshness.FRESH
+    assert provider_cache_freshness(
+        slots.content_slot, _CONTENT_AT + timedelta(minutes=1)
+    ) is ProviderCacheFreshness.STALE
+    assert provider_cache_freshness(
+        slots.content_slot, _CONTENT_AT + timedelta(minutes=4)
+    ) is ProviderCacheFreshness.EXPIRED
+
+
+def test_provider_cache_result_projection_rejects_non_rate_limited_failure_retry_after() -> None:
+    projection = ProviderCacheResultProjection(
+        fetched_at=_CONTENT_AT,
+        positive_fresh_ttl=timedelta(minutes=3),
+        positive_expires_ttl=timedelta(minutes=6),
+        negative_fresh_ttl=timedelta(minutes=1),
+        negative_expires_ttl=timedelta(minutes=2),
+        technical_failure_expires_ttl=timedelta(minutes=1),
+    )
+    with pytest.raises(
+        ValueError,
+        match="failure_retry_after_at is only valid for RATE_LIMITED",
+    ):
+        project_provider_cache_status_to_slots(
+            ProviderCacheResultStatus.TEMPORARY_FAILURE,
+            projection=projection,
+            payload_bytes=None,
+            payload_codec=None,
+            payload_kind=ProviderCachePayloadKind.NONE,
+            failure_retry_after_at=_CONTENT_AT + timedelta(seconds=10),
+        )
+
+
+def test_provider_cache_result_projection_rejects_invalid_retry_after_retry_window() -> None:
+    projection = ProviderCacheResultProjection(
+        fetched_at=_CONTENT_AT,
+        positive_fresh_ttl=timedelta(minutes=3),
+        positive_expires_ttl=timedelta(minutes=6),
+        negative_fresh_ttl=timedelta(minutes=1),
+        negative_expires_ttl=timedelta(minutes=2),
+        technical_failure_expires_ttl=timedelta(minutes=1),
+    )
+    with pytest.raises(ValueError, match="must be UTC"):
+        project_provider_cache_status_to_slots(
+            ProviderCacheResultStatus.RATE_LIMITED,
+            projection=projection,
+            payload_bytes=None,
+            payload_codec=None,
+            payload_kind=ProviderCachePayloadKind.NONE,
+            failure_retry_after_at=datetime(2026, 8, 19, 10, 1),
+        )
+    with pytest.raises(ValueError, match="between failure_at and failure_expires_at"):
+        project_provider_cache_status_to_slots(
+            ProviderCacheResultStatus.RATE_LIMITED,
+            projection=projection,
+            payload_bytes=None,
+            payload_codec=None,
+            payload_kind=ProviderCachePayloadKind.NONE,
+            failure_retry_after_at=_CONTENT_AT + timedelta(minutes=2),
+        )
+
+
+def test_provider_cache_result_projection_keeps_existing_success_content_for_failure() -> None:
+    existing_content = _build_content_slot(ProviderCacheResultStatus.SUCCESS)
+    projection = ProviderCacheResultProjection(
+        fetched_at=_CONTENT_AT,
+        positive_fresh_ttl=timedelta(minutes=3),
+        positive_expires_ttl=timedelta(minutes=6),
+        negative_fresh_ttl=timedelta(minutes=1),
+        negative_expires_ttl=timedelta(minutes=2),
+        technical_failure_expires_ttl=timedelta(minutes=1),
+    )
+    slots = project_provider_cache_status_to_slots(
+        ProviderCacheResultStatus.RATE_LIMITED,
+        projection=projection,
+        payload_bytes=None,
+        payload_codec=None,
+        payload_kind=ProviderCachePayloadKind.NONE,
+        failure_retry_after_at=_CONTENT_AT + timedelta(seconds=30),
+        preserve_content_slot=existing_content,
+    )
+    assert slots.content_slot is existing_content
+    assert slots.failure_slot is not None
+    assert slots.failure_slot.failure_retry_after_at == _CONTENT_AT + timedelta(seconds=30)
+
+
+def test_provider_cache_result_projection_rejects_cross_path_metadata() -> None:
+    projection = _projection(fetched_at=_CONTENT_AT)
+    with pytest.raises(
+        ValueError,
+        match="payload_kind NONE must not include payload fields",
+    ):
+        project_provider_cache_status_to_slots(
+            ProviderCacheResultStatus.NOT_FOUND,
+            projection=projection,
+            payload_bytes=b"must-not-be-discarded",
+            payload_codec=None,
+            payload_kind=ProviderCachePayloadKind.NONE,
+        )
+    with pytest.raises(
+        ValueError,
+        match="failure_http_status is only valid for failure statuses",
+    ):
+        project_provider_cache_status_to_slots(
+            ProviderCacheResultStatus.SUCCESS,
+            projection=projection,
+            payload_bytes=b"payload",
+            payload_codec="json/raw-response",
+            payload_kind=ProviderCachePayloadKind.RAW_RESPONSE,
+            failure_http_status=429,
+        )
+    with pytest.raises(
+        ValueError,
+        match="failure_retry_after_at is only valid for failure statuses",
+    ):
+        project_provider_cache_status_to_slots(
+            ProviderCacheResultStatus.NOT_FOUND,
+            projection=projection,
+            payload_bytes=None,
+            payload_codec=None,
+            payload_kind=ProviderCachePayloadKind.NONE,
+            failure_retry_after_at=_CONTENT_AT + timedelta(seconds=10),
+        )
+    with pytest.raises(
+        ValueError,
+        match="content_http_status is only valid for content statuses",
+    ):
+        project_provider_cache_status_to_slots(
+            ProviderCacheResultStatus.RATE_LIMITED,
+            projection=projection,
+            payload_bytes=None,
+            payload_codec=None,
+            payload_kind=ProviderCachePayloadKind.NONE,
+            content_http_status=404,
+        )
+
+
+def test_provider_cache_result_projection_rejects_invalid_payload_digest_type() -> None:
+    projection = _projection(fetched_at=_CONTENT_AT)
+    with pytest.raises(
+        ValueError,
+        match="payload_bytes_sha256 must be a lowercase SHA-256 hex digest",
+    ):
+        project_provider_cache_status_to_slots(
+            ProviderCacheResultStatus.SUCCESS,
+            projection=projection,
+            payload_bytes=b"payload",
+            payload_codec="json/raw-response",
+            payload_bytes_sha256=bytearray(b"0" * 64),
+        )
 
 
 @pytest.mark.parametrize(

@@ -641,3 +641,204 @@ def provider_cache_freshness(
     if now < content_slot.content_expires_at:
         return ProviderCacheFreshness.STALE
     return ProviderCacheFreshness.EXPIRED
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderCacheResultProjection:
+    """TTL parameters for mapping one fetch result to cache slots."""
+
+    fetched_at: datetime
+    positive_fresh_ttl: timedelta
+    positive_expires_ttl: timedelta
+    negative_fresh_ttl: timedelta
+    negative_expires_ttl: timedelta
+    technical_failure_expires_ttl: timedelta
+
+    def __post_init__(self) -> None:
+        fetched_at = _require_utc(self.fetched_at, "fetched_at")
+        positive_fresh_ttl = _require_timedelta(
+            self.positive_fresh_ttl,
+            "positive_fresh_ttl",
+        )
+        positive_expires_ttl = _require_timedelta(
+            self.positive_expires_ttl,
+            "positive_expires_ttl",
+        )
+        negative_fresh_ttl = _require_timedelta(
+            self.negative_fresh_ttl,
+            "negative_fresh_ttl",
+        )
+        negative_expires_ttl = _require_timedelta(
+            self.negative_expires_ttl,
+            "negative_expires_ttl",
+        )
+        technical_failure_expires_ttl = _require_timedelta(
+            self.technical_failure_expires_ttl,
+            "technical_failure_expires_ttl",
+        )
+
+        if positive_fresh_ttl <= timedelta(0):
+            raise ValueError("positive_fresh_ttl must be positive")
+        if positive_expires_ttl <= timedelta(0):
+            raise ValueError("positive_expires_ttl must be positive")
+        if negative_fresh_ttl < timedelta(0):
+            raise ValueError("negative_fresh_ttl must be non-negative")
+        if negative_expires_ttl <= timedelta(0):
+            raise ValueError("negative_expires_ttl must be positive")
+        if technical_failure_expires_ttl <= timedelta(0):
+            raise ValueError("technical_failure_expires_ttl must be positive")
+        if positive_fresh_ttl > positive_expires_ttl:
+            raise ValueError("positive_fresh_ttl must not exceed positive_expires_ttl")
+        if negative_fresh_ttl > negative_expires_ttl:
+            raise ValueError(
+                "negative_fresh_ttl must be less than or equal to negative_expires_ttl"
+            )
+        if positive_expires_ttl <= negative_expires_ttl:
+            raise ValueError("negative_expires_ttl must be shorter than positive_expires_ttl")
+
+        object.__setattr__(self, "fetched_at", fetched_at)
+        object.__setattr__(self, "positive_fresh_ttl", positive_fresh_ttl)
+        object.__setattr__(self, "positive_expires_ttl", positive_expires_ttl)
+        object.__setattr__(self, "negative_fresh_ttl", negative_fresh_ttl)
+        object.__setattr__(self, "negative_expires_ttl", negative_expires_ttl)
+        object.__setattr__(
+            self,
+            "technical_failure_expires_ttl",
+            technical_failure_expires_ttl,
+        )
+
+
+def _require_timedelta(value: object, field_name: str) -> timedelta:
+    if type(value) is not timedelta:
+        raise ValueError(f"{field_name} must be a timedelta")
+    return value
+
+
+def _content_timeline(
+    fetched_at: datetime,
+    fresh_ttl: timedelta,
+    expires_ttl: timedelta,
+) -> tuple[datetime, datetime]:
+    fresh_until = fetched_at + fresh_ttl
+    expires_at = fetched_at + expires_ttl
+    if fresh_until > expires_at:
+        raise ValueError("content fresh expiry must be before or equal to content expiry")
+    return fresh_until, expires_at
+
+
+def project_provider_cache_status_to_slots(
+    status: ProviderCacheResultStatus,
+    *,
+    projection: ProviderCacheResultProjection,
+    payload_bytes: bytes | None,
+    payload_codec: str | None,
+    payload_bytes_sha256: str | None = None,
+    payload_kind: ProviderCachePayloadKind = ProviderCachePayloadKind.NONE,
+    content_http_status: int | None = None,
+    failure_http_status: int | None = None,
+    failure_retry_after_at: datetime | None = None,
+    preserve_content_slot: ProviderCacheContentSlot | None = None,
+) -> ProviderCacheSlots:
+    """Project one fetch status into immutable cache slots."""
+
+    if type(status) is not ProviderCacheResultStatus:
+        raise ValueError("status must be a ProviderCacheResultStatus")
+    if type(projection) is not ProviderCacheResultProjection:
+        raise ValueError("projection must be a ProviderCacheResultProjection")
+    if type(payload_bytes_sha256) is not str and payload_bytes_sha256 is not None:
+        raise ValueError("payload_bytes_sha256 must be a lowercase SHA-256 hex digest")
+    if payload_kind is ProviderCachePayloadKind.NONE and any(
+        value is not None
+        for value in (payload_bytes, payload_codec, payload_bytes_sha256)
+    ):
+        raise ValueError("payload_kind NONE must not include payload fields")
+
+    content_slot: ProviderCacheContentSlot | None = None
+    failure_slot: ProviderCacheFailureSlot | None = None
+    fetched_at = projection.fetched_at
+
+    if status in {ProviderCacheResultStatus.SUCCESS, ProviderCacheResultStatus.NOT_FOUND}:
+        if preserve_content_slot is not None:
+            raise ValueError("preserve_content_slot is only valid for technical failures")
+        if failure_http_status is not None:
+            raise ValueError("failure_http_status is only valid for failure statuses")
+        if failure_retry_after_at is not None:
+            raise ValueError("failure_retry_after_at is only valid for failure statuses")
+
+        if status is ProviderCacheResultStatus.NOT_FOUND:
+            expires_ttl = projection.negative_expires_ttl
+            fresh_ttl = projection.negative_fresh_ttl
+        else:
+            expires_ttl = projection.positive_expires_ttl
+            fresh_ttl = projection.positive_fresh_ttl
+
+        fresh_until_at, expires_at = _content_timeline(
+            fetched_at=fetched_at,
+            fresh_ttl=fresh_ttl,
+            expires_ttl=expires_ttl,
+        )
+
+        if payload_kind is ProviderCachePayloadKind.NONE:
+            payload_codec_local = None
+            payload_bytes_local = None
+            payload_bytes_sha256_local = None
+        else:
+            payload_codec_local = payload_codec
+            payload_bytes_local = payload_bytes
+            payload_bytes_sha256_local = payload_bytes_sha256
+
+        content_slot = ProviderCacheContentSlot(
+            content_status=status,
+            payload_kind=payload_kind,
+            payload_codec=payload_codec_local,
+            payload_bytes=payload_bytes_local,
+            payload_bytes_sha256=payload_bytes_sha256_local,
+            content_http_status=content_http_status,
+            content_fetched_at=fetched_at,
+            content_fresh_until_at=fresh_until_at,
+            content_expires_at=expires_at,
+        )
+    else:
+        if status not in {
+            ProviderCacheResultStatus.RATE_LIMITED,
+            ProviderCacheResultStatus.TEMPORARY_FAILURE,
+            ProviderCacheResultStatus.PERMANENT_FAILURE,
+            ProviderCacheResultStatus.INVALID_RESPONSE,
+        }:
+            raise ValueError("unsupported cache status")
+
+        if preserve_content_slot is not None and type(preserve_content_slot) is not (
+            ProviderCacheContentSlot
+        ):
+            raise ValueError("preserve_content_slot must be a ProviderCacheContentSlot")
+
+        if payload_kind is not ProviderCachePayloadKind.NONE:
+            raise ValueError("failure statuses must not return payloads")
+        if payload_bytes is not None:
+            raise ValueError("failure statuses must not include payload bytes")
+        if payload_codec is not None:
+            raise ValueError("failure statuses must not include payload codec")
+        if payload_bytes_sha256 is not None:
+            raise ValueError("failure statuses must not include payload digest")
+
+        if content_http_status is not None:
+            raise ValueError("content_http_status is only valid for content statuses")
+        if (
+            failure_retry_after_at is not None
+            and status is not ProviderCacheResultStatus.RATE_LIMITED
+        ):
+            raise ValueError("failure_retry_after_at is only valid for RATE_LIMITED")
+
+        failure_slot = ProviderCacheFailureSlot(
+            failure_status=status,
+            failure_http_status=failure_http_status,
+            failure_at=fetched_at,
+            failure_retry_after_at=failure_retry_after_at,
+            failure_expires_at=fetched_at + projection.technical_failure_expires_ttl,
+        )
+        content_slot = preserve_content_slot
+
+    return ProviderCacheSlots(
+        content_slot=content_slot,
+        failure_slot=failure_slot,
+    )
