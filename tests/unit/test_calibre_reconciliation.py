@@ -171,6 +171,19 @@ def test_snapshot_rejects_invalid_identity_digest(digest: str) -> None:
         replace(_snapshot(), library_identity_digest=digest)
 
 
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    (
+        ("profile", "calibre-library-snapshot/v2"),
+        ("adapter_version", "calibredb-library/2"),
+        ("parser_version", "calibre-library-parser/2"),
+    ),
+)
+def test_snapshot_rejects_unknown_contract_versions(field_name: str, value: str) -> None:
+    with pytest.raises(ValueError, match=field_name):
+        replace(_snapshot(), **{field_name: value})
+
+
 @pytest.mark.parametrize("record_id", (-1, True, 1.5))
 def test_record_requires_nonnegative_integer_id(record_id: object) -> None:
     with pytest.raises(ValueError):
@@ -272,3 +285,16 @@ def test_sidecar_requires_fixed_kind_but_allows_unmapped_observation() -> None:
             kind="COVER",  # type: ignore[arg-type]
             relative_locator="Synthetic/cover.jpg",
         )
+
+    for kind, locator in (
+        (CalibreLibrarySidecarKind.METADATA_OPF, "Synthetic/other.opf"),
+        (CalibreLibrarySidecarKind.COVER, "Synthetic/other.jpg"),
+        (CalibreLibrarySidecarKind.EXTRA_DATA, "Synthetic/notes.txt"),
+    ):
+        with pytest.raises(ValueError):
+            CalibreLibrarySidecarSnapshot(
+                id=EntityId.new(),
+                record_snapshot_id=EntityId.new(),
+                kind=kind,
+                relative_locator=locator,
+            )

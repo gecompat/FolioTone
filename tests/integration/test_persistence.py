@@ -51,6 +51,14 @@ from foliotone.persistence import (
     migrate,
     repository,
 )
+from foliotone.persistence.calibre_library_schema import (
+    calibre_library_formats,
+    calibre_library_records,
+    calibre_library_sidecars,
+    calibre_library_snapshots,
+    calibre_reconciliation_finding_refs,
+    calibre_reconciliation_findings,
+)
 from foliotone.persistence.relation_candidate_schema import (
     relation_candidate_evidence,
     relation_candidates,
@@ -119,6 +127,12 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
         review_decisions.name,
         relation_candidates.name,
         relation_candidate_evidence.name,
+        calibre_library_snapshots.name,
+        calibre_library_records.name,
+        calibre_library_formats.name,
+        calibre_library_sidecars.name,
+        calibre_reconciliation_findings.name,
+        calibre_reconciliation_finding_refs.name,
     }
     assert table_names == expected
     file_columns = {column["name"] for column in inspector.get_columns("file_records")}
@@ -165,6 +179,11 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
             "ix_relation_candidates_reuse",
         },
         "relation_candidate_evidence": {"ix_relation_candidate_evidence_source"},
+        "calibre_library_snapshots": {"ix_calibre_library_snapshots_root_scan_created"},
+        "calibre_library_formats": {"ix_calibre_library_formats_observation"},
+        "calibre_library_sidecars": {"ix_calibre_library_sidecars_observation"},
+        "calibre_reconciliation_findings": {"ix_calibre_reconciliation_findings_snapshot_created"},
+        "calibre_reconciliation_finding_refs": {"ix_calibre_reconciliation_finding_refs_reference"},
     }
     for table_name, names in expected_indexes.items():
         assert names <= {str(index["name"]) for index in inspector.get_indexes(table_name)}
@@ -186,7 +205,7 @@ def test_migration_creates_current_schema_and_is_idempotent(database: Path) -> N
                 "target_id": "00000000-0000-0000-0000-000000000001",
             },
         ).all()
-    assert revision == "0014_relation_candidates"
+    assert revision == "0015_calibre_library_reconciliation"
     assert any("ix_fingerprints_target_profile_id_value" in str(row[-1]) for row in query_plan)
 
 
@@ -273,7 +292,7 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0014_relation_candidates"
+    assert revision == "0015_calibre_library_reconciliation"
 
 
 def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
@@ -294,7 +313,7 @@ def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
 
     assert "ix_fingerprints_target_profile_id_value" in indexes
-    assert revision == "0014_relation_candidates"
+    assert revision == "0015_calibre_library_reconciliation"
 
 
 def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
@@ -345,7 +364,7 @@ def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
         "ix_ebook_candidate_hash_runs_root_started",
     } <= {str(index["name"]) for index in inspector.get_indexes(ebook_candidate_hash_runs.name)}
     assert duplicate_count == 2
-    assert revision == "0014_relation_candidates"
+    assert revision == "0015_calibre_library_reconciliation"
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:
