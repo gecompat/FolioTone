@@ -22,7 +22,7 @@ from .source import (
 PROVIDER_ID: Final = "openlibrary"
 PROVIDER_ADAPTER_VERSION: Final = "openlibrary-book-adapter/v2"
 PROVIDER_SOURCE_VERSION: Final = "openlibrary-web-api-docs-2026-08-20"
-MAPPING_PROFILE_VERSION: Final = "openlibrary-book-mapping/v1"
+MAPPING_PROFILE_VERSION: Final = "openlibrary-book-mapping/v2"
 SOURCE_PROFILE_VERSION: Final = "openlibrary-source-record/v2"
 _OLID = re.compile(r"^OL[0-9]+([MWA])$")
 _ISBN10 = re.compile(r"^[0-9]{9}[0-9X]$")
@@ -44,6 +44,39 @@ _NAMESPACES: Final = {
     "oclc": (EntityKind.EDITION, None),
     "lccn": (EntityKind.EDITION, None),
 }
+_SOURCE_REF_CATEGORIES: Final = (
+    "openlibrary.work:",
+    "openlibrary.edition:",
+    "isbn10:",
+    "isbn13:",
+)
+
+
+def _sorted_source_record_refs(values: Iterable[str]) -> tuple[str, ...]:
+    refs = tuple(values)
+    if any(
+        not isinstance(ref, str)
+        or not ref
+        or not any(ref.startswith(prefix) for prefix in _SOURCE_REF_CATEGORIES)
+        for ref in refs
+    ):
+        raise ValueError("invalid source record ref")
+    for ref in refs:
+        if ref.startswith("openlibrary.work:"):
+            _olid(ref[len("openlibrary.work:") :], "W")
+        elif ref.startswith("openlibrary.edition:"):
+            _olid(ref[len("openlibrary.edition:") :], "M")
+        elif ref.startswith("isbn10:"):
+            _identifier("isbn10", ref[7:], EntityKind.EDITION)
+        elif ref.startswith("isbn13:"):
+            _identifier("isbn13", ref[7:], EntityKind.EDITION)
+    unique = set(refs)
+    return tuple(
+        ref
+        for prefix in _SOURCE_REF_CATEGORIES
+        for ref in sorted(unique)
+        if ref.startswith(prefix)
+    )
 
 
 def _canonical_text(value: object, name: str, limit: int) -> str:
@@ -206,27 +239,54 @@ class OpenLibraryWorkCandidate:
 
 @dataclass(frozen=True, slots=True)
 class OpenLibraryAgentCandidate:
-    target_ref: str
-    author_olid: str
+    target_ref: str | None
+    author_olid: str | None
     values: tuple[OpenLibraryEvidenceProjection, ...]
     provenance: OpenLibraryMappingProvenance
+    candidate_kind: EntityKind = EntityKind.AGENT
+    source_field: str | None = None
+    value: str | None = None
+    state: ValueState = ValueState.EXTERNAL
+    confidence: None = None
+    source_record_refs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        _target_ref(self.target_ref, "target_ref")
-        _olid(self.author_olid, "A")
-        if not isinstance(self.values, tuple) or any(
-            not isinstance(v, OpenLibraryEvidenceProjection) for v in self.values
+        if self.candidate_kind is not EntityKind.AGENT:
+            raise ValueError("agent candidate kind must be AGENT")
+        if self.state is not ValueState.EXTERNAL or self.confidence is not None:
+            raise ValueError("provider candidates are EXTERNAL and have no confidence")
+        if (
+            not isinstance(self.values, tuple)
+            or any(not isinstance(v, OpenLibraryEvidenceProjection) for v in self.values)
+            or self.values != _sorted_unique(self.values)
         ):
             raise ValueError("agent candidate values must be typed tuple")
-        if any(
-            v.target_kind is not EntityKind.AGENT
-            or v.target_ref != self.target_ref
-            or v.provenance != self.provenance
-            for v in self.values
-        ):
-            raise ValueError("agent candidate values must cross-bind")
         if not isinstance(self.provenance, OpenLibraryMappingProvenance):
             raise ValueError("invalid provenance")
+        if not isinstance(self.source_record_refs, tuple):
+            raise ValueError("source_record_refs must be a tuple")
+        refs = self.source_record_refs
+        if self.target_ref is None and self.author_olid is None:
+            if self.values or self.source_field != "author_name" or self.value is None:
+                raise ValueError("name-only agent candidate shape")
+            _canonical_text(self.value, "candidate value", 512)
+            if not refs or refs != _sorted_source_record_refs(refs):
+                raise ValueError("name-only source refs must be non-empty and ordered")
+        else:
+            if self.target_ref is None or self.author_olid is None:
+                raise ValueError("bound agent candidate requires target and OLID")
+            _target_ref(self.target_ref, "target_ref")
+            _olid(self.author_olid, "A")
+            if self.source_field is not None or self.value is not None or refs:
+                raise ValueError("bound agent candidate cannot carry name-only fields")
+            if any(
+                v.target_kind is not EntityKind.AGENT
+                or v.target_ref != self.target_ref
+                or v.provenance != self.provenance
+                for v in self.values
+            ):
+                raise ValueError("agent candidate values must cross-bind")
+        object.__setattr__(self, "source_record_refs", refs)
 
     def __repr__(self) -> str:
         return "OpenLibraryAgentCandidate(<redacted>)"
@@ -254,8 +314,12 @@ def _projection_key(value: object) -> tuple[object, ...]:
     if isinstance(value, OpenLibraryAgentCandidate):
         return (
             "agent-candidate",
+            value.candidate_kind.value,
+            value.source_record_refs,
             value.target_ref,
             value.author_olid,
+            value.source_field,
+            value.value,
             tuple(_projection_key(item) for item in value.values),
         )
     raise TypeError("unsupported Open Library projection")
@@ -329,13 +393,14 @@ def map_openlibrary_record(
         children = tuple(child for child in (record.work, *record.editions) if child is not None)
         if any(_record_key(child) not in bindings for child in children):
             raise ValueError("Search mapping requires explicit target bindings for every child")
-        return _merge(
+        mapped = _merge(
             (
                 map_openlibrary_record(child, observed_at=observed_at, target_bindings=bindings)
                 for child in children
             ),
             p,
         )
+        return _merge((mapped, _search_agents(record, p)), p)
     ref = bindings.get(_record_key(record))
     if ref is None:
         raise ValueError("missing caller-supplied target binding")
@@ -491,6 +556,44 @@ def _agent_candidates(
             provenance,
         )
         for author_olid in author_olids
+    )
+
+
+def _search_record_refs(record: SearchSourceRecord) -> tuple[str, ...]:
+    refs: list[str] = []
+    if record.work is not None:
+        refs.append(f"openlibrary.work:{record.work.work_olid}")
+    for edition in record.editions:
+        if edition.edition_olid:
+            refs.append(f"openlibrary.edition:{edition.edition_olid}")
+        refs.extend(f"isbn10:{value}" for value in edition.isbn10)
+        refs.extend(f"isbn13:{value}" for value in edition.isbn13)
+    return _sorted_source_record_refs(refs)
+
+
+def _search_agents(
+    record: SearchSourceRecord, p: OpenLibraryMappingProvenance
+) -> OpenLibraryMappingResult:
+    refs = _search_record_refs(record)
+    if record.contributor_names and not refs:
+        raise ValueError("Search contributor requires source record refs")
+    return OpenLibraryMappingResult(
+        (),
+        (),
+        (),
+        tuple(
+            OpenLibraryAgentCandidate(
+                None,
+                None,
+                (),
+                p,
+                source_field="author_name",
+                value=name,
+                source_record_refs=refs,
+            )
+            for name in record.contributor_names
+        ),
+        p,
     )
 
 

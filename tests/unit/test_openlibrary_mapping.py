@@ -4,6 +4,7 @@ import pytest
 
 from foliotone.adapters.openlibrary import (
     MAPPING_PROFILE_VERSION,
+    OpenLibraryAgentCandidate,
     OpenLibraryEvidenceProjection,
     OpenLibraryIdentifierProjection,
     OpenLibraryMappingProvenance,
@@ -175,4 +176,82 @@ def test_mapping_is_redacted_typed_and_requires_all_candidate_bindings():
             search,
             observed_at=NOW,
             target_bindings={"openlibrary.work:OL1W": "work-ref"},
+        )
+
+
+def test_v2_search_names_are_unbound_and_refs_follow_contract_order():
+    edition = EditionSourceRecord(
+        "OL2M", (), "Synthetic Edition", None, None, (), (), (), (), (), (), (), False
+    )
+    search = SearchSourceRecord(WORK, (edition,), False, ("Same Name",))
+    mapped = map_openlibrary_record(
+        search,
+        observed_at=NOW,
+        target_bindings={
+            "openlibrary.work:OL1W": "work-ref",
+            "openlibrary.edition:OL2M": "edition-ref",
+        },
+    )
+    candidate = next(x for x in mapped.agent_candidates if x.value == "Same Name")
+    assert candidate.candidate_kind is EntityKind.AGENT
+    assert candidate.target_ref is None
+    assert candidate.author_olid is None
+    assert candidate.source_field == "author_name"
+    assert candidate.state is ValueState.EXTERNAL
+    assert candidate.confidence is None
+    assert candidate.source_record_refs == (
+        "openlibrary.work:OL1W",
+        "openlibrary.edition:OL2M",
+    )
+    assert candidate.provenance.mapping_profile_version == "openlibrary-book-mapping/v2"
+
+
+def test_v2_keeps_bound_author_and_name_only_same_name_separate():
+    author = map_openlibrary_record(
+        AuthorSourceRecord("OL3A", "Same Name", ("Alias",), None, None, False),
+        observed_at=NOW,
+        target_id="agent-ref",
+    )
+    edition = EditionSourceRecord(
+        "OL2M", (), "Synthetic Edition", None, None, (), (), (), (), (), (), (), False
+    )
+    search = SearchSourceRecord(WORK, (edition,), False, ("Same Name",))
+    names = map_openlibrary_record(
+        search,
+        observed_at=NOW,
+        target_bindings={
+            "openlibrary.work:OL1W": "work-ref",
+            "openlibrary.edition:OL2M": "edition-ref",
+        },
+    )
+    assert len(author.agent_candidates) == 1
+    assert author.agent_candidates[0].author_olid == "OL3A"
+    assert author.agent_candidates[0].values[0].source_field == "alternate_names"
+    assert len(names.agent_candidates) == 1
+    assert names.agent_candidates[0].author_olid is None
+
+
+def test_v2_agent_candidate_rejects_noncanonical_child_collections():
+    mapped = map_openlibrary_record(
+        AuthorSourceRecord("OL3A", "Same Name", ("Alias",), None, None, False),
+        observed_at=NOW,
+        target_id="agent-ref",
+    )
+    candidate = mapped.agent_candidates[0]
+    with pytest.raises(ValueError):
+        OpenLibraryAgentCandidate(
+            candidate.target_ref,
+            candidate.author_olid,
+            candidate.values + candidate.values,
+            candidate.provenance,
+        )
+    with pytest.raises(ValueError):
+        OpenLibraryAgentCandidate(
+            None,
+            None,
+            (),
+            candidate.provenance,
+            source_field="author_name",
+            value="Same Name",
+            source_record_refs=["openlibrary.work:OL1W"],
         )
