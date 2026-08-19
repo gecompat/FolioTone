@@ -15,6 +15,19 @@ from foliotone.adapters.openlibrary.query import (
     OpenLibraryRouteKind,
     build_openlibrary_route,
 )
+from foliotone.adapters.openlibrary.source import (
+    MAX_NORMALIZED_BYTES,
+    PROFILE,
+    AuthorSourceRecord,
+    EditionSourceRecord,
+    OpenLibrarySourceEnvelope,
+    OpenLibrarySourceFinding,
+    OpenLibrarySourceParseResult,
+    OpenLibrarySourceStatus,
+    SearchSourceRecord,
+    WorkSourceRecord,
+    parse_openlibrary_source,
+)
 
 __all__ = [
     "MAX_QUERY_TEXT_CODEPOINTS",
@@ -30,4 +43,15 @@ __all__ = [
     "OpenLibraryResolvedAuthorQuery",
     "OpenLibraryRouteKind",
     "build_openlibrary_route",
+    "MAX_NORMALIZED_BYTES",
+    "AuthorSourceRecord",
+    "EditionSourceRecord",
+    "OpenLibrarySourceEnvelope",
+    "OpenLibrarySourceFinding",
+    "PROFILE",
+    "OpenLibrarySourceParseResult",
+    "OpenLibrarySourceStatus",
+    "SearchSourceRecord",
+    "WorkSourceRecord",
+    "parse_openlibrary_source",
 ]
