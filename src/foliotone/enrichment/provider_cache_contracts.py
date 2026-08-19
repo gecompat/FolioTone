@@ -602,3 +602,42 @@ class ProviderCacheSlots:
         )
         if not (has_content_status or has_failure_status):
             raise ValueError("at least one slot must be present")
+
+
+def provider_cache_freshness(
+    slots: ProviderCacheSlots | ProviderCacheContentSlot | None,
+    now: object,
+) -> ProviderCacheFreshness | None:
+    """Classify freshness from the content-slot timeline only.
+
+    A missing or failure-only slot does not produce a content freshness value.
+    """
+
+    now = _require_utc(now, "now")
+
+    if slots is None:
+        return None
+    if type(slots) is ProviderCacheSlots:
+        content_slot = slots.content_slot
+        if content_slot is None:
+            return None
+    elif type(slots) is ProviderCacheContentSlot:
+        content_slot = slots
+    else:
+        raise ValueError("slots must be a ProviderCacheSlots or a ProviderCacheContentSlot")
+
+    if content_slot.content_status is None:
+        raise ValueError("content_slot must include a content_status")
+    if (
+        content_slot.content_fresh_until_at is None
+        or content_slot.content_expires_at is None
+    ):
+        raise ValueError(
+            "content_slot must include content_fresh_until_at and content_expires_at"
+        )
+
+    if now < content_slot.content_fresh_until_at:
+        return ProviderCacheFreshness.FRESH
+    if now < content_slot.content_expires_at:
+        return ProviderCacheFreshness.STALE
+    return ProviderCacheFreshness.EXPIRED

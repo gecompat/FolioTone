@@ -19,6 +19,7 @@ from foliotone.enrichment import (
     ProviderCacheResultStatus,
     ProviderCacheSlots,
     SyntheticBookKnowledgeProvider,
+    provider_cache_freshness,
     provider_policy_from_legacy,
 )
 from foliotone.enrichment.contracts import validate_provider_policy
@@ -287,6 +288,208 @@ def test_provider_cache_freshness_literals_are_exact() -> None:
         "STALE": "stale",
         "EXPIRED": "expired",
     }
+
+
+def _build_content_slot(
+    status: ProviderCacheResultStatus,
+) -> ProviderCacheContentSlot:
+    if status is ProviderCacheResultStatus.SUCCESS:
+        payload = b"payload"
+        return ProviderCacheContentSlot(
+            content_status=status,
+            payload_kind=ProviderCachePayloadKind.RAW_RESPONSE,
+            payload_codec="json/raw-response",
+            payload_bytes=payload,
+            payload_bytes_sha256=sha256(payload).hexdigest(),
+            content_fetched_at=_CONTENT_AT,
+            content_fresh_until_at=_CONTENT_AT + timedelta(minutes=5),
+            content_expires_at=_CONTENT_AT + timedelta(minutes=10),
+        )
+
+    if status is ProviderCacheResultStatus.NOT_FOUND:
+        return ProviderCacheContentSlot(
+            content_status=status,
+            payload_kind=ProviderCachePayloadKind.NONE,
+            content_fetched_at=_CONTENT_AT,
+            content_fresh_until_at=_CONTENT_AT + timedelta(minutes=5),
+            content_expires_at=_CONTENT_AT + timedelta(minutes=10),
+        )
+
+    raise ValueError("unsupported status for content slot helper")
+
+
+@pytest.mark.parametrize(
+    ("status", "now", "expected"),
+    [
+        (
+            ProviderCacheResultStatus.SUCCESS,
+            _CONTENT_AT - timedelta(minutes=1),
+            ProviderCacheFreshness.FRESH,
+        ),
+        (
+            ProviderCacheResultStatus.SUCCESS,
+            _CONTENT_AT + timedelta(minutes=5) - timedelta(microseconds=1),
+            ProviderCacheFreshness.FRESH,
+        ),
+        (
+            ProviderCacheResultStatus.SUCCESS,
+            _CONTENT_AT + timedelta(minutes=5),
+            ProviderCacheFreshness.STALE,
+        ),
+        (
+            ProviderCacheResultStatus.SUCCESS,
+            _CONTENT_AT + timedelta(minutes=6),
+            ProviderCacheFreshness.STALE,
+        ),
+        (
+            ProviderCacheResultStatus.SUCCESS,
+            _CONTENT_AT + timedelta(minutes=10) - timedelta(microseconds=1),
+            ProviderCacheFreshness.STALE,
+        ),
+        (
+            ProviderCacheResultStatus.SUCCESS,
+            _CONTENT_AT + timedelta(minutes=10),
+            ProviderCacheFreshness.EXPIRED,
+        ),
+        (
+            ProviderCacheResultStatus.SUCCESS,
+            _CONTENT_AT + timedelta(minutes=10, seconds=1),
+            ProviderCacheFreshness.EXPIRED,
+        ),
+        (
+            ProviderCacheResultStatus.NOT_FOUND,
+            _CONTENT_AT - timedelta(minutes=1),
+            ProviderCacheFreshness.FRESH,
+        ),
+        (
+            ProviderCacheResultStatus.NOT_FOUND,
+            _CONTENT_AT + timedelta(minutes=5) - timedelta(microseconds=1),
+            ProviderCacheFreshness.FRESH,
+        ),
+        (
+            ProviderCacheResultStatus.NOT_FOUND,
+            _CONTENT_AT + timedelta(minutes=5),
+            ProviderCacheFreshness.STALE,
+        ),
+        (
+            ProviderCacheResultStatus.NOT_FOUND,
+            _CONTENT_AT + timedelta(minutes=10) - timedelta(microseconds=1),
+            ProviderCacheFreshness.STALE,
+        ),
+        (
+            ProviderCacheResultStatus.NOT_FOUND,
+            _CONTENT_AT + timedelta(minutes=10),
+            ProviderCacheFreshness.EXPIRED,
+        ),
+        (
+            ProviderCacheResultStatus.NOT_FOUND,
+            _CONTENT_AT + timedelta(minutes=10, seconds=1),
+            ProviderCacheFreshness.EXPIRED,
+        ),
+    ],
+)
+def test_provider_cache_freshness_boundaries_by_status(
+    status: ProviderCacheResultStatus,
+    now: datetime,
+    expected: ProviderCacheFreshness,
+) -> None:
+    slot = _build_content_slot(status)
+    assert provider_cache_freshness(slot, now) is expected
+    assert provider_cache_freshness(ProviderCacheSlots(content_slot=slot), now) is expected
+
+
+@pytest.mark.parametrize("now", [True, 1.0, "not-a-datetime"])
+def test_provider_cache_freshness_rejects_invalid_now_type(now: object) -> None:
+    with pytest.raises(ValueError, match="must be UTC"):
+        provider_cache_freshness(
+            _build_content_slot(ProviderCacheResultStatus.SUCCESS),
+            now,  # type: ignore[arg-type]
+        )
+
+
+def test_provider_cache_freshness_accepts_utc_aliases() -> None:
+    try:
+        zone_info_utc = ZoneInfo("UTC")
+    except ZoneInfoNotFoundError:
+        pytest.skip("ZoneInfo('UTC') unavailable in this environment")
+
+    slot = _build_content_slot(ProviderCacheResultStatus.SUCCESS)
+    assert (
+        provider_cache_freshness(slot, datetime(2026, 8, 19, 10, 2, tzinfo=UTC))
+        is ProviderCacheFreshness.FRESH
+    )
+    assert (
+        provider_cache_freshness(
+            slot, datetime(2026, 8, 19, 10, 2, tzinfo=zone_info_utc)
+        )
+        is ProviderCacheFreshness.FRESH
+    )
+
+
+def test_provider_cache_freshness_rejects_nonzero_offset_now() -> None:
+    with pytest.raises(ValueError, match="must be UTC"):
+        provider_cache_freshness(
+            _build_content_slot(ProviderCacheResultStatus.SUCCESS),
+            datetime(2026, 8, 19, 10, 2, tzinfo=timezone(timedelta(hours=1))),
+        )
+
+
+@pytest.mark.parametrize(
+    "slots",
+    [
+        None,
+        ProviderCacheSlots(
+            failure_slot=ProviderCacheFailureSlot(
+                failure_status=ProviderCacheResultStatus.RATE_LIMITED,
+                failure_at=_FAIL_AT,
+                failure_retry_after_at=_FAIL_AT,
+                failure_expires_at=_FAIL_AT,
+            )
+        ),
+    ],
+)
+def test_provider_cache_freshness_handles_empty_or_missing_content_slot(
+    slots: ProviderCacheSlots | None,
+) -> None:
+    assert provider_cache_freshness(slots, _CONTENT_AT) is None
+
+
+def test_provider_cache_freshness_rejects_invalid_input_slot_type() -> None:
+    with pytest.raises(
+        ValueError,
+        match="slots must be a ProviderCacheSlots or a ProviderCacheContentSlot",
+    ):
+        provider_cache_freshness(object(), _CONTENT_AT)  # type: ignore[arg-type]
+
+
+def test_provider_cache_freshness_does_not_mutate_input_slot() -> None:
+    slot = _build_content_slot(ProviderCacheResultStatus.SUCCESS)
+    expected_slot = (
+        slot.content_status,
+        slot.payload_kind,
+        slot.payload_bytes,
+        slot.payload_bytes_sha256,
+        slot.content_http_status,
+        slot.content_fetched_at,
+        slot.content_fresh_until_at,
+        slot.content_expires_at,
+        slot.payload_codec,
+        sha256(slot.payload_bytes or b"").hexdigest(),
+    )
+
+    freshness = provider_cache_freshness(slot, _CONTENT_AT)
+    assert freshness is ProviderCacheFreshness.FRESH
+    assert (
+        slot.content_status,
+        slot.payload_kind,
+        slot.payload_bytes,
+        slot.payload_bytes_sha256,
+        slot.content_http_status,
+        slot.content_fetched_at,
+        slot.content_fresh_until_at,
+        slot.content_expires_at,
+        slot.payload_codec,
+    ) == expected_slot[:-1]
 
 
 def test_provider_cache_limits_require_positive_values() -> None:
