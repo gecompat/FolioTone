@@ -1,5 +1,7 @@
 # External Data Sources Registry
 
+Stand der Open-Library-Bewertung: 2026-08-20
+
 This registry records external knowledge sources that may help FolioTone resolve identities, enrich metadata, classify content or generate stronger matching evidence.
 
 A listed source is a **candidate knowledge provider**, not an unconditional dependency. Specialist executable software belongs in `EXTERNAL_TOOLS.md`.
@@ -32,7 +34,7 @@ Purpose:
 - author candidates;
 - Works and Editions;
 - identifiers and bibliographic metadata;
-- cover references where useful.
+- keine Cover-, Availability-, Lending- oder Archive.org-Inhalte.
 
 Access strategy:
 
