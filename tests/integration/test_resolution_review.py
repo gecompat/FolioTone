@@ -51,7 +51,6 @@ COMPATIBILITY = "authority-decision/v1"
 
 
 def _graph(database: Path) -> tuple[FileRecord, Work, ValueAssertion]:
-    migrate(database)
     engine = create_sqlite_engine(database)
     root = ScanRoot(id=EntityId.new(), name="synthetic-resolution", media_type=MediaType.EBOOK)
     file = FileRecord(
@@ -182,8 +181,8 @@ def _decision(
     )
 
 
-def test_candidate_review_and_append_only_decision_history(tmp_path: Path) -> None:
-    database = tmp_path / "resolution.db"
+def test_candidate_review_and_append_only_decision_history(head_database: Path) -> None:
+    database = head_database
     file, work, assertion = _graph(database)
     engine = create_sqlite_engine(database)
     store = SQLiteResolutionReviewStore(engine)
@@ -256,8 +255,10 @@ def test_candidate_review_and_append_only_decision_history(tmp_path: Path) -> No
     assert repository(engine, ValueAssertion).get(assertion.id) == assertion
 
 
-def test_invalid_evidence_and_optimistic_decision_fence_roll_back(tmp_path: Path) -> None:
-    database = tmp_path / "rollback.db"
+def test_invalid_evidence_and_optimistic_decision_fence_roll_back(
+    head_database: Path,
+) -> None:
+    database = head_database
     file, work, assertion = _graph(database)
     engine = create_sqlite_engine(database)
     store = SQLiteResolutionReviewStore(engine)
@@ -281,8 +282,8 @@ def test_invalid_evidence_and_optimistic_decision_fence_roll_back(tmp_path: Path
     assert store.list_history(item.id) == ()
 
 
-def test_decision_sequence_and_same_id_are_strict(tmp_path: Path) -> None:
-    database = tmp_path / "sequence.db"
+def test_decision_sequence_and_same_id_are_strict(head_database: Path) -> None:
+    database = head_database
     file, work, assertion = _graph(database)
     engine = create_sqlite_engine(database)
     with pytest.raises(IntegrityError):
@@ -346,6 +347,7 @@ def test_migration_0012_upgrade_and_nonempty_downgrade_guard(tmp_path: Path) -> 
         )
     upgraded.dispose()
 
+    migrate(database)
     file, work, assertion = _graph(database)
     store = SQLiteResolutionReviewStore(create_sqlite_engine(database))
     candidate, links = _candidate_and_links(file, work, assertion)

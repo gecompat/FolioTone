@@ -29,6 +29,8 @@ from foliotone.index import (
 )
 from foliotone.persistence import create_sqlite_engine, migrate, repository
 
+pytestmark = pytest.mark.usefixtures("head_database")
+
 NOW = datetime(2026, 8, 9, 1, 0, tzinfo=UTC)
 
 
@@ -36,7 +38,6 @@ def _environment(tmp_path: Path) -> tuple[Engine, SQLiteIndexStore, ScanRoot, Pa
     database = tmp_path / "foliotone.db"
     media = tmp_path / "media"
     media.mkdir()
-    migrate(database)
     engine = create_sqlite_engine(database)
     store = SQLiteIndexStore(engine)
     root = store.get_or_create_root("resume-test", MediaType.EBOOK)

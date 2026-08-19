@@ -93,10 +93,8 @@ def _hashed(plan: ConsolidationPlan) -> ConsolidationPlan:
 
 
 def _planner_candidate_review_plan(
-    tmp_path: Path, state: ConsolidationReviewState
+    database: Path, state: ConsolidationReviewState
 ) -> tuple[SQLiteConsolidationStore, ConsolidationPlan, ConsolidationPlannerInputs]:
-    database = tmp_path / f"planner-{state.value}.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-planner", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -379,9 +377,11 @@ def _planner_candidate_review_plan(
     ("MISSING", "STALE", "ABSENT", "INCOMPATIBLE"),
 )
 def test_planner_nonaccepted_candidate_review_roundtrips(
-    tmp_path: Path, variant: str
+    head_database: Path, variant: str
 ) -> None:
-    store, pending, inputs = _planner_candidate_review_plan(tmp_path, ConsolidationReviewState.PENDING)
+    store, pending, inputs = _planner_candidate_review_plan(
+        head_database, ConsolidationReviewState.PENDING
+    )
     keep = next(
         item for item in pending.required_reviews if item.review_type is ReviewType.KEEP_PREFERENCE
     )
@@ -433,9 +433,9 @@ def test_planner_nonaccepted_candidate_review_roundtrips(
     ),
 )
 def test_planner_candidate_review_plans_roundtrip_and_retry(
-    tmp_path: Path, state: ConsolidationReviewState
+    head_database: Path, state: ConsolidationReviewState
 ) -> None:
-    store, plan, _ = _planner_candidate_review_plan(tmp_path, state)
+    store, plan, _ = _planner_candidate_review_plan(head_database, state)
     assert len(plan.preconditions) == 19
     assert store.create_or_get_plan(plan) == plan
 
@@ -450,9 +450,11 @@ def test_planner_candidate_review_plans_roundtrip_and_retry(
     ),
 )
 def test_store_rejects_itemless_waiting_reviews(
-    tmp_path: Path, review_type: ReviewType, state: ConsolidationReviewState
+    head_database: Path, review_type: ReviewType, state: ConsolidationReviewState
 ) -> None:
-    store, plan, _ = _planner_candidate_review_plan(tmp_path, ConsolidationReviewState.PENDING)
+    store, plan, _ = _planner_candidate_review_plan(
+        head_database, ConsolidationReviewState.PENDING
+    )
     reviews = list(plan.required_reviews)
     index = next(i for i, review in enumerate(reviews) if review.review_type is review_type)
     reviews[index] = replace(
@@ -471,8 +473,12 @@ def test_store_rejects_itemless_waiting_reviews(
         ("decision_compatibility_version", "foreign/v1"),
     ),
 )
-def test_store_rejects_defer_material_drift(tmp_path: Path, field: str, value: str) -> None:
-    store, plan, _ = _planner_candidate_review_plan(tmp_path, ConsolidationReviewState.DEFERRED)
+def test_store_rejects_defer_material_drift(
+    head_database: Path, field: str, value: str
+) -> None:
+    store, plan, _ = _planner_candidate_review_plan(
+        head_database, ConsolidationReviewState.DEFERRED
+    )
     review = next(
         item for item in plan.required_reviews if item.review_type is ReviewType.CONSOLIDATION_CANDIDATE
     )
@@ -487,15 +493,21 @@ def test_store_rejects_defer_material_drift(tmp_path: Path, field: str, value: s
         store.create_or_get_plan(plan)
 
 
-def test_shared_observation_is_rejected_at_the_plan_boundary(tmp_path: Path) -> None:
-    _, plan, _ = _planner_candidate_review_plan(tmp_path, ConsolidationReviewState.PENDING)
+def test_shared_observation_is_rejected_at_the_plan_boundary(head_database: Path) -> None:
+    _, plan, _ = _planner_candidate_review_plan(
+        head_database, ConsolidationReviewState.PENDING
+    )
     assert plan.keeper is not None and plan.candidate is not None
     with pytest.raises(ValueError, match="observations must differ"):
         replace(plan, candidate=replace(plan.candidate, observation_id=plan.keeper.observation_id))
 
 
-def test_store_rejects_approved_plan_with_non_actionable_identity(tmp_path: Path) -> None:
-    store, plan, _ = _planner_candidate_review_plan(tmp_path, ConsolidationReviewState.ACCEPTED)
+def test_store_rejects_approved_plan_with_non_actionable_identity(
+    head_database: Path,
+) -> None:
+    store, plan, _ = _planner_candidate_review_plan(
+        head_database, ConsolidationReviewState.ACCEPTED
+    )
     assert plan.status is ConsolidationPlanStatus.APPROVED_NON_EXECUTABLE
     invalid = _hashed(replace(
         plan,
@@ -506,8 +518,12 @@ def test_store_rejects_approved_plan_with_non_actionable_identity(tmp_path: Path
         store.create_or_get_plan(invalid)
 
 
-def test_store_rejects_approved_plan_with_unsafe_candidate_dependency(tmp_path: Path) -> None:
-    store, plan, _ = _planner_candidate_review_plan(tmp_path, ConsolidationReviewState.ACCEPTED)
+def test_store_rejects_approved_plan_with_unsafe_candidate_dependency(
+    head_database: Path,
+) -> None:
+    store, plan, _ = _planner_candidate_review_plan(
+        head_database, ConsolidationReviewState.ACCEPTED
+    )
     assert plan.status is ConsolidationPlanStatus.APPROVED_NON_EXECUTABLE
     dependency = next(
         item
@@ -778,9 +794,8 @@ def test_migration_0016_and_nonempty_downgrade_guard(tmp_path: Path) -> None:
         )
 
 
-def test_blocked_plan_roundtrips_through_a_fresh_store(tmp_path: Path) -> None:
-    database = tmp_path / "roundtrip.db"
-    migrate(database)
+def test_blocked_plan_roundtrips_through_a_fresh_store(head_database: Path) -> None:
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-roundtrip", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -840,9 +855,8 @@ def test_blocked_plan_roundtrips_through_a_fresh_store(tmp_path: Path) -> None:
         SQLiteConsolidationStore(bounded_engine).get_plan(plan.id)
 
 
-def test_missing_polymorphic_references_roll_back_atomically(tmp_path: Path) -> None:
-    database = tmp_path / "invalid-reference.db"
-    migrate(database)
+def test_missing_polymorphic_references_roll_back_atomically(head_database: Path) -> None:
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-invalid", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -903,9 +917,8 @@ def test_missing_polymorphic_references_roll_back_atomically(tmp_path: Path) -> 
         )
 
 
-def test_foreign_polymorphic_reference_rolls_back_atomically(tmp_path: Path) -> None:
-    database = tmp_path / "foreign-reference.db"
-    migrate(database)
+def test_foreign_polymorphic_reference_rolls_back_atomically(head_database: Path) -> None:
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-local", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -996,12 +1009,11 @@ def test_foreign_polymorphic_reference_rolls_back_atomically(tmp_path: Path) -> 
     ],
 )
 def test_undirected_preference_preserves_left_right_quality_slots(
-    tmp_path: Path,
+    head_database: Path,
     status: KeepPreferenceStatus,
     reason: KeepPreferenceReasonCode,
 ) -> None:
-    database = tmp_path / f"slots-{status.value.lower()}.db"
-    migrate(database)
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-slots", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -1062,9 +1074,10 @@ def test_undirected_preference_preserves_left_right_quality_slots(
     assert fresh.create_or_get_plan(plan) == plan
 
 
-def test_pending_keep_review_allows_a_non_directional_review_required_plan(tmp_path: Path) -> None:
-    database = tmp_path / "pending-keep-review.db"
-    migrate(database)
+def test_pending_keep_review_allows_a_non_directional_review_required_plan(
+    head_database: Path,
+) -> None:
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-pending-keep", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -1253,9 +1266,10 @@ def test_pending_keep_review_allows_a_non_directional_review_required_plan(tmp_p
         assert store.create_or_get_plan(non_accepted) == non_accepted
 
 
-def test_full_plan_graph_roundtrips_losslessly_in_a_fresh_process(tmp_path: Path) -> None:
-    database = tmp_path / "full-graph.db"
-    migrate(database)
+def test_full_plan_graph_roundtrips_losslessly_in_a_fresh_process(
+    head_database: Path,
+) -> None:
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-full-graph", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -1483,11 +1497,10 @@ def test_full_plan_graph_roundtrips_losslessly_in_a_fresh_process(tmp_path: Path
 
 @pytest.mark.parametrize("foreign_kind", ["FILE", "FOREIGN_OBSERVATION"])
 def test_precondition_requires_observation_bound_full_hash(
-    tmp_path: Path,
+    head_database: Path,
     foreign_kind: str,
 ) -> None:
-    database = tmp_path / f"hash-{foreign_kind.lower()}.db"
-    migrate(database)
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-hash", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -1584,10 +1597,9 @@ def test_precondition_requires_observation_bound_full_hash(
 
 
 def test_quality_rejects_same_aggregate_with_different_dimension_projection(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "quality-projection.db"
-    migrate(database)
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-quality-projection", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -1675,9 +1687,10 @@ def test_quality_rejects_same_aggregate_with_different_dimension_projection(
         SQLiteConsolidationStore(engine).create_or_get_quality(mismatched)
 
 
-def test_quality_finding_execution_ordinals_must_be_contiguous(tmp_path: Path) -> None:
-    database = tmp_path / "finding-ordinal.db"
-    migrate(database)
+def test_quality_finding_execution_ordinals_must_be_contiguous(
+    head_database: Path,
+) -> None:
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-finding-ordinal", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -1709,9 +1722,8 @@ def test_quality_finding_execution_ordinals_must_be_contiguous(tmp_path: Path) -
         SQLiteConsolidationStore(engine).get_quality(value.id)
 
 
-def test_candidate_requires_full_directed_cross_binding(tmp_path: Path) -> None:
-    database = tmp_path / "candidate-cross-binding.db"
-    migrate(database)
+def test_candidate_requires_full_directed_cross_binding(head_database: Path) -> None:
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-candidate-binding", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -1764,9 +1776,10 @@ def test_candidate_requires_full_directed_cross_binding(tmp_path: Path) -> None:
         SQLiteConsolidationStore(engine).create_or_get_plan(plan)
 
 
-def test_keep_preference_review_rejects_undirected_preference(tmp_path: Path) -> None:
-    database = tmp_path / "undirected-review.db"
-    migrate(database)
+def test_keep_preference_review_rejects_undirected_preference(
+    head_database: Path,
+) -> None:
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-undirected-review", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -1833,9 +1846,8 @@ def test_keep_preference_review_rejects_undirected_preference(tmp_path: Path) ->
 
 
 @pytest.mark.parametrize("binding", ["DEPENDENCY", "WRONG_KIND", "REVIEW"])
-def test_precondition_binding_is_role_specific(tmp_path: Path, binding: str) -> None:
-    database = tmp_path / f"precondition-{binding.lower()}.db"
-    migrate(database)
+def test_precondition_binding_is_role_specific(head_database: Path, binding: str) -> None:
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-precondition-binding", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -1995,10 +2007,9 @@ def test_precondition_binding_is_role_specific(tmp_path: Path, binding: str) -> 
 
 
 def test_schema_rejects_invalid_direction_review_sum_type_and_nullable_hash(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "schema-negatives.db"
-    migrate(database)
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-schema-negative", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)

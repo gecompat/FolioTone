@@ -15,7 +15,7 @@ from foliotone.adapters.calibre.library import (
     build_calibredb_version_command,
 )
 from foliotone.core import ToolCapability, ToolExecutionStatus
-from foliotone.persistence import create_sqlite_engine, migrate, repository
+from foliotone.persistence import create_sqlite_engine, repository
 from foliotone.tooling import (
     StructuredOutputError,
     ToolArtifact,
@@ -31,6 +31,8 @@ from foliotone.tooling.runtime import (
     build_docker_argv,
 )
 
+pytestmark = pytest.mark.usefixtures("head_database")
+
 NOW = datetime(2026, 8, 8, 20, 0, tzinfo=UTC)
 
 
@@ -45,7 +47,6 @@ def descriptor() -> ToolProviderDescriptor:
 
 def runtime(tmp_path: Path) -> ToolRuntime:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     return ToolRuntime(
         engine,
@@ -83,7 +84,6 @@ def test_local_tool_success_captures_version_stdout_and_artifacts(tmp_path: Path
 
 def test_local_probe_is_read_only_and_applies_version_policy(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     tool_runtime = ToolRuntime(
         engine,
@@ -159,7 +159,6 @@ def test_opt_in_local_probe_cache_is_shared_across_worker_threads(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     tool_runtime = ToolRuntime(
         engine,
@@ -319,7 +318,6 @@ def test_container_command_builder_hardens_defaults_and_mounts_inputs_read_only(
 
 def test_tool_artifacts_round_trip_through_repository(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     tool_runtime = ToolRuntime(engine, tmp_path / "artifacts", clock=lambda: NOW)
     outcome = tool_runtime.execute_local(

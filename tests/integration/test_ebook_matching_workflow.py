@@ -44,7 +44,6 @@ from foliotone.core import (
 from foliotone.persistence import (
     SQLiteResolutionReviewStore,
     create_sqlite_engine,
-    migrate,
     repository,
 )
 from foliotone.persistence import relation_candidate_schema as rc_schema
@@ -56,7 +55,6 @@ MATERIAL = "a" * 64
 
 
 def _graph(database: Path, count: int = 3):
-    migrate(database)
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-matching-workflow", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -189,9 +187,9 @@ def _edition_candidates(database: Path):
 
 
 def test_exact_duplicate_workflow_is_bounded_idempotent_and_has_no_review(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    engine, root, scan, observations = _graph(tmp_path / "exact.db")
+    engine, root, scan, observations = _graph(head_database)
     for observation in observations:
         repository(engine, Fingerprint).save(
             Fingerprint(
@@ -234,9 +232,10 @@ def test_exact_duplicate_workflow_is_bounded_idempotent_and_has_no_review(
 
 def test_bibliographic_workflow_and_review_cli_are_path_free_and_reusable(
     tmp_path: Path,
+    head_database: Path,
     capsys,
 ) -> None:
-    database = tmp_path / "edition.db"
+    database = head_database
     engine, root, scan = _edition_candidates(database)
     engine.dispose()
     match_args = [

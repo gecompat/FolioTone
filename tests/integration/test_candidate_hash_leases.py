@@ -53,10 +53,9 @@ def _completed_scan(database: Path, name: str) -> tuple[ScanRoot, ScanRun]:
 
 
 def test_candidate_hash_acquire_has_exactly_one_concurrent_owner(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "concurrent.db"
-    migrate(database)
+    database = head_database
     root, scan = _completed_scan(database, "concurrent")
     other_root, other_scan = _completed_scan(database, "concurrent-other-root")
     barrier = Barrier(2)
@@ -113,10 +112,9 @@ def test_candidate_hash_acquire_has_exactly_one_concurrent_owner(
 
 
 def test_candidate_hash_stale_takeover_fences_old_owner_writes(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "stale.db"
-    migrate(database)
+    database = head_database
     root, scan = _completed_scan(database, "stale")
     engine = create_sqlite_engine(database)
     store = SQLiteEbookCandidateHashRunStore(engine)
@@ -185,9 +183,8 @@ def test_candidate_hash_stale_takeover_fences_old_owner_writes(
     assert stored == []
 
 
-def test_candidate_hash_heartbeat_extends_ownership(tmp_path: Path) -> None:
-    database = tmp_path / "heartbeat.db"
-    migrate(database)
+def test_candidate_hash_heartbeat_extends_ownership(head_database: Path) -> None:
+    database = head_database
     root, scan = _completed_scan(database, "heartbeat")
     store = SQLiteEbookCandidateHashRunStore(create_sqlite_engine(database))
     run = store.acquire(
@@ -223,10 +220,9 @@ def test_candidate_hash_heartbeat_extends_ownership(tmp_path: Path) -> None:
 
 
 def test_candidate_hash_batch_progress_and_fingerprints_are_atomic(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "atomic.db"
-    migrate(database)
+    database = head_database
     root, scan = _completed_scan(database, "atomic")
     engine = create_sqlite_engine(database)
     store = SQLiteEbookCandidateHashRunStore(engine)

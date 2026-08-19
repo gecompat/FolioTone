@@ -46,7 +46,6 @@ DIGEST = "a" * 64
 
 
 def _graph(path: Path):
-    migrate(path)
     engine = create_sqlite_engine(path)
     root = ScanRoot(EntityId.new(), "synthetic-calibre", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -96,8 +95,10 @@ def _graph(path: Path):
     return engine, lease, snapshot, record, finding, ref
 
 
-def test_calibre_snapshot_graph_is_insert_only_idempotent_and_fenced(tmp_path: Path) -> None:
-    engine, lease, snapshot, record, finding, ref = _graph(tmp_path / "calibre.db")
+def test_calibre_snapshot_graph_is_insert_only_idempotent_and_fenced(
+    head_database: Path,
+) -> None:
+    engine, lease, snapshot, record, finding, ref = _graph(head_database)
     store = SQLiteCalibreLibraryStore(engine)
     assert (
         store.create_or_get(snapshot, (record,), (), (), (finding,), (ref,), lease=lease, now=NOW)
@@ -149,9 +150,9 @@ def test_calibre_snapshot_graph_is_insert_only_idempotent_and_fenced(tmp_path: P
 
 
 def test_snapshot_requires_latest_completed_scan_and_exact_observation_locator(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    engine, lease, snapshot, record, finding, ref = _graph(tmp_path / "lineage.db")
+    engine, lease, snapshot, record, finding, ref = _graph(head_database)
     file_record = FileRecord(
         EntityId.new(),
         snapshot.scan_root_id,
@@ -204,8 +205,8 @@ def test_snapshot_requires_latest_completed_scan_and_exact_observation_locator(
         )
 
 
-def test_invalid_ref_or_lease_loss_rolls_back_entire_graph(tmp_path: Path) -> None:
-    engine, lease, snapshot, record, finding, ref = _graph(tmp_path / "rollback.db")
+def test_invalid_ref_or_lease_loss_rolls_back_entire_graph(head_database: Path) -> None:
+    engine, lease, snapshot, record, finding, ref = _graph(head_database)
     store = SQLiteCalibreLibraryStore(engine)
     bad_ref = CalibreReconciliationFindingRef(
         ref.id, ref.finding_id, 0, ref.ref_kind, EntityId.new(), ref.role, DIGEST
@@ -261,6 +262,7 @@ def test_migration_downgrade_refuses_data_in_any_new_table(tmp_path: Path) -> No
     legacy = create_sqlite_engine(database)
     assert cs.calibre_library_snapshots.name not in inspect(legacy).get_table_names()
     legacy.dispose()
+    migrate(database)
     engine, lease, snapshot, record, finding, ref = _graph(database)
     SQLiteCalibreLibraryStore(engine).create_or_get(
         snapshot, (record,), (), (), (finding,), (ref,), lease=lease, now=NOW

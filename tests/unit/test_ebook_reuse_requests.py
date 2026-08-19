@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
 from foliotone.adapters.calibre.cover import (
     CALIBRE_COVER_RESULT_ARTIFACT,
     CalibreCoverAnalyzer,
@@ -13,9 +15,11 @@ from foliotone.adapters.epubcheck.validation import (
 )
 from foliotone.adapters.poppler.pdf import POPPLER_TEXT_ARTIFACT, PopplerPdfAnalyzer
 from foliotone.core import EntityId, FileObservation
-from foliotone.persistence import create_sqlite_engine, migrate
+from foliotone.persistence import create_sqlite_engine
 from foliotone.tooling import ToolProviderDescriptor
 from foliotone.tooling.runtime import LocalCommand, LocalToolProbe
+
+pytestmark = pytest.mark.usefixtures("head_database")
 
 NOW = datetime(2026, 8, 15, 15, 0, tzinfo=UTC)
 
@@ -39,7 +43,6 @@ class ProbeRuntime:
 
 def test_all_adapters_expose_exact_versioned_reuse_requests(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     runtime = ProbeRuntime(
         {
@@ -104,7 +107,6 @@ def test_all_adapters_expose_exact_versioned_reuse_requests(tmp_path: Path) -> N
 
 def test_unavailable_tool_never_creates_reuse_request(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     runtime = ProbeRuntime({})
 

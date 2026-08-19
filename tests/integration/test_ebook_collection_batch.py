@@ -27,7 +27,6 @@ from foliotone.persistence import (
     EbookCollectionStoreError,
     SQLiteEbookCollectionStore,
     create_sqlite_engine,
-    migrate,
     repository,
     schema,
     w3_schema,
@@ -45,6 +44,8 @@ from foliotone.workflows import (
     EbookQualityDimensionName,
     EbookQualityDimensionStatus,
 )
+
+pytestmark = pytest.mark.usefixtures("head_database")
 
 NOW = datetime(2026, 8, 15, 14, 0, tzinfo=UTC)
 
@@ -507,7 +508,6 @@ def _environment(
     paths: tuple[str, ...],
 ) -> tuple[Engine, ScanRoot, dict[str, FileObservation]]:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     root = ScanRoot(id=EntityId.new(), name="synthetic-ebooks", media_type=MediaType.EBOOK)
     scan = ScanRun(

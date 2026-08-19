@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
 from pytest import CaptureFixture
 from sqlalchemy import update
 
@@ -36,6 +37,8 @@ from foliotone.workflows import (
     EbookInventoryReportLimits,
     EbookInventoryReportService,
 )
+
+pytestmark = pytest.mark.usefixtures("head_database")
 
 NOW = datetime(2026, 8, 16, 8, 0, tzinfo=UTC)
 FORMATS = ("EPUB", "MOBI", "AZW", "AZW3", "PDF")
@@ -196,7 +199,6 @@ def _completed_postscan(
     tmp_path: Path,
 ) -> tuple[Path, Path, str, EntityId, tuple[str, ...]]:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     root = ScanRoot(
         id=EntityId.new(),

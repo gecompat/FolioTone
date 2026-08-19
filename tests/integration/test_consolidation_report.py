@@ -48,7 +48,6 @@ NOW = datetime(2026, 8, 19, tzinfo=UTC)
 
 def _persisted_plan(path: Path) -> tuple[str, str]:
     engine = create_sqlite_engine(path)
-    migrate(path)
     root = ScanRoot(EntityId.new(), "synthetic-eb08", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
     file_id = EntityId.new()
@@ -175,11 +174,11 @@ def _persisted_plan(path: Path) -> tuple[str, str]:
 
 
 def test_consolidation_report_cli_is_read_only_and_path_free(
-    tmp_path: Path,
+    head_database: Path,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    database = tmp_path / "synthetic.db"
+    database = head_database
     plan_id, content_hash = _persisted_plan(database)
     before = database.read_bytes()
     monkeypatch.setattr("foliotone.cli.main.migrate", lambda _path: pytest.fail("must not migrate"))
@@ -233,11 +232,10 @@ def test_consolidation_report_rejects_invalid_plan_token() -> None:
 
 
 def test_consolidation_report_missing_plan_returns_path_free_error(
-    tmp_path: Path,
+    head_database: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    database = tmp_path / "missing-plan.db"
-    migrate(database)
+    database = head_database
 
     assert main(
         [
@@ -285,12 +283,11 @@ def test_consolidation_report_json_is_path_free_on_older_schema(
 
 
 def test_consolidation_report_internal_error_is_path_free(
-    tmp_path: Path,
+    head_database: Path,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    database = tmp_path / "internal-error.db"
-    migrate(database)
+    database = head_database
 
     def _boom(_self: SQLiteConsolidationPlanReportReader, _plan: EntityId) -> object:
         raise RuntimeError("synthetic failure")

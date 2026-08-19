@@ -55,7 +55,6 @@ from foliotone.matching import (
 from foliotone.persistence import (
     SQLiteResolutionReviewStore,
     create_sqlite_engine,
-    migrate,
     repository,
     schema,
 )
@@ -68,7 +67,6 @@ MATERIAL = "a" * 64
 def _base_graph(
     database: Path,
 ) -> tuple[Engine, ScanRoot, ScanRun, tuple[FileObservation, ...]]:
-    migrate(database)
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-blocking", MediaType.EBOOK)
     scan = ScanRun(
@@ -215,8 +213,8 @@ def _accept_resolution(
     )
 
 
-def test_all_book_block_sources_are_bounded_and_path_free(tmp_path: Path) -> None:
-    database = tmp_path / "blocking.db"
+def test_all_book_block_sources_are_bounded_and_path_free(head_database: Path) -> None:
+    database = head_database
     engine, root, scan, observations = _base_graph(database)
     _add_fingerprints(engine, observations)
     work = Work(EntityId.new())
@@ -303,8 +301,8 @@ def test_all_book_block_sources_are_bounded_and_path_free(tmp_path: Path) -> Non
     assert _count(engine, schema.relations) == before_relations
 
 
-def test_latest_completed_scan_is_required(tmp_path: Path) -> None:
-    database = tmp_path / "lineage.db"
+def test_latest_completed_scan_is_required(head_database: Path) -> None:
+    database = head_database
     engine, root, scan, _ = _base_graph(database)
     newer = ScanRun(
         EntityId.new(),
@@ -318,8 +316,10 @@ def test_latest_completed_scan_is_required(tmp_path: Path) -> None:
         SQLiteEbookCandidateBlockReader(engine).snapshot(root.id, scan.id)
 
 
-def test_later_failed_scan_does_not_replace_latest_completed_scan(tmp_path: Path) -> None:
-    database = tmp_path / "failed-lineage.db"
+def test_later_failed_scan_does_not_replace_latest_completed_scan(
+    head_database: Path,
+) -> None:
+    database = head_database
     engine, root, scan, _ = _base_graph(database)
     failed = ScanRun(
         EntityId.new(),
@@ -336,9 +336,8 @@ def test_later_failed_scan_does_not_replace_latest_completed_scan(tmp_path: Path
     assert snapshot.blocks == ()
 
 
-def test_thousand_exact_duplicates_use_one_bounded_group(tmp_path: Path) -> None:
-    database = tmp_path / "scale.db"
-    migrate(database)
+def test_thousand_exact_duplicates_use_one_bounded_group(head_database: Path) -> None:
+    database = head_database
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-scale", MediaType.EBOOK)
     scan = ScanRun(

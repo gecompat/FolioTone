@@ -28,9 +28,11 @@ from foliotone.core import (
     ToolExecutionStatus,
     Work,
 )
-from foliotone.persistence import create_sqlite_engine, migrate, repository
+from foliotone.persistence import create_sqlite_engine, repository
 from foliotone.tooling import ToolArtifact, ToolExecution, ToolResult
 from foliotone.tooling.runtime import LocalCommand, ToolRunOutcome
+
+pytestmark = pytest.mark.usefixtures("head_database")
 
 NOW = datetime(2026, 8, 14, 10, 0, tzinfo=UTC)
 SAMPLE_OPF = b"""<?xml version="1.0" encoding="utf-8"?>
@@ -330,7 +332,6 @@ def test_analyzer_exposes_only_read_only_command_shape_and_persists_results(
     relative_path: str,
 ) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     execution = ToolExecution(
         id=EntityId.new(),
@@ -392,7 +393,6 @@ def test_analyzer_exposes_only_read_only_command_shape_and_persists_results(
 
 def test_analyzer_rejects_changed_source_before_invoking_calibre(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     execution = ToolExecution(
         id=EntityId.new(),

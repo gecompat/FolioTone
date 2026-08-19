@@ -2,10 +2,11 @@ import hashlib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
 from sqlalchemy import event
 
 from foliotone.core import EntityId, EntityKind, ToolCapability, ToolExecutionStatus
-from foliotone.persistence import create_sqlite_engine, migrate, repository
+from foliotone.persistence import create_sqlite_engine, repository
 from foliotone.tooling import (
     ToolArtifact,
     ToolArtifactRequirement,
@@ -17,6 +18,8 @@ from foliotone.tooling import (
 from foliotone.tooling.runtime import ToolRuntime
 from foliotone.workflows.evidence import ToolEvidenceReader
 
+pytestmark = pytest.mark.usefixtures("head_database")
+
 NOW = datetime(2026, 8, 15, 13, 0, tzinfo=UTC)
 
 
@@ -24,7 +27,6 @@ def test_reader_reuses_only_latest_exact_success_with_intact_artifact(
     tmp_path: Path,
 ) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     artifact_root = tmp_path / "artifacts"
     runtime = ToolRuntime(engine, artifact_root, work_root=tmp_path / "work")
@@ -105,7 +107,6 @@ def test_reader_reuses_only_latest_exact_success_with_intact_artifact(
 
 def test_latest_failed_exact_attempt_prevents_older_success_reuse(tmp_path: Path) -> None:
     database = tmp_path / "foliotone.db"
-    migrate(database)
     engine = create_sqlite_engine(database)
     artifact_root = tmp_path / "artifacts"
     runtime = ToolRuntime(engine, artifact_root, work_root=tmp_path / "work")

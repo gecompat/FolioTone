@@ -57,7 +57,6 @@ MATERIAL = "a" * 64
 
 
 def _graph(database: Path):
-    migrate(database)
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-matching", MediaType.EBOOK)
     scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
@@ -143,8 +142,10 @@ def _candidate(root, scan, files, fingerprints, *, candidate_id=None, evidence_i
     return candidate, links
 
 
-def test_relation_candidate_is_insert_only_idempotent_and_path_free(tmp_path: Path) -> None:
-    engine, root, scan, files, fingerprints = _graph(tmp_path / "candidate.db")
+def test_relation_candidate_is_insert_only_idempotent_and_path_free(
+    head_database: Path,
+) -> None:
+    engine, root, scan, files, fingerprints = _graph(head_database)
     store = SQLiteRelationCandidateStore(engine)
     candidate, links = _candidate(root, scan, files, fingerprints)
 
@@ -159,8 +160,8 @@ def test_relation_candidate_is_insert_only_idempotent_and_path_free(tmp_path: Pa
     assert MATERIAL not in rendered
 
 
-def test_invalid_reference_rolls_back_candidate_and_links(tmp_path: Path) -> None:
-    engine, root, scan, files, fingerprints = _graph(tmp_path / "rollback.db")
+def test_invalid_reference_rolls_back_candidate_and_links(head_database: Path) -> None:
+    engine, root, scan, files, fingerprints = _graph(head_database)
     store = SQLiteRelationCandidateStore(engine)
     candidate, links = _candidate(root, scan, files, fingerprints, evidence_id=EntityId.new())
     with pytest.raises(RelationCandidateStoreError, match="does not exist"):
@@ -180,8 +181,10 @@ def test_invalid_reference_rolls_back_candidate_and_links(tmp_path: Path) -> Non
         )
 
 
-def test_matching_review_reuses_accept_and_reject_but_not_defer(tmp_path: Path) -> None:
-    engine, root, scan, _, _ = _graph(tmp_path / "review.db")
+def test_matching_review_reuses_accept_and_reject_but_not_defer(
+    head_database: Path,
+) -> None:
+    engine, root, scan, _, _ = _graph(head_database)
     works = tuple(
         sorted((Work(EntityId.new()), Work(EntityId.new())), key=lambda item: str(item.id))
     )
@@ -323,6 +326,7 @@ def test_migration_0013_upgrade_and_nonempty_downgrade_guard(tmp_path: Path) -> 
         )
     upgraded.dispose()
 
+    migrate(database)
     engine, root, scan, files, fingerprints = _graph(database)
     candidate, links = _candidate(root, scan, files, fingerprints)
     SQLiteRelationCandidateStore(engine).create_or_get(candidate, links)

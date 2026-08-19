@@ -22,7 +22,6 @@ from foliotone.persistence import (
     create_sqlite_engine,
     evidence_queries,
     load_observation_evidence,
-    migrate,
     repository,
     schema,
 )
@@ -34,10 +33,10 @@ DISTRACTOR_COUNT = 10_000
 
 def test_observation_evidence_query_is_indexed_bounded_and_collection_independent(
     tmp_path: Path,
+    head_database: Path,
     monkeypatch: MonkeyPatch,
 ) -> None:
-    database = tmp_path / "scale.db"
-    migrate(database)
+    database = head_database
     engine = create_sqlite_engine(database)
     left_id = EntityId.parse("00000000-0000-0000-0000-000000000001")
     right_id = EntityId.parse("00000000-0000-0000-0000-000000000002")

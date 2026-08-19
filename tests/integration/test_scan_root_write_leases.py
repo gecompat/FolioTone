@@ -30,7 +30,6 @@ from foliotone.persistence import (
     SQLiteScanRootWriteLeaseStore,
     alembic_config,
     create_sqlite_engine,
-    migrate,
     repository,
     scan_root_write_scope,
     schema,
@@ -47,9 +46,8 @@ def _root(database: Path, name: str = "synthetic") -> ScanRoot:
     return root
 
 
-def test_exactly_one_concurrent_writer_acquires_a_root(tmp_path: Path) -> None:
-    database = tmp_path / "concurrent.db"
-    migrate(database)
+def test_exactly_one_concurrent_writer_acquires_a_root(head_database: Path) -> None:
+    database = head_database
     root = _root(database)
     barrier = Barrier(2)
     lock = Lock()
@@ -87,9 +85,8 @@ def test_exactly_one_concurrent_writer_acquires_a_root(tmp_path: Path) -> None:
     assert blocked == ["an active writer already owns this ScanRoot"]
 
 
-def test_stale_takeover_increments_epoch_and_fences_old_owner(tmp_path: Path) -> None:
-    database = tmp_path / "takeover.db"
-    migrate(database)
+def test_stale_takeover_increments_epoch_and_fences_old_owner(head_database: Path) -> None:
+    database = head_database
     root = _root(database)
     engine = create_sqlite_engine(database)
     store = SQLiteScanRootWriteLeaseStore(engine)
@@ -129,9 +126,8 @@ def test_stale_takeover_increments_epoch_and_fences_old_owner(tmp_path: Path) ->
         store.fence(connection, old, NOW + timedelta(minutes=2))
 
 
-def test_fence_and_root_write_rollback_together_after_takeover(tmp_path: Path) -> None:
-    database = tmp_path / "atomic.db"
-    migrate(database)
+def test_fence_and_root_write_rollback_together_after_takeover(head_database: Path) -> None:
+    database = head_database
     root = _root(database)
     engine = create_sqlite_engine(database)
     store = SQLiteScanRootWriteLeaseStore(engine)
@@ -165,9 +161,8 @@ def test_fence_and_root_write_rollback_together_after_takeover(tmp_path: Path) -
     assert persisted.enabled is True
 
 
-def test_release_preserves_epoch_for_the_next_owner(tmp_path: Path) -> None:
-    database = tmp_path / "release.db"
-    migrate(database)
+def test_release_preserves_epoch_for_the_next_owner(head_database: Path) -> None:
+    database = head_database
     root = _root(database)
     store = SQLiteScanRootWriteLeaseStore(create_sqlite_engine(database))
     first = store.acquire(
@@ -206,10 +201,9 @@ def test_release_preserves_epoch_for_the_next_owner(tmp_path: Path) -> None:
 
 
 def test_cross_workflow_ownership_blocks_scan_candidate_and_collection(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "cross-workflow.db"
-    migrate(database)
+    database = head_database
     root = _root(database)
     engine = create_sqlite_engine(database)
     scan_store = SQLiteIndexStore(engine)
@@ -289,10 +283,9 @@ def test_cross_workflow_ownership_blocks_scan_candidate_and_collection(
 
 
 def test_scoped_generic_repository_write_is_fenced_after_takeover(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "scoped-write.db"
-    migrate(database)
+    database = head_database
     root = _root(database)
     engine = create_sqlite_engine(database)
     store = SQLiteScanRootWriteLeaseStore(engine)
@@ -331,10 +324,9 @@ def test_scoped_generic_repository_write_is_fenced_after_takeover(
 
 
 def test_schema_rejects_partial_or_unknown_active_lease_state(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "lease-constraints.db"
-    migrate(database)
+    database = head_database
     root = _root(database)
     engine = create_sqlite_engine(database)
 
@@ -371,9 +363,8 @@ def test_schema_rejects_partial_or_unknown_active_lease_state(
             connection.execute(statement, row)
 
 
-def test_downgrade_refuses_an_active_root_writer(tmp_path: Path) -> None:
-    database = tmp_path / "active-downgrade.db"
-    migrate(database)
+def test_downgrade_refuses_an_active_root_writer(head_database: Path) -> None:
+    database = head_database
     root = _root(database)
     store = SQLiteScanRootWriteLeaseStore(create_sqlite_engine(database))
     store.acquire(

@@ -117,6 +117,27 @@ Ein nachfolgender Review verwendet Luna oder 5.4 Mini für mechanische
 Prüfungen, Terra für semantische Integration und Sol nur für die kritischen
 Risikoklassen der Modellmatrix.
 
+## Kontext- und Testkosten
+
+Die verbindliche Test- und Logstrategie ist in
+[`COST_EFFICIENT_DEVELOPMENT.md`](../quality/COST_EFFICIENT_DEVELOPMENT.md)
+festgelegt. Vor einer Modellübergabe werden vollständige Logs, Diffs, Timings und
+wiederholte Fehler lokal deterministisch ausgewertet. Ein Agent erhält nur
+deduplizierte Findings und die kleinsten für seine Entscheidung erforderlichen
+Ausschnitte.
+
+Insbesondere gelten folgende Routingregeln:
+
+- kein Frontier-Modell zum Zusammenzählen, Filtern oder Gruppieren lokaler
+  Testergebnisse;
+- kein zusätzlicher Agent nur zum Beobachten eines unveränderten laufenden Tests;
+- kein semantischer Review, solange der Implementierungsdiff noch verändert wird;
+- kein vollständiger lokaler oder PR-Gate nach jedem Zwischenfix;
+- keine Weitergabe vollständiger grüner Logs oder wiederholter identischer
+  Traces;
+- Rückkehr zu Spark, Luna oder 5.4 Mini, sobald eine begrenzte Frontier-Frage
+  entschieden ist.
+
 ## Kapazitäts- und Fallback-Regel
 
 Ein Kapazitätsfehler wird nicht in einer unbegrenzten Wiederholungsschleife
