@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Final
 
 from foliotone.consolidation.contracts import (
@@ -12,6 +12,7 @@ from foliotone.consolidation.contracts import (
     CONSOLIDATION_KEEP_PREFERENCE_VERSION,
     ConsolidationBlockerCode,
     ConsolidationFileRole,
+    ConsolidationQualityEvidence,
     ConsolidationQualityEvidenceSnapshot,
     KeepPreferenceOutcome,
     KeepPreferenceReasonCode,
@@ -19,10 +20,7 @@ from foliotone.consolidation.contracts import (
     SizeTieBreakerPolicy,
 )
 from foliotone.core import EntityId
-from foliotone.workflows.quality import (
-    EbookQualityAssessment,
-    EbookQualityDimensionStatus,
-)
+from foliotone.workflows.quality import EbookQualityDimensionStatus
 
 _SUPPORTED_FORMATS: Final = frozenset({"EPUB", "MOBI", "AZW", "AZW3", "PDF"})
 _QUALITY_ORDER: Final = (
@@ -77,39 +75,18 @@ class KeepPreferenceAssessment:
             raise ValueError("assessment_fingerprint must be a lowercase SHA-256")
 
     @classmethod
-    def from_quality_assessment(
-        cls, assessment: EbookQualityAssessment
+    def from_quality_evidence(
+        cls, evidence: ConsolidationQualityEvidence
     ) -> KeepPreferenceAssessment:
-        """Adapt the existing quality projection without recalculating it."""
+        """Consume the already validated, persistable quality projection."""
 
-        if not isinstance(assessment, EbookQualityAssessment):
-            raise TypeError("assessment must be an EbookQualityAssessment")
+        if not isinstance(evidence, ConsolidationQualityEvidence):
+            raise TypeError("evidence must be ConsolidationQualityEvidence")
         return cls(
-            observation_id=assessment.observation_id,
-            format_label=assessment.format_name,
-            dimensions=tuple(item.status for item in assessment.dimensions),
-            assessment_fingerprint=_digest(
-                {
-                    "profile": assessment.profile,
-                    "observation_id": str(assessment.observation_id),
-                    "format_label": assessment.format_name,
-                    "dimensions": [item.status.value for item in assessment.dimensions],
-                    "findings": [
-                        {
-                            "code": item.code,
-                            "dimension": item.dimension.value,
-                            "severity": item.severity.value,
-                            "source_execution_ids": [
-                                str(value) for value in item.source_execution_ids
-                            ],
-                        }
-                        for item in assessment.findings
-                    ],
-                    "source_execution_ids": [
-                        str(value) for value in assessment.source_execution_ids
-                    ],
-                }
-            ),
+            observation_id=evidence.observation_id,
+            format_label=evidence.format_label,
+            dimensions=tuple(item.status for item in evidence.dimensions),
+            assessment_fingerprint=evidence.assessment_fingerprint,
         )
 
 
@@ -122,8 +99,7 @@ class KeepPreferenceInputs:
     left_observation_id: EntityId
     right_file_id: EntityId
     right_observation_id: EntityId
-    quality_evidence: tuple[ConsolidationQualityEvidenceSnapshot, ...]
-    assessments: tuple[KeepPreferenceAssessment, ...]
+    quality_evidence: tuple[ConsolidationQualityEvidence, ...]
     format_preferences: tuple[str, ...] = ()
     size_tie_breaker_policy: SizeTieBreakerPolicy = SizeTieBreakerPolicy.DISABLED
     left_size_bytes: int | None = None
@@ -148,31 +124,16 @@ class KeepPreferenceInputs:
             or str(self.left_file_id).casefold() >= str(self.right_file_id).casefold()
         ):
             raise ValueError("preference endpoints must be distinct and canonically ordered")
-        if len(self.quality_evidence) != 2 or len(self.assessments) != 2:
-            raise ValueError("exactly two quality evidence snapshots and assessments are required")
+        if len(self.quality_evidence) != 2:
+            raise ValueError("exactly two quality evidence projections are required")
         if len({item.id for item in self.quality_evidence}) != 2:
             raise ValueError("quality evidence snapshots must have distinct ids")
-        if {item.observation_id for item in self.assessments} != {
-            self.left_observation_id,
-            self.right_observation_id,
-        }:
-            raise ValueError("assessments must match both preference observations")
         evidence_observations = {item.observation_id for item in self.quality_evidence}
         if evidence_observations != {
             self.left_observation_id,
             self.right_observation_id,
         }:
             raise ValueError("quality evidence must match both preference observations")
-        if any(
-            item.assessment_fingerprint
-            != next(
-                assessment.assessment_fingerprint
-                for assessment in self.assessments
-                if assessment.observation_id == item.observation_id
-            )
-            for item in self.quality_evidence
-        ):
-            raise ValueError("quality evidence fingerprint does not match assessment")
         normalized_formats = tuple(value.strip().upper() for value in self.format_preferences)
         if any(value not in _SUPPORTED_FORMATS for value in normalized_formats):
             raise ValueError("format_preferences contains an unsupported format")
@@ -206,7 +167,10 @@ class KeepPreferenceInputs:
 def _assessment_by_observation(
     inputs: KeepPreferenceInputs,
 ) -> dict[EntityId, KeepPreferenceAssessment]:
-    return {item.observation_id: item for item in inputs.assessments}
+    return {
+        item.observation_id: KeepPreferenceAssessment.from_quality_evidence(item)
+        for item in inputs.quality_evidence
+    }
 
 
 def _quality_counts(assessment: KeepPreferenceAssessment) -> tuple[int, int, int]:
@@ -296,7 +260,10 @@ def _evidence_fingerprint(
                 for item in inputs.quality_evidence
             ),
             "assessment_projections": sorted(
-                (_assessment_material(item) for item in inputs.assessments),
+                (
+                    _assessment_material(item)
+                    for item in _assessment_by_observation(inputs).values()
+                ),
                 key=lambda item: str(item["observation_id"]),
             ),
             "size_evidence": {
@@ -319,15 +286,12 @@ def _quality_evidence_for_output(
         keeper_observation_id = inputs.left_observation_id
     else:
         keeper_observation_id = inputs.right_observation_id
-    keeper = replace(by_observation[keeper_observation_id], role=ConsolidationFileRole.KEEPER)
-    candidate = replace(
-        by_observation[
-            inputs.right_observation_id
-            if keeper_observation_id == inputs.left_observation_id
-            else inputs.left_observation_id
-        ],
-        role=ConsolidationFileRole.CANDIDATE,
-    )
+    keeper = by_observation[keeper_observation_id].snapshot(ConsolidationFileRole.KEEPER)
+    candidate = by_observation[
+        inputs.right_observation_id
+        if keeper_observation_id == inputs.left_observation_id
+        else inputs.left_observation_id
+    ].snapshot(ConsolidationFileRole.CANDIDATE)
     return (keeper, candidate)
 
 
@@ -343,16 +307,14 @@ def build_keep_preference(inputs: KeepPreferenceInputs) -> KeepPreferenceOutcome
         hard_constraints.append(ConsolidationBlockerCode.PROTECTED_SOURCE_ROOT)
     if not inputs.lineage_complete:
         hard_constraints.append(ConsolidationBlockerCode.LINEAGE_MISMATCH)
-    evidence_by_observation = {
-        item.observation_id: item for item in inputs.quality_evidence
-    }
+    evidence_by_observation = {item.observation_id: item for item in inputs.quality_evidence}
     quality_lineage_mismatch = (
         len({item.scan_root_id for item in inputs.quality_evidence}) != 1
         or len({item.source_scan_run_id for item in inputs.quality_evidence}) != 1
         or any(
             evidence_by_observation[assessment.observation_id].format_label
             != assessment.format_label
-            for assessment in inputs.assessments
+            for assessment in _assessment_by_observation(inputs).values()
         )
     )
     if quality_lineage_mismatch:

@@ -258,12 +258,23 @@ quality_profile
 format_label
 item_status
 aggregate_quality_status
+reused_step_count
+executed_step_count
+finding_count
 dimensions
 item_executions
 findings
 assessment_fingerprint
 created_at
 ```
+
+`ConsolidationQualityEvidence` ist rollenfrei: Es beschreibt genau die
+persistierte Messung einer Observation und kennt weder `KEEPER`/`CANDIDATE`
+noch linke/rechte Vergleichsslots. Erst die davon abgeleitete
+`ConsolidationQualityEvidenceSnapshot`-Referenz trägt eine Rolle. Bei einem
+gerichteten `PREFERRED`-Ergebnis ist dies die fachliche Keeper-/Candidate-
+Rolle; bei `TIED` oder `BLOCKED` bezeichnet sie ausschließlich den kanonischen
+linken beziehungsweise rechten Slot.
 
 Die Projektion ist nur aus einem terminalen `EbookCollectionRun` mit Status
 `COMPLETED` oder `COMPLETED_WITH_FAILURES` und einem zugehörigen terminalen
@@ -284,21 +295,33 @@ persistiert.
 
 `item_executions` wird lückenlos nach
 `ebook_collection_item_executions.ordinal` serialisiert und enthält
-`step_name`, `disposition` und `execution_id`. Seine Anzahl muss
-`reused_step_count + executed_step_count` entsprechen. `findings` wird
-lückenlos nach `ebook_collection_findings.ordinal` serialisiert und enthält
+`step_name`, `disposition` und `execution_id`. Mehrere Executions desselben
+Workflow-Schritts bleiben als zusammenhängende Gruppe erhalten und müssen
+dieselbe Disposition tragen. `reused_step_count + executed_step_count`
+entspricht der Zahl dieser eindeutigen Schrittgruppen, nicht zwingend der Zahl
+der Executions; dies erhält insbesondere mehrteilige PDF-Analyse-Schritte.
+`findings` wird lückenlos nach `ebook_collection_findings.ordinal`
+serialisiert und enthält
 `code`, `dimension`, `severity` sowie die nach
 `ebook_collection_finding_executions.ordinal` geordneten `execution_id`-
 Werte. `finding_count` muss der vollständigen Finding-Menge entsprechen; jede
 Finding-Execution muss auch eine Item-Execution desselben Items sein.
+Die DTO-Grenzen betragen höchstens 64 Item-Executions, 256 Findings und 64
+geordnete Execution-Referenzen je Finding. Item- und Finding-Ordinals beginnen
+bei null und sind lückenlos; Execution-IDs und Finding-Codes sind innerhalb
+der jeweiligen Projektion eindeutig. Die Zähler sind materielle Felder und
+müssen exakt den Dispositions- beziehungsweise Finding-Mengen entsprechen.
 
 `assessment_fingerprint` ist der lowercase SHA-256 über kanonische
 `canonical-json/v1`-Bytes mit dem Domain-Tag
 `foliotone:consolidation-quality-evidence/v1` und allen materiellen Feldern
 außer `id`, `created_at` und `assessment_fingerprint`. Damit bindet er Item,
 Run, Observation, Scan-Lineage, alle drei Profile, Format, Item-/Quality-
-Status, die fünf Dimensionszustände sowie die vollständigen geordneten
-Execution- und Finding-Projektionen.
+Status, die drei Zähler, die fünf Dimensionszustände sowie die vollständigen
+geordneten Execution- und Finding-Projektionen. Zufällige Child-Row-IDs sind
+nicht Teil der Projektion; `collection_run_id`, `collection_item_id`,
+`observation_id`, `scan_root_id`, `source_scan_run_id` und `execution_id` sind
+dagegen die explizit gebundene Provenance.
 
 Keeper und Candidate benötigen je genau einen solchen Snapshot. Beide
 `collection_run_id`-Werte dürfen verschieden sein, aber beide Runs müssen
@@ -642,6 +665,9 @@ quality_profile
 format_label
 item_status
 aggregate_quality_status
+reused_step_count
+executed_step_count
+finding_count
 metadata_status
 text_status
 cover_status

@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import re
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
 from foliotone.core import (
+    EbookCollectionItemStatus,
     EntityId,
     EntityKind,
     MatchStatus,
@@ -19,6 +24,10 @@ from foliotone.core._validation import require_aware_datetime, require_non_empty
 from foliotone.core.resolution_models import _require_sha256
 from foliotone.workflows.quality import (
     EBOOK_QUALITY_PROFILE,
+    EbookQualityDimensionName,
+    EbookQualityDimensionStatus,
+    EbookQualityFindingSeverity,
+    EbookQualityStatus,
 )
 
 CONSOLIDATION_PLAN_PROFILE = "consolidation-plan/v1"
@@ -42,6 +51,18 @@ MAX_CONSOLIDATION_INTENTS = 16
 MAX_CONSOLIDATION_BLOCKERS = 32
 MAX_CONSOLIDATION_BLOCKER_EVIDENCE_REFS = 64
 MAX_CONSOLIDATION_REASONS = 64
+MAX_CONSOLIDATION_QUALITY_EXECUTIONS = 64
+MAX_CONSOLIDATION_QUALITY_FINDINGS = 256
+MAX_CONSOLIDATION_QUALITY_FINDING_EXECUTION_REFS = 64
+
+_QUALITY_FINDING_CODE = re.compile(r"[A-Z][A-Z0-9_]{0,63}")
+_TERMINAL_QUALITY_ITEM_STATUSES = frozenset(
+    {
+        EbookCollectionItemStatus.SUCCEEDED,
+        EbookCollectionItemStatus.PARTIAL_FAILURE,
+        EbookCollectionItemStatus.FAILED,
+    }
+)
 
 
 class ConsolidationPlanStatus(StrEnum):
@@ -198,6 +219,34 @@ def _text(value: str, field_name: str) -> str:
     return require_non_empty(value, field_name)
 
 
+def _contiguous_ordinals(values: tuple[object, ...], field_name: str) -> None:
+    if tuple(getattr(value, "ordinal", None) for value in values) != tuple(range(len(values))):
+        raise ValueError(f"{field_name} ordinals must be contiguous and ordered")
+
+
+def _quality_aggregate_status(
+    dimensions: tuple[ConsolidationQualityDimension, ...],
+) -> EbookQualityStatus:
+    states = {dimension.status for dimension in dimensions}
+    if EbookQualityDimensionStatus.INCOMPLETE in states:
+        return EbookQualityStatus.INCOMPLETE
+    if EbookQualityDimensionStatus.ACTION_REQUIRED in states:
+        return EbookQualityStatus.ACTION_REQUIRED
+    if EbookQualityDimensionStatus.REVIEW in states:
+        return EbookQualityStatus.REVIEW
+    return EbookQualityStatus.OK
+
+
+def _normalized_quality_material(value: object) -> object:
+    if isinstance(value, str):
+        return unicodedata.normalize("NFC", value)
+    if isinstance(value, list):
+        return [_normalized_quality_material(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _normalized_quality_material(item) for key, item in value.items()}
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class ConsolidationEvidenceReference:
     kind: ConsolidationEvidenceKind
@@ -349,6 +398,319 @@ class ConsolidationFileEndpoint:
         object.__setattr__(self, "format_label", _text(self.format_label, "format_label").upper())
         if self.format_label not in CONSOLIDATION_FORMATS:
             raise ValueError("format_label is not supported")
+
+
+@dataclass(frozen=True, slots=True)
+class ConsolidationQualityDimension:
+    """One canonical dimension in a persisted quality projection."""
+
+    name: EbookQualityDimensionName
+    status: EbookQualityDimensionStatus
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, EbookQualityDimensionName):
+            raise ValueError("name must be an EbookQualityDimensionName")
+        if not isinstance(self.status, EbookQualityDimensionStatus):
+            raise ValueError("status must be an EbookQualityDimensionStatus")
+
+
+class ConsolidationQualityExecutionDisposition(StrEnum):
+    EXECUTED = "EXECUTED"
+    REUSED = "REUSED"
+
+
+@dataclass(frozen=True, slots=True)
+class ConsolidationQualityItemExecution:
+    """One ordered ToolExecution bound to a terminal collection item."""
+
+    ordinal: int
+    step_name: str
+    disposition: ConsolidationQualityExecutionDisposition
+    execution_id: EntityId
+
+    def __post_init__(self) -> None:
+        if isinstance(self.ordinal, bool) or not isinstance(self.ordinal, int) or self.ordinal < 0:
+            raise ValueError("ordinal must be a nonnegative integer")
+        step_name = _text(self.step_name, "step_name")
+        if len(step_name) > 64:
+            raise ValueError("step_name exceeds the configured size limit")
+        object.__setattr__(self, "step_name", step_name)
+        if not isinstance(self.disposition, ConsolidationQualityExecutionDisposition):
+            raise ValueError("disposition must be a ConsolidationQualityExecutionDisposition")
+        _id(self.execution_id, "execution_id")
+
+
+@dataclass(frozen=True, slots=True)
+class ConsolidationQualityFinding:
+    """One ordered, bounded finding and its ordered ToolExecution references."""
+
+    ordinal: int
+    code: str
+    dimension: EbookQualityDimensionName
+    severity: EbookQualityFindingSeverity
+    source_execution_ids: tuple[EntityId, ...] = ()
+
+    def __post_init__(self) -> None:
+        if isinstance(self.ordinal, bool) or not isinstance(self.ordinal, int) or self.ordinal < 0:
+            raise ValueError("ordinal must be a nonnegative integer")
+        if not isinstance(self.code, str) or _QUALITY_FINDING_CODE.fullmatch(self.code) is None:
+            raise ValueError("quality finding code must be bounded uppercase snake case")
+        if not isinstance(self.dimension, EbookQualityDimensionName):
+            raise ValueError("dimension must be an EbookQualityDimensionName")
+        if not isinstance(self.severity, EbookQualityFindingSeverity):
+            raise ValueError("severity must be an EbookQualityFindingSeverity")
+        _tuple_limit(
+            self.source_execution_ids,
+            MAX_CONSOLIDATION_QUALITY_FINDING_EXECUTION_REFS,
+            "source_execution_ids",
+        )
+        if any(not isinstance(item, EntityId) for item in self.source_execution_ids):
+            raise ValueError("source_execution_ids must contain EntityId values")
+        _unique(self.source_execution_ids, "source_execution_ids")
+
+
+def consolidation_quality_evidence_fingerprint(
+    *,
+    profile: str,
+    collection_run_id: EntityId,
+    collection_item_id: EntityId,
+    observation_id: EntityId,
+    scan_root_id: EntityId,
+    source_scan_run_id: EntityId,
+    collection_profile: str,
+    analysis_profile: str,
+    quality_profile: str,
+    format_label: str,
+    item_status: EbookCollectionItemStatus,
+    aggregate_quality_status: EbookQualityStatus,
+    reused_step_count: int,
+    executed_step_count: int,
+    finding_count: int,
+    dimensions: tuple[ConsolidationQualityDimension, ...],
+    item_executions: tuple[ConsolidationQualityItemExecution, ...],
+    findings: tuple[ConsolidationQualityFinding, ...],
+) -> str:
+    """Hash every material quality field using canonical-json/v1 bytes."""
+
+    material = {
+        "domain": "foliotone:consolidation-quality-evidence/v1",
+        "profile": profile,
+        "collection_run_id": str(collection_run_id),
+        "collection_item_id": str(collection_item_id),
+        "observation_id": str(observation_id),
+        "scan_root_id": str(scan_root_id),
+        "source_scan_run_id": str(source_scan_run_id),
+        "collection_profile": collection_profile,
+        "analysis_profile": analysis_profile,
+        "quality_profile": quality_profile,
+        "format_label": format_label,
+        "item_status": item_status.value,
+        "aggregate_quality_status": aggregate_quality_status.value,
+        "reused_step_count": reused_step_count,
+        "executed_step_count": executed_step_count,
+        "finding_count": finding_count,
+        "dimensions": [
+            {"name": item.name.value, "status": item.status.value} for item in dimensions
+        ],
+        "item_executions": [
+            {
+                "ordinal": item.ordinal,
+                "step_name": item.step_name,
+                "disposition": item.disposition.value,
+                "execution_id": str(item.execution_id),
+            }
+            for item in item_executions
+        ],
+        "findings": [
+            {
+                "ordinal": item.ordinal,
+                "code": item.code,
+                "dimension": item.dimension.value,
+                "severity": item.severity.value,
+                "source_execution_ids": [
+                    str(execution_id) for execution_id in item.source_execution_ids
+                ],
+            }
+            for item in findings
+        ],
+    }
+    encoded = json.dumps(
+        _normalized_quality_material(material),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class ConsolidationQualityEvidence:
+    """Complete role-free projection persisted before keep preference is evaluated."""
+
+    id: EntityId
+    profile: str
+    collection_run_id: EntityId
+    collection_item_id: EntityId
+    observation_id: EntityId
+    scan_root_id: EntityId
+    source_scan_run_id: EntityId
+    collection_profile: str
+    analysis_profile: str
+    quality_profile: str
+    format_label: str
+    item_status: EbookCollectionItemStatus
+    aggregate_quality_status: EbookQualityStatus
+    reused_step_count: int
+    executed_step_count: int
+    finding_count: int
+    dimensions: tuple[ConsolidationQualityDimension, ...]
+    item_executions: tuple[ConsolidationQualityItemExecution, ...]
+    findings: tuple[ConsolidationQualityFinding, ...]
+    assessment_fingerprint: str = field(repr=False)
+    created_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        for name in (
+            "id",
+            "collection_run_id",
+            "collection_item_id",
+            "observation_id",
+            "scan_root_id",
+            "source_scan_run_id",
+        ):
+            _id(getattr(self, name), name)
+        if (
+            self.profile != CONSOLIDATION_QUALITY_EVIDENCE_PROFILE
+            or self.collection_profile != CONSOLIDATION_COLLECTION_PROFILE
+            or self.analysis_profile != CONSOLIDATION_ANALYSIS_PROFILE
+            or self.quality_profile != EBOOK_QUALITY_PROFILE
+        ):
+            raise ValueError("quality evidence profiles are not compatible")
+        format_label = _text(self.format_label, "format_label").upper()
+        if format_label not in CONSOLIDATION_FORMATS:
+            raise ValueError("format_label is not supported")
+        object.__setattr__(self, "format_label", format_label)
+        if (
+            not isinstance(self.item_status, EbookCollectionItemStatus)
+            or self.item_status not in _TERMINAL_QUALITY_ITEM_STATUSES
+        ):
+            raise ValueError("quality evidence requires an analyzable terminal item status")
+        if not isinstance(self.aggregate_quality_status, EbookQualityStatus):
+            raise ValueError("aggregate_quality_status must be an EbookQualityStatus")
+        for name in ("reused_step_count", "executed_step_count", "finding_count"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(f"{name} must be a nonnegative integer")
+        if any(not isinstance(item, ConsolidationQualityDimension) for item in self.dimensions):
+            raise ValueError("dimensions must contain ConsolidationQualityDimension values")
+        expected_dimension_names = tuple(EbookQualityDimensionName)
+        if tuple(item.name for item in self.dimensions) != expected_dimension_names:
+            raise ValueError("dimensions must use the five canonical dimensions in order")
+        if self.aggregate_quality_status is not _quality_aggregate_status(self.dimensions):
+            raise ValueError("aggregate quality status is inconsistent with dimensions")
+        if (
+            self.item_status
+            in {EbookCollectionItemStatus.PARTIAL_FAILURE, EbookCollectionItemStatus.FAILED}
+            and self.aggregate_quality_status is not EbookQualityStatus.INCOMPLETE
+        ):
+            raise ValueError("failed or partial items require INCOMPLETE quality")
+        _tuple_limit(
+            self.item_executions,
+            MAX_CONSOLIDATION_QUALITY_EXECUTIONS,
+            "item_executions",
+        )
+        if any(
+            not isinstance(item, ConsolidationQualityItemExecution) for item in self.item_executions
+        ):
+            raise ValueError(
+                "item_executions must contain ConsolidationQualityItemExecution values"
+            )
+        _contiguous_ordinals(self.item_executions, "item_executions")
+        execution_ids = tuple(item.execution_id for item in self.item_executions)
+        _unique(execution_ids, "item execution IDs")
+        step_dispositions: dict[str, ConsolidationQualityExecutionDisposition] = {}
+        completed_steps: set[str] = set()
+        previous_step: str | None = None
+        for item in self.item_executions:
+            if item.step_name != previous_step:
+                if item.step_name in completed_steps:
+                    raise ValueError("item execution step groups must be contiguous")
+                if previous_step is not None:
+                    completed_steps.add(previous_step)
+                previous_step = item.step_name
+            existing = step_dispositions.setdefault(item.step_name, item.disposition)
+            if existing is not item.disposition:
+                raise ValueError("one item execution step cannot mix dispositions")
+        reused = sum(
+            disposition is ConsolidationQualityExecutionDisposition.REUSED
+            for disposition in step_dispositions.values()
+        )
+        executed = len(step_dispositions) - reused
+        if (self.reused_step_count, self.executed_step_count) != (reused, executed):
+            raise ValueError("item execution counts are inconsistent with executions")
+        _tuple_limit(
+            self.findings,
+            MAX_CONSOLIDATION_QUALITY_FINDINGS,
+            "findings",
+        )
+        if any(not isinstance(item, ConsolidationQualityFinding) for item in self.findings):
+            raise ValueError("findings must contain ConsolidationQualityFinding values")
+        _contiguous_ordinals(self.findings, "findings")
+        if self.finding_count != len(self.findings):
+            raise ValueError("finding_count is inconsistent with findings")
+        _unique(tuple(item.code for item in self.findings), "quality finding codes")
+        known_execution_ids = set(execution_ids)
+        if any(
+            execution_id not in known_execution_ids
+            for finding in self.findings
+            for execution_id in finding.source_execution_ids
+        ):
+            raise ValueError("finding execution IDs must belong to the collection item")
+        if self.created_at is not None:
+            require_aware_datetime(self.created_at, "created_at")
+        supplied_fingerprint = _require_sha256(
+            self.assessment_fingerprint, "assessment_fingerprint"
+        )
+        expected_fingerprint = consolidation_quality_evidence_fingerprint(
+            profile=self.profile,
+            collection_run_id=self.collection_run_id,
+            collection_item_id=self.collection_item_id,
+            observation_id=self.observation_id,
+            scan_root_id=self.scan_root_id,
+            source_scan_run_id=self.source_scan_run_id,
+            collection_profile=self.collection_profile,
+            analysis_profile=self.analysis_profile,
+            quality_profile=self.quality_profile,
+            format_label=self.format_label,
+            item_status=self.item_status,
+            aggregate_quality_status=self.aggregate_quality_status,
+            reused_step_count=self.reused_step_count,
+            executed_step_count=self.executed_step_count,
+            finding_count=self.finding_count,
+            dimensions=self.dimensions,
+            item_executions=self.item_executions,
+            findings=self.findings,
+        )
+        if supplied_fingerprint != expected_fingerprint:
+            raise ValueError("assessment_fingerprint does not match quality evidence material")
+
+    def snapshot(self, role: ConsolidationFileRole) -> ConsolidationQualityEvidenceSnapshot:
+        """Create the role-bearing reference used by preferences and plans."""
+
+        return ConsolidationQualityEvidenceSnapshot(
+            id=self.id,
+            role=role,
+            collection_run_id=self.collection_run_id,
+            collection_item_id=self.collection_item_id,
+            observation_id=self.observation_id,
+            scan_root_id=self.scan_root_id,
+            source_scan_run_id=self.source_scan_run_id,
+            collection_profile=self.collection_profile,
+            analysis_profile=self.analysis_profile,
+            quality_profile=self.quality_profile,
+            format_label=self.format_label,
+            assessment_fingerprint=self.assessment_fingerprint,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -922,5 +1284,9 @@ __all__ = [
     or name.startswith("SizeTie")
     or name.startswith("MAX_CONSOLIDATION")
     or name.startswith("CONSOLIDATION_")
-    or name == "validate_consolidation_status"
+    or name
+    in {
+        "validate_consolidation_status",
+        "consolidation_quality_evidence_fingerprint",
+    }
 ]
