@@ -1,5 +1,12 @@
 """Application workflows that compose replaceable read-only analyzers."""
 
+from foliotone.workflows.calibre_reconciliation_mapper import (
+    FULL_FILE_SHA256_PROFILE,
+    CalibreReconciliationMapper,
+    CalibreReconciliationMapping,
+    CalibreReconciliationOutcome,
+    map_calibre_reconciliation,
+)
 from foliotone.workflows.candidate_hash_status import candidate_hash_status_payload
 from foliotone.workflows.collection import (
     EBOOK_COLLECTION_CLAIM_FACTOR,
@@ -156,4 +163,9 @@ __all__ = [
     "evaluate_ebook_quality",
     "render_inventory_report_files",
     "verify_inventory_report_files",
+    "CalibreReconciliationMapper",
+    "CalibreReconciliationMapping",
+    "CalibreReconciliationOutcome",
+    "FULL_FILE_SHA256_PROFILE",
+    "map_calibre_reconciliation",
 ]
