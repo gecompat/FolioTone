@@ -150,7 +150,7 @@ noch implementiert.
 | FG-03B | Erneut geprüfte Provider-Primärdokumentation, Lizenz-/Cache-Regeln, feste Endpoints, Rate Limits und DTO-Mapping. |
 | FG-04 | Classification-Taxonomie, Projection-Priorität, Konfliktstatus und Profilversion. |
 | FG-07 | Durch [ADR-0033](../decisions/ADR-0033-read-only-calibredb-library-reconciliation.md) akzeptiert: vollständige read-only `calibredb`-Command-Shapes, Toolmanifest, Snapshot-Lineage sowie Ownership-/Sidecar-Vertrag. |
-| FG-08 | Finale `ConsolidationPlan`-DTOs, Blocker, Precondition-Semantik, kanonische Serialisierung und Persistenzschema. |
+| FG-08 | Durch [ADR-0034](../decisions/ADR-0034-non-executable-consolidation-plans.md) akzeptiert: finale `ConsolidationPlan`-DTOs, Status-/Blocker-Literale, Identity-/Keeper-/Candidate-Grenzen, Precondition-Semantik, kanonische Serialisierung, Persistenzschema und Non-Execution-Grenze. |
 | FG-A | Archivtoolentscheidung, Format-Allowlist, sichere Secret-Übergabe und Extraktions-/Sandbox-Grenzen. |
 
 ## EB-00: Provider-Vertrag ausrichten

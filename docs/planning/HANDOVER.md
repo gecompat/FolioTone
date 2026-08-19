@@ -854,14 +854,14 @@ bleibt getrennt aktivierbar und darf weder Pfade noch Passwortmaterial loggen.
 W9 erzeugt nur nicht ausführbare Pläne; jede Quarantäne-, Lösch- oder
 Verzeichnisoperation bleibt W10-blockiert.
 
-Die aktuelle Entwicklungsposition liegt in EB-07 nach abgeschlossenem EB-06.
-ADR-0033 und das vollständig synthetische Fixture-Paket S-EB07-01 sind
-gemergt. Der nächste atomare Schritt ist S-EB07-02 mit festen read-only
-`calibredb`-Command-Buildern; freie Argumentweitergabe, reale
-Calibre-Library-Daten und jede schreibende oder exportierende Operation bleiben
-ausgeschlossen. EB-03A kann getrennt als Provider-Cache-Welle vorbereitet
-werden. EB-00, EB-01/E4, EB-02, EB-05 und EB-06 sind abgeschlossen. Die
-Reihenfolge, Stop-Gates und zulässigen Spark-Pakete stehen in
+EB-07 ist abgeschlossen. ADR-0034 akzeptiert FG-08 als reinen
+Architekturvertrag; S-EB08-01 bis S-EB08-09 sowie W9 bleiben offen. Der nächste
+atomare Schritt ist S-EB08-01 mit immutable `ConsolidationPlan`-DTOs und den
+festen Status-, Rollen- und Blocker-Literalen aus ADR-0034. Jede
+Filesystem-Mutation, mutierende Calibre-Operation und ausführbare W10-Strecke
+bleibt ausgeschlossen. EB-03A kann getrennt als Provider-Cache-Welle
+vorbereitet werden. EB-00, EB-01/E4, EB-02, EB-05, EB-06 und EB-07 sind
+abgeschlossen. Die Reihenfolge, Stop-Gates und zulässigen Spark-Pakete stehen in
 `EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` und
 `EBOOK_SPARK_WORK_PACKAGES.md`. Modell-, Thinking- und Agentenauswahl folgen
 repositoryweit `MODEL_ROUTING_POLICY.md`; insbesondere werden Statusprüfungen
