@@ -204,6 +204,51 @@ def test_search_truncates_nested_editions_and_rejects_title_only_docs() -> None:
     )
 
 
+def test_search_author_names_are_independent_bounded_and_canonical() -> None:
+    payload = {
+        "numFound": 1,
+        "start": 0,
+        "docs": [
+            {
+                "key": "/works/OL1W",
+                "author_key": ["OL1A"],
+                "author_name": ["Zed", "e\u0301", "é", "", 3, "x" * 513],
+                "editions": {"docs": [{"key": "/books/OL2M"}]},
+            }
+        ],
+    }
+    result = parse_openlibrary_source(
+        json.dumps(payload, ensure_ascii=False).encode(), request(OpenLibraryRouteKind.SEARCH)
+    )
+    assert result.status is OpenLibrarySourceStatus.SUCCESS
+    assert result.payload is not None
+    record = result.payload.records[0]
+    assert record.contributor_names == ("Zed", "é")
+    assert record.work is not None and record.work.author_refs == ("OL1A",)
+    assert record.truncated is True
+    assert "contributor_names" in record.as_payload()
+
+
+def test_v2_source_profile_and_codec_are_explicit() -> None:
+    from foliotone.adapters.openlibrary import PAYLOAD_CODEC, PROFILE
+
+    assert PROFILE == "openlibrary-source-record/v2"
+    assert PAYLOAD_CODEC == "json/openlibrary-source-dto-v2"
+
+
+@pytest.mark.parametrize("author_name", ["wrong", {}, 1])
+def test_search_author_name_wrong_topology_is_malformed(author_name: object) -> None:
+    payload = {
+        "numFound": 1,
+        "start": 0,
+        "docs": [{"key": "/works/OL1W", "author_name": author_name}],
+    }
+    result = parse_openlibrary_source(
+        json.dumps(payload).encode(), request(OpenLibraryRouteKind.SEARCH)
+    )
+    assert result.status is OpenLibrarySourceStatus.INVALID_RESPONSE
+
+
 @pytest.mark.parametrize(
     "payload, kind",
     (

@@ -59,9 +59,9 @@ def test_work_edition_and_agent_are_separate_and_external():
 def test_invalid_public_projection_and_provenance_are_rejected():
     p = OpenLibraryMappingProvenance(
         "openlibrary",
-        "openlibrary-web-api-docs-2026-08-19",
-        "openlibrary-book-adapter/v1",
-        "openlibrary-source-record/v1",
+        "openlibrary-web-api-docs-2026-08-20",
+        "openlibrary-book-adapter/v2",
+        "openlibrary-source-record/v2",
         MAPPING_PROFILE_VERSION,
         NOW,
     )
@@ -88,9 +88,9 @@ def test_invalid_public_projection_and_provenance_are_rejected():
 def test_public_dtos_reject_private_or_noncanonical_text(target_ref: str, value: str):
     p = OpenLibraryMappingProvenance(
         "openlibrary",
-        "openlibrary-web-api-docs-2026-08-19",
-        "openlibrary-book-adapter/v1",
-        "openlibrary-source-record/v1",
+        "openlibrary-web-api-docs-2026-08-20",
+        "openlibrary-book-adapter/v2",
+        "openlibrary-source-record/v2",
         MAPPING_PROFILE_VERSION,
         NOW,
     )
@@ -105,9 +105,9 @@ def test_public_dtos_reject_private_or_noncanonical_text(target_ref: str, value:
 def test_bibliographic_punctuation_is_evidence_but_never_leaks_through_repr():
     p = OpenLibraryMappingProvenance(
         "openlibrary",
-        "openlibrary-web-api-docs-2026-08-19",
-        "openlibrary-book-adapter/v1",
-        "openlibrary-source-record/v1",
+        "openlibrary-web-api-docs-2026-08-20",
+        "openlibrary-book-adapter/v2",
+        "openlibrary-source-record/v2",
         MAPPING_PROFILE_VERSION,
         NOW,
     )
@@ -137,9 +137,9 @@ def test_target_binding_keys_are_typed_and_not_string_coerced():
 def test_mapping_is_redacted_typed_and_requires_all_candidate_bindings():
     p = OpenLibraryMappingProvenance(
         "openlibrary",
-        "openlibrary-web-api-docs-2026-08-19",
-        "openlibrary-book-adapter/v1",
-        "openlibrary-source-record/v1",
+        "openlibrary-web-api-docs-2026-08-20",
+        "openlibrary-book-adapter/v2",
+        "openlibrary-source-record/v2",
         MAPPING_PROFILE_VERSION,
         NOW,
     )
