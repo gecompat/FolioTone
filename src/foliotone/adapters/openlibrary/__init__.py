@@ -15,6 +15,12 @@ from foliotone.adapters.openlibrary.mapping import (
     map_openlibrary_record,
     map_openlibrary_source,
 )
+from foliotone.adapters.openlibrary.provider import (
+    OpenLibraryBookProvider,
+    OpenLibraryProviderResult,
+    decode_openlibrary_source_dto,
+    decode_openlibrary_source_dtos,
+)
 from foliotone.adapters.openlibrary.query import (
     MAX_QUERY_TEXT_CODEPOINTS,
     OPENLIBRARY_HOST,
@@ -93,6 +99,10 @@ __all__ = [
     "OpenLibraryTransportConfig",
     "OpenLibraryTransportFinding",
     "OpenLibraryTransportResult",
+    "OpenLibraryBookProvider",
+    "OpenLibraryProviderResult",
+    "decode_openlibrary_source_dto",
+    "decode_openlibrary_source_dtos",
     "MAPPING_PROFILE_VERSION",
     "PROVIDER_ADAPTER_VERSION",
     "PROVIDER_ID",
