@@ -12,6 +12,8 @@ from foliotone.core import EntityId
 from foliotone.core._validation import require_aware_datetime, require_non_empty
 
 CALIBRE_LIBRARY_SNAPSHOT_PROFILE = "calibre-library-snapshot/v1"
+CALIBRE_LIBRARY_ADAPTER_VERSION = "calibredb-library/1"
+CALIBRE_LIBRARY_PARSER_VERSION = "calibre-library-parser/1"
 MAX_CALIBRE_METADATA_CHARS = 4096
 MAX_CALIBRE_AUTHORS = 256
 MAX_CALIBRE_IDENTIFIERS = 128
@@ -36,6 +38,42 @@ class CalibreLibrarySidecarKind(StrEnum):
     EXTRA_DATA = "EXTRA_DATA"
     KNOWN_SIDECAR = "KNOWN_SIDECAR"
     UNKNOWN_SIDECAR = "UNKNOWN_SIDECAR"
+
+
+class CalibreReconciliationFindingCode(StrEnum):
+    """The fixed, non-corrective reconciliation cases from ADR-0033."""
+
+    FILESYSTEM_ONLY = "FILESYSTEM_ONLY"
+    CALIBRE_RECORD_WITHOUT_FILE = "CALIBRE_RECORD_WITHOUT_FILE"
+    CALIBRE_DUPLICATE_RECORD_CANDIDATE = "CALIBRE_DUPLICATE_RECORD_CANDIDATE"
+    CALIBRE_MULTI_FORMAT_RECORD = "CALIBRE_MULTI_FORMAT_RECORD"
+    CALIBRE_METADATA_CONFLICT = "CALIBRE_METADATA_CONFLICT"
+    CALIBRE_AUTHORITY_CONFLICT = "CALIBRE_AUTHORITY_CONFLICT"
+    CALIBRE_SIDECAR_DEPENDENCY = "CALIBRE_SIDECAR_DEPENDENCY"
+
+
+class CalibreReconciliationFindingRefKind(StrEnum):
+    """Persisted polymorphic evidence reference kinds."""
+
+    CALIBRE_RECORD = "CALIBRE_RECORD"
+    CALIBRE_FORMAT = "CALIBRE_FORMAT"
+    CALIBRE_SIDECAR = "CALIBRE_SIDECAR"
+    FILE_OBSERVATION = "FILE_OBSERVATION"
+    VALUE_ASSERTION = "VALUE_ASSERTION"
+    FINGERPRINT = "FINGERPRINT"
+    TOOL_RESULT = "TOOL_RESULT"
+    RESOLUTION_CANDIDATE = "RESOLUTION_CANDIDATE"
+    REVIEW_ITEM = "REVIEW_ITEM"
+
+
+class CalibreReconciliationFindingRefRole(StrEnum):
+    """The evidence role of a finding reference."""
+
+    PRIMARY = "PRIMARY"
+    RELATED = "RELATED"
+    SUPPORTING = "SUPPORTING"
+    CONTRADICTING = "CONTRADICTING"
+    REVIEW = "REVIEW"
 
 
 _TERMINAL_SNAPSHOT_STATUSES = frozenset(
@@ -74,6 +112,12 @@ class CalibreLibrarySnapshot:
                 field_name,
                 require_non_empty(getattr(self, field_name), field_name),
             )
+        if self.profile != CALIBRE_LIBRARY_SNAPSHOT_PROFILE:
+            raise ValueError("profile must use the Calibre library snapshot contract")
+        if self.adapter_version != CALIBRE_LIBRARY_ADAPTER_VERSION:
+            raise ValueError("adapter_version must use the Calibre library adapter contract")
+        if self.parser_version != CALIBRE_LIBRARY_PARSER_VERSION:
+            raise ValueError("parser_version must use the Calibre library parser contract")
         object.__setattr__(
             self,
             "library_identity_digest",
@@ -205,10 +249,64 @@ class CalibreLibrarySidecarSnapshot:
     def __post_init__(self) -> None:
         if not isinstance(self.kind, CalibreLibrarySidecarKind):
             raise ValueError("kind must be a CalibreLibrarySidecarKind")
+        locator = _require_private_relative_locator(self.relative_locator)
+        object.__setattr__(self, "relative_locator", locator)
+        path = PurePosixPath(locator)
+        if self.kind is CalibreLibrarySidecarKind.METADATA_OPF and path.name != "metadata.opf":
+            raise ValueError("METADATA_OPF must identify metadata.opf")
+        if self.kind is CalibreLibrarySidecarKind.COVER and path.name != "cover.jpg":
+            raise ValueError("COVER must identify cover.jpg")
+        if self.kind is CalibreLibrarySidecarKind.EXTRA_DATA and "data" not in path.parts[:-1]:
+            raise ValueError("EXTRA_DATA must be below a data directory")
+
+
+@dataclass(frozen=True, slots=True)
+class CalibreReconciliationFinding:
+    """An immutable, review-oriented result for one completed library snapshot."""
+
+    id: EntityId
+    snapshot_id: EntityId
+    code: CalibreReconciliationFindingCode
+    finding_fingerprint: str = field(repr=False)
+    review_required: bool
+    created_at: datetime
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.code, CalibreReconciliationFindingCode):
+            raise ValueError("code must be a CalibreReconciliationFindingCode")
         object.__setattr__(
             self,
-            "relative_locator",
-            _require_private_relative_locator(self.relative_locator),
+            "finding_fingerprint",
+            _require_sha256(self.finding_fingerprint, "finding_fingerprint"),
+        )
+        if not isinstance(self.review_required, bool):
+            raise ValueError("review_required must be a boolean")
+        require_aware_datetime(self.created_at, "created_at")
+
+
+@dataclass(frozen=True, slots=True)
+class CalibreReconciliationFindingRef:
+    """One ordered, typed and materially fingerprinted finding reference."""
+
+    id: EntityId
+    finding_id: EntityId
+    ordinal: int
+    ref_kind: CalibreReconciliationFindingRefKind
+    ref_id: EntityId
+    role: CalibreReconciliationFindingRefRole
+    material_fingerprint: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if isinstance(self.ordinal, bool) or not isinstance(self.ordinal, int) or self.ordinal < 0:
+            raise ValueError("ordinal must be a nonnegative integer")
+        if not isinstance(self.ref_kind, CalibreReconciliationFindingRefKind):
+            raise ValueError("ref_kind must be a CalibreReconciliationFindingRefKind")
+        if not isinstance(self.role, CalibreReconciliationFindingRefRole):
+            raise ValueError("role must be a CalibreReconciliationFindingRefRole")
+        object.__setattr__(
+            self,
+            "material_fingerprint",
+            _require_sha256(self.material_fingerprint, "material_fingerprint"),
         )
 
 

@@ -1,5 +1,9 @@
 """Persistence implementations behind provider-independent core contracts."""
 
+from foliotone.persistence.calibre_library import (
+    CalibreLibraryStoreError,
+    SQLiteCalibreLibraryStore,
+)
 from foliotone.persistence.contracts import Repository
 from foliotone.persistence.ebook_candidate_hash import (
     EbookCandidateHashLeaseError,
@@ -77,6 +81,7 @@ from foliotone.persistence.sqlite import (
 
 __all__ = [
     "Repository",
+    "CalibreLibraryStoreError",
     "MAX_RESOLUTION_EVIDENCE",
     "MAX_RESOLUTION_PAGE",
     "MAX_REVIEW_PAGE",
@@ -111,6 +116,7 @@ __all__ = [
     "ObservationEvidenceRecords",
     "SQLiteRepository",
     "SQLiteEbookCollectionStore",
+    "SQLiteCalibreLibraryStore",
     "SQLiteEbookCandidateHashRunStore",
     "SQLiteEbookInventoryReportStore",
     "SQLiteEbookCollectionReportStore",
