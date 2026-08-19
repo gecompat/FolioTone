@@ -79,6 +79,10 @@ from foliotone.persistence import (
     repository,
     scan_root_write_scope,
 )
+from foliotone.persistence.consolidation_report import (
+    ConsolidationPlanReportReaderError,
+    SQLiteConsolidationPlanReportReader,
+)
 from foliotone.tooling.runtime import ToolRuntime
 from foliotone.workflows import (
     DEFAULT_COLLECTION_REPORT_GROUP_LIMIT,
@@ -1073,6 +1077,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format; defaults to text.",
     )
 
+    consolidation_plan_report = subparsers.add_parser(
+        "ebook-consolidation-report",
+        help="Read one persisted non-executable consolidation plan without source access.",
+    )
+    consolidation_plan_report.add_argument(
+        "--plan",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque persisted ConsolidationPlan identifier.",
+    )
+    consolidation_plan_report.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="Existing SQLite database path; defaults to /data/foliotone.db.",
+    )
+    consolidation_plan_report.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format; defaults to text.",
+    )
+
     ebook_compare = subparsers.add_parser(
         "ebook-compare",
         help=(
@@ -1301,6 +1328,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "calibre-reconciliation-report":
         return _run_calibre_reconciliation_report(args)
+
+    if args.command == "ebook-consolidation-report":
+        return _run_ebook_consolidation_report(args)
 
     if args.command == "ebook-match":
         return _run_ebook_match(args)
@@ -2252,6 +2282,68 @@ def _calibre_reconciliation_report_error(args: argparse.Namespace, code: str) ->
         )
     else:
         print("Calibre reconciliation report failed: read-only state is unavailable.")
+    return 2
+
+
+def _run_ebook_consolidation_report(args: argparse.Namespace) -> int:
+    """Render one persisted consolidation plan without mutable access."""
+
+    database: Path = args.database
+    if not database.is_file():
+        return _ebook_consolidation_report_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            report = SQLiteConsolidationPlanReportReader(engine).read(args.plan)
+        finally:
+            engine.dispose()
+    except ConsolidationPlanReportReaderError:
+        return _ebook_consolidation_report_error(args, "PLAN_UNAVAILABLE")
+    except OperationalError:
+        return _ebook_consolidation_report_error(args, "SCHEMA_UNAVAILABLE")
+    except (OSError, ValueError):
+        return _ebook_consolidation_report_error(args, "DATABASE_UNAVAILABLE")
+    except Exception:
+        return _ebook_consolidation_report_error(args, "INTERNAL_READ_ERROR")
+
+    if args.output == "json":
+        _emit_json(report.payload())
+    else:
+        print(f"Plan: {report.plan_id}")
+        print(f"Profile: {report.profile}")
+        print(f"Status: {report.status}")
+        print(f"Execution state: {report.execution_state}")
+        print(f"Content hash: {report.content_hash}")
+        print(f"Dependencies: {report.counts.dependencies}")
+        print(f"Quality evidence: {report.counts.quality_evidence}")
+        print(f"Required reviews: {report.counts.required_reviews}")
+        print(f"Preconditions: {report.counts.preconditions}")
+        print(f"Future operation intents: {report.counts.future_operation_intents}")
+        print(f"Blockers: {report.counts.blockers}")
+        print(f"Blocker evidence refs: {report.counts.blocker_evidence_refs}")
+        print(f"Review items: {report.counts.review_items}")
+        print(f"Decisions: {report.counts.decisions}")
+        if report.keeper_file_id is not None:
+            print(f"Keeper file: {report.keeper_file_id}")
+        if report.candidate_file_id is not None:
+            print(f"Candidate file: {report.candidate_file_id}")
+        for code in report.blocker_codes:
+            print(f"Blocker code: {code}")
+    return 0
+
+
+def _ebook_consolidation_report_error(args: argparse.Namespace, code: str) -> int:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": "ebook-consolidation-report",
+                "ok": False,
+                "error": {"code": code},
+            }
+        )
+    else:
+        print("Consolidation report failed: read-only state is unavailable.")
     return 2
 
 
