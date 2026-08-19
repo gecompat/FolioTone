@@ -644,8 +644,6 @@ class ConsolidationFilePreconditionSnapshot:
                 self.dependency_kind is None
                 or self.dependency_state is None
                 or self.dependency_fingerprint is None
-                or self.dependency_snapshot_kind is None
-                or self.dependency_snapshot_id is None
             ):
                 raise ValueError("relationship preconditions require dependency binding")
             object.__setattr__(
@@ -653,12 +651,22 @@ class ConsolidationFilePreconditionSnapshot:
                 "dependency_fingerprint",
                 _require_sha256(self.dependency_fingerprint, "dependency_fingerprint"),
             )
-            object.__setattr__(
-                self,
-                "dependency_snapshot_kind",
-                _text(self.dependency_snapshot_kind, "dependency_snapshot_kind"),
-            )
-            _id(self.dependency_snapshot_id, "dependency_snapshot_id")
+            if (self.dependency_snapshot_kind is None) is not (
+                self.dependency_snapshot_id is None
+            ):
+                raise ValueError("dependency snapshot kind and id must be present together")
+            if self.dependency_state is ConsolidationDependencyState.KNOWN_NONE:
+                if self.dependency_snapshot_id is not None:
+                    raise ValueError("KNOWN_NONE dependencies cannot bind a snapshot")
+            elif self.dependency_snapshot_kind is None or self.dependency_snapshot_id is None:
+                raise ValueError("non-empty dependency states require a snapshot binding")
+            else:
+                object.__setattr__(
+                    self,
+                    "dependency_snapshot_kind",
+                    _text(self.dependency_snapshot_kind, "dependency_snapshot_kind"),
+                )
+                _id(self.dependency_snapshot_id, "dependency_snapshot_id")
         elif (
             self.dependency_kind is not None
             or self.dependency_state is not None
