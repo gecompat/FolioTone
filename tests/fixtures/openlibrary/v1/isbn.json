@@ -1,0 +1,8 @@
+{
+  "key": "/books/OL900000003M",
+  "title": "Synthetic ISBN Edition",
+  "works": [{"key": "/works/OL900000003W"}],
+  "authors": [{"key": "/authors/OL900000003A"}],
+  "isbn_13": ["9000000000001"],
+  "publishers": ["Synthetic ISBN Publisher"]
+}

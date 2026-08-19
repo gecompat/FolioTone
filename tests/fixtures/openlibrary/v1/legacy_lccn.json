@@ -1,0 +1,8 @@
+{
+  "LCCN:synthetic-9002": {
+    "key": "/books/OL900000005M",
+    "title": "Synthetic LCCN Edition",
+    "works": [{"key": "/works/OL900000005W"}],
+    "lccn": ["synthetic-9002"]
+  }
+}

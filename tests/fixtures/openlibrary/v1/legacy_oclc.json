@@ -1,0 +1,8 @@
+{
+  "OCLC:900000000002": {
+    "key": "/books/OL900000004M",
+    "title": "Synthetic OCLC Edition",
+    "works": [{"key": "/works/OL900000004W"}],
+    "oclc_numbers": ["900000000002"]
+  }
+}

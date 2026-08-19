@@ -1,0 +1,9 @@
+{
+  "key": "/works/OL900000001W",
+  "title": "Synthetic Work Alpha",
+  "first_publish_date": "2001",
+  "authors": [{"author": {"key": "/authors/OL900000001A"}}],
+  "subjects": ["Synthetic Subject Alpha"],
+  "description": "Synthetic fixture description that is ignored by the normalized contract.",
+  "links": [{"url": "https://example.invalid/synthetic"}]
+}
