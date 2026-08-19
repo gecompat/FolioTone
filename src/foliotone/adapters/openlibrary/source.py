@@ -13,7 +13,8 @@ from typing import Final
 from foliotone.adapters.openlibrary.query import OpenLibraryRequest, OpenLibraryRouteKind
 from foliotone.enrichment.provider_cache_contracts import ProviderCacheResultStatus
 
-PROFILE: Final = "openlibrary-source-record/v1"
+PROFILE: Final = "openlibrary-source-record/v2"
+PAYLOAD_CODEC: Final = "json/openlibrary-source-dto-v2"
 MAX_NORMALIZED_BYTES: Final = 262_144
 MAX_INPUT_BYTES: Final = 524_288
 MAX_RECORDS: Final = 20
@@ -289,6 +290,7 @@ class SearchSourceRecord:
     work: WorkSourceRecord | None
     editions: tuple[EditionSourceRecord, ...]
     truncated: bool
+    contributor_names: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.work is not None and not isinstance(self.work, WorkSourceRecord):
@@ -303,6 +305,16 @@ class SearchSourceRecord:
         ):
             raise ValueError("editions")
         object.__setattr__(self, "editions", e)
+        names = tuple(self.contributor_names)
+        if len(names) > MAX_VALUES or any(
+            not isinstance(x, str)
+            or not x
+            or unicodedata.normalize("NFC", x) != x
+            or len(x) > 512
+            for x in names
+        ) or names != tuple(sorted(set(names))):
+            raise ValueError("contributor_names")
+        object.__setattr__(self, "contributor_names", names)
         if type(self.truncated) is not bool:
             raise ValueError("truncated")
 
@@ -310,6 +322,7 @@ class SearchSourceRecord:
         return {
             "work": self.work.as_payload() if self.work else None,
             "editions": [x.as_payload() for x in self.editions],
+            "contributor_names": list(self.contributor_names),
             "truncated": self.truncated,
         }
 
@@ -564,6 +577,20 @@ def _search(v: object) -> tuple[SearchSourceRecord | None, list[OpenLibrarySourc
     docs = c.get("docs", []) if isinstance(c, dict) else []
     if not isinstance(docs, list):
         return None, []
+    author_name = v.get("author_name")
+    if author_name is not None and not isinstance(author_name, list):
+        return None, []
+    names: list[str] = []
+    name_cut = isinstance(author_name, list) and len(author_name) > MAX_VALUES
+    for raw_name in (author_name[:MAX_VALUES] if isinstance(author_name, list) else []):
+        if not isinstance(raw_name, str):
+            name_cut = True
+            continue
+        name = unicodedata.normalize("NFC", raw_name)
+        if not name or len(name) > 512:
+            name_cut = True
+            continue
+        names.append(name)
     f = [OpenLibrarySourceFinding.SEARCH_EDITIONS_TRUNCATED] if len(docs) > MAX_VALUES else []
     e: list[EditionSourceRecord] = []
     for raw in docs[:MAX_VALUES]:
@@ -577,7 +604,12 @@ def _search(v: object) -> tuple[SearchSourceRecord | None, list[OpenLibrarySourc
         (None, f)
         if w is None and not e
         else (
-            SearchSourceRecord(w, tuple(e), len(docs) > MAX_VALUES or any(x.truncated for x in e)),
+            SearchSourceRecord(
+                w,
+                tuple(e),
+                len(docs) > MAX_VALUES or name_cut or any(x.truncated for x in e),
+                tuple(sorted(set(names))),
+            ),
             f,
         )
     )
@@ -712,6 +744,7 @@ __all__ = [
     "OpenLibrarySourceParseResult",
     "OpenLibrarySourceStatus",
     "PROFILE",
+    "PAYLOAD_CODEC",
     "SearchSourceRecord",
     "WorkSourceRecord",
     "parse_openlibrary_source",

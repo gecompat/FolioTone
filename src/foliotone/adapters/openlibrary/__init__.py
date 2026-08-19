@@ -32,6 +32,7 @@ from foliotone.adapters.openlibrary.query import (
 )
 from foliotone.adapters.openlibrary.source import (
     MAX_NORMALIZED_BYTES,
+    PAYLOAD_CODEC,
     PROFILE,
     AuthorSourceRecord,
     EditionSourceRecord,
@@ -59,6 +60,7 @@ __all__ = [
     "OpenLibraryRouteKind",
     "build_openlibrary_route",
     "MAX_NORMALIZED_BYTES",
+    "PAYLOAD_CODEC",
     "AuthorSourceRecord",
     "EditionSourceRecord",
     "OpenLibrarySourceEnvelope",

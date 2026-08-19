@@ -20,10 +20,10 @@ from .source import (
 )
 
 PROVIDER_ID: Final = "openlibrary"
-PROVIDER_ADAPTER_VERSION: Final = "openlibrary-book-adapter/v1"
-PROVIDER_SOURCE_VERSION: Final = "openlibrary-web-api-docs-2026-08-19"
+PROVIDER_ADAPTER_VERSION: Final = "openlibrary-book-adapter/v2"
+PROVIDER_SOURCE_VERSION: Final = "openlibrary-web-api-docs-2026-08-20"
 MAPPING_PROFILE_VERSION: Final = "openlibrary-book-mapping/v1"
-SOURCE_PROFILE_VERSION: Final = "openlibrary-source-record/v1"
+SOURCE_PROFILE_VERSION: Final = "openlibrary-source-record/v2"
 _OLID = re.compile(r"^OL[0-9]+([MWA])$")
 _ISBN10 = re.compile(r"^[0-9]{9}[0-9X]$")
 _ISBN13 = re.compile(r"^[0-9]{13}$")
