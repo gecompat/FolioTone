@@ -2,7 +2,7 @@
 
 **Status:** Geplant
 
-**Stand:** 2026-08-17
+**Stand:** 2026-08-20
 
 **Scope:** Atomare Implementierungspakete für Codex Spark innerhalb der
 E-Book-Lieferwellen EB-00, EB-03A, EB-03B, EB-04, EB-07, EB-08 sowie begrenzter
@@ -184,9 +184,14 @@ FG-03A sind gemergt. Alle Pakete bleiben ohne echten Provider ausführbar.
 ## EB-03B: erster realer Book Provider
 
 **Voraussetzungen:** EB-03A ist abgeschlossen und FG-03B ist durch ADR-0036
-akzeptiert. Alle Pakete verwenden ausschließlich synthetische Daten und die
-festen Profile `openlibrary-book-adapter/v1`,
-`openlibrary-source-record/v1` und `openlibrary-book-mapping/v1`.
+akzeptiert. Alle Pakete verwenden ausschließlich synthetische Daten. Die
+bereits umgesetzten S-EB03B-01 bis S-EB03B-04 dokumentieren den v1-Ausgang;
+S-EB03B-03A erhöht Adapter und Source auf `openlibrary-book-adapter/v2` sowie
+`openlibrary-source-record/v2`, S-EB03B-05 danach das Mapping auf
+`openlibrary-book-mapping/v2`. Die ursprünglichen v1-Profile werden nicht
+in-place umgedeutet. S-EB03B-03A ist das verpflichtende Parser-Addendum vor
+S-EB03B-05; Query-Shapes und direkte Work-/Edition-Semantik bleiben
+unverändert.
 
 | Paket | Ergebnis | Erlaubter Dateibereich | Gezielter Nachweis |
 |---|---|---|---|
@@ -194,9 +199,10 @@ festen Profile `openlibrary-book-adapter/v1`,
 | S-EB03B-02 | Reine Query-/Route-DTOs setzen Identifierreihenfolge, exakt erlaubte URL-Shapes und das Zwei-Request-Budget je Queryroute aus ADR-0036 um. | `src/foliotone/adapters/openlibrary/query.py`, `src/foliotone/adapters/openlibrary/__init__.py`, `tests/unit/test_openlibrary_query.py` | Edition-OLID, Work-OLID, ISBN-13, ISBN-10, OCLC, LCCN und Titel-plus-genau-ein-resolved-Author besitzen Golden URLs; Search verbraucht Request 2 nur für die exakte Pagination und direkte Routen höchstens für einen referenzierten Author; Sortierung/Deduplizierung sowie negative Pfad-, Filename-, Host-, Parameter-, Fan-out- und freie-`q`-Fälle sind grün. |
 | S-EB03B-03 | Ein reiner Parser erzeugt ausschließlich `openlibrary-source-record/v1` mit getrennten Work-/Edition-/Author-Records und festen Bounds. | `src/foliotone/adapters/openlibrary/source.py`, `tests/unit/test_openlibrary_source.py` | Alle S-EB03B-01-Fixtures liefern exakt `SUCCESS`, `NOT_FOUND` oder `INVALID_RESPONSE`; unbekannte/ausgeschlossene Felder werden verworfen, Kürzung ist sichtbar, Ausgabe bleibt unter 262.144 Byte und Netzwerk wird technisch blockiert. |
 | S-EB03B-04 | Der Mapper projiziert Work-/Edition-Identifier und erlaubte bibliografische Felder getrennt in FolioTone Evidence. | `src/foliotone/adapters/openlibrary/mapping.py`, `tests/unit/test_openlibrary_mapping.py` | Keine Edition kollabiert zum Work; Identifier bleiben namespaced, Search-Rang wird nicht Confidence, alle Werte sind `ValueState.EXTERNAL` und tragen Provider-/Source-/Adapter-/Mapping-Provenance. |
-| S-EB03B-05 | Referenzierte Author-Records und Contributor-Namen werden als externe Agent-Kandidaten ohne lokale Identitätsbestätigung gemappt. | `src/foliotone/adapters/openlibrary/mapping.py`, `tests/unit/test_openlibrary_mapping.py` | OLID, Alias, Homonym, fehlende Author-ID und widersprüchliche Namen bleiben getrennte Kandidaten; kein Ergebnis ist `USER_CONFIRMED`, `CANONICAL` oder automatische Resolution. |
+| S-EB03B-03A | Parser-Addendum: `SearchSourceRecord.contributor_names` bewahrt Top-Level-`author_name` getrennt von `author_refs`; Source-/Codec- und Adapterprofil wechseln ohne Queryänderung auf v2, das ref-only Mapping bleibt vorläufig `openlibrary-book-mapping/v1`. | `src/foliotone/adapters/openlibrary/source.py`, ausschließlich Adapter-/Provider-Source-/Source-Profil-Konstanten in `src/foliotone/adapters/openlibrary/mapping.py`, `tests/unit/test_openlibrary_source.py`, bei Bedarf ausschließlich Versionsassertions in `tests/unit/test_openlibrary_mapping.py` | Fehlend/`null` ergibt `[]`; falsche Topologie macht den Search-Record malformed; höchstens 32 nichtleere NFC-Namen mit je höchstens 512 Codepoints werden exakt dedupliziert und lexikografisch sortiert; Verwerfungen setzen `truncated`; `author_key` und `author_name` werden nie positionsweise gekoppelt; direkte Work-/Edition-DTOs bleiben ref-only; kanonische v2-Bytes bleiben unter 262.144 Byte und alle `repr`-/Fehlerpfade sind wertfrei redigiert. |
+| S-EB03B-05 | Referenzierte Author-Records und Contributor-Namen werden nach dem v2-Vertrag als getrennte externe Agent-Kandidaten ohne lokale Identitätsbestätigung gemappt. | `src/foliotone/adapters/openlibrary/mapping.py`, `tests/unit/test_openlibrary_mapping.py` | Author-Records liefern OLID plus getrennte `name`-/`alternate_names`-Assertions. Search-Namen liefern ungebundene Kandidaten mit `candidate_kind=AGENT`, `source_field=author_name`, `ValueState.EXTERNAL`, `confidence=null`, nichtleeren sortierten `source_record_refs` und vollständiger v2-Provenance, aber ohne lokale `EntityId`/`target_ref` und ohne Author-OLID. Exakte Vollschlüssel werden deterministisch dedupliziert; OLID, Alias, Homonym, fehlende Author-ID und widersprüchliche Namen bleiben getrennt; kein Ergebnis ist `USER_CONFIRMED`, `CANONICAL`, lokaler Alias oder automatische Resolution. |
 | S-EB03B-06 | Der bounded Transport implementiert nur HTTPS-Allowlist, User-Agent, 3-/10-Sekunden-Timeouts, 524.288-Byte-Limit, Concurrency 1, einen Request pro Sekunde und die ADR-0036-Fehlermatrix. | `src/foliotone/adapters/openlibrary/transport.py`, `tests/unit/test_openlibrary_transport.py` | Fake Clock/HTTP prüfen 0 Redirects/Retrys, Oversize, Content-Type/UTF-8/JSON, jeden Statusbereich, `Retry-After` als Sekunden/Datum/Fallback/Cap und redigierte Fehler; kein Live-Netzwerk. |
-| S-EB03B-07 | Descriptor, Adapter, Provider Runtime und Cache bilden den ersten Vertical Slice mit `NORMALIZED_SOURCE_DTO` und `json/openlibrary-source-dto-v1`. | `src/foliotone/adapters/openlibrary/provider.py`, `src/foliotone/adapters/openlibrary/__init__.py`, `tests/integration/test_openlibrary_provider.py` | Fake-Transport-Aufruf, Fresh-Hit, 30/180-Tage-Positive-TTL, 6/24-Stunden-Negative-TTL, Failure-TTLs, `OFFLINE`-Hit/Miss, fetch-freie Mapping-Reanalyse und `BULK_DATASET_REQUIRED` sind deterministisch grün. |
+| S-EB03B-07 | Descriptor, Adapter, Provider Runtime und Cache bilden den ersten Vertical Slice mit `NORMALIZED_SOURCE_DTO` und `json/openlibrary-source-dto-v2`; v1-Cacheeinträge werden nicht als v2 gelesen. | `src/foliotone/adapters/openlibrary/provider.py`, `src/foliotone/adapters/openlibrary/__init__.py`, `tests/integration/test_openlibrary_provider.py` | Fake-Transport-Aufruf, Fresh-Hit, getrennte v1-/v2-Source-Cache-Keys, 30/180-Tage-Positive-TTL, 6/24-Stunden-Negative-TTL, Failure-TTLs, `OFFLINE`-Hit/Miss, fetch-freie Mapping-Reanalyse innerhalb desselben Source-Profils und `BULK_DATASET_REQUIRED` sind deterministisch grün. |
 | S-EB03B-08 | Privacy-, Failure-, Attribution- und Provenance-Matrix sowie Providerdokumentation schließen EB-03B ab. | `tests/integration/test_openlibrary_provider.py`, `tests/static/test_openlibrary_documentation_contract.py`, `docs/reference/EXTERNAL_DATA_SOURCES.md`, `docs/planning/BACKLOG.md`, `docs/planning/PROJECT_STATUS.md` | Keine Pfade, Filenames, Rohanfragen/-antworten, Archive.org-/Cover-/Availability-Daten oder Inventare in Query, Cache, Fehler und Reports; Attribution/Retention/Bulk-Grenze und alle EB-03B-Verträge sind grün. |
 
 ## EB-04: Classification Persistence und Projection
