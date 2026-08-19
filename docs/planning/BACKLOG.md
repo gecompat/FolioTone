@@ -152,6 +152,25 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 | W7-002 | PLANNED | EB-06 integriert CLI-basiertes ACCEPT/REJECT/DEFER und kompatible Wiederverwendung für book-only Relation Candidates; Authority-CLI, Alias- und Music-Fälle bleiben offen. |
 | W7-003 | DONE | Reuse compatible ACCEPT/REJECT authority decisions while keeping DEFER reviewable; material or compatibility changes create a new case. |
 
+## EB-07 — Read-only Calibre Library Reconciliation
+
+| ID | Status | Item |
+|---|---|---|
+| S-EB07-01 | DONE | Synthetische Calibre-Ausgaben und malformed-output Fixtures für Fälle A bis G. |
+| S-EB07-02 | DONE | Feste read-only `calibredb` Command Builder ohne freie Argumentweitergabe. |
+| S-EB07-03 | DONE | Bounded Parser für Library Records, Formate und Kategorien. |
+| S-EB07-04 | DONE | Read-only ToolProvider-Descriptor mit festen Capability Shapes. |
+| S-EB07-05 | DONE | Immutable Snapshot-, Ownership- und Sidecar-DTOs. |
+| S-EB07-06 | DONE | Insert-only Persistenz für Snapshot-Lineage und Ownership Evidence. |
+| S-EB07-07 | DONE | Reconciliation Mapper für Fälle A bis D. |
+| S-EB07-08 | DONE | Reconciliation Mapper für Fälle E bis G als Evidence und Review Candidates. |
+| S-EB07-09 | DONE | Read-only CLI `calibre-reconciliation-report` und pfadfreier Report `calibre-reconciliation-report/v1`. Die Calibre-Capture-Orchestrierung bleibt offen. |
+
+EB-07 ist damit für die persistierte read-only Reconciliation abgeschlossen.
+Die eigentliche Capture-Orchestrierung gegen eine konfigurierte Calibre-
+Bibliothek bleibt ein offener Folgebaustein. EB-08, Archiv-Evidence und die
+W10-Sperre werden durch diesen Abschluss nicht vorgezogen.
+
 ## W8 — Calibre Library Adapter
 
 | ID | Status | Item |

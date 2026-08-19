@@ -63,6 +63,10 @@ def test_status_command_is_non_destructive_bootstrap(
         ),
         ("The bounded postscan lineage can be verified read-only through ebook-postscan-verify."),
         (
+            "Persisted Calibre reconciliation snapshots can be inspected read-only through "
+            "calibre-reconciliation-report."
+        ),
+        (
             "Bounded offline relation candidates and append-only matching review are "
             "available through ebook-match and ebook-match-review-* commands."
         ),
