@@ -44,6 +44,18 @@ from foliotone.adapters.openlibrary.source import (
     WorkSourceRecord,
     parse_openlibrary_source,
 )
+from foliotone.adapters.openlibrary.transport import (
+    CONNECT_TIMEOUT_SECONDS,
+    MAX_RESPONSE_BYTES,
+    READ_TIMEOUT_SECONDS,
+    REQUEST_START_INTERVAL_SECONDS,
+    OpenLibraryHttpClient,
+    OpenLibraryHttpResponse,
+    OpenLibraryTransport,
+    OpenLibraryTransportConfig,
+    OpenLibraryTransportFinding,
+    OpenLibraryTransportResult,
+)
 
 __all__ = [
     "MAX_QUERY_TEXT_CODEPOINTS",
@@ -71,6 +83,16 @@ __all__ = [
     "SearchSourceRecord",
     "WorkSourceRecord",
     "parse_openlibrary_source",
+    "CONNECT_TIMEOUT_SECONDS",
+    "MAX_RESPONSE_BYTES",
+    "READ_TIMEOUT_SECONDS",
+    "REQUEST_START_INTERVAL_SECONDS",
+    "OpenLibraryHttpClient",
+    "OpenLibraryHttpResponse",
+    "OpenLibraryTransport",
+    "OpenLibraryTransportConfig",
+    "OpenLibraryTransportFinding",
+    "OpenLibraryTransportResult",
     "MAPPING_PROFILE_VERSION",
     "PROVIDER_ADAPTER_VERSION",
     "PROVIDER_ID",
