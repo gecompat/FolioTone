@@ -56,7 +56,8 @@ Dieses Glossar definiert die kanonischen fachlichen Kernbegriffe des Projekts. E
 | `Knowledge Provider` | Externe strukturierte Wissensquelle wie MusicBrainz, Open Library, GND oder Wikidata. | ToolProvider, wenn keine Toolausführung erfolgt |
 | `ClassificationAssertion` | Provenance-behaftete Zuordnung einer Klassifikationsdimension zu einem Wert. | GenreField als alleinige Klassifikation |
 | `Review Queue` | Menge unsicherer oder entscheidungsbedürftiger Fälle für menschliche Prüfung. | ManualFixList |
-| `ConsolidationPlan` | Nicht ausführbarer Plan einer möglichen späteren Konsolidierung. | DeletePlan, CleanupScript |
+| `KeepPreferenceOutcome` | Versionierte, reine und reviewpflichtige Auswahl eines bevorzugten `FileRecord` aus bereits bestätigter File-Identity und getrennter Quality Evidence. Das Outcome beweist keine Identity und autorisiert keine physische Operation. | QualityScore, Löschentscheidung |
+| `ConsolidationPlan` | Insert-only, content-addressed und dauerhaft `NOT_EXECUTABLE` bleibender Snapshot einer möglichen späteren Konsolidierung. Er trennt Identity, Quality Evidence, reviewte Keep Preference, Preconditions, Dependencies und Future Operation Intents. | DeletePlan, CleanupScript |
 | `Library Health` | Zusammengefasste Bewertung des Sammlungszustands anhand mehrerer unabhängiger Analysebereiche. | Quality Score, wenn nur eine einzelne Dimension gemeint ist |
 
 ## Wichtige Abgrenzungen

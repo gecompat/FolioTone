@@ -4,7 +4,16 @@ Stand: 2026-08-19
 
 ## Aktuelle Welle
 
-**EB-07 abgeschlossen — persistierte read-only Calibre Library Reconciliation**
+**FG-08 akzeptiert — EB-08-Implementierung offen**
+
+ADR-0034 legt die finalen nicht ausführbaren `ConsolidationPlan`-DTOs,
+Status-/Blocker-Literale, Identity-/Keeper-/Candidate-Grenzen, Preconditions,
+`canonical-json/v1`, das additive Ziel-Persistenzschema und die W10-Grenze
+fest. Das Gate implementiert noch keine DTOs, Migration, Persistenz, CLI oder
+Runtime. S-EB08-01 bis S-EB08-09 und W9 bleiben deshalb `PLANNED`; jeder Plan
+bleibt dauerhaft `NOT_EXECUTABLE`.
+
+**Abgeschlossene Voraussetzung: EB-07 — persistierte read-only Calibre Library Reconciliation**
 
 Das Frontier-Gate ADR-0033 legt feste lokale read-only
 `calibredb`-Command-Shapes, Snapshot-Konsistenz, Calibre-Ownership,

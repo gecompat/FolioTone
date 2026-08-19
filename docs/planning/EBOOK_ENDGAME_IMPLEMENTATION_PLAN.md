@@ -91,8 +91,10 @@ Noch nicht vorhanden bzw. nicht vollständig:
 
 `foliotone.matching` und `foliotone.review` besitzen inzwischen die
 book-only Verträge und Workflows aus EB-05/EB-06.
-`foliotone.consolidation` bleibt bis FG-08/EB-08 bewusst ohne
-ausführbaren Planungs- oder Mutationspfad.
+ADR-0034 legt mit FG-08 den nicht ausführbaren Planungsvertrag fest.
+`foliotone.consolidation` bleibt bis zu S-EB08-01 ohne implementierte DTO-,
+Planungs- oder Persistenzstrecke und bis zu einer späteren akzeptierten
+W10-ADR ohne Mutationspfad.
 
 ---
 
@@ -1589,6 +1591,9 @@ Dateisystem vorbei löschen.
 **Priorität:** P0 – eigentliches Analyse-Endprodukt
 **Komplexität:** mittel bis hoch
 
+**Gate-Stand:** FG-08 ist durch ADR-0034 akzeptiert. Die Implementierung durch
+S-EB08-01 bis S-EB08-09 bleibt offen; die Gate-Abnahme ändert keinen W9-Status.
+
 ## Zentrale Regel
 
 ```text
@@ -2212,9 +2217,9 @@ SOURCE MEDIA READ-ONLY
 
 # 36. Empfohlene konkrete Entwicklungsreihenfolge
 
-EB-00, EB-01, EB-02, EB-05 und EB-06 sind abgeschlossen. EB-07 ist nach
-ADR-0033 und S-EB07-01 aktiv. Die Tabelle bleibt als Abhängigkeitsfolge
-maßgeblich; sie ist keine zweite Statusquelle.
+EB-00, EB-01, EB-02, EB-05, EB-06 und EB-07 sind abgeschlossen. FG-08 ist
+durch ADR-0034 akzeptiert; S-EB08-01 bis S-EB08-09 bleiben offen. Die Tabelle
+bleibt als Abhängigkeitsfolge maßgeblich; sie ist keine zweite Statusquelle.
 
 | Reihenfolge | Welle | Inhalt | Priorität | Abhängigkeit |
 |---:|---|---|---|---|
@@ -2445,18 +2450,18 @@ ohne die Fähigkeit, Source Media zu verändern.
 
 # 42. Empfohlener unmittelbarer nächster Implementierungsschritt
 
-EB-00, EB-01/E4, EB-02, EB-05 und EB-06 sind abgeschlossen. ADR-0033 und
-S-EB07-01 haben EB-07 begonnen. Unmittelbar als Nächstes:
+EB-00, EB-01/E4, EB-02, EB-05, EB-06 und EB-07 sind abgeschlossen. ADR-0034
+hat FG-08 akzeptiert. Unmittelbar als Nächstes:
 
-**S-EB07-02 – feste read-only `calibredb`-Command-Builder gemäß
-ADR-0033.**
+**S-EB08-01 – immutable `ConsolidationPlan`-DTOs sowie feste Status-, Rollen-
+und Blocker-Literale gemäß ADR-0034.**
 
 Provider-Cache-/Provider-Research (EB-03A) und Archive-EA1 können in
 getrennten Entwicklungszweigen vorbereitet werden.
 
-Danach werden die verbleibenden S-EB07-Pakete abhängigkeitsgerecht
-fortgesetzt. Freie Argumentweitergabe, reale Calibre-Library-Daten in CI und
-schreibende oder exportierende Operationen bleiben ausgeschlossen.
+Danach werden S-EB08-02 bis S-EB08-09 abhängigkeitsgerecht fortgesetzt. Jede
+Filesystem-Mutation, mutierende Calibre-Operation und ausführbare W10-Strecke
+bleibt ausgeschlossen.
 
 ---
 

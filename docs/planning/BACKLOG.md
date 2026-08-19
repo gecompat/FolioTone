@@ -171,6 +171,23 @@ Die eigentliche Capture-Orchestrierung gegen eine konfigurierte Calibre-
 Bibliothek bleibt ein offener Folgebaustein. EB-08, Archiv-Evidence und die
 W10-Sperre werden durch diesen Abschluss nicht vorgezogen.
 
+## EB-08 — nicht ausführbarer ConsolidationPlan
+
+FG-08 ist durch ADR-0034 akzeptiert. Das Gate legt ausschließlich den
+Architekturvertrag fest; es implementiert noch kein W9-Verhalten.
+
+| ID | Status | Item |
+|---|---|---|
+| S-EB08-01 | PLANNED | Immutable `ConsolidationPlan`-DTOs und feste Status-, Rollen- und Blocker-Literale. |
+| S-EB08-02 | PLANNED | Kanonische `canonical-json/v1`-Serialisierung und SHA-256-`content_hash`. |
+| S-EB08-03 | PLANNED | Reiner Precondition Builder für Candidate-/Keeper-Snapshots. |
+| S-EB08-04 | PLANNED | Hard Blocker für Root-, Review-, Calibre-, Sidecar-, Archive- und Lineage-Grenzen. |
+| S-EB08-05 | PLANNED | Reine, versionierte und reviewpflichtige Keep Preference. |
+| S-EB08-06 | PLANNED | Additive Migration `0016` und insert-only Planpersistenz. |
+| S-EB08-07 | PLANNED | Planner für actionable Identity, Quality Evidence, Keep Preference und Preconditions. |
+| S-EB08-08 | PLANNED | Deterministischer path-free Reporter und read-only CLI. |
+| S-EB08-09 | PLANNED | Statischer Non-Execution-Test und dokumentierter W9-Abschluss. |
+
 ## W8 — Calibre Library Adapter
 
 | ID | Status | Item |
