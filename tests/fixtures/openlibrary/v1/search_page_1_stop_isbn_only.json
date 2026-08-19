@@ -1,0 +1,15 @@
+{
+  "numFound": 21,
+  "start": 0,
+  "docs": [
+    {
+      "key": "/works/OL900000009W",
+      "title": "Synthetic Search ISBN Match",
+      "editions": {
+        "docs": [
+          {"isbn_13": ["9000000000001"]}
+        ]
+      }
+    }
+  ]
+}

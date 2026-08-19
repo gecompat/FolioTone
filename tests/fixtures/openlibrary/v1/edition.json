@@ -1,0 +1,16 @@
+{
+  "key": "/books/OL900000002M",
+  "title": "Synthetic Edition Alpha",
+  "subtitle": "Synthetic Subtitle",
+  "publish_date": "2002-02",
+  "publishers": ["Synthetic Publisher"],
+  "languages": [{"key": "/languages/eng"}],
+  "isbn_10": ["9000000009"],
+  "isbn_13": ["9000000000001"],
+  "works": [{"key": "/works/OL900000001W"}],
+  "authors": [{"key": "/authors/OL900000001A"}],
+  "oclc_numbers": ["900000000001"],
+  "lccn": ["synthetic-9001"],
+  "covers": [99999999],
+  "identifiers": {"archive": ["synthetic-archive-excluded"]}
+}

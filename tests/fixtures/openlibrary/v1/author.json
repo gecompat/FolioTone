@@ -1,0 +1,9 @@
+{
+  "key": "/authors/OL900000001A",
+  "name": "Synthetic Author Alpha",
+  "alternate_names": ["Synthetic Author A"],
+  "birth_date": "1900",
+  "death_date": "1980",
+  "bio": "Synthetic biography excluded from normalization.",
+  "remote_ids": {"viaf": ["synthetic-viaf"]}
+}

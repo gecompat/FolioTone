@@ -1,0 +1,15 @@
+{
+  "numFound": 21,
+  "start": 0,
+  "docs": [
+    {
+      "key": "/works/OL900000007W",
+      "title": "Synthetic Search Strong Match",
+      "editions": {
+        "docs": [
+          {"key": "/books/OL900000007M", "isbn": ["9000000000007"]}
+        ]
+      }
+    }
+  ]
+}
