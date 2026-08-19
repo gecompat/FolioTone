@@ -1,6 +1,12 @@
 """Public immutable contracts for non-executable consolidation planning."""
 
 from foliotone.consolidation import contracts as _contracts
+from foliotone.consolidation.blockers import (
+    ConsolidationBlockerInputs,
+    ConsolidationHardBlockerInputs,
+    build_consolidation_blockers,
+    build_consolidation_hard_blockers,
+)
 from foliotone.consolidation.contracts import *  # noqa: F403
 from foliotone.consolidation.preconditions import (
     ConsolidationFilePreconditionInputs,
@@ -23,4 +29,8 @@ __all__ = [
     "serialize_consolidation_plan",
     "ConsolidationFilePreconditionInputs",
     "build_consolidation_file_preconditions",
+    "ConsolidationBlockerInputs",
+    "ConsolidationHardBlockerInputs",
+    "build_consolidation_blockers",
+    "build_consolidation_hard_blockers",
 ]
