@@ -29,7 +29,7 @@ def test_head_database_factory_returns_isolated_schema_copies(
     right_engine.dispose()
 
     assert marker is None
-    assert revision == "0016_consolidation_plans"
+    assert revision == "0017_provider_cache_schema"
 
 
 def test_head_database_factory_rejects_reuse_and_nested_names(

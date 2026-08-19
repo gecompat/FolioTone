@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from alembic import command
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 
@@ -46,6 +47,7 @@ from foliotone.core import (
     Work,
 )
 from foliotone.persistence import (
+    alembic_config,
     create_sqlite_engine,
     create_sqlite_read_only_engine,
     migrate,
@@ -83,6 +85,7 @@ from foliotone.persistence.w3_schema import (
     ebook_collection_item_executions,
     ebook_collection_items,
     ebook_collection_runs,
+    provider_cache_entries,
 )
 from foliotone.tooling import ToolExecution, ToolResult
 
@@ -124,6 +127,7 @@ def test_migration_creates_current_schema_and_is_idempotent(tmp_path: Path) -> N
         ebook_collection_findings.name,
         ebook_collection_finding_executions.name,
         ebook_candidate_hash_runs.name,
+        provider_cache_entries.name,
         resolution_candidates.name,
         resolution_candidate_evidence.name,
         review_items.name,
@@ -187,11 +191,84 @@ def test_migration_creates_current_schema_and_is_idempotent(tmp_path: Path) -> N
         "calibre_library_sidecars": {"ix_calibre_library_sidecars_observation"},
         "calibre_reconciliation_findings": {"ix_calibre_reconciliation_findings_snapshot_created"},
         "calibre_reconciliation_finding_refs": {"ix_calibre_reconciliation_finding_refs_reference"},
+        "provider_cache_entries": {
+            "ix_provider_cache_entries_generation",
+            "ix_provider_cache_entries_provider_query",
+            "ix_provider_cache_entries_status_expires",
+            "ix_provider_cache_entries_retention_until_source_cache_key",
+        },
         "consolidation_plans": {"ix_consolidation_plans_root_scan"},
         "consolidation_quality_evidence": {"ix_consolidation_quality_observation"},
     }
     for table_name, names in expected_indexes.items():
         assert names <= {str(index["name"]) for index in inspector.get_indexes(table_name)}
+    provider_cache_index_names = {
+        str(index["name"])
+        for index in inspector.get_indexes("provider_cache_entries")
+    }
+    assert (
+        {
+            "ix_provider_cache_entries_generation",
+            "ix_provider_cache_entries_provider_query",
+            "ix_provider_cache_entries_status_expires",
+            "ix_provider_cache_entries_retention_until_source_cache_key",
+        }
+        <= provider_cache_index_names
+    )
+    provider_cache_columns = {
+        column["name"] for column in inspector.get_columns("provider_cache_entries")
+    }
+    assert {
+        "source_cache_key",
+        "provider_id",
+        "provider_adapter_version",
+        "query_fingerprint",
+        "provider_source_version",
+        "content_status",
+        "payload_kind",
+        "payload_codec",
+        "payload_bytes",
+        "payload_bytes_sha256",
+        "content_http_status",
+        "content_fetched_at",
+        "content_fresh_until_at",
+        "content_expires_at",
+        "failure_status",
+        "failure_http_status",
+        "failure_at",
+        "failure_retry_after_at",
+        "failure_expires_at",
+        "generation",
+        "content_hash",
+        "retention_until_at",
+    } <= provider_cache_columns
+    assert {
+        "ck_provider_cache_entries_source_cache_key",
+        "ck_provider_cache_entries_provider_id",
+        "ck_provider_cache_entries_provider_adapter_version",
+        "ck_provider_cache_entries_provider_source_version",
+        "ck_provider_cache_entries_query_fingerprint",
+        "ck_provider_cache_entries_content_status",
+        "ck_provider_cache_entries_payload_kind",
+        "ck_provider_cache_entries_failure_status",
+        "ck_provider_cache_entries_at_least_one_slot",
+        "ck_provider_cache_entries_content_slot_complete",
+        "ck_provider_cache_entries_content_timeline_order",
+        "ck_provider_cache_entries_success_payload_kind",
+        "ck_provider_cache_entries_content_http_status",
+        "ck_provider_cache_entries_payload_kind_shape",
+        "ck_provider_cache_entries_payload_shape",
+        "ck_provider_cache_entries_payload_digest",
+        "ck_provider_cache_entries_failure_http_status",
+        "ck_provider_cache_entries_failure_slot_complete",
+        "ck_provider_cache_entries_failure_retry",
+        "ck_provider_cache_entries_generation",
+        "ck_provider_cache_entries_content_hash",
+    } <= {
+        constraint["name"]
+        for constraint in inspector.get_check_constraints("provider_cache_entries")
+    }
+    assert inspector.get_foreign_keys("provider_cache_entries") == []
 
     with engine.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
@@ -210,8 +287,276 @@ def test_migration_creates_current_schema_and_is_idempotent(tmp_path: Path) -> N
                 "target_id": "00000000-0000-0000-0000-000000000001",
             },
         ).all()
-    assert revision == "0016_consolidation_plans"
+    assert revision == "0017_provider_cache_schema"
     assert any("ix_fingerprints_target_profile_id_value" in str(row[-1]) for row in query_plan)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO provider_cache_entries ("
+                "source_cache_key, provider_id, provider_adapter_version, "
+                "query_fingerprint, provider_source_version, content_status, payload_kind, "
+                "content_fetched_at, content_fresh_until_at, content_expires_at, "
+                "generation, content_hash"
+                ") VALUES ("
+                ":source_cache_key, :provider_id, :provider_adapter_version, "
+                ":query_fingerprint, :provider_source_version, :content_status, "
+                ":payload_kind, :content_fetched_at, :content_fresh_until_at, "
+                ":content_expires_at, :generation, :content_hash"
+                ")"
+            ),
+            {
+                "source_cache_key": "a" * 64,
+                "provider_id": "provider",
+                "provider_adapter_version": "v1",
+                "query_fingerprint": "b" * 64,
+                "provider_source_version": "v1",
+                "content_status": "not_found",
+                "payload_kind": "none",
+                "content_fetched_at": NOW.isoformat(),
+                "content_fresh_until_at": NOW.isoformat(),
+                "content_expires_at": (NOW + timedelta(days=1)).isoformat(),
+                "generation": 1,
+                "content_hash": "c" * 64,
+            },
+        )
+        retention_query_plan = connection.execute(
+            text(
+                "EXPLAIN QUERY PLAN SELECT source_cache_key "
+                "FROM provider_cache_entries "
+                "WHERE retention_until_at <= :retention_until "
+                "ORDER BY retention_until_at, source_cache_key"
+            ),
+            {"retention_until": (NOW + timedelta(days=1)).isoformat()},
+        ).all()
+    assert any(
+        "ix_provider_cache_entries_retention_until_source_cache_key"
+        in str(row[-1])
+        for row in retention_query_plan
+    )
+
+
+def test_provider_cache_retention_until_at_uses_slot_maximum(
+    head_database: Path,
+) -> None:
+    db_path = head_database
+    content_only_key = "a" * 64
+    failure_only_key = "b" * 64
+    both_slots_key = "c" * 64
+    content_only_expires = NOW + timedelta(days=1)
+    failure_only_expires = NOW + timedelta(days=2)
+    both_content_expires = NOW + timedelta(days=1)
+    both_failure_expires = NOW + timedelta(days=3)
+    with create_sqlite_engine(db_path).begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO provider_cache_entries ("
+                "source_cache_key, provider_id, provider_adapter_version, "
+                "query_fingerprint, provider_source_version, content_status, payload_kind, "
+                "content_fetched_at, content_fresh_until_at, content_expires_at, "
+                "generation, content_hash"
+                ") VALUES ("
+                ":source_cache_key, :provider_id, :provider_adapter_version, "
+                ":query_fingerprint, :provider_source_version, :content_status, "
+                ":payload_kind, :content_fetched_at, :content_fresh_until_at, "
+                ":content_expires_at, :generation, :content_hash)"
+            ),
+            {
+                "source_cache_key": content_only_key,
+                "provider_id": "provider",
+                "provider_adapter_version": "v1",
+                "query_fingerprint": "a" * 64,
+                "provider_source_version": "v1",
+                "content_status": "not_found",
+                "payload_kind": "none",
+                "content_fetched_at": NOW.isoformat(),
+                "content_fresh_until_at": NOW.isoformat(),
+                "content_expires_at": content_only_expires.isoformat(),
+                "generation": 1,
+                "content_hash": "c" * 64,
+            },
+        )
+        connection.execute(
+            text(
+                "INSERT INTO provider_cache_entries ("
+                "source_cache_key, provider_id, provider_adapter_version, "
+                "query_fingerprint, provider_source_version, payload_kind, "
+                "failure_status, "
+                "failure_http_status, failure_at, failure_retry_after_at, "
+                "failure_expires_at, generation, content_hash"
+                ") VALUES ("
+                ":source_cache_key, :provider_id, :provider_adapter_version, :query_fingerprint, "
+                ":provider_source_version, :payload_kind, :failure_status, "
+                ":failure_http_status, :failure_at, :failure_retry_after_at, "
+                ":failure_expires_at, :generation, :content_hash)"
+            ),
+            {
+                "source_cache_key": failure_only_key,
+                "provider_id": "provider",
+                "provider_adapter_version": "v1",
+                "query_fingerprint": "b" * 64,
+                "provider_source_version": "v1",
+                "payload_kind": "none",
+                "failure_status": "rate_limited",
+                "failure_http_status": 429,
+                "failure_at": NOW.isoformat(),
+                "failure_retry_after_at": NOW.isoformat(),
+                "failure_expires_at": failure_only_expires.isoformat(),
+                "generation": 1,
+                "content_hash": "d" * 64,
+            },
+        )
+        connection.execute(
+            text(
+                "INSERT INTO provider_cache_entries ("
+                "source_cache_key, provider_id, provider_adapter_version, "
+                "query_fingerprint, provider_source_version, content_status, payload_kind, "
+                "content_fetched_at, content_fresh_until_at, content_expires_at, "
+                "failure_status, failure_http_status, failure_at, failure_retry_after_at, "
+                "failure_expires_at, generation, content_hash"
+                ") VALUES ("
+                ":source_cache_key, :provider_id, :provider_adapter_version, "
+                ":query_fingerprint, :provider_source_version, :content_status, "
+                ":payload_kind, :content_fetched_at, :content_fresh_until_at, "
+                ":content_expires_at, :failure_status, :failure_http_status, :failure_at, "
+                ":failure_retry_after_at, :failure_expires_at, :generation, :content_hash)"
+            ),
+            {
+                "source_cache_key": both_slots_key,
+                "provider_id": "provider",
+                "provider_adapter_version": "v1",
+                "query_fingerprint": "c" * 64,
+                "provider_source_version": "v1",
+                "content_status": "not_found",
+                "payload_kind": "none",
+                "content_fetched_at": NOW.isoformat(),
+                "content_fresh_until_at": NOW.isoformat(),
+                "content_expires_at": both_content_expires.isoformat(),
+                "failure_status": "temporary_failure",
+                "failure_http_status": 503,
+                "failure_at": NOW.isoformat(),
+                "failure_retry_after_at": None,
+                "failure_expires_at": both_failure_expires.isoformat(),
+                "generation": 1,
+                "content_hash": "e" * 64,
+            },
+        )
+
+        retention_rows = connection.execute(
+            text(
+                "SELECT source_cache_key, retention_until_at "
+                "FROM provider_cache_entries "
+                "WHERE retention_until_at <= :retention_until "
+                "ORDER BY retention_until_at, source_cache_key"
+            ),
+            {"retention_until": (NOW + timedelta(days=4)).isoformat()},
+        ).all()
+        retention_query_plan = connection.execute(
+            text(
+                "EXPLAIN QUERY PLAN SELECT source_cache_key "
+                "FROM provider_cache_entries "
+                "WHERE retention_until_at <= :retention_until "
+                "ORDER BY retention_until_at, source_cache_key"
+            ),
+            {"retention_until": (NOW + timedelta(days=4)).isoformat()},
+        ).all()
+
+    def _as_utc(value: datetime | str) -> datetime:
+        if isinstance(value, datetime):
+            return value if value.tzinfo else value.replace(tzinfo=UTC)
+        parsed = datetime.fromisoformat(value)
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+    assert [row.source_cache_key for row in retention_rows] == [
+        content_only_key,
+        failure_only_key,
+        both_slots_key,
+    ]
+    assert [_as_utc(row.retention_until_at) for row in retention_rows] == [
+        content_only_expires,
+        failure_only_expires,
+        both_failure_expires,
+    ]
+    assert any(
+        "ix_provider_cache_entries_retention_until_source_cache_key"
+        in str(row[-1])
+        for row in retention_query_plan
+    )
+
+
+def test_provider_cache_failure_only_requires_payload_kind_none(
+    head_database: Path,
+) -> None:
+    path = head_database
+    source = "f" * 64
+    now = NOW.isoformat()
+    later = LATER.isoformat()
+    with create_sqlite_engine(path).begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO provider_cache_entries ("
+                "source_cache_key, provider_id, provider_adapter_version, "
+                "query_fingerprint, provider_source_version, payload_kind, "
+                "failure_status, failure_http_status, failure_at, "
+                "failure_retry_after_at, failure_expires_at, generation, content_hash"
+                ") VALUES ("
+                ":source_cache_key, :provider_id, :provider_adapter_version, "
+                ":query_fingerprint, :provider_source_version, :payload_kind, "
+                ":failure_status, :failure_http_status, :failure_at, "
+                ":failure_retry_after_at, :failure_expires_at, :generation, :content_hash)"
+            ),
+            {
+                "source_cache_key": source,
+                "provider_id": "provider",
+                "provider_adapter_version": "v1",
+                "query_fingerprint": "f" * 64,
+                "provider_source_version": "v1",
+                "payload_kind": "none",
+                "failure_status": "rate_limited",
+                "failure_http_status": 429,
+                "failure_at": now,
+                "failure_retry_after_at": now,
+                "failure_expires_at": later,
+                "generation": 1,
+                "content_hash": "f" * 64,
+            },
+        )
+    with create_sqlite_engine(path).connect() as connection:
+        with pytest.raises(
+            IntegrityError,
+            match="NOT NULL constraint failed|not-?null|payload_kind",
+        ):
+            with connection.begin():
+                connection.execute(
+                    text(
+                        "INSERT INTO provider_cache_entries ("
+                        "source_cache_key, provider_id, provider_adapter_version, "
+                        "query_fingerprint, provider_source_version, payload_kind, "
+                        "failure_status, failure_http_status, failure_at, "
+                        "failure_retry_after_at, failure_expires_at, generation, "
+                        "content_hash"
+                        ") VALUES ("
+                        ":source_cache_key, :provider_id, :provider_adapter_version, "
+                        ":query_fingerprint, :provider_source_version, :payload_kind, "
+                        ":failure_status, :failure_http_status, :failure_at, "
+                        ":failure_retry_after_at, :failure_expires_at, :generation, "
+                        ":content_hash)"
+                    ),
+                    {
+                        "source_cache_key": source.replace("f", "e"),
+                        "provider_id": "provider",
+                        "provider_adapter_version": "v1",
+                        "query_fingerprint": "e" * 64,
+                        "provider_source_version": "v1",
+                        "payload_kind": None,
+                        "failure_status": "rate_limited",
+                        "failure_http_status": 429,
+                        "failure_at": now,
+                        "failure_retry_after_at": now,
+                        "failure_expires_at": later,
+                        "generation": 1,
+                        "content_hash": "e" * 64,
+                    },
+                )
 
 
 def test_read_only_engine_cannot_write_or_create_storage(
@@ -297,7 +642,7 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0016_consolidation_plans"
+    assert revision == "0017_provider_cache_schema"
 
 
 def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
@@ -318,7 +663,7 @@ def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
 
     assert "ix_fingerprints_target_profile_id_value" in indexes
-    assert revision == "0016_consolidation_plans"
+    assert revision == "0017_provider_cache_schema"
 
 
 def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
@@ -369,7 +714,86 @@ def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
         "ix_ebook_candidate_hash_runs_root_started",
     } <= {str(index["name"]) for index in inspector.get_indexes(ebook_candidate_hash_runs.name)}
     assert duplicate_count == 2
-    assert revision == "0016_consolidation_plans"
+    assert revision == "0017_provider_cache_schema"
+
+
+def test_migration_from_previous_head_adds_provider_cache_entries(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "provider-cache-upgrade.db"
+    migrate(path, "0016_consolidation_plans")
+    legacy = create_sqlite_engine(path)
+    assert provider_cache_entries.name not in inspect(legacy).get_table_names()
+    legacy.dispose()
+
+    migrate(path)
+    upgraded = create_sqlite_engine(path)
+    assert provider_cache_entries.name in inspect(upgraded).get_table_names()
+    with upgraded.connect() as connection:
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+    assert revision == "0017_provider_cache_schema"
+
+    migrate(path)
+    second = create_sqlite_engine(path)
+    with second.connect() as connection:
+        second_revision = connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
+    assert second_revision == "0017_provider_cache_schema"
+
+
+def test_migration_0017_downgrade_guard(tmp_path: Path) -> None:
+    path = tmp_path / "provider-cache-downgrade.db"
+    migrate(path, "0016_consolidation_plans")
+    migrate(path)
+
+    command.downgrade(alembic_config(path), "0016_consolidation_plans")
+    downgraded = create_sqlite_engine(path)
+    assert provider_cache_entries.name not in inspect(downgraded).get_table_names()
+    with downgraded.connect() as connection:
+        assert (
+            connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+            == "0016_consolidation_plans"
+        )
+    downgraded.dispose()
+
+    migrate(path)
+    now = NOW.isoformat()
+    later = LATER.isoformat()
+    engine = create_sqlite_engine(path)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO provider_cache_entries ("
+                "source_cache_key, provider_id, provider_adapter_version, "
+                "query_fingerprint, provider_source_version, payload_kind, "
+                "failure_status, "
+                "failure_http_status, failure_at, failure_retry_after_at, "
+                "failure_expires_at, generation, content_hash) "
+                "VALUES (:source_cache_key, :provider_id, :provider_adapter_version, "
+                ":query_fingerprint, :provider_source_version, :payload_kind, "
+                ":failure_status, "
+                ":failure_http_status, :failure_at, :failure_retry_after_at, "
+                ":failure_expires_at, :generation, :content_hash)"
+            ),
+            {
+                "source_cache_key": "0" * 64,
+                "provider_id": "openlibrary",
+                "provider_adapter_version": "v1",
+                "query_fingerprint": "1" * 64,
+                "provider_source_version": "1",
+                "payload_kind": "none",
+                "failure_status": "rate_limited",
+                "failure_http_status": 429,
+                "failure_at": now,
+                "failure_retry_after_at": now,
+                "failure_expires_at": later,
+                "generation": 1,
+                "content_hash": "2" * 64,
+            },
+        )
+    with pytest.raises(RuntimeError, match="prevents migration downgrade"):
+        command.downgrade(alembic_config(path), "0016_consolidation_plans")
 
 
 def test_round_trip_complete_w1_graph(database: Path) -> None:

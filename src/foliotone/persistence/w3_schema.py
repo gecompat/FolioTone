@@ -2,10 +2,13 @@
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
+    Computed,
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Table,
     Text,
     UniqueConstraint,
@@ -181,6 +184,199 @@ ebook_candidate_hash_runs = Table(
     Column("hashed_count", Integer, nullable=False),
     Column("failure_count", Integer, nullable=False),
     Column("remaining_count", Integer),
+)
+
+provider_cache_entries = Table(
+    "provider_cache_entries",
+    metadata,
+    Column("source_cache_key", Text, primary_key=True),
+    Column("provider_id", Text, nullable=False),
+    Column("provider_adapter_version", Text, nullable=False),
+    Column("query_fingerprint", Text, nullable=False),
+    Column("provider_source_version", Text, nullable=False),
+    Column("content_status", ENUM),
+    Column("payload_kind", ENUM, nullable=False),
+    Column("payload_codec", Text),
+    Column("payload_bytes", LargeBinary),
+    Column("payload_bytes_sha256", Text),
+    Column("content_http_status", Integer),
+    Column("content_fetched_at", DATETIME),
+    Column("content_fresh_until_at", DATETIME),
+    Column("content_expires_at", DATETIME),
+    Column("failure_status", ENUM),
+    Column("failure_http_status", Integer),
+    Column("failure_at", DATETIME),
+    Column("failure_retry_after_at", DATETIME),
+    Column("failure_expires_at", DATETIME),
+    Column("generation", Integer, nullable=False),
+    Column("content_hash", Text, nullable=False),
+    Column(
+        "retention_until_at",
+        DATETIME,
+        Computed(
+            "CASE "
+            "WHEN content_expires_at IS NULL THEN failure_expires_at "
+            "WHEN failure_expires_at IS NULL THEN content_expires_at "
+            "WHEN content_expires_at >= failure_expires_at THEN content_expires_at "
+            "ELSE failure_expires_at "
+            "END",
+            persisted=True,
+        ),
+        nullable=False,
+    ),
+    CheckConstraint(
+        "length(source_cache_key)=64 "
+        "AND source_cache_key NOT GLOB '*[^0-9a-f]*'",
+        name="ck_provider_cache_entries_source_cache_key",
+    ),
+    CheckConstraint(
+        "length(provider_id) BETWEEN 1 AND 128 "
+        "AND provider_id GLOB '[a-z0-9._-]*' "
+        "AND provider_id NOT GLOB '*[^a-z0-9._-]*'",
+        name="ck_provider_cache_entries_provider_id",
+    ),
+    CheckConstraint(
+        "length(provider_adapter_version) BETWEEN 1 AND 128 "
+        "AND provider_adapter_version NOT GLOB '*[^a-z0-9._/-]*' "
+        "AND provider_adapter_version NOT LIKE '/%' "
+        "AND provider_adapter_version NOT LIKE '%/' "
+        "AND provider_adapter_version NOT LIKE '%//' "
+        "AND instr(provider_adapter_version, '\\\\') = 0 "
+        "AND instr(provider_adapter_version, ':') = 0",
+        name="ck_provider_cache_entries_provider_adapter_version",
+    ),
+    CheckConstraint(
+        "length(provider_source_version) BETWEEN 1 AND 128 "
+        "AND provider_source_version NOT GLOB '*[^a-z0-9._/-]*' "
+        "AND provider_source_version NOT LIKE '/%' "
+        "AND provider_source_version NOT LIKE '%/' "
+        "AND provider_source_version NOT LIKE '%//' "
+        "AND instr(provider_source_version, '\\\\') = 0 "
+        "AND instr(provider_source_version, ':') = 0",
+        name="ck_provider_cache_entries_provider_source_version",
+    ),
+    CheckConstraint(
+        "length(query_fingerprint)=64 "
+        "AND query_fingerprint NOT GLOB '*[^0-9a-f]*'",
+        name="ck_provider_cache_entries_query_fingerprint",
+    ),
+    CheckConstraint(
+        "content_status IS NULL OR content_status IN ('success', 'not_found')",
+        name="ck_provider_cache_entries_content_status",
+    ),
+    CheckConstraint(
+        "payload_kind IN "
+        "('none', 'raw_response', 'normalized_source_dto')",
+        name="ck_provider_cache_entries_payload_kind",
+    ),
+    CheckConstraint(
+        "failure_status IS NULL OR failure_status IN ("
+        "'rate_limited', 'temporary_failure', 'permanent_failure', "
+        "'invalid_response')",
+        name="ck_provider_cache_entries_failure_status",
+    ),
+    CheckConstraint(
+        "content_status IS NOT NULL OR failure_status IS NOT NULL",
+        name="ck_provider_cache_entries_at_least_one_slot",
+    ),
+    CheckConstraint(
+        "(content_status IS NULL AND content_http_status IS NULL "
+        "AND content_fetched_at IS NULL AND content_fresh_until_at IS NULL "
+        "AND content_expires_at IS NULL AND payload_kind = 'none' "
+        "AND payload_codec IS NULL AND payload_bytes IS NULL "
+        "AND payload_bytes_sha256 IS NULL) "
+        "OR (content_status IN ('success', 'not_found') "
+        "AND payload_kind IN ('raw_response', 'normalized_source_dto', 'none') "
+        "AND content_fetched_at IS NOT NULL "
+        "AND content_fresh_until_at IS NOT NULL AND content_expires_at IS NOT NULL)",
+        name="ck_provider_cache_entries_content_slot_complete",
+    ),
+    CheckConstraint(
+        "content_status IS NULL OR (content_fetched_at <= content_fresh_until_at "
+        "AND content_fresh_until_at <= content_expires_at)",
+        name="ck_provider_cache_entries_content_timeline_order",
+    ),
+    CheckConstraint(
+        "content_status <> 'success' OR payload_kind <> 'none'",
+        name="ck_provider_cache_entries_success_payload_kind",
+    ),
+    CheckConstraint(
+        "(content_status IS NULL AND content_http_status IS NULL) "
+        "OR (content_http_status BETWEEN 100 AND 599)",
+        name="ck_provider_cache_entries_content_http_status",
+    ),
+    CheckConstraint(
+        "(payload_kind = 'none' AND payload_codec IS NULL AND payload_bytes IS NULL "
+        "AND payload_bytes_sha256 IS NULL) "
+        "OR (payload_kind IN ('raw_response', 'normalized_source_dto') "
+        "AND payload_codec IS NOT NULL AND payload_bytes IS NOT NULL "
+        "AND payload_bytes_sha256 IS NOT NULL)",
+        name="ck_provider_cache_entries_payload_kind_shape",
+    ),
+    CheckConstraint(
+        "(payload_kind='none' AND payload_codec IS NULL "
+        "AND payload_bytes IS NULL AND payload_bytes_sha256 IS NULL) "
+        "OR (payload_kind IN ('raw_response', 'normalized_source_dto') "
+        "AND length(payload_codec) BETWEEN 1 AND 48 "
+        "AND payload_codec GLOB '[a-z][a-z0-9_-]*/[a-z][a-z0-9_-]*' "
+        "AND payload_bytes IS NOT NULL AND length(payload_bytes) > 0 "
+        "AND payload_bytes_sha256 IS NOT NULL)",
+        name="ck_provider_cache_entries_payload_shape",
+    ),
+    CheckConstraint(
+        "(payload_bytes IS NULL AND payload_bytes_sha256 IS NULL) "
+        "OR (payload_bytes IS NOT NULL AND payload_bytes_sha256 IS NOT NULL "
+        "AND length(payload_bytes_sha256)=64 "
+        "AND payload_bytes_sha256 NOT GLOB '*[^0-9a-f]*')",
+        name="ck_provider_cache_entries_payload_digest",
+    ),
+    CheckConstraint(
+        "failure_status IS NULL OR failure_http_status IS NULL OR "
+        "failure_http_status BETWEEN 100 AND 599",
+        name="ck_provider_cache_entries_failure_http_status",
+    ),
+    CheckConstraint(
+        "(failure_status IS NULL AND failure_http_status IS NULL "
+        "AND failure_at IS NULL AND failure_retry_after_at IS NULL "
+        "AND failure_expires_at IS NULL) "
+        "OR (failure_status IS NOT NULL AND failure_at IS NOT NULL "
+        "AND failure_expires_at IS NOT NULL AND failure_at <= failure_expires_at)",
+        name="ck_provider_cache_entries_failure_slot_complete",
+    ),
+    CheckConstraint(
+        "failure_retry_after_at IS NULL OR "
+        "(failure_status = 'rate_limited' AND failure_at IS NOT NULL "
+        "AND failure_expires_at IS NOT NULL "
+        "AND failure_retry_after_at >= failure_at "
+        "AND failure_retry_after_at <= failure_expires_at)",
+        name="ck_provider_cache_entries_failure_retry",
+    ),
+    CheckConstraint("generation > 0", name="ck_provider_cache_entries_generation"),
+    CheckConstraint(
+        "length(content_hash)=64 AND content_hash NOT GLOB '*[^0-9a-f]*'",
+        name="ck_provider_cache_entries_content_hash",
+    ),
+)
+
+Index(
+    "ix_provider_cache_entries_generation",
+    provider_cache_entries.c.provider_id,
+    provider_cache_entries.c.generation,
+)
+Index(
+    "ix_provider_cache_entries_provider_query",
+    provider_cache_entries.c.provider_id,
+    provider_cache_entries.c.query_fingerprint,
+)
+Index(
+    "ix_provider_cache_entries_status_expires",
+    provider_cache_entries.c.content_status,
+    provider_cache_entries.c.content_expires_at,
+)
+Index(
+    "ix_provider_cache_entries_retention_until_source_cache_key",
+    provider_cache_entries.c.retention_until_at,
+    provider_cache_entries.c.source_cache_key,
 )
 
 Index(
