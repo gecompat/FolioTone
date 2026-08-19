@@ -441,6 +441,13 @@ class KeepPreferenceOutcome:
             ConsolidationFileRole
         ):
             raise ValueError("keep preference requires one quality snapshot per file role")
+        if len({ref.id for ref in self.quality_evidence}) != 2:
+            raise ValueError("keep preference quality snapshots must have distinct ids")
+        quality_by_role = {ref.role: ref for ref in self.quality_evidence}
+        if {
+            ref.observation_id for ref in self.quality_evidence
+        } != {self.left_observation_id, self.right_observation_id}:
+            raise ValueError("keep preference quality observations must match both endpoints")
         if self.status is KeepPreferenceStatus.PREFERRED:
             if (
                 self.keeper_file_id is None
@@ -453,8 +460,32 @@ class KeepPreferenceOutcome:
                 self.right_file_id,
             }:
                 raise ValueError("keeper and candidate must be the preference endpoints")
+            keeper_observation_id = (
+                self.left_observation_id
+                if self.keeper_file_id == self.left_file_id
+                else self.right_observation_id
+            )
+            candidate_observation_id = (
+                self.right_observation_id
+                if keeper_observation_id == self.left_observation_id
+                else self.left_observation_id
+            )
+            if (
+                quality_by_role[ConsolidationFileRole.KEEPER].observation_id
+                != keeper_observation_id
+                or quality_by_role[ConsolidationFileRole.CANDIDATE].observation_id
+                != candidate_observation_id
+            ):
+                raise ValueError("preferred quality roles must match the directed endpoints")
         elif self.keeper_file_id is not None or self.candidate_file_id is not None:
             raise ValueError("TIED and BLOCKED cannot contain a direction")
+        elif (
+            quality_by_role[ConsolidationFileRole.KEEPER].observation_id
+            != self.left_observation_id
+            or quality_by_role[ConsolidationFileRole.CANDIDATE].observation_id
+            != self.right_observation_id
+        ):
+            raise ValueError("undirected quality roles must use canonical left and right slots")
         for name in (
             "configuration_fingerprint",
             "evidence_fingerprint",
