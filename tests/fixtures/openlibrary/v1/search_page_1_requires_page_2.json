@@ -2,7 +2,7 @@
   "numFound": 21,
   "start": 0,
   "docs": [
-    {"key": "synthetic-doc-01", "title": "Synthetic Search Candidate 01"},
-    {"key": "synthetic-doc-02", "title": "Synthetic Search Candidate 02"}
+    {"key": "/works/OL900000010W", "title": "Synthetic Search Candidate 01"},
+    {"key": "/works/OL900000011W", "title": "Synthetic Search Candidate 02"}
   ]
 }
