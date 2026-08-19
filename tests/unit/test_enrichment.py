@@ -1,14 +1,30 @@
+from dataclasses import FrozenInstanceError
+from datetime import UTC, datetime, timedelta, timezone
+from enum import Enum
+from hashlib import sha256
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 import pytest
 
 from foliotone.enrichment import (
     BookKnowledgeQuery,
     KnowledgeProviderMode,
     ProviderAccessMode,
+    ProviderCacheContentSlot,
+    ProviderCacheFailureSlot,
+    ProviderCacheFreshness,
+    ProviderCacheLimits,
+    ProviderCachePayloadKind,
     ProviderCachePolicy,
+    ProviderCacheResultStatus,
+    ProviderCacheSlots,
     SyntheticBookKnowledgeProvider,
     provider_policy_from_legacy,
 )
 from foliotone.enrichment.contracts import validate_provider_policy
+
+_CONTENT_AT = datetime(2026, 8, 19, 10, 0, 0, tzinfo=UTC)
+_FAIL_AT = datetime(2026, 8, 19, 10, 30, 0, tzinfo=UTC)
 
 
 def test_provider_access_mode_literals_are_exact() -> None:
@@ -238,3 +254,578 @@ def test_privacy_dto_contains_no_absolute_paths() -> None:
     assert dto["access_mode"] == "offline"
     assert dto["cache_policy"] == "no_cache"
     assert dto["result_count"] == 1
+
+
+def test_provider_cache_result_status_literals_are_exact() -> None:
+    assert {
+        name: value.value for name, value in ProviderCacheResultStatus.__members__.items()
+    } == {
+        "SUCCESS": "success",
+        "NOT_FOUND": "not_found",
+        "RATE_LIMITED": "rate_limited",
+        "TEMPORARY_FAILURE": "temporary_failure",
+        "PERMANENT_FAILURE": "permanent_failure",
+        "INVALID_RESPONSE": "invalid_response",
+    }
+
+
+def test_provider_cache_payload_kind_literals_are_exact() -> None:
+    assert {
+        name: value.value for name, value in ProviderCachePayloadKind.__members__.items()
+    } == {
+        "NONE": "none",
+        "RAW_RESPONSE": "raw_response",
+        "NORMALIZED_SOURCE_DTO": "normalized_source_dto",
+    }
+
+
+def test_provider_cache_freshness_literals_are_exact() -> None:
+    assert {
+        name: value.value for name, value in ProviderCacheFreshness.__members__.items()
+    } == {
+        "FRESH": "fresh",
+        "STALE": "stale",
+        "EXPIRED": "expired",
+    }
+
+
+def test_provider_cache_limits_require_positive_values() -> None:
+    assert ProviderCacheLimits(
+        max_entry_payload_bytes=1024,
+        max_entries_total=1000,
+        max_payload_bytes_total=1024 * 1024,
+        expired_prune_batch_size=256,
+    )
+
+    with pytest.raises(ValueError, match="must be positive"):
+        ProviderCacheLimits(
+            max_entry_payload_bytes=0,
+            max_entries_total=1000,
+            max_payload_bytes_total=1024 * 1024,
+            expired_prune_batch_size=256,
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("max_entry_payload_bytes", True),
+        ("max_entry_payload_bytes", 1.5),
+        ("max_entry_payload_bytes", "1024"),
+        ("max_entries_total", False),
+        ("max_entries_total", 4.0),
+        ("max_payload_bytes_total", 12 + 0.0),
+        ("expired_prune_batch_size", "128"),
+    ],
+)
+def test_provider_cache_limits_reject_non_int_values(field: str, value: object) -> None:
+    kwargs = {
+        "max_entry_payload_bytes": 1024,
+        "max_entries_total": 1000,
+        "max_payload_bytes_total": 1024 * 1024,
+        "expired_prune_batch_size": 256,
+    }
+    kwargs[field] = value
+    with pytest.raises(ValueError, match="must be an int"):
+        ProviderCacheLimits(**kwargs)
+
+
+def test_provider_cache_limits_reject_entry_payload_exceeding_total() -> None:
+    with pytest.raises(ValueError, match="must be <= max_payload_bytes_total"):
+        ProviderCacheLimits(
+            max_entry_payload_bytes=2048,
+            max_entries_total=1000,
+            max_payload_bytes_total=1024,
+            expired_prune_batch_size=256,
+        )
+
+
+def test_provider_cache_content_slot_requires_content_status_for_payload() -> None:
+    payload = b'{"source":"cached"}'
+    with pytest.raises(ValueError, match="content_status must exist"):
+        ProviderCacheContentSlot(
+            content_status=None,
+            payload_kind=ProviderCachePayloadKind.RAW_RESPONSE,
+            payload_codec="json/raw-response",
+            payload_bytes=payload,
+            payload_bytes_sha256=sha256(payload).hexdigest(),
+            content_fetched_at=_CONTENT_AT,
+            content_fresh_until_at=_CONTENT_AT,
+            content_expires_at=_CONTENT_AT,
+        )
+
+
+def test_provider_cache_content_slot_rejects_success_without_payload() -> None:
+    with pytest.raises(ValueError, match="SUCCESS requires a non-NONE payload"):
+        ProviderCacheContentSlot(
+            content_status=ProviderCacheResultStatus.SUCCESS,
+            content_fetched_at=_CONTENT_AT,
+            content_fresh_until_at=_CONTENT_AT,
+            content_expires_at=_CONTENT_AT,
+        )
+
+
+def test_provider_cache_content_slot_allows_not_found_without_payload() -> None:
+    entry = ProviderCacheContentSlot(
+        content_status=ProviderCacheResultStatus.NOT_FOUND,
+        payload_kind=ProviderCachePayloadKind.NONE,
+        content_fetched_at=_CONTENT_AT,
+        content_fresh_until_at=_CONTENT_AT,
+        content_expires_at=_CONTENT_AT,
+    )
+    assert entry.content_status is ProviderCacheResultStatus.NOT_FOUND
+    assert entry.payload_kind is ProviderCachePayloadKind.NONE
+    assert entry.payload_bytes is None
+
+
+def test_provider_cache_content_slot_rejects_not_found_with_payload_for_none_kind() -> None:
+    payload = b'{"source":"not_found_payload"}'
+    with pytest.raises(ValueError, match="payload_codec must be None when payload_kind is NONE"):
+        ProviderCacheContentSlot(
+            content_status=ProviderCacheResultStatus.NOT_FOUND,
+            payload_kind=ProviderCachePayloadKind.NONE,
+            payload_codec="json/raw-response",
+            payload_bytes=payload,
+            payload_bytes_sha256=sha256(payload).hexdigest(),
+            content_fetched_at=_CONTENT_AT,
+            content_fresh_until_at=_CONTENT_AT,
+            content_expires_at=_CONTENT_AT,
+        )
+
+
+def test_provider_cache_content_slot_rejects_payload_sha_mismatch() -> None:
+    with pytest.raises(ValueError, match="must match payload_bytes"):
+        ProviderCacheContentSlot(
+            content_status=ProviderCacheResultStatus.SUCCESS,
+            payload_kind=ProviderCachePayloadKind.RAW_RESPONSE,
+            payload_codec="json/raw-response",
+            payload_bytes=b"payload",
+            payload_bytes_sha256="0" * 64,
+            content_fetched_at=_CONTENT_AT,
+            content_fresh_until_at=_CONTENT_AT,
+            content_expires_at=_CONTENT_AT,
+        )
+
+
+def test_provider_cache_content_slot_rejects_non_aware_datetimes() -> None:
+    with pytest.raises(ValueError, match="must be UTC"):
+        ProviderCacheContentSlot(
+            content_status=ProviderCacheResultStatus.SUCCESS,
+            payload_kind=ProviderCachePayloadKind.RAW_RESPONSE,
+            payload_codec="json/raw-response",
+            payload_bytes=b"payload",
+            payload_bytes_sha256=sha256(b"payload").hexdigest(),
+            content_fetched_at=datetime(2026, 8, 19),
+            content_fresh_until_at=datetime(2026, 8, 20),
+            content_expires_at=datetime(2026, 8, 21),
+        )
+
+
+@pytest.mark.parametrize("timestamp", [True, 1.0, "not-a-datetime"])
+def test_provider_cache_content_slot_rejects_non_datetime_timestamps(
+    timestamp: object,
+) -> None:
+    payload = b"payload"
+    with pytest.raises(ValueError, match="must be UTC"):
+        ProviderCacheContentSlot(
+            content_status=ProviderCacheResultStatus.SUCCESS,
+            payload_kind=ProviderCachePayloadKind.RAW_RESPONSE,
+            payload_codec="json/raw-response",
+            payload_bytes=payload,
+            payload_bytes_sha256=sha256(payload).hexdigest(),
+            content_fetched_at=timestamp,  # type: ignore[arg-type]
+            content_fresh_until_at=_CONTENT_AT,
+            content_expires_at=_CONTENT_AT,
+        )
+
+
+def test_provider_cache_content_slot_accepts_timezone_alias_and_zoneinfo_utc() -> None:
+    try:
+        zone_info_utc = ZoneInfo("UTC")
+    except ZoneInfoNotFoundError:
+        pytest.skip("ZoneInfo('UTC') unavailable in this environment")
+    payload = b"cache payload"
+    with_tz = ProviderCacheContentSlot(
+        content_status=ProviderCacheResultStatus.SUCCESS,
+        payload_kind=ProviderCachePayloadKind.RAW_RESPONSE,
+        payload_codec="json/raw-response",
+        payload_bytes=payload,
+        payload_bytes_sha256=sha256(payload).hexdigest(),
+        content_fetched_at=datetime(2026, 8, 19, 10, 0, 0, tzinfo=UTC),
+        content_fresh_until_at=datetime(2026, 8, 19, 10, 5, 0, tzinfo=UTC),
+        content_expires_at=datetime(2026, 8, 19, 11, 0, 0, tzinfo=UTC),
+    )
+    assert with_tz.content_fetched_at.tzinfo is UTC
+
+    with_z = ProviderCacheContentSlot(
+        content_status=ProviderCacheResultStatus.SUCCESS,
+        payload_kind=ProviderCachePayloadKind.RAW_RESPONSE,
+        payload_codec="json/raw-response",
+        payload_bytes=payload,
+        payload_bytes_sha256=sha256(payload).hexdigest(),
+        content_fetched_at=datetime(2026, 8, 19, 10, 0, 0, tzinfo=zone_info_utc),
+        content_fresh_until_at=datetime(2026, 8, 19, 10, 5, 0, tzinfo=zone_info_utc),
+        content_expires_at=datetime(2026, 8, 19, 11, 0, 0, tzinfo=zone_info_utc),
+    )
+    assert with_z.content_fetched_at.tzinfo is UTC
+
+
+def test_provider_cache_content_slot_rejects_nonzero_offset_timezone() -> None:
+    payload = b"cache payload"
+    with pytest.raises(ValueError, match="must be UTC"):
+        ProviderCacheContentSlot(
+            content_status=ProviderCacheResultStatus.SUCCESS,
+            payload_kind=ProviderCachePayloadKind.RAW_RESPONSE,
+            payload_codec="json/raw-response",
+            payload_bytes=payload,
+            payload_bytes_sha256=sha256(payload).hexdigest(),
+            content_fetched_at=datetime(
+                2026, 8, 19, 10, 0, 0, tzinfo=timezone(timedelta(hours=1))
+            ),
+            content_fresh_until_at=datetime(
+                2026, 8, 19, 10, 5, 0, tzinfo=timezone(timedelta(hours=1))
+            ),
+            content_expires_at=datetime(
+                2026, 8, 19, 11, 0, 0, tzinfo=timezone(timedelta(hours=1))
+            ),
+        )
+
+
+def test_provider_cache_content_slot_rejects_wrong_enum_payload_kind() -> None:
+    class ForeignPayloadKind(Enum):
+        RAW = "raw_response"
+
+    with pytest.raises(ValueError, match="payload_kind must be a ProviderCachePayloadKind"):
+        ProviderCacheContentSlot(
+            content_status=ProviderCacheResultStatus.SUCCESS,
+            payload_kind=ForeignPayloadKind.RAW,  # type: ignore[arg-type]
+            payload_codec="json/raw-response",
+            payload_bytes=b"payload",
+            payload_bytes_sha256=sha256(b"payload").hexdigest(),
+            content_fetched_at=_CONTENT_AT,
+            content_fresh_until_at=_CONTENT_AT,
+            content_expires_at=_CONTENT_AT,
+        )
+
+
+@pytest.mark.parametrize("status", [True, 1.0])
+def test_provider_cache_content_slot_rejects_nonenum_content_status(status: object) -> None:
+    with pytest.raises(ValueError, match="content_status must be a ProviderCacheResultStatus"):
+        ProviderCacheContentSlot(
+            content_status=status,  # type: ignore[arg-type]
+            payload_kind=ProviderCachePayloadKind.NONE,
+            content_fetched_at=_CONTENT_AT,
+            content_fresh_until_at=_CONTENT_AT,
+            content_expires_at=_CONTENT_AT,
+        )
+
+
+def test_provider_cache_content_slot_rejects_bytearray_payload() -> None:
+    with pytest.raises(ValueError, match="payload_bytes must be bytes"):
+        ProviderCacheContentSlot(
+            content_status=ProviderCacheResultStatus.SUCCESS,
+            payload_kind=ProviderCachePayloadKind.RAW_RESPONSE,
+            payload_codec="json/raw-response",
+            payload_bytes=bytearray(b"payload"),
+            payload_bytes_sha256=sha256(b"payload").hexdigest(),
+            content_fetched_at=_CONTENT_AT,
+            content_fresh_until_at=_CONTENT_AT,
+            content_expires_at=_CONTENT_AT,
+        )
+
+
+@pytest.mark.parametrize("digest", [True, 1.5, b"0" * 64, bytearray(b"0" * 64)])
+def test_provider_cache_content_slot_rejects_invalid_payload_digest_type(digest: object) -> None:
+    payload = b"payload"
+    with pytest.raises(
+        ValueError,
+        match="payload_bytes_sha256 must be a lowercase SHA-256 hexadecimal digest",
+    ):
+        ProviderCacheContentSlot(
+            content_status=ProviderCacheResultStatus.SUCCESS,
+            payload_kind=ProviderCachePayloadKind.RAW_RESPONSE,
+            payload_codec="json/raw-response",
+            payload_bytes=payload,
+            payload_bytes_sha256=digest,  # type: ignore[arg-type]
+            content_fetched_at=_CONTENT_AT,
+            content_fresh_until_at=_CONTENT_AT,
+            content_expires_at=_CONTENT_AT,
+        )
+
+
+@pytest.mark.parametrize(
+    "codec",
+    [
+        r"json\\raw-response",
+        "JSON/raw-response",
+        "json//raw-response",
+        "json:raw-response",
+        "json/raw response",
+        "/json/raw",
+        "json/",
+    ],
+)
+def test_provider_cache_content_slot_rejects_invalid_codec(codec: str) -> None:
+    with pytest.raises(ValueError, match="technical codec pattern"):
+        ProviderCacheContentSlot(
+            content_status=ProviderCacheResultStatus.SUCCESS,
+            payload_kind=ProviderCachePayloadKind.RAW_RESPONSE,
+            payload_codec=codec,
+            payload_bytes=b"payload",
+            payload_bytes_sha256=sha256(b"payload").hexdigest(),
+            content_fetched_at=_CONTENT_AT,
+            content_fresh_until_at=_CONTENT_AT,
+            content_expires_at=_CONTENT_AT,
+        )
+
+
+def test_provider_cache_content_slot_rejects_invalid_http_status() -> None:
+    with pytest.raises(ValueError, match="must be between 100 and 599"):
+        ProviderCacheContentSlot(
+            content_status=ProviderCacheResultStatus.NOT_FOUND,
+            payload_kind=ProviderCachePayloadKind.NONE,
+            content_http_status=99,
+            content_fetched_at=_CONTENT_AT,
+            content_fresh_until_at=_CONTENT_AT,
+            content_expires_at=_CONTENT_AT,
+        )
+
+
+def test_provider_cache_content_slot_validates_content_timeline_ordering() -> None:
+    with pytest.raises(ValueError, match="must be fetched <= fresh_until <= expires"):
+        ProviderCacheContentSlot(
+            content_status=ProviderCacheResultStatus.SUCCESS,
+            payload_kind=ProviderCachePayloadKind.RAW_RESPONSE,
+            payload_codec="json/raw-response",
+            payload_bytes=b"payload",
+            payload_bytes_sha256=sha256(b"payload").hexdigest(),
+            content_fetched_at=_CONTENT_AT,
+            content_fresh_until_at=_CONTENT_AT.replace(hour=9),
+            content_expires_at=_CONTENT_AT,
+        )
+
+
+def test_provider_cache_failure_slot_requires_utc_failures() -> None:
+    with pytest.raises(ValueError, match="must be UTC"):
+        ProviderCacheFailureSlot(
+            failure_status=ProviderCacheResultStatus.RATE_LIMITED,
+            failure_at=datetime(2026, 8, 19),
+            failure_retry_after_at=datetime(2026, 8, 19, 10, 1),
+            failure_expires_at=datetime(2026, 8, 19, 10, 2),
+        )
+
+
+@pytest.mark.parametrize("value", [True, 1.0, "not-a-datetime"])
+def test_provider_cache_failure_slot_rejects_non_datetime_timestamps(value: object) -> None:
+    with pytest.raises(ValueError, match="must be UTC"):
+        ProviderCacheFailureSlot(
+            failure_status=ProviderCacheResultStatus.RATE_LIMITED,
+            failure_at=value,  # type: ignore[arg-type]
+            failure_expires_at=_FAIL_AT,
+        )
+
+
+@pytest.mark.parametrize(
+    "failure_status",
+    [ProviderCacheResultStatus.SUCCESS, ProviderCacheResultStatus.NOT_FOUND],
+)
+def test_provider_cache_failure_slot_rejects_invalid_status_values(
+    failure_status: ProviderCacheResultStatus,
+) -> None:
+    with pytest.raises(ValueError, match="cannot be SUCCESS or NOT_FOUND"):
+        ProviderCacheFailureSlot(
+            failure_status=failure_status,
+            failure_at=_FAIL_AT,
+            failure_expires_at=_FAIL_AT,
+        )
+
+
+def test_provider_cache_failure_slot_rejects_non_matching_status_type() -> None:
+    class ForeignStatus(Enum):
+        TEMP = "temporary_failure"
+
+    with pytest.raises(ValueError, match="failure_status must be a ProviderCacheResultStatus"):
+        ProviderCacheFailureSlot(
+            failure_status=ForeignStatus.TEMP,  # type: ignore[arg-type]
+            failure_at=_FAIL_AT,
+            failure_expires_at=_FAIL_AT,
+        )
+
+
+@pytest.mark.parametrize("status", [True, 1.0])
+def test_provider_cache_failure_slot_rejects_nonenum_failure_status(status: object) -> None:
+    with pytest.raises(ValueError, match="failure_status must be a ProviderCacheResultStatus"):
+        ProviderCacheFailureSlot(
+            failure_status=status,  # type: ignore[arg-type]
+            failure_at=_FAIL_AT,
+            failure_expires_at=_FAIL_AT,
+        )
+
+
+def test_provider_cache_failure_slot_rejects_non_http_status_code() -> None:
+    with pytest.raises(ValueError, match="must be between 100 and 599"):
+        ProviderCacheFailureSlot(
+            failure_status=ProviderCacheResultStatus.TEMPORARY_FAILURE,
+            failure_http_status=600,
+            failure_at=_FAIL_AT,
+            failure_expires_at=_FAIL_AT,
+        )
+
+
+def test_provider_cache_failure_slot_rejects_retry_after_for_non_rate_limited_status() -> None:
+    with pytest.raises(ValueError, match="only valid for RATE_LIMITED"):
+        ProviderCacheFailureSlot(
+            failure_status=ProviderCacheResultStatus.TEMPORARY_FAILURE,
+            failure_at=_FAIL_AT,
+            failure_retry_after_at=_FAIL_AT,
+            failure_expires_at=_FAIL_AT,
+        )
+
+
+def test_provider_cache_failure_slot_rejects_retry_after_ordering() -> None:
+    with pytest.raises(ValueError, match="between failure_at and failure_expires_at"):
+        ProviderCacheFailureSlot(
+            failure_status=ProviderCacheResultStatus.RATE_LIMITED,
+            failure_at=_FAIL_AT,
+            failure_retry_after_at=_FAIL_AT.replace(minute=20),
+            failure_expires_at=_FAIL_AT.replace(minute=35),
+        )
+
+
+def test_provider_cache_slots_require_at_least_one_slot() -> None:
+    with pytest.raises(ValueError, match="at least one slot must be present"):
+        ProviderCacheSlots()
+    with pytest.raises(ValueError, match="content_slot must include a content_status"):
+        ProviderCacheSlots(content_slot=ProviderCacheContentSlot(), failure_slot=None)
+    with pytest.raises(ValueError, match="failure_slot must include a failure_status"):
+        ProviderCacheSlots(content_slot=None, failure_slot=ProviderCacheFailureSlot())
+
+
+def test_provider_cache_slots_reject_foreign_slot_types() -> None:
+    with pytest.raises(ValueError, match="content_slot must be a ProviderCacheContentSlot"):
+        ProviderCacheSlots(content_slot=object())  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="failure_slot must be a ProviderCacheFailureSlot"):
+        ProviderCacheSlots(failure_slot=object())  # type: ignore[arg-type]
+
+
+def test_provider_cache_slots_allow_content_only_failure_only_or_both() -> None:
+    content = ProviderCacheContentSlot(
+        content_status=ProviderCacheResultStatus.NOT_FOUND,
+        payload_kind=ProviderCachePayloadKind.NONE,
+        content_fetched_at=_CONTENT_AT,
+        content_fresh_until_at=_CONTENT_AT,
+        content_expires_at=_CONTENT_AT,
+    )
+    failure = ProviderCacheFailureSlot(
+        failure_status=ProviderCacheResultStatus.RATE_LIMITED,
+        failure_at=_FAIL_AT,
+        failure_retry_after_at=_FAIL_AT,
+        failure_expires_at=_FAIL_AT,
+    )
+    assert ProviderCacheSlots(content_slot=content).failure_slot is None
+    assert ProviderCacheSlots(failure_slot=failure).content_slot is None
+    slots = ProviderCacheSlots(content_slot=content, failure_slot=failure)
+    assert slots.content_slot is content
+    assert slots.failure_slot is failure
+
+
+def test_provider_cache_slots_reject_empty_content_slot_when_failure_present() -> None:
+    failure = ProviderCacheFailureSlot(
+        failure_status=ProviderCacheResultStatus.RATE_LIMITED,
+        failure_at=_FAIL_AT,
+        failure_retry_after_at=_FAIL_AT,
+        failure_expires_at=_FAIL_AT,
+    )
+    with pytest.raises(ValueError, match="content_slot must include a content_status"):
+        ProviderCacheSlots(content_slot=ProviderCacheContentSlot(), failure_slot=failure)
+
+
+def test_provider_cache_slots_reject_empty_failure_slot_when_content_present() -> None:
+    content = ProviderCacheContentSlot(
+        content_status=ProviderCacheResultStatus.NOT_FOUND,
+        payload_kind=ProviderCachePayloadKind.NONE,
+        content_fetched_at=_CONTENT_AT,
+        content_fresh_until_at=_CONTENT_AT,
+        content_expires_at=_CONTENT_AT,
+    )
+    with pytest.raises(ValueError, match="failure_slot must include a failure_status"):
+        ProviderCacheSlots(content_slot=content, failure_slot=ProviderCacheFailureSlot())
+
+
+def test_provider_cache_slot_repr_is_path_free() -> None:
+    payload = b"C:\\tmp\\project\\secret.json"
+    slot = ProviderCacheContentSlot(
+        content_status=ProviderCacheResultStatus.SUCCESS,
+        payload_kind=ProviderCachePayloadKind.RAW_RESPONSE,
+        payload_codec="json/raw-response",
+        payload_bytes=payload,
+        payload_bytes_sha256=sha256(payload).hexdigest(),
+        content_fetched_at=_CONTENT_AT,
+        content_fresh_until_at=_CONTENT_AT,
+        content_expires_at=_CONTENT_AT,
+    )
+    assert "C:\\" not in repr(slot)
+
+
+@pytest.mark.parametrize(
+    ("instance", "field_name", "new_value"),
+    [
+        (
+            ProviderCacheLimits(
+                max_entry_payload_bytes=1024,
+                max_entries_total=1000,
+                max_payload_bytes_total=1024 * 1024,
+                expired_prune_batch_size=256,
+            ),
+            "max_entry_payload_bytes",
+            2048,
+        ),
+        (
+            ProviderCacheContentSlot(
+                content_status=ProviderCacheResultStatus.NOT_FOUND,
+                payload_kind=ProviderCachePayloadKind.NONE,
+                content_fetched_at=_CONTENT_AT,
+                content_fresh_until_at=_CONTENT_AT,
+                content_expires_at=_CONTENT_AT,
+            ),
+            "content_status",
+            ProviderCacheResultStatus.SUCCESS,
+        ),
+        (
+            ProviderCacheFailureSlot(
+                failure_status=ProviderCacheResultStatus.RATE_LIMITED,
+                failure_at=_FAIL_AT,
+                failure_retry_after_at=_FAIL_AT,
+                failure_expires_at=_FAIL_AT,
+            ),
+            "failure_status",
+            ProviderCacheResultStatus.TEMPORARY_FAILURE,
+        ),
+        (
+            ProviderCacheSlots(
+                content_slot=ProviderCacheContentSlot(
+                    content_status=ProviderCacheResultStatus.NOT_FOUND,
+                    payload_kind=ProviderCachePayloadKind.NONE,
+                    content_fetched_at=_CONTENT_AT,
+                    content_fresh_until_at=_CONTENT_AT,
+                    content_expires_at=_CONTENT_AT,
+                )
+            ),
+            "failure_slot",
+            ProviderCacheFailureSlot(
+                failure_status=ProviderCacheResultStatus.RATE_LIMITED,
+                failure_at=_FAIL_AT,
+                failure_retry_after_at=_FAIL_AT,
+                failure_expires_at=_FAIL_AT,
+            ),
+        ),
+    ],
+)
+def test_provider_cache_contract_classes_are_frozen_slots_and_path_safe(
+    instance: object,
+    field_name: str,
+    new_value: object,
+) -> None:
+    assert not hasattr(instance, "__dict__")
+    with pytest.raises((FrozenInstanceError, AttributeError)):
+        setattr(instance, field_name, new_value)

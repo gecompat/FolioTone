@@ -11,6 +11,15 @@ from foliotone.enrichment.contracts import (
     StructuredKnowledgeBookResult,
     provider_policy_from_legacy,
 )
+from foliotone.enrichment.provider_cache_contracts import (
+    ProviderCacheContentSlot,
+    ProviderCacheFailureSlot,
+    ProviderCacheFreshness,
+    ProviderCacheLimits,
+    ProviderCachePayloadKind,
+    ProviderCacheResultStatus,
+    ProviderCacheSlots,
+)
 from foliotone.enrichment.providers import SyntheticBookKnowledgeProvider
 
 __all__ = [
@@ -21,6 +30,13 @@ __all__ = [
     "KnowledgeProviderMode",
     "ProviderAccessMode",
     "ProviderCachePolicy",
+    "ProviderCacheContentSlot",
+    "ProviderCacheFailureSlot",
+    "ProviderCacheFreshness",
+    "ProviderCacheLimits",
+    "ProviderCachePayloadKind",
+    "ProviderCacheResultStatus",
+    "ProviderCacheSlots",
     "StructuredKnowledgeBookResult",
     "SyntheticBookKnowledgeProvider",
     "provider_policy_from_legacy",
