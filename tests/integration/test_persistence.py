@@ -61,6 +61,7 @@ from foliotone.persistence.calibre_library_schema import (
     calibre_reconciliation_finding_refs,
     calibre_reconciliation_findings,
 )
+from foliotone.persistence.classification_schema import CLASSIFICATION_PROJECTION_TABLES
 from foliotone.persistence.consolidation_schema import CONSOLIDATION_TABLES
 from foliotone.persistence.relation_candidate_schema import (
     relation_candidate_evidence,
@@ -116,6 +117,8 @@ def test_migration_creates_current_schema_and_is_idempotent(tmp_path: Path) -> N
     table_names = set(inspector.get_table_names())
     expected = {table.name for table in ALL_TABLES} | {
         table.name for table in CONSOLIDATION_TABLES
+    } | {
+        table.name for table in CLASSIFICATION_PROJECTION_TABLES
     } | {
         "alembic_version",
         file_scan_events.name,
@@ -196,6 +199,19 @@ def test_migration_creates_current_schema_and_is_idempotent(tmp_path: Path) -> N
             "ix_provider_cache_entries_provider_query",
             "ix_provider_cache_entries_status_expires",
             "ix_provider_cache_entries_retention_until_source_cache_key",
+        },
+        "classification_assertions": {"ix_classification_assertions_target_id"},
+        "book_classification_assertion_lineage": {
+            "ix_book_classification_lineage_profile_assertion",
+        },
+        "book_classification_projections": {
+            "ix_book_classification_projections_target_profile_created",
+        },
+        "book_classification_projection_values": {
+            "ix_book_classification_projection_values_projection_dimension_ordinal",
+        },
+        "book_classification_projection_assertions": {
+            "ix_book_classification_projection_assertions_assertion_projection",
         },
         "consolidation_plans": {"ix_consolidation_plans_root_scan"},
         "consolidation_quality_evidence": {"ix_consolidation_quality_observation"},
@@ -287,7 +303,7 @@ def test_migration_creates_current_schema_and_is_idempotent(tmp_path: Path) -> N
                 "target_id": "00000000-0000-0000-0000-000000000001",
             },
         ).all()
-    assert revision == "0017_provider_cache_schema"
+    assert revision == "0018_book_classification_projection"
     assert any("ix_fingerprints_target_profile_id_value" in str(row[-1]) for row in query_plan)
     with engine.begin() as connection:
         connection.execute(
@@ -642,7 +658,7 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0017_provider_cache_schema"
+    assert revision == "0018_book_classification_projection"
 
 
 def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
@@ -663,7 +679,7 @@ def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
 
     assert "ix_fingerprints_target_profile_id_value" in indexes
-    assert revision == "0017_provider_cache_schema"
+    assert revision == "0018_book_classification_projection"
 
 
 def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
@@ -714,7 +730,7 @@ def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
         "ix_ebook_candidate_hash_runs_root_started",
     } <= {str(index["name"]) for index in inspector.get_indexes(ebook_candidate_hash_runs.name)}
     assert duplicate_count == 2
-    assert revision == "0017_provider_cache_schema"
+    assert revision == "0018_book_classification_projection"
 
 
 def test_migration_from_previous_head_adds_provider_cache_entries(
@@ -739,7 +755,7 @@ def test_migration_from_previous_head_adds_provider_cache_entries(
         second_revision = connection.execute(
             text("SELECT version_num FROM alembic_version")
         ).scalar_one()
-    assert second_revision == "0017_provider_cache_schema"
+    assert second_revision == "0018_book_classification_projection"
 
 
 def test_migration_0017_downgrade_guard(tmp_path: Path) -> None:
