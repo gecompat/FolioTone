@@ -5,13 +5,201 @@ This module intentionally contains only immutable, serializable core contracts.
 
 from __future__ import annotations
 
+import json
+import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from hashlib import sha256
 from re import fullmatch
+from typing import Final
 
 from foliotone.core._validation import require_aware_datetime
+
+PROVIDER_SOURCE_CACHE_KEY_DOMAIN: Final = "foliotone:provider-source-cache-key/v1"
+PROVIDER_MAPPING_INPUT_KEY_DOMAIN: Final = (
+    "foliotone:provider-mapping-input-key/v1"
+)
+_MAX_KEY_COMPONENT_LENGTH: Final = 128
+_TECHNICAL_ID_PATTERN: Final = r"[a-z0-9._-]+"
+_TECHNICAL_VERSION_SEGMENT_PATTERN: Final = r"[a-z0-9._-]+"
+
+
+def _require_nfc_non_empty(value: object, field_name: str) -> str:
+    if type(value) is not str:
+        raise ValueError(f"{field_name} must be a non-empty string")
+    normalized = unicodedata.normalize("NFC", value.strip())
+    if not normalized:
+        raise ValueError(f"{field_name} must be a non-empty string")
+    if len(normalized) > _MAX_KEY_COMPONENT_LENGTH:
+        raise ValueError(
+            f"{field_name} must not exceed {_MAX_KEY_COMPONENT_LENGTH} characters"
+        )
+    if any(ord(ch) <= 31 or ord(ch) == 127 for ch in normalized):
+        raise ValueError(f"{field_name} must not contain control characters")
+    return normalized
+
+
+def _require_technical_id(value: object, field_name: str) -> str:
+    value = _require_nfc_non_empty(value, field_name)
+    if "\\" in value or ":" in value or "/" in value or any(ch.isspace() for ch in value):
+        raise ValueError(f"{field_name} must be lowercase technical identifier")
+    if fullmatch(_TECHNICAL_ID_PATTERN, value) is None:
+        raise ValueError(f"{field_name} must be lowercase technical identifier")
+    return value
+
+
+def _require_technical_version(value: object, field_name: str) -> str:
+    value = _require_nfc_non_empty(value, field_name)
+    if "\\" in value or ":" in value or any(ch.isspace() for ch in value):
+        raise ValueError(f"{field_name} must be a non-empty version token")
+    if value.startswith("/") or value.endswith("/"):
+        raise ValueError(f"{field_name} must be a non-empty version token")
+    parts = value.split("/")
+    if any(part in {"", ".", ".."} for part in parts):
+        raise ValueError(f"{field_name} must be a non-empty version token")
+    for part in parts:
+        if fullmatch(_TECHNICAL_VERSION_SEGMENT_PATTERN, part) is None:
+            raise ValueError(f"{field_name} must be a non-empty version token")
+        if any(ch.isspace() for ch in part):
+            raise ValueError(f"{field_name} must be a non-empty version token")
+    return value
+
+
+def _require_query_fingerprint(value: object, field_name: str) -> str:
+    value = _require_nfc_non_empty(value, field_name)
+    if not fullmatch(r"[0-9a-f]{64}", value):
+        raise ValueError(f"{field_name} must be a lowercase SHA-256 hexadecimal digest")
+    return value
+
+
+def _serialize_cache_key_payload(payload: dict[str, str]) -> bytes:
+    return json.dumps(
+        {key: value for key, value in payload.items()},
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+
+def _provider_source_cache_key_payload(
+    provider_id: str,
+    provider_adapter_version: str,
+    query_fingerprint: str,
+    provider_source_version: str,
+) -> dict[str, str]:
+    return {
+        "domain": PROVIDER_SOURCE_CACHE_KEY_DOMAIN,
+        "provider_id": _require_technical_id(provider_id, "provider_id"),
+        "provider_adapter_version": _require_technical_version(
+            provider_adapter_version,
+            "provider_adapter_version",
+        ),
+        "query_fingerprint": _require_query_fingerprint(
+            query_fingerprint,
+            "query_fingerprint",
+        ),
+        "provider_source_version": _require_technical_version(
+            provider_source_version,
+            "provider_source_version",
+        ),
+    }
+
+
+def provider_source_cache_key_bytes(
+    provider_id: str,
+    provider_adapter_version: str,
+    query_fingerprint: str,
+    provider_source_version: str,
+) -> bytes:
+    return _serialize_cache_key_payload(
+        _provider_source_cache_key_payload(
+            provider_id=provider_id,
+            provider_adapter_version=provider_adapter_version,
+            query_fingerprint=query_fingerprint,
+            provider_source_version=provider_source_version,
+        )
+    )
+
+
+def provider_source_cache_key(
+    provider_id: str,
+    provider_adapter_version: str,
+    query_fingerprint: str,
+    provider_source_version: str,
+) -> str:
+    return sha256(
+        provider_source_cache_key_bytes(
+            provider_id=provider_id,
+            provider_adapter_version=provider_adapter_version,
+            query_fingerprint=query_fingerprint,
+            provider_source_version=provider_source_version,
+        )
+    ).hexdigest()
+
+
+def _provider_mapping_input_key_payload(
+    provider_id: str,
+    provider_adapter_version: str,
+    query_fingerprint: str,
+    provider_source_version: str,
+    mapping_profile_version: str,
+) -> dict[str, str]:
+    return {
+        "domain": PROVIDER_MAPPING_INPUT_KEY_DOMAIN,
+        "mapping_profile_version": _require_technical_version(
+            mapping_profile_version,
+            "mapping_profile_version",
+        ),
+        "provider_adapter_version": _require_technical_version(
+            provider_adapter_version,
+            "provider_adapter_version",
+        ),
+        "provider_id": _require_technical_id(provider_id, "provider_id"),
+        "query_fingerprint": _require_query_fingerprint(
+            query_fingerprint,
+            "query_fingerprint",
+        ),
+        "provider_source_version": _require_technical_version(
+            provider_source_version,
+            "provider_source_version",
+        ),
+    }
+
+
+def provider_mapping_input_key_bytes(
+    provider_id: str,
+    provider_adapter_version: str,
+    query_fingerprint: str,
+    provider_source_version: str,
+    mapping_profile_version: str,
+) -> bytes:
+    return _serialize_cache_key_payload(
+        _provider_mapping_input_key_payload(
+            provider_id=provider_id,
+            provider_adapter_version=provider_adapter_version,
+            query_fingerprint=query_fingerprint,
+            provider_source_version=provider_source_version,
+            mapping_profile_version=mapping_profile_version,
+        )
+    )
+
+
+def provider_mapping_input_key(
+    provider_id: str,
+    provider_adapter_version: str,
+    query_fingerprint: str,
+    provider_source_version: str,
+    mapping_profile_version: str,
+) -> str:
+    return sha256(
+        provider_mapping_input_key_bytes(
+            provider_id=provider_id,
+            provider_adapter_version=provider_adapter_version,
+            query_fingerprint=query_fingerprint,
+            provider_source_version=provider_source_version,
+            mapping_profile_version=mapping_profile_version,
+        )
+    ).hexdigest()
 
 
 class ProviderCacheResultStatus(Enum):

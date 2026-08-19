@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -12,6 +14,9 @@ from foliotone.core import EntityKind
 from foliotone.core._validation import require_confidence, require_non_empty
 
 DEFAULT_KNOWLEDGE_PROVIDER_VERSION: Final = "knowledge-provider/v1"
+BOOK_KNOWLEDGE_QUERY_FINGERPRINT_DOMAIN: Final = (
+    "foliotone:book-knowledge-query/v2"
+)
 
 
 class ProviderAccessMode(Enum):
@@ -117,26 +122,35 @@ class BookKnowledgeQuery:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "title", require_non_empty(self.title, "title"))
-        object.__setattr__(
-            self, "authors", tuple(_normalize_text(author) for author in self.authors)
-        )
-        object.__setattr__(
-            self, "identifiers", tuple(_normalize_identifier(*pair) for pair in self.identifiers)
-        )
+        object.__setattr__(self, "authors", _normalize_authors(self.authors))
+        object.__setattr__(self, "identifiers", _normalize_identifiers(self.identifiers))
 
     @property
     def normalized_title(self) -> str:
-        return _normalize_text(self.title)
+        return _normalize_query_title(self.title)
 
     def fingerprint(self) -> str:
-        payload = "|".join(
-            (
-                self.normalized_title,
-                ",".join(self.authors),
-                "|".join(f"{namespace}:{value}" for namespace, value in self.identifiers),
-            )
+        fingerprint_authors = sorted(
+            {_normalize_query_title_value(author) for author in self.authors}
         )
-        return sha256(payload.encode("utf-8")).hexdigest()
+        fingerprint_identifiers = sorted(
+            {
+                _normalize_identifier_for_query(namespace, value)
+                for namespace, value in self.identifiers
+            }
+        )
+        payload = json.dumps(
+            {
+                "authors": fingerprint_authors,
+                "domain": BOOK_KNOWLEDGE_QUERY_FINGERPRINT_DOMAIN,
+                "identifiers": [list(item) for item in fingerprint_identifiers],
+                "title": self.normalized_title,
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        return sha256(payload).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,7 +260,35 @@ class BookKnowledgeResponse:
 
 
 def _normalize_text(value: str) -> str:
-    return require_non_empty(value, "text").strip().casefold()
+    normalized = require_non_empty(value, "text")
+    return unicodedata.normalize("NFC", normalized.casefold())
+
+
+def _normalize_query_title(value: str) -> str:
+    normalized = require_non_empty(value, "text").strip()
+    return unicodedata.normalize("NFC", normalized.casefold())
+
+
+def _normalize_query_title_value(value: str) -> str:
+    normalized = require_non_empty(value, "text").strip()
+    return unicodedata.normalize("NFC", normalized.casefold())
+
+
+def _normalize_identifier_for_query(namespace: str, value: str) -> tuple[str, str]:
+    return (
+        _normalize_query_title_value(namespace),
+        "".join(ch for ch in _normalize_query_title_value(value) if ch.isalnum()),
+    )
+
+
+def _normalize_authors(authors: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(_normalize_text(author) for author in authors)
+
+
+def _normalize_identifiers(
+    identifiers: tuple[tuple[str, str], ...],
+) -> tuple[tuple[str, str], ...]:
+    return tuple(_normalize_identifier(namespace, value) for namespace, value in identifiers)
 
 
 def _normalize_identifier(namespace: str, value: str) -> tuple[str, str]:
