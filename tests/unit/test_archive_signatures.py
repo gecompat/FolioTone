@@ -10,12 +10,20 @@ from typing import Any
 import pytest
 
 from foliotone.archive import (
+    ARCHIVE_PUBLICATION_STORAGE_COMPATIBILITY,
+    ARCHIVE_SIGNATURE_PROFILE_V2,
     ArchiveContainerClass,
     ArchiveFormatKind,
     ArchiveListingStatus,
+    ArchiveOuterCompressionKind,
+    ArchivePublicationKind,
     ArchiveRecognitionStatus,
+    ArchiveSignatureObservationV2,
+    ArchiveStorageFamily,
+    ArchiveSuffixKind,
     group_archive_volume_names,
     observe_archive_signature,
+    observe_archive_signature_v2,
 )
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "archive" / "v1" / "archive_cases.json"
@@ -114,3 +122,121 @@ def test_ambiguous_or_inconsistent_volume_names_are_policy_rejected(
 def test_volume_input_is_consumed_only_to_the_documented_bound() -> None:
     observed = group_archive_volume_names(repeat("book.part001.rar"))
     assert observed.status is ArchiveListingStatus.POLICY_REJECTED
+
+
+@pytest.mark.parametrize(
+    ("name", "header", "publication", "storage", "suffix"),
+    [
+        (
+            "book.epub",
+            b"PK\x03\x04",
+            ArchivePublicationKind.EPUB,
+            ArchiveStorageFamily.ZIP,
+            ArchiveSuffixKind.EPUB,
+        ),
+        (
+            "BOOK.CBZ",
+            b"PK\x05\x06",
+            ArchivePublicationKind.CBZ,
+            ArchiveStorageFamily.ZIP,
+            ArchiveSuffixKind.CBZ,
+        ),
+        (
+            "book.cbr",
+            b"Rar!\x1a\x07\x00",
+            ArchivePublicationKind.CBR,
+            ArchiveStorageFamily.RAR4,
+            ArchiveSuffixKind.CBR,
+        ),
+        (
+            "book.cbr",
+            b"Rar!\x1a\x07\x01\x00",
+            ArchivePublicationKind.CBR,
+            ArchiveStorageFamily.RAR5,
+            ArchiveSuffixKind.CBR,
+        ),
+        (
+            "book.zip",
+            b"PK\x03\x04",
+            ArchivePublicationKind.NONE,
+            ArchiveStorageFamily.ZIP,
+            ArchiveSuffixKind.ZIP,
+        ),
+        (
+            "book.rar",
+            b"Rar!\x1a\x07\x01\x00",
+            ArchivePublicationKind.NONE,
+            ArchiveStorageFamily.RAR5,
+            ArchiveSuffixKind.RAR,
+        ),
+        (
+            "book.7z",
+            b"7z\xbc\xaf'\x1c",
+            ArchivePublicationKind.NONE,
+            ArchiveStorageFamily.SEVEN_Z,
+            ArchiveSuffixKind.SEVEN_Z,
+        ),
+    ],
+)
+def test_v2_routes_publication_and_storage_as_orthogonal_axes(
+    name: str,
+    header: bytes,
+    publication: ArchivePublicationKind,
+    storage: ArchiveStorageFamily,
+    suffix: ArchiveSuffixKind,
+) -> None:
+    observed = observe_archive_signature_v2(name, header)
+    assert observed.profile == ARCHIVE_SIGNATURE_PROFILE_V2
+    assert observed.compatibility == ARCHIVE_PUBLICATION_STORAGE_COMPATIBILITY
+    assert observed.publication_kind is publication
+    assert observed.storage_family is storage
+    assert observed.suffix_kind is suffix
+    assert observed.outer_compression_kind is ArchiveOuterCompressionKind.NONE
+    assert observed.recognition_status is ArchiveRecognitionStatus.MATCHED
+
+
+def test_v2_routes_tar_wrappers_and_mismatches_without_guessing(
+    cases: dict[str, Any],
+) -> None:
+    tar_case = next(
+        case for case in cases["signatures"] if case["name"] == "tar-header-only"
+    )
+    tar_header = bytes.fromhex(tar_case["header_hex"] + tar_case["tail_padding_hex"])
+    tar = observe_archive_signature_v2("book.tar", tar_header)
+    assert tar.storage_family is ArchiveStorageFamily.TAR
+    assert tar.recognition_status is ArchiveRecognitionStatus.MATCHED
+
+    gzip = observe_archive_signature_v2("book.tar.gz", b"\x1f\x8b")
+    assert gzip.storage_family is ArchiveStorageFamily.UNKNOWN
+    assert gzip.outer_compression_kind is ArchiveOuterCompressionKind.GZIP
+    assert gzip.recognition_status is ArchiveRecognitionStatus.OUTER_COMPRESSION_ONLY
+
+    mismatch = observe_archive_signature_v2("book.gz", b"PK\x03\x04")
+    assert mismatch.storage_family is ArchiveStorageFamily.ZIP
+    assert mismatch.suffix_kind is ArchiveSuffixKind.UNSUPPORTED
+    assert mismatch.recognition_status is ArchiveRecognitionStatus.SIGNATURE_SUFFIX_MISMATCH
+    unsupported = observe_archive_signature_v2("book.exe", b"\x1f\x8b")
+    assert unsupported.recognition_status is ArchiveRecognitionStatus.UNSUPPORTED_FORMAT
+    assert unsupported.container_class is ArchiveContainerClass.UNSUPPORTED_CONTAINER
+    unsupported_gzip = observe_archive_signature_v2("book.gz", b"\x1f\x8b")
+    assert unsupported_gzip.container_class is ArchiveContainerClass.UNSUPPORTED_CONTAINER
+    unknown = observe_archive_signature_v2("book.bin", b"unknown")
+    assert unknown.recognition_status is ArchiveRecognitionStatus.UNKNOWN_SIGNATURE
+
+
+def test_v2_constructor_rejects_cross_axis_inventions() -> None:
+    valid = observe_archive_signature_v2("book.epub", b"PK\x03\x04")
+    assert "book.epub" not in repr(valid)
+    with pytest.raises(ValueError):
+        ArchiveSignatureObservationV2(
+            profile=valid.profile,
+            compatibility=valid.compatibility,
+            container_class=valid.container_class,
+            suffix_kind=valid.suffix_kind,
+            publication_kind=valid.publication_kind,
+            storage_family=ArchiveStorageFamily.RAR5,
+            outer_compression_kind=valid.outer_compression_kind,
+            recognition_status=valid.recognition_status,
+            inspected_bytes=valid.inspected_bytes,
+            structural_confirmation_required=valid.structural_confirmation_required,
+        )

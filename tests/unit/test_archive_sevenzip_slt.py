@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import json
+from dataclasses import replace
+from pathlib import Path
+
 import pytest
 
 import foliotone.archive.sevenzip_slt as slt
 from foliotone.archive.sevenzip_slt import (
+    ARCHIVE_7ZIP_FORMAT_LOCK_PROFILE,
+    ARCHIVE_7ZIP_FORMAT_LOCK_SHA256,
+    ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE,
     ARCHIVE_7ZIP_SLT_MEMBER_PARSER_PROFILE,
     ARCHIVE_7ZIP_SLT_PARSER_PROFILE,
     MAX_CHUNK_BYTES,
@@ -12,6 +19,9 @@ from foliotone.archive.sevenzip_slt import (
     MAX_LINE_CODEPOINTS,
     MAX_MEMBER_COUNT,
     MAX_STDOUT_BYTES,
+    ArchiveSevenZipFormatCase,
+    ArchiveSevenZipLockedMember,
+    ArchiveSevenZipLockedParseResult,
     ArchiveSevenZipSltHeader,
     ArchiveSevenZipSltMember,
     ArchiveSevenZipSltMemberParseResult,
@@ -20,6 +30,16 @@ from foliotone.archive.sevenzip_slt import (
     EphemeralArchiveComment,
     parse_archive_7zip_slt,
     parse_archive_7zip_slt_members,
+    parse_archive_7zip_slt_members_locked,
+)
+from foliotone.archive.signatures import ArchiveStorageFamily, observe_archive_signature_v2
+
+FORMAT_LOCK = (
+    Path(__file__).parents[2]
+    / "packaging"
+    / "archive"
+    / "7zip-26.02"
+    / "archive-format.lock.json"
 )
 
 
@@ -223,6 +243,188 @@ def test_member_only_v2_result_enforces_direct_invariants() -> None:
     for constructor in invalid_constructors:
         with pytest.raises(ValueError):
             constructor()
+
+
+def _tar_header() -> bytes:
+    header = bytearray(512)
+    header[:8] = b"file.txt"
+    header[148:156] = b"        "
+    checksum = sum(header)
+    header[148:156] = f"{checksum:06o}\0 ".encode()
+    return bytes(header)
+
+
+def _locked_observation(storage: str) -> object:
+    names_and_headers = {
+        "ZIP": ("book.zip", b"PK\x03\x04"),
+        "RAR4": ("book.rar", b"Rar!\x1a\x07\x00"),
+        "RAR5": ("book.rar", b"Rar!\x1a\x07\x01\x00"),
+        "SEVEN_Z": ("book.7z", b"7z\xbc\xaf'\x1c"),
+        "TAR": ("book.tar", _tar_header()),
+    }
+    name, header = names_and_headers[storage]
+    return observe_archive_signature_v2(name, header)
+
+
+def _locked_value(value_class: str, ordinal: int) -> str:
+    return {
+        "EMPTY": "",
+        "BOOL_PLUS": "+",
+        "BOOL_MINUS": "-",
+        "CANONICAL_UINT": "1",
+        "CRC32": "ABCDEF12",
+        "TIMESTAMP": "2026-08-20 00:00:00",
+        "PRIVATE_LOCATOR_DISCARDED": f"member-{ordinal}.bin",
+        "PRIVATE_NONEMPTY_DISCARDED": "private-target",
+        "TECHNICAL_NONEMPTY_DISCARDED": "technical",
+    }[value_class]
+
+
+def _locked_stream(capability: dict[str, object]) -> bytes:
+    records: list[str] = []
+    for ordinal, profile in enumerate(capability["record_profiles"], start=1):  # type: ignore[index]
+        fields = profile["fields"]  # type: ignore[index]
+        records.append(
+            "".join(
+                f"{field['name']} = {_locked_value(field['value_class'], ordinal)}\n"
+                for field in fields
+            )
+            + "\n"
+        )
+    return "".join(records).encode()
+
+
+def test_locked_parser_accepts_every_measured_direct_profile() -> None:
+    lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
+    measured = [
+        capability
+        for capability in lock["capabilities"]
+        if capability["disposition"] == "MEASURED"
+    ]
+    assert len(measured) == 14
+    for capability in measured:
+        observation = _locked_observation(capability["storage_family"])
+        result = parse_archive_7zip_slt_members_locked(  # type: ignore[arg-type]
+            observation,
+            [_locked_stream(capability)],
+        )
+        assert result.profile == ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE
+        assert result.lock_profile == ARCHIVE_7ZIP_FORMAT_LOCK_PROFILE
+        assert result.lock_sha256 == ARCHIVE_7ZIP_FORMAT_LOCK_SHA256
+        assert result.status is ArchiveSevenZipSltParseStatus.PARSED
+        assert result.case_kind is ArchiveSevenZipFormatCase(capability["case_kind"])
+        assert len(result.members) == len(capability["record_profiles"])
+        assert all(not hasattr(member, "locator") for member in result.members)
+        assert "private-target" not in repr(result)
+
+
+def test_locked_parser_rejects_field_drift_and_unmeasured_shapes() -> None:
+    lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
+    capability = next(
+        item
+        for item in lock["capabilities"]
+        if item["storage_family"] == "ZIP" and item["case_kind"] == "PLAINTEXT_REGULAR"
+    )
+    source = _locked_stream(capability)
+    observation = _locked_observation("ZIP")
+    mutations = (
+        source.replace(b"Folder = -\nSize = 1", b"Size = 1\nFolder = -"),
+        source.replace(b"Folder = -", b"Folder = +"),
+        source.replace(b"Path = member-1.bin", b"Unknown = material"),
+    )
+    for mutation in mutations:
+        result = parse_archive_7zip_slt_members_locked(  # type: ignore[arg-type]
+            observation, [mutation]
+        )
+        assert result.status is ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED
+        assert result.members == ()
+
+
+def test_locked_parser_rejects_wrapper_and_mismatch_before_chunk_consumption() -> None:
+    def forbidden_chunks() -> object:
+        raise AssertionError("chunks must not be consumed")
+        yield b"private"
+
+    for observation in (
+        observe_archive_signature_v2("book.tar.gz", b"\x1f\x8b"),
+        observe_archive_signature_v2("book.gz", b"PK\x03\x04"),
+    ):
+        result = parse_archive_7zip_slt_members_locked(  # type: ignore[arg-type]
+            observation, forbidden_chunks()
+        )
+        assert result.status is ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED
+
+
+def test_locked_result_rejects_foreign_material_bindings() -> None:
+    with pytest.raises(ValueError):
+        ArchiveSevenZipLockedParseResult(
+            profile=ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE,
+            lock_profile=ARCHIVE_7ZIP_FORMAT_LOCK_PROFILE,
+            lock_sha256="0" * 64,
+            compatibility="archive-publication-storage-compatibility/v1",
+            signature_profile="archive-signature-observer/v2",
+            storage_family=ArchiveStorageFamily.ZIP,
+            status=ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED,
+        )
+
+
+def test_locked_result_rejects_unmeasured_and_cross_case_direct_shapes() -> None:
+    regular = ArchiveSevenZipLockedMember(
+        is_directory=False,
+        declared_uncompressed_bytes=1,
+        declared_compressed_bytes=1,
+        encrypted=False,
+        crc32=None,
+        symbolic_link=False,
+        hard_link=False,
+        user_present=False,
+        group_present=False,
+        characteristics_present=False,
+        alternate_stream=False,
+        anti_item=False,
+    )
+    common = {
+        "profile": ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE,
+        "lock_profile": ARCHIVE_7ZIP_FORMAT_LOCK_PROFILE,
+        "lock_sha256": ARCHIVE_7ZIP_FORMAT_LOCK_SHA256,
+        "compatibility": "archive-publication-storage-compatibility/v1",
+        "signature_profile": "archive-signature-observer/v2",
+        "status": ArchiveSevenZipSltParseStatus.PARSED,
+    }
+    invalid = (
+        (ArchiveStorageFamily.RAR4, ArchiveSevenZipFormatCase.MIXED, (regular, regular)),
+        (ArchiveStorageFamily.ZIP, ArchiveSevenZipFormatCase.MIXED, (regular,)),
+        (ArchiveStorageFamily.ZIP, ArchiveSevenZipFormatCase.DIRECTORY, (regular,)),
+    )
+    for storage, case_kind, members in invalid:
+        with pytest.raises(ValueError):
+            ArchiveSevenZipLockedParseResult(
+                storage_family=storage,
+                case_kind=case_kind,
+                members=members,
+                **common,  # type: ignore[arg-type]
+            )
+
+
+def test_locked_result_rejects_storage_specific_projection_drift() -> None:
+    lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
+    for storage, mutation in (
+        ("ZIP", {"crc32": None}),
+        ("TAR", {"user_present": False}),
+    ):
+        capability = next(
+            item
+            for item in lock["capabilities"]
+            if item["storage_family"] == storage
+            and item["case_kind"] == "PLAINTEXT_REGULAR"
+        )
+        valid = parse_archive_7zip_slt_members_locked(  # type: ignore[arg-type]
+            _locked_observation(storage), [_locked_stream(capability)]
+        )
+        assert valid.status is ArchiveSevenZipSltParseStatus.PARSED
+        drifted = replace(valid.members[0], **mutation)
+        with pytest.raises(ValueError):
+            replace(valid, members=(drifted,))
 
 
 def _listing(*, comment: str = "", member_path: str = "books/a.epub") -> bytes:
