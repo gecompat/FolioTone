@@ -1,0 +1,744 @@
+"""Bounded real archive listing and integrity through the fixed Linux runner."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import queue
+import re
+import threading
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Final, Protocol
+
+from foliotone.archive.container_sandbox import (
+    ArchiveContainerRequest,
+    ArchiveContainerRunResult,
+    ArchiveContainerRunStatus,
+    ArchiveLinuxContainerRunner,
+)
+from foliotone.archive.process_runner import CancellationProbe
+from foliotone.archive.safety_policy import (
+    ARCHIVE_SAFETY_POLICY_PROFILE,
+    MAX_MEMBER_COUNT,
+    ArchiveMemberDescriptor,
+    ArchiveMemberKind,
+    ArchiveSafetyStatus,
+    validate_archive_safety,
+)
+from foliotone.archive.secret_handle import ArchivePasswordAttemptStatus
+from foliotone.archive.sevenzip import (
+    ARCHIVE_7ZIP_ADAPTER_VERSION,
+    ARCHIVE_7ZIP_PROVIDER_ID,
+    ARCHIVE_7ZIP_TOOL_VERSION,
+    ARCHIVE_LINUX_CONTAINER_RUNNER_PROFILE,
+    build_7zzs_integrity_command,
+    build_7zzs_listing_command,
+)
+from foliotone.archive.sevenzip_slt import (
+    ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE,
+    ArchiveSevenZipSltMember,
+    ArchiveSevenZipSltParseStatus,
+    _ArchiveSevenZipLockedPrivateParseResult,
+    _parse_archive_7zip_slt_members_locked_private,
+)
+from foliotone.archive.signatures import (
+    ArchiveListingStatus,
+    ArchiveRecognitionStatus,
+    ArchiveSignatureObservationV2,
+)
+from foliotone.archive.workflow import (
+    ARCHIVE_EXTRACTION_PROFILE,
+    ARCHIVE_LISTING_PROFILE,
+    NONE_SECRET_VERSION,
+    ArchiveEncryptionStatus,
+    ArchiveIntegrityExecution,
+    ArchiveIntegrityStatus,
+    ArchiveListingExecution,
+    ArchiveListingResult,
+    ArchiveMemberCrcStatus,
+    ArchiveMemberObservation,
+    ArchiveReuseKey,
+    build_archive_member_identity,
+)
+from foliotone.core import EntityId, ToolCapability, ToolExecutionStatus
+from foliotone.tooling import ToolExecution
+
+ARCHIVE_PROVIDER_PROFILE: Final = "archive-7zip-provider/v1"
+_INPUT_DOMAIN: Final = b"archive-7zip-provider-input/v1\x00"
+_VOLUME_GROUP_DOMAIN: Final = b"archive-volume-group/v1\x00"
+_SHA256: Final = re.compile(r"[0-9a-f]{64}\Z")
+_INPUT_IDENTITY: Final = re.compile(r"archive-7zip-provider-input/v1:[0-9a-f]{64}\Z")
+_OPAQUE: Final = re.compile(r"[A-Za-z0-9._@-]{1,256}\Z")
+_SENTINEL: Final = object()
+_PROVIDER_LISTING_STATUSES: Final = frozenset(
+    {
+        ArchiveListingStatus.NOT_ATTEMPTED,
+        ArchiveListingStatus.LISTED,
+        ArchiveListingStatus.LIMIT_EXCEEDED,
+        ArchiveListingStatus.TIMED_OUT,
+        ArchiveListingStatus.TOOL_UNAVAILABLE,
+        ArchiveListingStatus.TOOL_FAILED,
+        ArchiveListingStatus.POLICY_REJECTED,
+    }
+)
+_PROVIDER_INTEGRITY_STATUSES: Final = frozenset(
+    {
+        ArchiveIntegrityStatus.NOT_TESTED,
+        ArchiveIntegrityStatus.PASSED,
+        ArchiveIntegrityStatus.LIMIT_EXCEEDED,
+        ArchiveIntegrityStatus.TIMED_OUT,
+        ArchiveIntegrityStatus.TOOL_UNAVAILABLE,
+        ArchiveIntegrityStatus.TOOL_FAILED,
+        ArchiveIntegrityStatus.POLICY_REJECTED,
+    }
+)
+
+
+class _Runner(Protocol):
+    def run(
+        self,
+        request: ArchiveContainerRequest,
+        *,
+        stdout_consumer: Callable[[bytes], bool],
+        stderr_classifier: Callable[[bytes], bool],
+        cancellation: CancellationProbe | None = None,
+    ) -> ArchiveContainerRunResult: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveProviderResult:
+    """Locator-free public projection of one validated private listing result."""
+
+    profile: str
+    listing_execution: ArchiveListingExecution
+    encryption_status: ArchiveEncryptionStatus
+    reuse_key: ArchiveReuseKey
+    integrity_execution: ArchiveIntegrityExecution
+    password_attempt_status: ArchivePasswordAttemptStatus
+    extraction_policy_status: ArchiveSafetyStatus
+    member_count: int
+
+    def __post_init__(self) -> None:
+        if self.profile != ARCHIVE_PROVIDER_PROFILE:
+            raise ValueError("unsupported archive provider result profile")
+        if not isinstance(self.listing_execution, ArchiveListingExecution):
+            raise ValueError("listing_execution must be ArchiveListingExecution")
+        if not isinstance(self.encryption_status, ArchiveEncryptionStatus):
+            raise ValueError("encryption_status must be ArchiveEncryptionStatus")
+        if not isinstance(self.reuse_key, ArchiveReuseKey):
+            raise ValueError("reuse_key must be ArchiveReuseKey")
+        if not isinstance(self.integrity_execution, ArchiveIntegrityExecution):
+            raise ValueError("integrity_execution must be ArchiveIntegrityExecution")
+        if not isinstance(self.password_attempt_status, ArchivePasswordAttemptStatus):
+            raise ValueError("password_attempt_status must be ArchivePasswordAttemptStatus")
+        if not isinstance(self.extraction_policy_status, ArchiveSafetyStatus):
+            raise ValueError("extraction_policy_status must be ArchiveSafetyStatus")
+        if self.listing_status not in _PROVIDER_LISTING_STATUSES:
+            raise ValueError("listing status is not authorized by archive provider v1")
+        if self.integrity_status not in _PROVIDER_INTEGRITY_STATUSES:
+            raise ValueError("integrity status is not authorized by archive provider v1")
+        if (
+            isinstance(self.member_count, bool)
+            or not isinstance(self.member_count, int)
+            or not 0 <= self.member_count <= MAX_MEMBER_COUNT
+        ):
+            raise ValueError("member_count exceeds the archive provider bound")
+        if self.listing_status is not ArchiveListingStatus.LISTED:
+            if (
+                self.member_count != 0
+                or self.encryption_status is not ArchiveEncryptionStatus.UNKNOWN
+                or self.integrity_status is not ArchiveIntegrityStatus.NOT_TESTED
+                or self.password_attempt_status is not ArchivePasswordAttemptStatus.NOT_ATTEMPTED
+                or self.extraction_policy_status is ArchiveSafetyStatus.ACCEPTED
+            ):
+                raise ValueError("failed or unattempted listing projection is inconsistent")
+        elif self.encryption_status is ArchiveEncryptionStatus.NONE:
+            if (
+                self.password_attempt_status is not ArchivePasswordAttemptStatus.NOT_ATTEMPTED
+                or self.integrity_status is ArchiveIntegrityStatus.NOT_TESTED
+            ):
+                raise ValueError("plaintext listing projection requires tested integrity")
+        elif self.encryption_status in {
+            ArchiveEncryptionStatus.DATA_ENCRYPTED,
+            ArchiveEncryptionStatus.MIXED,
+        }:
+            if (
+                self.integrity_status is not ArchiveIntegrityStatus.NOT_TESTED
+                or self.password_attempt_status
+                is not ArchivePasswordAttemptStatus.SECURE_CHANNEL_UNAVAILABLE
+                or self.extraction_policy_status is ArchiveSafetyStatus.ACCEPTED
+                or (
+                    self.encryption_status is ArchiveEncryptionStatus.DATA_ENCRYPTED
+                    and self.member_count < 1
+                )
+                or (
+                    self.encryption_status is ArchiveEncryptionStatus.MIXED
+                    and self.member_count < 2
+                )
+            ):
+                raise ValueError("encrypted listing projection must remain blocked")
+        else:
+            raise ValueError("listed archive encryption must be determined")
+
+    @property
+    def listing_status(self) -> ArchiveListingStatus:
+        return self.listing_execution.status
+
+    @property
+    def integrity_status(self) -> ArchiveIntegrityStatus:
+        return self.integrity_execution.status
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveProviderOutcome:
+    profile: str
+    result: ArchiveProviderResult | None = field(default=None, repr=False)
+    executions: tuple[ToolExecution, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.profile != ARCHIVE_PROVIDER_PROFILE:
+            raise ValueError("unsupported archive provider profile")
+        if not isinstance(self.executions, tuple) or any(
+            not isinstance(item, ToolExecution) for item in self.executions
+        ):
+            raise ValueError("executions must contain ToolExecution values")
+        if len(self.executions) > 2 or len({item.id for item in self.executions}) != len(
+            self.executions
+        ):
+            raise ValueError("archive provider executions must be distinct and bounded")
+        if self.executions and (
+            any(
+                item.provider_id != ARCHIVE_7ZIP_PROVIDER_ID
+                or item.tool_version != ARCHIVE_7ZIP_TOOL_VERSION
+                or item.adapter_version != ARCHIVE_7ZIP_ADAPTER_VERSION
+                or item.config_identity != ARCHIVE_PROVIDER_PROFILE
+                for item in self.executions
+            )
+            or len({item.input_identity for item in self.executions}) != 1
+            or any(
+                _INPUT_IDENTITY.fullmatch(item.input_identity) is None for item in self.executions
+            )
+        ):
+            raise ValueError("tool executions must use the fixed archive provider identity")
+        if self.result is None:
+            if (
+                not self.executions
+                or self.executions[-1].status is not ToolExecutionStatus.CANCELLED
+            ):
+                raise ValueError("snapshotless outcome requires a cancelled execution")
+            expected: tuple[tuple[ToolCapability, ToolExecutionStatus], ...]
+            if len(self.executions) == 1:
+                expected = ((ToolCapability.ARCHIVE_LISTING, ToolExecutionStatus.CANCELLED),)
+            else:
+                expected = (
+                    (ToolCapability.ARCHIVE_LISTING, ToolExecutionStatus.SUCCEEDED),
+                    (ToolCapability.ARCHIVE_INTEGRITY, ToolExecutionStatus.CANCELLED),
+                )
+            if tuple((item.capability, item.status) for item in self.executions) != expected:
+                raise ValueError("cancelled archive provenance has an invalid execution shape")
+            return
+        if not isinstance(self.result, ArchiveProviderResult):
+            raise ValueError("result must be ArchiveProviderResult or None")
+        expected_ids = tuple(
+            value
+            for value in (
+                self.result.listing_execution.execution_id,
+                self.result.integrity_execution.execution_id,
+            )
+            if value is not None
+        )
+        if tuple(str(item.id) for item in self.executions) != expected_ids:
+            raise ValueError("tool executions do not match archive result provenance")
+        expected_identity = build_archive_provider_input_identity(
+            archive_full_sha256=self.result.reuse_key.archive_full_sha256,
+            volume_group_fingerprint=self.result.reuse_key.volume_group_fingerprint,
+        )
+        if any(item.input_identity != expected_identity for item in self.executions):
+            raise ValueError("tool executions do not match archive material identity")
+        expected_executions = tuple(
+            (
+                capability,
+                ToolExecutionStatus.SUCCEEDED if succeeded else ToolExecutionStatus.FAILED,
+            )
+            for capability, succeeded in (
+                (
+                    ToolCapability.ARCHIVE_LISTING,
+                    self.result.listing_status is ArchiveListingStatus.LISTED,
+                ),
+                (
+                    ToolCapability.ARCHIVE_INTEGRITY,
+                    self.result.integrity_status is ArchiveIntegrityStatus.PASSED,
+                ),
+            )[: len(self.executions)]
+        )
+        if tuple((item.capability, item.status) for item in self.executions) != expected_executions:
+            raise ValueError("tool execution statuses do not match archive result states")
+
+
+def build_archive_provider_input_identity(
+    *, archive_full_sha256: str, volume_group_fingerprint: str
+) -> str:
+    """Return the sole closed, path-free identity accepted by this adapter."""
+
+    for value in (archive_full_sha256, volume_group_fingerprint):
+        if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
+            raise ValueError("archive provider inputs must be lowercase SHA-256")
+    material = json.dumps(
+        {
+            "archive_full_sha256": archive_full_sha256,
+            "volume_group_fingerprint": volume_group_fingerprint,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("ascii")
+    return "archive-7zip-provider-input/v1:" + hashlib.sha256(_INPUT_DOMAIN + material).hexdigest()
+
+
+def build_archive_volume_group_fingerprint(request: ArchiveContainerRequest) -> str:
+    """Bind the canonical ordered volume material without exposing locators."""
+
+    if not isinstance(request, ArchiveContainerRequest):
+        raise ValueError("request must be ArchiveContainerRequest")
+    material = json.dumps(
+        [
+            {
+                "full_sha256": volume.full_sha256,
+                "size_bytes": volume.size_bytes,
+                "staging_name": volume.staging_name,
+            }
+            for volume in request.volumes
+        ],
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("ascii")
+    return hashlib.sha256(_VOLUME_GROUP_DOMAIN + material).hexdigest()
+
+
+class ArchiveSevenZipProvider:
+    """Production adapter for exactly ``ArchiveLinuxContainerRunner`` only."""
+
+    def __init__(self, runner: ArchiveLinuxContainerRunner) -> None:
+        if type(runner) is not ArchiveLinuxContainerRunner:
+            raise ValueError("archive provider requires the exact ArchiveLinuxContainerRunner")
+        self._runner = runner
+
+    def inspect(
+        self,
+        request: ArchiveContainerRequest,
+        *,
+        signature: ArchiveSignatureObservationV2,
+        archive_observation_id: str,
+        archive_full_sha256: str,
+        volume_group_fingerprint: str,
+        cancellation: CancellationProbe | None = None,
+    ) -> ArchiveProviderOutcome:
+        return _inspect(
+            self._runner,
+            request,
+            signature=signature,
+            archive_observation_id=archive_observation_id,
+            archive_full_sha256=archive_full_sha256,
+            volume_group_fingerprint=volume_group_fingerprint,
+            cancellation=cancellation,
+            now=lambda: datetime.now(UTC),
+        )
+
+
+def _inspect(
+    runner: _Runner,
+    request: ArchiveContainerRequest,
+    *,
+    signature: ArchiveSignatureObservationV2,
+    archive_observation_id: str,
+    archive_full_sha256: str,
+    volume_group_fingerprint: str,
+    cancellation: CancellationProbe | None,
+    now: Callable[[], datetime],
+) -> ArchiveProviderOutcome:
+    if not isinstance(request, ArchiveContainerRequest):
+        raise ValueError("request must be ArchiveContainerRequest")
+    if request.command != build_7zzs_listing_command():
+        raise ValueError("archive provider accepts only the fixed listing request")
+    if not isinstance(signature, ArchiveSignatureObservationV2):
+        raise ValueError("signature must be ArchiveSignatureObservationV2")
+    if (
+        not isinstance(archive_observation_id, str)
+        or _OPAQUE.fullmatch(archive_observation_id) is None
+    ):
+        raise ValueError("archive_observation_id must be path-free and opaque")
+    primary = next(volume for volume in request.volumes if volume.staging_name == "archive")
+    if archive_full_sha256 != primary.full_sha256:
+        raise ValueError("archive hash does not match the primary volume")
+    if volume_group_fingerprint != build_archive_volume_group_fingerprint(request):
+        raise ValueError("volume group fingerprint does not match the request")
+    identity = build_archive_provider_input_identity(
+        archive_full_sha256=archive_full_sha256,
+        volume_group_fingerprint=volume_group_fingerprint,
+    )
+    reuse_key = _reuse_key(archive_full_sha256, volume_group_fingerprint)
+    if signature.recognition_status is not ArchiveRecognitionStatus.MATCHED:
+        return _provider_outcome(
+            ArchiveListingResult(
+                ArchiveListingExecution(ArchiveListingStatus.NOT_ATTEMPTED),
+                ArchiveEncryptionStatus.UNKNOWN,
+                reuse_key,
+                extraction_policy_status=ArchiveSafetyStatus.POLICY_REJECTED,
+            ),
+        )
+
+    listing_started = now()
+    listing_run, parsed, parser_terminal = _stream_listing(runner, request, signature, cancellation)
+    listing_status = _listing_status(listing_run, parsed.public.status, parser_terminal)
+    listing_execution = _tool_execution(
+        identity,
+        ToolCapability.ARCHIVE_LISTING,
+        listing_started,
+        now(),
+        listing_run,
+        succeeded=listing_status is ArchiveListingStatus.LISTED,
+    )
+    executions: tuple[ToolExecution, ...] = (listing_execution,)
+    if listing_run.status is ArchiveContainerRunStatus.CANCELLED:
+        return ArchiveProviderOutcome(ARCHIVE_PROVIDER_PROFILE, executions=executions)
+    listing_snapshot = ArchiveListingExecution(listing_status, str(listing_execution.id))
+    if listing_status is not ArchiveListingStatus.LISTED:
+        return _provider_outcome(
+            ArchiveListingResult(
+                listing_snapshot,
+                ArchiveEncryptionStatus.UNKNOWN,
+                reuse_key,
+                extraction_policy_status=_blocked_policy(listing_status),
+            ),
+            executions,
+        )
+
+    raw_members = parsed.members
+    descriptors = tuple(_descriptor(member) for member in raw_members)
+    safety = validate_archive_safety(descriptors, volume_count=len(request.volumes))
+    encryption = _encryption(raw_members)
+    members = _members(
+        raw_members,
+        archive_observation_id,
+        str(listing_execution.id),
+        archive_full_sha256,
+        volume_group_fingerprint,
+    )
+    if encryption is not ArchiveEncryptionStatus.NONE:
+        return _provider_outcome(
+            ArchiveListingResult(
+                listing_snapshot,
+                encryption,
+                reuse_key,
+                members=members,
+                password_attempt_status=(ArchivePasswordAttemptStatus.SECURE_CHANNEL_UNAVAILABLE),
+                extraction_policy_status=ArchiveSafetyStatus.POLICY_REJECTED,
+            ),
+            executions,
+        )
+
+    integrity_started = now()
+    integrity_request = ArchiveContainerRequest(
+        request.volumes, build_7zzs_integrity_command(), request.scan_roots
+    )
+    integrity_run = runner.run(
+        integrity_request,
+        stdout_consumer=_discard,
+        stderr_classifier=_discard,
+        cancellation=cancellation,
+    )
+    integrity_status = _integrity_status(integrity_run)
+    integrity_execution = _tool_execution(
+        identity,
+        ToolCapability.ARCHIVE_INTEGRITY,
+        integrity_started,
+        now(),
+        integrity_run,
+        succeeded=integrity_status is ArchiveIntegrityStatus.PASSED,
+    )
+    executions += (integrity_execution,)
+    if integrity_run.status is ArchiveContainerRunStatus.CANCELLED:
+        return ArchiveProviderOutcome(ARCHIVE_PROVIDER_PROFILE, executions=executions)
+    policy_status = (
+        safety.status
+        if integrity_status is ArchiveIntegrityStatus.PASSED
+        else ArchiveSafetyStatus.POLICY_REJECTED
+    )
+    return _provider_outcome(
+        ArchiveListingResult(
+            listing_snapshot,
+            encryption,
+            reuse_key,
+            ArchiveIntegrityExecution(integrity_status, str(integrity_execution.id)),
+            extraction_policy_status=policy_status,
+            members=members,
+        ),
+        executions,
+    )
+
+
+def _provider_outcome(
+    result: ArchiveListingResult,
+    executions: tuple[ToolExecution, ...] = (),
+) -> ArchiveProviderOutcome:
+    public = ArchiveProviderResult(
+        ARCHIVE_PROVIDER_PROFILE,
+        result.listing_execution,
+        result.encryption_status,
+        result.reuse_key,
+        result.integrity_execution,
+        result.password_attempt_status,
+        result.extraction_policy_status,
+        len(result.members),
+    )
+    return ArchiveProviderOutcome(ARCHIVE_PROVIDER_PROFILE, public, executions)
+
+
+def _stream_listing(
+    runner: _Runner,
+    request: ArchiveContainerRequest,
+    signature: ArchiveSignatureObservationV2,
+    cancellation: CancellationProbe | None,
+) -> tuple[ArchiveContainerRunResult, _ArchiveSevenZipLockedPrivateParseResult, bool]:
+    chunks: queue.Queue[bytes | object] = queue.Queue(maxsize=1)
+    parsed: list[_ArchiveSevenZipLockedPrivateParseResult] = []
+    done = threading.Event()
+    runner_active = threading.Event()
+    parser_terminal = threading.Event()
+
+    def iterable() -> Iterable[bytes]:
+        while True:
+            value = chunks.get()
+            if value is _SENTINEL:
+                return
+            assert isinstance(value, bytes)
+            yield value
+
+    def parse() -> None:
+        try:
+            parsed.append(_parse_archive_7zip_slt_members_locked_private(signature, iterable()))
+        finally:
+            if runner_active.is_set():
+                parser_terminal.set()
+            done.set()
+
+    def consume(chunk: bytes) -> bool:
+        if not isinstance(chunk, bytes):
+            return False
+        while not done.is_set():
+            try:
+                chunks.put(chunk, timeout=0.05)
+                return True
+            except queue.Full:
+                continue
+        return False
+
+    worker = threading.Thread(target=parse, name="archive-locked-parser", daemon=False)
+    worker.start()
+    runner_active.set()
+    try:
+        try:
+            run = runner.run(
+                request,
+                stdout_consumer=consume,
+                stderr_classifier=_discard,
+                cancellation=cancellation,
+            )
+        except Exception:
+            run = ArchiveContainerRunResult(
+                ARCHIVE_LINUX_CONTAINER_RUNNER_PROFILE,
+                ArchiveContainerRunStatus.TOOL_FAILED,
+            )
+    finally:
+        runner_active.clear()
+        if not done.is_set():
+            while not done.is_set():
+                try:
+                    chunks.put(_SENTINEL, timeout=0.05)
+                    break
+                except queue.Full:
+                    continue
+        worker.join(timeout=2.0)
+    if worker.is_alive() or len(parsed) != 1:
+        raise RuntimeError("archive parser worker did not quiesce")
+    return run, parsed[0], parser_terminal.is_set()
+
+
+def _discard(chunk: bytes) -> bool:
+    return isinstance(chunk, bytes)
+
+
+def _reuse_key(archive_sha256: str, volume_fingerprint: str) -> ArchiveReuseKey:
+    return ArchiveReuseKey(
+        archive_sha256,
+        volume_fingerprint,
+        ARCHIVE_7ZIP_PROVIDER_ID,
+        ARCHIVE_7ZIP_TOOL_VERSION,
+        ARCHIVE_7ZIP_ADAPTER_VERSION,
+        ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE,
+        ARCHIVE_LISTING_PROFILE,
+        ARCHIVE_EXTRACTION_PROFILE,
+        ARCHIVE_SAFETY_POLICY_PROFILE,
+        NONE_SECRET_VERSION,
+    )
+
+
+def _descriptor(member: ArchiveSevenZipSltMember) -> ArchiveMemberDescriptor:
+    kind = _member_kind(member)
+    return ArchiveMemberDescriptor(
+        member.locator,
+        kind,
+        member.declared_compressed_bytes,
+        member.declared_uncompressed_bytes,
+        alternate_stream=member.alternate_stream,
+        has_owner=member.user_present,
+        has_group=member.group_present,
+        has_special_flags=member.characteristics_present or member.anti_item,
+    )
+
+
+def _member_kind(member: ArchiveSevenZipSltMember) -> ArchiveMemberKind:
+    if member.symbolic_link and member.hard_link:
+        return ArchiveMemberKind.UNKNOWN
+    if member.symbolic_link:
+        return ArchiveMemberKind.SYMLINK
+    if member.hard_link:
+        return ArchiveMemberKind.HARDLINK
+    if member.is_directory:
+        return ArchiveMemberKind.DIRECTORY
+    return ArchiveMemberKind.REGULAR_FILE
+
+
+def _members(
+    source: tuple[ArchiveSevenZipSltMember, ...],
+    archive_observation_id: str,
+    listing_execution_id: str,
+    archive_sha256: str,
+    volume_fingerprint: str,
+) -> tuple[ArchiveMemberObservation, ...]:
+    values = []
+    for ordinal, item in enumerate(source):
+        kind = _member_kind(item)
+        encrypted = (
+            ArchiveEncryptionStatus.DATA_ENCRYPTED
+            if kind is ArchiveMemberKind.REGULAR_FILE and item.encrypted
+            else ArchiveEncryptionStatus.NONE
+        )
+        values.append(
+            ArchiveMemberObservation(
+                "archive-member-observation/v1",
+                archive_observation_id,
+                volume_fingerprint,
+                ordinal,
+                build_archive_member_identity(
+                    archive_full_sha256=archive_sha256,
+                    volume_group_fingerprint=volume_fingerprint,
+                    member_path_safe=item.locator,
+                    member_ordinal=ordinal,
+                ),
+                item.locator,
+                kind,
+                item.declared_compressed_bytes,
+                item.declared_uncompressed_bytes,
+                crc_status=ArchiveMemberCrcStatus.NOT_TESTED,
+                encryption_status=encrypted,
+                listing_execution_id=listing_execution_id,
+            )
+        )
+    return tuple(values)
+
+
+def _encryption(members: tuple[ArchiveSevenZipSltMember, ...]) -> ArchiveEncryptionStatus:
+    values = {
+        member.encrypted
+        for member in members
+        if _member_kind(member) is ArchiveMemberKind.REGULAR_FILE
+    }
+    if not values or values == {False}:
+        return ArchiveEncryptionStatus.NONE
+    if values == {True}:
+        return ArchiveEncryptionStatus.DATA_ENCRYPTED
+    return ArchiveEncryptionStatus.MIXED
+
+
+def _tool_execution(
+    identity: str,
+    capability: ToolCapability,
+    started: datetime,
+    finished: datetime,
+    run: ArchiveContainerRunResult,
+    *,
+    succeeded: bool,
+) -> ToolExecution:
+    status = (
+        ToolExecutionStatus.CANCELLED
+        if run.status is ArchiveContainerRunStatus.CANCELLED
+        else ToolExecutionStatus.SUCCEEDED
+        if succeeded
+        else ToolExecutionStatus.FAILED
+    )
+    return ToolExecution(
+        EntityId.new(),
+        ARCHIVE_7ZIP_PROVIDER_ID,
+        ARCHIVE_7ZIP_TOOL_VERSION,
+        ARCHIVE_7ZIP_ADAPTER_VERSION,
+        capability,
+        identity,
+        started,
+        status,
+        finished,
+        run.exit_code,
+        config_identity=ARCHIVE_PROVIDER_PROFILE,
+        error_summary=(
+            None if status is ToolExecutionStatus.SUCCEEDED else "ARCHIVE_PROVIDER_FAILED"
+        ),
+    )
+
+
+def _listing_status(
+    run: ArchiveContainerRunResult,
+    parsed: ArchiveSevenZipSltParseStatus,
+    parser_terminal: bool,
+) -> ArchiveListingStatus:
+    if run.status is ArchiveContainerRunStatus.CANCELLED:
+        return ArchiveListingStatus.TOOL_FAILED
+    runner_status = {
+        ArchiveContainerRunStatus.TOOL_FAILED: ArchiveListingStatus.TOOL_FAILED,
+        ArchiveContainerRunStatus.LIMIT_EXCEEDED: ArchiveListingStatus.LIMIT_EXCEEDED,
+        ArchiveContainerRunStatus.TIMED_OUT: ArchiveListingStatus.TIMED_OUT,
+        ArchiveContainerRunStatus.TOOL_UNAVAILABLE: ArchiveListingStatus.TOOL_UNAVAILABLE,
+    }.get(run.status)
+    if runner_status is not None:
+        return runner_status
+    if run.status is ArchiveContainerRunStatus.COMPLETED or (
+        run.status is ArchiveContainerRunStatus.POLICY_REJECTED and parser_terminal
+    ):
+        if parsed is ArchiveSevenZipSltParseStatus.LIMIT_EXCEEDED:
+            return ArchiveListingStatus.LIMIT_EXCEEDED
+        if parsed is not ArchiveSevenZipSltParseStatus.PARSED:
+            return ArchiveListingStatus.TOOL_FAILED
+    if run.status is ArchiveContainerRunStatus.COMPLETED:
+        return ArchiveListingStatus.LISTED
+    if run.status is ArchiveContainerRunStatus.POLICY_REJECTED:
+        return ArchiveListingStatus.POLICY_REJECTED
+    return ArchiveListingStatus.TOOL_FAILED
+
+
+def _integrity_status(run: ArchiveContainerRunResult) -> ArchiveIntegrityStatus:
+    if run.status is ArchiveContainerRunStatus.COMPLETED:
+        return ArchiveIntegrityStatus.PASSED
+    return {
+        ArchiveContainerRunStatus.LIMIT_EXCEEDED: ArchiveIntegrityStatus.LIMIT_EXCEEDED,
+        ArchiveContainerRunStatus.TIMED_OUT: ArchiveIntegrityStatus.TIMED_OUT,
+        ArchiveContainerRunStatus.TOOL_UNAVAILABLE: ArchiveIntegrityStatus.TOOL_UNAVAILABLE,
+        ArchiveContainerRunStatus.POLICY_REJECTED: ArchiveIntegrityStatus.POLICY_REJECTED,
+    }.get(run.status, ArchiveIntegrityStatus.TOOL_FAILED)
+
+
+def _blocked_policy(status: ArchiveListingStatus) -> ArchiveSafetyStatus:
+    return (
+        ArchiveSafetyStatus.LIMIT_EXCEEDED
+        if status is ArchiveListingStatus.LIMIT_EXCEEDED
+        else ArchiveSafetyStatus.POLICY_REJECTED
+    )
