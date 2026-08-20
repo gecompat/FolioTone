@@ -128,3 +128,13 @@ def test_post_merge_diff_check_preserves_byte_identical_renames() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     assert "git diff-tree -M --check HEAD^1 HEAD" in workflow
     assert "git diff-tree --check HEAD^1 HEAD" not in workflow
+
+
+def test_calibre_capture_status_is_closed_consistently() -> None:
+    backlog = (ROOT / "docs/planning/BACKLOG.md").read_text(encoding="utf-8")
+    status = (ROOT / "docs/planning/PROJECT_STATUS.md").read_text(encoding="utf-8")
+
+    assert "| S-EB07-11B2B | DONE |" in backlog
+    assert "Capture-Orchestrierung bleibt offen" not in status
+    assert "Capture-Orchestrierung gegen eine konfigurierte Calibre-Bibliothek bleibt" not in status
+    assert "Calibre-Capture-Schiene aus ADR-0033 ist damit" in status
