@@ -309,11 +309,12 @@ beträgt, vollständigen Lizenzhinweisen und `USER 65532:65532`. Das offizielle
 Release besitzt keinen separaten Signaturnachweis; dieser Sachverhalt bleibt
 als `UNSIGNED_UPSTREAM_RELEASE` Teil der Supply-Chain-Evidence.
 
-S-EBAR-03 setzt die festen Werte mechanisch um, prüft den statischen Tar-Member `7zzs` als
-Linux-x86-64-ELF und baut das Offline-Rezept zweimal. Erst ein identischer,
-in `archive-image-lock/v1` gespeicherter `linux/amd64`-Plattform-Manifest-
-Digest hebt zusammen mit seiner geschützten Post-Merge-Publikation nach
-`ghcr.io/gecompat/foliotone-archive-7zip` `TOOL_UNAVAILABLE` auf. Der Build
+S-EBAR-03 setzt die festen Werte mechanisch um, prüft den statischen Tar-Member
+`7zzs` als Linux-x86-64-ELF und baut das Offline-Rezept zweimal. Der identische,
+in `archive-image-lock/v1` gespeicherte `linux/amd64`-Plattform-Manifest-
+Digest lautet
+`sha256:26c9c2fa32f93210a46fcf6b9651006038f9e766a1d791b463ce9875815a8287`.
+Der Build
 verwendet das in ADR-0040 vollständig gepinnte Buildx-/BuildKit-Profil und
 erzeugt das Runtime-Manifest ohne Inline-Attestations; SBOM und Provenance
 werden anschließend an den gelockten Digest angehängt. Das GHCR-Package muss
@@ -329,6 +330,26 @@ Root-Filesystem, `cap-drop=ALL`, no-new-privileges, Default-oder-strengerem
 Seccomp, ohne Devices, mit festen PID-/RAM-/CPU-Grenzen, fester Entrypoint/argv
 und minimalem Environment. Timeout und Cancellation erzwingen Kill und
 Entfernung des Containers.
+
+[ADR-0041](../decisions/ADR-0041-offline-archive-runtime-availability.md)
+entscheidet die verbleibende Availability-Grenze. Der Bootstrap-Lock und ein
+lokales Image Inspect beweisen keine akzeptierte Release-Lineage. S-EBAR-03A
+muss deshalb vor EBAR-04 einen reviewten `archive-runtime-release/v1`-Record,
+die exakt gehashten Custom-SLSA-/SPDX-Bundles und GitHub-Workflowclaims, eine
+kontrollierte Erstprovisionierung sowie einen monotonen lokalen State
+implementieren. Ein ungepinntes System-`gh` ist nicht die Runtime-Authority;
+die reviewte FolioTone-Source autorisiert die gebundenen Evidence-Bytes.
+
+Public Visibility und Source-Association werden beim Provisioning und
+spätestens alle 90 Tage beim Refresh geprüft. Jeder Archive-Lauf bleibt danach
+vollständig offline und revalidiert Release-Record, Evidence, Revocation,
+lokales OCI-Manifest, Config, komprimierte Layer, geordnete RootFS-`diff_id`-
+Werte und den tatsächlich auswählbaren Docker-Store-Eintrag. Fehlender oder
+beschädigter State, rückläufige Generation oder Clock, Ablauf, Revocation und
+jede Identity-Abweichung liefern `TOOL_UNAVAILABLE`; es gibt keinen Pull- oder
+Registry-Fallback. Ein Offline-Host kann eine seit dem letzten Refresh extern
+veröffentlichte Revocation nicht erkennen, und v1 behauptet keinen TPM-
+Antirollback-Schutz gegen den lokalen Administrator.
 
 Die tatsächliche Source und jeder ScanRoot werden niemals gemountet. FolioTone
 kopiert genau die validierte Volumegruppe in ein opaque privates Input-Staging
@@ -410,6 +431,9 @@ Official references:
 - https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry
 - https://docs.docker.com/build/metadata/attestations/slsa-provenance/
 - https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations
+- https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/verify-attestations-offline
+- https://cli.github.com/manual/gh_attestation_verify
+- https://cli.github.com/manual/gh_attestation_trusted-root
 - https://www.7-zip.org/license.txt
 
 ## Music tools

@@ -76,9 +76,9 @@ mit festem SHA-256, vollständige Lizenzhinweise und den numerischen User
 `65532:65532`. Der Upstream-Release ist nicht unabhängig signiert; die
 FolioTone-Attestation ersetzt diesen fehlenden Nachweis nicht.
 
-S-EBAR-03 muss das Image zweimal offline mit identischen Inputs bauen und den
+S-EBAR-03 baut das Image zweimal offline mit identischen Inputs und fixiert den
 beobachteten identischen `linux/amd64`-Plattform-Manifest-Digest mit dem fest
-gepinnten Buildx-/BuildKit-Profil in `archive-image-lock/v1` fixieren. Die
+gepinnten Buildx-/BuildKit-Profil in `archive-image-lock/v1`. Die
 Runtime-Builds enthalten keine Inline-Attestations; erst nach dem geschützten
 Post-Merge-Publish werden SBOM und das in ADR-0040 festgelegte SLSA-v1-
 Custom-Predicate an den gelockten Digest angehängt. Das GHCR-Package muss
@@ -91,6 +91,33 @@ persistier- oder logbar. Ein fehlender oder abweichender Digest, ein dynamisch
 abhängiges ELF, unvollständige Lizenzhinweise, eine fehlende Attestation oder
 eine fehlgeschlagene anonyme Verifikation ergeben fail-closed
 `TOOL_UNAVAILABLE`.
+
+ADR-0041 akzeptiert FG-A-RUNTIME-AVAILABILITY und schiebt S-EBAR-03A
+verpflichtend vor EBAR-04. `BOOTSTRAP_LOCKED`, lokales Docker Image Inspect
+oder eine erfolgreiche `7zzs i`-Probe sind einzeln und gemeinsam keine
+Runtime-Authority. Erst ein reviewter `archive-runtime-release/v1`-Record in
+der vertrauenswürdigen FolioTone-Source bindet den exakten Manifestdigest,
+Custom-SLSA-/SPDX-Bundles, GitHub-Workflowidentity, Trust-Root-Snapshot und
+Revocation-Generation. Ein ungepinntes `gh` ist keine Runtime-Trust-Root.
+
+Die explizite Erstprovisionierung prüft Public Visibility und Source-
+Association, übernimmt die exakt gehashten Evidence-Bytes, validiert das
+lokale OCI-Layout vollständig und erzeugt erst danach atomar einen privaten
+lokalen State. Jeder Containerstart prüft ohne Netzwerk erneut Release-
+Record, Evidence-Hashes, State, Revocation, höchstens 90 Tage Offline-
+Gültigkeit, den vollständigen OCI-Vertrag sowie Docker Config und geordnete
+RootFS-`diff_id`-Werte. Missing oder beschädigter State, eine rückläufige
+Release-/Revocation-Generation, Clock Rollback, Ablauf, Denylist-Treffer oder
+eine Identity-Abweichung ergeben vor Toolstart `TOOL_UNAVAILABLE`. Public
+Visibility und Source-Association sind Provisioning-/Refresh-Gates und werden
+nicht bei jedem Lauf über das Netzwerk abgefragt.
+
+Offline kann eine nach dem letzten Refresh extern veröffentlichte Revocation
+nicht erkannt werden. Das 90-Tage-Fenster begrenzt dieses Restrisiko; nach
+Ablauf ist ein Refresh erforderlich. Die Regeln behaupten keinen TPM- oder
+Hardware-Antirollback-Schutz. Ein lokaler Administrator, der Programm,
+Image-Store, Clock und Trust-State gemeinsam manipuliert, bleibt außerhalb der
+v1-Sicherheitsgrenze.
 
 Die tatsächliche Source und jeder ScanRoot werden niemals gemountet. Eine
 bereits vollständig validierte Volumegruppe wird in ein opaque privates

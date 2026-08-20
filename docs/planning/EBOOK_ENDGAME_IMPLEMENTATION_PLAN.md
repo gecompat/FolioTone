@@ -1836,15 +1836,16 @@ Extraction Runtime ist durch das separate
 [FG-A-RUNTIME](../decisions/ADR-0039-safe-archive-runtime-and-secret-channel.md)
 für unverschlüsselte Archive vertraglich freigegeben, aber noch nicht
 implementiert. Reale Passwortversuche bleiben bis FG-A-SECRET blockiert.
-S-EBAR-01 und S-EBAR-02 sind umgesetzt. FG-A-IMAGE ist durch
+S-EBAR-01 bis S-EBAR-03 sind umgesetzt. FG-A-IMAGE ist durch
 [ADR-0040](../decisions/ADR-0040-reproducible-archive-runtime-image.md)
-akzeptiert. S-EBAR-03 setzt als Nächstes das projekt-eigene
-`linux/amd64`-`scratch`-Rezept, den statischen `7zzs`-Tar-Member sowie die festen Binär- und Source-Lizenzinputs, UID/GID
-`65532:65532`, das gepinnte Buildx-/BuildKit-Profil, den zweistufigen
-Plattform-Manifest-Digest-Lock sowie nachträglich angehängte SBOM und
-Provenance mechanisch um. Bis zum reproduzierbaren, ohne Inline-Attestations
-publizierten und anonym verifizierten Digest in einem öffentlichen,
-source-associated GHCR-Package bleibt die Runtime `TOOL_UNAVAILABLE`.
+akzeptiert. FG-A-RUNTIME-AVAILABILITY ist durch
+[ADR-0041](../decisions/ADR-0041-offline-archive-runtime-availability.md)
+akzeptiert. S-EBAR-03A implementiert als Nächstes den reviewten Release-
+Acceptance-Record, kontrollierte Erstprovisionierung, Rotation/Revocation und
+die Per-Run-Offline-Revalidierung von Custom SLSA, SPDX, Manifest, OCI-Config
+und RootFS. Public Visibility und Source-Association bleiben Provisioning-
+beziehungsweise Refresh-Gates. Bis Record, Evidence und lokaler State
+vollständig konsistent sind, bleibt die Runtime `TOOL_UNAVAILABLE`.
 Der erste freigegebene Backendvertrag ist
 `archive-linux-container-runner/v1` für die primäre Docker/Linux-Runtime. Er
 verwendet ein digest-gepinntes Image mit exakt verifizierter eingebetteter
@@ -2523,14 +2524,14 @@ ohne die Fähigkeit, Source Media zu verändern.
 # 42. Empfohlener unmittelbarer nächster Implementierungsschritt
 
 Die book-only Wellen EB-00 bis EB-08/W9 sind abgeschlossen. FG-A,
-S-EBA-01 bis S-EBA-07, FG-A-RUNTIME, S-EBAR-01, S-EBAR-02 und FG-A-IMAGE sind
-ebenfalls abgeschlossen. Unmittelbar als Nächstes:
+S-EBA-01 bis S-EBA-07, FG-A-RUNTIME, S-EBAR-01 bis S-EBAR-03 und FG-A-IMAGE
+sind abgeschlossen; FG-A-RUNTIME-AVAILABILITY ist durch ADR-0041 akzeptiert.
+Unmittelbar als Nächstes:
 
-**S-EBAR-03 – reproduzierbares statisches `7zzs`-26.02-`scratch`-Image mit gepinntem
-Buildx-/BuildKit-Profil, zweistufigem Plattform-Manifest-Digest-Lock,
-nachträglicher SBOM/Provenance, öffentlicher/source-associated und anonym
-verifizierter GHCR-Freigabe, Toolmanifest und festen Command Buildern nach
-ADR-0040.**
+**S-EBAR-03A – reviewter `archive-runtime-release/v1`-Record, exakt gehashte
+Custom-SLSA-/SPDX- und Trust-Root-Evidence, kontrollierte Provisionierung,
+Rotation/Revocation sowie netzwerkfreie lokale OCI-/Docker-Revalidierung nach
+ADR-0041.**
 
 Danach folgen die atomaren FG-A-RUNTIME-Pakete strikt in Katalogreihenfolge.
 Die unverschlüsselte Runtime ist vertraglich freigegeben, aber noch nicht

@@ -4,8 +4,8 @@ Stand: 2026-08-20
 
 ## Aktuelle Welle
 
-**FG-A-IMAGE ACCEPTED — nächste Welle: S-EBAR-03
-(reproduzierbares Runtime-Image, Digest-Lock und Command Builder)**
+**FG-A-RUNTIME-AVAILABILITY ACCEPTED — nächste Welle: S-EBAR-03A
+(Release-Acceptance, Provisioning und Offline-Availability)**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -40,13 +40,22 @@ für genau `linux/amd64` `FROM scratch`, den unveränderten offiziellen
 statischen `7zzs`-26.02-Tar-Member mit festem Upstream-SHA-256, vollständige Lizenzhinweise
 und `USER 65532:65532`. Der Upstream-Release besitzt keinen unabhängigen
 Signaturnachweis; FolioTone dokumentiert ihn deshalb als
-`UNSIGNED_UPSTREAM_RELEASE`. S-EBAR-03 setzt als Nächstes das Offline-Rezept,
-den statischen ELF-Nachweis, das gepinnte Buildx-/BuildKit-Profil, den
-zweifachen reproduzierbaren Single-Platform-Build, `archive-image-lock/v1`,
-SBOM/Provenance, Toolmanifest und feste Command Builder mechanisch um. Bis ein
-identischer Plattform-Manifest-Digest ohne Inline-Attestations geschützt nach
-GHCR publiziert, nachträglich attestiert, öffentlich/source-associated
-konfiguriert und anonym per Digest verifiziert wurde, bleibt die Runtime
+`UNSIGNED_UPSTREAM_RELEASE`. S-EBAR-03 hat das Offline-Rezept, den statischen
+ELF-Nachweis, das gepinnte Buildx-/BuildKit-Profil, den zweifachen
+reproduzierbaren Single-Platform-Build, `archive-image-lock/v1`, SPDX,
+Custom-SLSA-Provenance, Toolmanifest und feste Command Builder umgesetzt. Der
+gemessene Plattform-Manifest-Digest lautet
+`sha256:26c9c2fa32f93210a46fcf6b9651006038f9e766a1d791b463ce9875815a8287`.
+
+FG-A-RUNTIME-AVAILABILITY ist durch ADR-0041 akzeptiert. `BOOTSTRAP_LOCKED`
+und lokales Image Inspect sind keine Runtime-Authority. S-EBAR-03A muss vor
+EBAR-04 einen reviewten `archive-runtime-release/v1`-Record, die exakt
+gehashten Custom-SLSA-/SPDX-Evidence, eine kontrollierte Erstprovisionierung,
+einen monotonen lokalen State sowie die vollständige Offline-Revalidierung von
+OCI-Layout, Docker Config und RootFS implementieren. Public Visibility und
+Source-Association werden beim Provisioning und Refresh geprüft, nicht bei
+jedem Lauf. Fehlende oder beschädigte Evidence, Generation-/Clock-Rollback,
+Revocation oder Ablauf nach höchstens 90 Tagen ergeben fail-closed
 `TOOL_UNAVAILABLE`.
 
 Die spezialisierte Runtime darf anschließend ausschließlich unverschlüsselte
@@ -1253,8 +1262,9 @@ Orchestrierung bleibt offen. EB-08 liefert den nicht ausführbaren,
 content-addressed ConsolidationPlan einschließlich read-only Report und
 statischem Non-Execution-Gate. FG-03A/EB-03A und EB-03B sind abgeschlossen.
 In der getrennten Archivstrecke sind FG-A, S-EBA-01 bis S-EBA-07,
-FG-A-RUNTIME, S-EBAR-01, S-EBAR-02 und FG-A-IMAGE abgeschlossen. Der nächste
-maßgebliche Implementierungsschritt ist S-EBAR-03. Reale Passwortversuche
+FG-A-RUNTIME, S-EBAR-01, S-EBAR-02, FG-A-IMAGE und S-EBAR-03 abgeschlossen;
+FG-A-RUNTIME-AVAILABILITY ist durch ADR-0041 akzeptiert. Der nächste
+maßgebliche Implementierungsschritt ist S-EBAR-03A vor EBAR-04. Reale Passwortversuche
 bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert gesperrt. Music W4 bleibt
 bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
 ausschließlich die CLI.
