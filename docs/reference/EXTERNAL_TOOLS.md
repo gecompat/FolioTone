@@ -301,14 +301,16 @@ Die reale Golden-Prüfung von `archive-7zip-slt-parser/v2` hat vor EBAR-05 für
 alle neun vorgesehenen Familien geschlossen abgebrochen. ADR-0044 verlangt
 deshalb formatgebundene, durch ein geschütztes Linux-Messmanifest belegte
 Produktionsprofile. [ADR-0045](../decisions/ADR-0045-archive-7zip-format-lock.md)
-stellt fest, dass Measurement v1 nur den Regular-File-Happy-Path abdeckt und
-die Boolklassifikation von `Commented`, `Split Before` und `Split After`
-korrigiert werden muss. Measurement `40a6ee...` und Vorabkandidat `fdebe71...`
-sind diagnostisch, nicht autoritativ. Als Nächstes folgt S-EBAR-02B2 mit
-Directory-, Encryption- und positiver Linkmatrix. Danach trennt
-FG-A-STORAGE-FAMILY ZIP/RAR4/RAR5/7z/TAR von den Publication-Kinds
-EPUB/CBZ/CBR; erst ein weiteres Gate darf einen maschinenlesbaren finalen Lock
-mit eigenem Digest akzeptieren. gzip, bzip2, xz und zstd bleiben bis EBAR-06
+stellt fest, dass Measurement v1 nur den Regular-File-Happy-Path abdeckt.
+S-EBAR-02B2 hat die Directory-, Encryption- und positive Linkmatrix sowie die
+strikte Boolklassifikation mit Measurement v2 abgeschlossen. Measurement v1
+`40a6ee...` und Vorabkandidat `fdebe71...` bleiben diagnostisch, nicht
+autoritativ. [ADR-0046](../decisions/ADR-0046-archive-publication-and-storage-family.md)
+trennt ZIP/RAR4/RAR5/7z/TAR von den Publication-Kinds EPUB/CBZ/CBR und bindet
+äußere Kompression separat. Suffixe setzen keine Storage-Familie; Tooloutput
+klassifiziert sie nicht neu. Erst der nächste FG-A-FORMAT-LOCK darf einen
+maschinenlesbaren finalen Lock mit eigenem Digest akzeptieren. gzip, bzip2,
+xz und zstd bleiben bis EBAR-06
 ausschließlich
 `OUTER_COMPRESSION_ONLY`: kein produktiver Listing-/Integrity-Lauf, keine
 Member-Evidence, Encryption `UNKNOWN` und keine Extraction-Freigabe. Erst eine

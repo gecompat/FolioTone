@@ -4,8 +4,8 @@ Stand: 2026-08-20
 
 ## Aktuelle Welle
 
-**S-EBAR-02B2 READY — nächstes Gate nach Annahme:
-FG-A-STORAGE-FAMILY**
+**FG-A-STORAGE-FAMILY READY — nächstes Gate nach Annahme:
+FG-A-FORMAT-LOCK**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -86,17 +86,17 @@ S-EBAR-02B ist auf `main` umgesetzt. Das geschützte Linux-Gate hat die
 wertfreie Beobachtung `archive-7zip-format-measurement/v1` für ZIP, RAR4,
 RAR5, 7z, TAR sowie die vier äußeren komprimierten Streams bestätigt.
 Das Review hat diese Messung jedoch als Happy-Path-only und noch nicht
-lockfähig eingeordnet. Außerdem klassifiziert der Messhelper `Commented`,
-`Split Before` und `Split After` derzeit fälschlich als technische statt als
-`VT_BOOL`-Felder, und `ArchiveFormatKind` trennt Publication Kind nicht von
-der RAR4-/RAR5-/ZIP-Storage-Familie. ADR-0045 akzeptiert deshalb nur die neue
+lockfähig eingeordnet. Außerdem klassifizierte der damalige Messhelper
+`Commented`, `Split Before` und `Split After` fälschlich als technische statt
+als `VT_BOOL`-Felder, und `ArchiveFormatKind` trennte Publication Kind nicht
+von der RAR4-/RAR5-/ZIP-Storage-Familie. ADR-0045 akzeptierte deshalb die neue
 Folge S-EBAR-02B2, FG-A-STORAGE-FAMILY, finaler FG-A-FORMAT-LOCK und danach
 S-EBAR-02C. Measurement SHA-256 `40a6ee...` und Vorabkandidat `fdebe71...`
 bleiben ausschließlich diagnostisch; es existiert noch kein akzeptierter
 `archive-7zip-format-lock/v1`. gzip, bzip2, xz und zstd bleiben bis EBAR-06
 `OUTER_COMPRESSION_ONLY`.
 
-S-EBAR-02B2 ist lokal implementiert. Das geschlossene v2-Messmanifest enthält
+S-EBAR-02B2 ist auf `main` umgesetzt. Das geschlossene v2-Messmanifest enthält
 die vollständige 5×8-Matrix aus `MEASURED`, `FORMAT_UNSUPPORTED` und
 `EVIDENCE_UNAVAILABLE`; 18 öffentliche beziehungsweise synthetische Fixtures
 decken die akzeptierten direkten Fälle und die vier äußeren Wrapper ab. Die
@@ -106,11 +106,22 @@ Werte zu serialisieren. Zwei reale Messläufe mit dem gelockten 7-Zip-Image und
 die eingecheckte Erwartungsdatei sind byteidentisch; ihr SHA-256 ist
 `da01ed9108a5ea63097cd1894aa4fbb264f658d65a833e8db3cb526180f2d266`.
 Der geschützte Workflow misst dieselben Fixturebytes zweimal und vergleicht
-beide Resultate mit der eingecheckten Erwartung. Lokal sind 18 fokussierte
-Integrationstests, Ruff und `git diff --check` grün. Der unabhängige Review ist
-ohne P0/P1 abgeschlossen; das einmalige PR-CI-Gate entscheidet die Annahme.
-Bis dahin bleibt das Paket `READY` und es existiert weiterhin kein akzeptierter
-Formatlock.
+beide Resultate mit der eingecheckten Erwartung. PR #154 wurde mit normalem
+Merge-Commit integriert; Quality-, Recipe-, Publish- und Post-Merge-Gates sind
+grün.
+
+FG-A-STORAGE-FAMILY ist durch ADR-0046 entschieden und ohne P0/P1 unabhängig
+geprüft; das einmalige PR-Gate entscheidet die Annahme.
+`archive-signature-observer/v2` trennt Publication Kind
+`NONE/EPUB/CBZ/CBR`, direkte Storage Family
+`ZIP/RAR4/RAR5/SEVEN_Z/TAR/UNKNOWN` und äußere Kompression
+`NONE/GZIP/BZIP2/XZ/ZSTD`. Suffixe liefern Publication- und normalisierte
+Suffix-Evidence, aber niemals Storage-Authority; Signaturebytes liefern
+ausschließlich Storage oder äußere Kompression.
+Widersprüche bleiben `SIGNATURE_SUFFIX_MISMATCH`, Wrapper bleiben vor EBAR-06
+Storage `UNKNOWN`. Profil v1 bleibt legacy-read-only und darf keinen neuen
+Runtimelauf autorisieren. Es existiert weiterhin kein akzeptierter
+Formatlock; der nächste Gate-Schritt ist FG-A-FORMAT-LOCK.
 
 Die spezialisierte Runtime darf anschließend ausschließlich unverschlüsselte
 Archive über bounded Streaming ohne Raw-Artefakt oder Preview verarbeiten.
@@ -1327,9 +1338,9 @@ statischem Non-Execution-Gate. FG-03A/EB-03A und EB-03B sind abgeschlossen.
 In der getrennten Archivstrecke sind FG-A, S-EBA-01 bis S-EBA-07,
 FG-A-RUNTIME, S-EBAR-01 bis S-EBAR-03A, FG-A-IMAGE,
 FG-A-RUNTIME-AVAILABILITY, EBAR-04, S-EBAR-02A und S-EBAR-02B abgeschlossen.
-FG-A-FORMAT-LOCK bleibt nach ADR-0045 offen. S-EBAR-02B2 ist implementiert und
-ohne P0/P1 unabhängig geprüft; das einmalige PR-Gate entscheidet die Annahme.
-Danach folgt FG-A-STORAGE-FAMILY vor dem finalen Formatlock. Reale Passwortversuche
+FG-A-FORMAT-LOCK bleibt nach ADR-0045 offen. S-EBAR-02B2 ist auf `main`
+integriert; ADR-0046 entscheidet FG-A-STORAGE-FAMILY und wartet auf das
+PR-Gate. Danach folgt der finale Formatlock. Reale Passwortversuche
 bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert gesperrt. Music W4
 bleibt bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
 ausschließlich die CLI.

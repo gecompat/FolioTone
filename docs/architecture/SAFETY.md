@@ -59,14 +59,14 @@ weder Prosa noch grobe 7-Zip-Exitcodes sind Ursachen-Authority. Ein nicht
 strukturierter Fehler wird ausschließlich `TOOL_FAILED`. Preview, Raw
 Artifact, Raw Log und eine frei übernommene Host-Environment sind verboten.
 
-ADR-0045 akzeptiert noch keinen Produktionslock. Das aktuelle Measurement
-belegt nur unverschlüsselte Regular-File-Happy-Paths und klassifiziert drei
-`VT_BOOL`-Felder falsch. Vor einem Formatparser müssen S-EBAR-02B2 Directory-,
-Encryption- und positive Linkfälle messen oder source-gepinnt als unsupported
-disponieren sowie FG-A-STORAGE-FAMILY Publication Kind und Storage Family
-orthogonal trennen. Nicht belegte Kombinationen bleiben fail-closed; private
-Linkziele dürfen auch in der erweiterten Messung nie Manifest, Digest, Log oder
-Artefakt erreichen. gzip, bzip2, xz und zstd bleiben bis EBAR-06
+ADR-0045 akzeptiert noch keinen Produktionslock. S-EBAR-02B2 bindet die
+Directory-, Encryption- und positiven Linkfälle geschlossen als `MEASURED`,
+`FORMAT_UNSUPPORTED` oder `EVIDENCE_UNAVAILABLE`. ADR-0046 trennt Publication
+Kind, direkte Storage Family und äußere Kompression orthogonal. Suffixe dürfen
+keine Storage-Familie setzen; 7-Zip-Ausgabe darf sie nicht umklassifizieren.
+Routingwidersprüche und nicht belegte Kombinationen bleiben fail-closed;
+private Linkziele dürfen nie Manifest, Digest, Log oder Artefakt erreichen.
+gzip, bzip2, xz und zstd bleiben bis EBAR-06
 `OUTER_COMPRESSION_ONLY` ohne produktiven Listing-/Integrity-Provider oder
 Member-Evidence.
 

@@ -4,8 +4,9 @@
 
 **Status:** In Ausführung; FG-A, S-EBA-01 bis S-EBA-07, FG-A-RUNTIME,
 S-EBAR-01 bis S-EBAR-03A, FG-A-IMAGE, FG-A-RUNTIME-AVAILABILITY, EBAR-04,
-S-EBAR-02A und S-EBAR-02B abgeschlossen; FG-A-FORMAT-LOCK offen; nächstes
-Paket S-EBAR-02B2
+S-EBAR-02A, S-EBAR-02B und S-EBAR-02B2 abgeschlossen;
+FG-A-STORAGE-FAMILY durch ADR-0046 entschieden und ohne P0/P1 geprüft;
+FG-A-FORMAT-LOCK offen
 
 **Stand:** 2026-08-20
 
@@ -55,9 +56,10 @@ akzeptiert und S-EBAR-03A ist umgesetzt. EBAR-04 stellt den isolierten
 Docker/Linux-Streaming-Runner bereit. S-EBAR-02B hat danach das geschützte
 Linux-Messmanifest erzeugt; [ADR-0045](../decisions/ADR-0045-archive-7zip-format-lock.md)
 stuft es als diagnostische Happy-Path-Evidence ein und akzeptiert noch keinen
-Formatlock. Als Nächstes erweitert S-EBAR-02B2 die Fallmatrix und korrigiert
-die Boolklassifikation. Danach folgen FG-A-STORAGE-FAMILY, der finale
-FG-A-FORMAT-LOCK und erst dann S-EBAR-02C. `BOOTSTRAP_LOCKED` und lokales
+Formatlock. S-EBAR-02B2 hat die Fallmatrix und Boolklassifikation geschlossen.
+[ADR-0046](../decisions/ADR-0046-archive-publication-and-storage-family.md)
+entscheidet FG-A-STORAGE-FAMILY; danach folgen der finale FG-A-FORMAT-LOCK
+und erst dann S-EBAR-02C. `BOOTSTRAP_LOCKED` und lokales
 Inspect allein bleiben keine Runtime-Authority; Public Visibility und
 Source-Association werden nur beim
 Provisioning beziehungsweise Refresh erneut geprüft.
@@ -253,11 +255,12 @@ Umfang:
 
 **Status:** FG-A-RUNTIME, FG-A-IMAGE und FG-A-RUNTIME-AVAILABILITY sind durch
 ADR-0039, ADR-0040 beziehungsweise ADR-0041 akzeptiert. S-EBAR-01 bis
-S-EBAR-03A, EBAR-04, S-EBAR-02A und S-EBAR-02B sind umgesetzt. Die reale
+S-EBAR-03A, EBAR-04, S-EBAR-02A, S-EBAR-02B und S-EBAR-02B2 sind umgesetzt. Die reale
 Golden-Prüfung von Parser v2 löste den vorgesehenen Stop aus. ADR-0045 hält
 FG-A-FORMAT-LOCK wegen unvollständiger Fallmatrix, falscher Boolklassifikation
-und kollidierender Publication-/Storage-Achse offen. S-EBAR-02B2 ist das
-nächste Paket vor FG-A-STORAGE-FAMILY.
+und kollidierender Publication-/Storage-Achse offen. ADR-0046 trennt
+Publication, direkte Storage-Familie und äußere Kompression; der nächste
+Schritt ist der finale FG-A-FORMAT-LOCK.
 
 **Ziel:** Archive werden ohne dauerhafte Extraktion technisch bewertet.
 
@@ -319,9 +322,9 @@ S-EBAR-01 Execution-DTOs
 Die mechanischen S-EBAR-Pakete verwenden das im Spark-Katalog jeweils
 festgelegte Routing. FG-A-IMAGE und FG-A-RUNTIME-AVAILABILITY wurden als
 Frontier-Gates abgeschlossen; S-EBAR-03 bis S-EBAR-03A, EBAR-04,
-S-EBAR-02A und S-EBAR-02B sind umgesetzt. S-EBAR-02B2 verwendet 5.6 Terra
-`medium`; bei Lizenz-, Link-, Encryption-, Format- oder Privacysemantik gilt
-die im Katalog festgelegte Eskalation auf 5.6 Sol `high`.
+S-EBAR-02A, S-EBAR-02B und S-EBAR-02B2 sind umgesetzt.
+FG-A-STORAGE-FAMILY verwendet 5.6 Sol `high`; der finale Formatlock behält
+dasselbe Frontier-Routing.
 Docker/Linux-Streaming-Runner und Extraction-Sandbox verwenden
 5.6 Sol mit Thinking `high`. Nur FG-A-SECRET verwendet 5.6 Sol mit Thinking
 `xhigh` und besitzt kein niedriger eingestuftes Fallback. Status-, CI- und
