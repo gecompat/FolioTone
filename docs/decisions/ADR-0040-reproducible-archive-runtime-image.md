@@ -422,6 +422,11 @@ Workflow auf `refs/heads/main`. Der erste `resolvedDependencies`-Eintrag bindet
 entsprechend dem Build-Type die URI
 `git+https://github.com/gecompat/FolioTone@refs/heads/main` an den finalen
 Commit; weitere fest gehashte Buildabhängigkeiten folgen danach.
+`runDetails.metadata.invocationId` bindet entsprechend dem GitHub-Build-Type
+zusätzlich den konkreten geschützten Publish-Lauf und dessen Versuch. Deshalb
+ist das Predicate bei gleichem Commit und gleicher Invocation bytegleich, aber
+nicht absichtlich über verschiedene Wiederholungen desselben Commits hinweg;
+die reproduzierbare Runtime-Image-Identität bleibt davon unberührt.
 `archive-image-build/v1`, Plattform,
 `SOURCE_DATE_EPOCH` und die übrigen profilspezifischen Werte bleiben zusätzlich
 im geschlossenen `internalParameters.archiveImage`-Objekt gebunden. Ein eigener

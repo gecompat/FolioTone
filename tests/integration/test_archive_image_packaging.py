@@ -90,14 +90,17 @@ def test_custom_provenance_is_deterministic_and_verified_exactly(tmp_path: Path)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     commit = "a" * 40
+    invocation_id = (
+        "https://github.com/gecompat/FolioTone/actions/runs/123456789/attempts/1"
+    )
     first = tmp_path / "first.json"
     second = tmp_path / "second.json"
-    module.write_provenance(commit, first)
-    module.write_provenance(commit, second)
+    module.write_provenance(commit, invocation_id, first)
+    module.write_provenance(commit, invocation_id, second)
     assert first.read_bytes() == second.read_bytes()
     predicate = json.loads(first.read_text(encoding="utf-8"))
-    assert predicate == module.build_provenance_predicate(commit)
-    assert predicate["runDetails"]["metadata"] == {}
+    assert predicate == module.build_provenance_predicate(commit, invocation_id)
+    assert predicate["runDetails"]["metadata"] == {"invocationId": invocation_id}
     assert predicate["buildDefinition"]["buildType"] == (
         "https://actions.github.io/buildtypes/workflow/v1"
     )
@@ -131,6 +134,11 @@ def test_custom_provenance_is_deterministic_and_verified_exactly(tmp_path: Path)
         "https://github.com/gecompat/FolioTone/.github/workflows/"
         "archive-image.yml@refs/heads/main"
     )
+    with pytest.raises(module.EvidenceVerificationError, match="invocation identity"):
+        module.build_provenance_predicate(
+            commit,
+            "https://github.com/other/project/actions/runs/1/attempts/1",
+        )
     result = tmp_path / "verified.json"
     entry = {
         "verificationResult": {
@@ -145,15 +153,15 @@ def test_custom_provenance_is_deterministic_and_verified_exactly(tmp_path: Path)
         }
     }
     result.write_text(json.dumps([entry, entry]), encoding="utf-8")
-    module.verify_attestation_result(result, first, commit)
+    module.verify_attestation_result(result, first, commit, invocation_id)
     result.write_text("[]", encoding="utf-8")
     with pytest.raises(module.EvidenceVerificationError, match="at least one"):
-        module.verify_attestation_result(result, first, commit)
+        module.verify_attestation_result(result, first, commit, invocation_id)
     mismatched = json.loads(json.dumps(entry))
     mismatched["verificationResult"]["statement"]["predicateType"] = "wrong"
     result.write_text(json.dumps([entry, mismatched]), encoding="utf-8")
     with pytest.raises(module.EvidenceVerificationError, match="content mismatch"):
-        module.verify_attestation_result(result, first, commit)
+        module.verify_attestation_result(result, first, commit, invocation_id)
     sbom = json.loads((root / "archive-image.spdx.json").read_text(encoding="utf-8"))
     sbom_entry = json.loads(json.dumps(entry))
     statement = sbom_entry["verificationResult"]["statement"]

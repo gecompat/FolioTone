@@ -39,6 +39,9 @@ MAX_CHALLENGE_BYTES = 1_024
 MAX_TOKEN_RESPONSE_BYTES = 16_384
 MAX_TOKEN_BYTES = 8_192
 COMMIT_RE = re.compile(r"[0-9a-f]{40}\Z")
+INVOCATION_ID_RE = re.compile(
+    r"https://github\.com/gecompat/FolioTone/actions/runs/[1-9][0-9]*/attempts/[1-9][0-9]*\Z"
+)
 ACTION_IDENTITIES = {
     "actions/attest": "daf44fb950173508f38bd2406030372c1d1162b1",
     "actions/attest-sbom": "4651f806c01d8637787e274ac3bdf724ef169f34",
@@ -80,11 +83,16 @@ def _load_lock() -> dict[str, Any]:
     return value
 
 
-def build_provenance_predicate(repository_commit: str) -> dict[str, Any]:
-    """Build the exact deterministic SLSA-v1 predicate for one final commit."""
+def build_provenance_predicate(
+    repository_commit: str,
+    invocation_id: str,
+) -> dict[str, Any]:
+    """Build the exact SLSA-v1 predicate for one final commit and invocation."""
 
     if COMMIT_RE.fullmatch(repository_commit) is None:
         raise EvidenceVerificationError("repository commit must be lowercase SHA-1")
+    if INVOCATION_ID_RE.fullmatch(invocation_id) is None:
+        raise EvidenceVerificationError("workflow invocation identity is invalid")
     lock = _load_lock()
     if lock.get("runtime_platform_manifest_digest") != MANIFEST_DIGEST:
         raise EvidenceVerificationError("runtime manifest identity mismatch")
@@ -236,14 +244,14 @@ def build_provenance_predicate(repository_commit: str) -> dict[str, Any]:
                     "buildx": lock["buildx_version"],
                 },
             },
-            "metadata": {},
+            "metadata": {"invocationId": invocation_id},
             "byproducts": byproducts,
         },
     }
 
 
-def write_provenance(repository_commit: str, output: Path) -> None:
-    predicate = build_provenance_predicate(repository_commit)
+def write_provenance(repository_commit: str, invocation_id: str, output: Path) -> None:
+    predicate = build_provenance_predicate(repository_commit, invocation_id)
     payload = json.dumps(predicate, indent=2, sort_keys=True) + "\n"
     output.write_text(payload, encoding="utf-8", newline="\n")
 
@@ -252,13 +260,14 @@ def verify_attestation_result(
     result_path: Path,
     predicate_path: Path,
     repository_commit: str,
+    invocation_id: str,
 ) -> None:
     if result_path.stat().st_size > 4_194_304:
         raise EvidenceVerificationError("attestation verification output exceeds bound")
     if predicate_path.stat().st_size > 1_048_576:
         raise EvidenceVerificationError("provenance predicate exceeds bound")
     expected = json.loads(predicate_path.read_text(encoding="utf-8"))
-    if expected != build_provenance_predicate(repository_commit):
+    if expected != build_provenance_predicate(repository_commit, invocation_id):
         raise EvidenceVerificationError("local provenance predicate is not exact")
     _verify_attestation_results(result_path, PREDICATE_TYPE, expected)
 
@@ -409,9 +418,11 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     provenance = subparsers.add_parser("provenance")
     provenance.add_argument("--repository-commit", required=True)
+    provenance.add_argument("--invocation-id", required=True)
     provenance.add_argument("--output", required=True, type=Path)
     attestation = subparsers.add_parser("verify-attestation")
     attestation.add_argument("--repository-commit", required=True)
+    attestation.add_argument("--invocation-id", required=True)
     attestation.add_argument("--result", required=True, type=Path)
     attestation.add_argument("--predicate", required=True, type=Path)
     sbom_attestation = subparsers.add_parser("verify-sbom-attestation")
@@ -420,12 +431,17 @@ def main() -> int:
     arguments = parser.parse_args()
     try:
         if arguments.command == "provenance":
-            write_provenance(arguments.repository_commit, arguments.output)
+            write_provenance(
+                arguments.repository_commit,
+                arguments.invocation_id,
+                arguments.output,
+            )
         elif arguments.command == "verify-attestation":
             verify_attestation_result(
                 arguments.result,
                 arguments.predicate,
                 arguments.repository_commit,
+                arguments.invocation_id,
             )
         elif arguments.command == "verify-sbom-attestation":
             verify_sbom_attestation_result(arguments.result)
