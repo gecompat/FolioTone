@@ -2,9 +2,10 @@
 
 ## Status und Geltungsbereich
 
-**Status:** Geplant
+**Status:** In Ausführung; FG-A, S-EBA-01 bis S-EBA-07 und FG-A-RUNTIME
+abgeschlossen
 
-**Stand:** 2026-08-17
+**Stand:** 2026-08-20
 
 **Scope:** Read-only Archivanalyse, lokale Passwortkandidaten, archive-aware
 Matching und Review, nicht ausführbare Deduplizierungsplanung sowie eine
@@ -27,8 +28,15 @@ Das Frontier-Gate FG-A ist durch
 [ADR-0038](../decisions/ADR-0038-safe-archive-container-analysis.md)
 akzeptiert. Die ADR ist für Format-/Signatur-Allowlist, 7-Zip-Toolmanifest,
 Statuswerte, Budgets, Memberpfade, lokale Sidecarklassen, Secret-Grenze,
-Profile und Evidence Reuse verbindlich. Sie implementiert noch keine reale
-Toolausführung, Persistenz oder Extraktion.
+Profile und Evidence Reuse verbindlich. S-EBA-01 bis S-EBA-07 setzen die
+synthetischen beziehungsweise Fake-only Vorarbeiten um.
+
+Das anschließende Frontier-Gate FG-A-RUNTIME ist durch
+[ADR-0039](../decisions/ADR-0039-safe-archive-runtime-and-secret-channel.md)
+akzeptiert. Es erlaubt die Entwicklung einer spezialisierten bounded
+Streaming-Runtime für unverschlüsseltes Listing, Integrity und private
+Testextraktion. Raw-Ausgaben werden nicht persistiert. Reale Passwortversuche
+bleiben bis zum separaten FG-A-SECRET blockiert.
 
 ## Planungsentscheidung
 
@@ -149,7 +157,7 @@ muss mindestens festlegen:
 
 ### EA1 — Archivscope und Toolbewertung
 
-**Status:** Gate durch ADR-0038 akzeptiert; mechanische S-EBA-Pakete offen.
+**Status:** Durch ADR-0038 und S-EBA-01 bis S-EBA-07 abgeschlossen.
 
 **Ziel:** Unterstützte Container und eine sichere read-only Toolchain sind
 verbindlich entschieden.
@@ -179,6 +187,10 @@ Abnahme:
 
 ### EA2 — Read-only Archiv- und Sidecar-Inventar
 
+**Status:** Teilweise vorbereitet. Signatur-, Volume-, Sidecar- und Fake-
+Listing-Verträge sind vorhanden; Persistenz, Collection-Orchestrierung und
+pfadfreier Runtimebericht bleiben offen.
+
 **Ziel:** Archive und Begleitdateien werden inkrementell beobachtbar, ohne
 Mitglieder zu extrahieren.
 
@@ -194,6 +206,10 @@ Umfang:
 - Resume, Heartbeat, Lease und pfadfreie Summen für große Bestände.
 
 ### EA3 — Lokaler Passwortkandidatenparser
+
+**Status:** Der bounded Parser und `SecretHandle`-Vertrag sind durch S-EBA-04
+und S-EBA-05 umgesetzt. Die reale Übergabe an einen Prozess bleibt bis
+FG-A-SECRET gesperrt.
 
 **Ziel:** Wahrscheinliche Passwörter werden lokal und geheimniswahrend
 ermittelt.
@@ -211,6 +227,9 @@ Umfang:
 
 ### EA4 — Begrenztes Listing und Integritätstest
 
+**Status:** FG-A-RUNTIME ist durch ADR-0039 akzeptiert. Der nächste Schritt ist
+S-EBAR-01; die reale Implementierung folgt danach paketweise.
+
 **Ziel:** Archive werden ohne dauerhafte Extraktion technisch bewertet.
 
 Schutzgrenzen umfassen Mitgliederzahl, Gesamtgröße, Einzelgröße,
@@ -223,6 +242,10 @@ ersten Runtime jede automatische Nested-Verarbeitung.
 
 ### EA5 — Private Testextraktion
 
+**Status:** Der Sicherheitsvertrag ist durch ADR-0039 akzeptiert; EBAR-06 ist
+noch nicht implementiert. Passwortgeschützte Extraktion bleibt unabhängig
+davon blockiert.
+
 **Ziel:** Ein technisch zulässiges Archiv kann in einem ephemeren privaten
 Workspace vollständig geprüft werden.
 
@@ -230,9 +253,45 @@ Die Source bleibt read-only. Jedes Mitglied wird gestreamt gehasht; erwartete
 und extrahierte Mitglieder, Größen und CRC-/Toolbefunde müssen konsistent
 sein. Fehler, Passwortbedarf, fehlende Volumes oder Limits erzeugen einen
 terminalen technischen Befund, aber keine Source-Operation. Der Workspace
-wird nach sicherer Artifact-Übernahme bereinigt. Diese reale Runtime beginnt
-erst nach S-EBA-01 bis S-EBA-07 und einem weiteren Frontier-Gate; die
-7-Zip-CLI darf kein Secret über `-p` erhalten.
+wird nach sicherer Evidence-Übernahme bereinigt. S-EBA-01 bis S-EBA-07 und
+FG-A-RUNTIME sind abgeschlossen; die Implementierung beginnt mit S-EBAR-01.
+Die 7-Zip-CLI darf kein Secret über `-p` erhalten.
+
+## FG-A-RUNTIME-Folgepakete und Modellrouting
+
+Die vollständigen Dateigrenzen und Stopbedingungen stehen im
+[`Spark-Arbeitspaketkatalog`](EBOOK_SPARK_WORK_PACKAGES.md). Die Reihenfolge
+lautet:
+
+```text
+S-EBAR-01 Execution-DTOs
+    -> S-EBAR-02 Streamingparser
+    -> FG-A-IMAGE Supply-Chain- und Packagingentscheidung
+    -> S-EBAR-03 Gatewerte, Toolmanifest und Command Builder
+    -> EBAR-04 isolierter Docker/Linux-Streaming-Runner
+    -> EBAR-05 unverschlüsseltes Listing und Integrity
+    -> EBAR-06 private Extraction-Sandbox
+    -> FG-A-PERSISTENCE Schema-, Reuse- und Writer-Gate
+    -> S-EBAR-07 Persistenz
+    -> EBAR-08 Collection-Orchestrierung
+    -> EBAR-09 Abschluss und EB-A3-Übergang
+```
+
+Die mechanischen S-EBAR-Pakete verwenden 5.3 Codex Spark mit Thinking `high`;
+zulässige Fallbacks sind 5.4 Mini und danach 5.6 Terra. FG-A-IMAGE entscheidet
+zuvor mit 5.6 Sol `high` den Supply-Chain-Vertrag; S-EBAR-03 übernimmt danach
+nur die exakten Gatewerte. Gewöhnliche Integration verwendet 5.6 Terra.
+Docker/Linux-Streaming-Runner und Extraction-Sandbox verwenden
+5.6 Sol mit Thinking `high`. Nur FG-A-SECRET verwendet 5.6 Sol mit Thinking
+`xhigh` und besitzt kein niedriger eingestuftes Fallback. Status-, CI- und
+Mergeprüfungen verwenden 5.6 Luna.
+
+`archive-linux-container-runner/v1` ist der erste freigegebene Backendvertrag.
+Er mountet niemals die tatsächliche Source, sondern nur eine vollhashgeprüfte
+opaque Stagingkopie read-only und einen getrennten privaten Output-Workspace
+read-write. Native Windows-Ausführung meldet bis zum akzeptierten
+`FG-A-WINDOWS-SANDBOX` `TOOL_UNAVAILABLE`; Job Objects allein isolieren
+Netzwerk und Filesystem nicht.
 
 ### EA6 — Archivmitglied-Evidence und Wiederverwendung
 

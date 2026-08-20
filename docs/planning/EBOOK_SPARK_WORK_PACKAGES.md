@@ -1,6 +1,6 @@
 # Spark-Arbeitspakete für die E-Book-Endgerade
 
-**Status:** Geplant
+**Status:** In Ausführung; S-EBA-01 bis S-EBA-07 abgeschlossen
 
 **Stand:** 2026-08-20
 
@@ -152,6 +152,7 @@ noch implementiert.
 | FG-07 | Durch [ADR-0033](../decisions/ADR-0033-read-only-calibredb-library-reconciliation.md) akzeptiert: vollständige read-only `calibredb`-Command-Shapes, Toolmanifest, Snapshot-Lineage sowie Ownership-/Sidecar-Vertrag. |
 | FG-08 | Durch [ADR-0034](../decisions/ADR-0034-non-executable-consolidation-plans.md) akzeptiert: finale `ConsolidationPlan`-DTOs, Status-/Blocker-Literale, Identity-/Keeper-/Candidate-Grenzen, Precondition-Semantik, kanonische Serialisierung, Persistenzschema und Non-Execution-Grenze. |
 | FG-A | Durch [ADR-0038](../decisions/ADR-0038-safe-archive-container-analysis.md) akzeptiert: 7-Zip 26.02 nur für feste read-only Shapes, exakte Format-/Signatur-Allowlist, Status-/Profil-/Budgetliterale, `SecretHandle`-Grenze und blockierte verschlüsselte Runtime ohne sicheren Secret-Kanal. |
+| FG-A-RUNTIME | Durch [ADR-0039](../decisions/ADR-0039-safe-archive-runtime-and-secret-channel.md) akzeptiert: spezialisierter bounded Streaming-Runner und private Extraction-Sandbox für unverschlüsselte Archive; Raw-Ausgaben bleiben unpersistiert und jeder Secret-Kanal bleibt bis FG-A-SECRET blockiert. |
 
 ## EB-00: Provider-Vertrag ausrichten
 
@@ -256,13 +257,13 @@ einführen.
 | S-EB08-08 | Deterministischer, pfadfreier Reporter und read-only CLI werden ergänzt. | Reporter/Workflow, `src/foliotone/cli/main.py`, CLI-Test | Ausgabe enthält Plan-ID, Status, Counts und Blocker, aber keine absoluten Pfade oder privaten Evidence-Werte. |
 | S-EB08-09 | Ein statischer Non-Execution-Test verbietet Mutations-APIs und schließt W9 ab. | neue statische Testdatei, Planungsdokumente | `unlink`, `remove`, `rename`, `replace`, `move`, mutierendes Calibre und Shell-Löschbefehle fehlen im Package; W10 bleibt blockiert. |
 
-## Begrenzte Spark-Vorarbeiten für EB-A1 und EB-A2
+## Abgeschlossene Spark-Vorarbeiten für EB-A1 und EB-A2
 
-**Voraussetzung:** FG-A ist durch ADR-0038 gemergt. Diese sieben Pakete
+**Status:** S-EBA-01 bis S-EBA-07 sind auf `main` abgeschlossen. Die Pakete
 implementieren keine reale Toolausführung, Extraktion, Persistenzmigration,
 sichere Secret-Übergabe, keinen Online-Passwortprovider und keine
 Archive-aware Deduplizierung. Die Literale, Bounds und Profile aus ADR-0038
-sind unverändert zu übernehmen.
+bleiben unverändert maßgeblich.
 
 | Paket | Ergebnis | Erlaubter Dateibereich | Gezielter Nachweis |
 |---|---|---|---|
@@ -274,9 +275,38 @@ sind unverändert zu übernehmen.
 | S-EBA-06 | Reine `archive-safety-policy/v1`-Budget- und Member-Path-Validatoren lehnen sämtliche ADR-0038-Grenzverletzungen ab. | Archive-Policy-Modul, Unit-Tests | Exakte Bounds sowie adversarial Windows-/POSIX-Pfade, NFC-/Casefold-Kollision, Symlink, Reparse Point, Hardlink, Device, nested Archive und Byte-/Ratio-Overflow sind parametrisiert; keine Toolausführung. |
 | S-EBA-07 | Eine Fake-Tool-Integration modelliert `archive-listing/v1`, feste Statuswerte und immutable `ArchiveMemberObservation`, ohne einen echten Extraktionsprozess zu starten. | Archive-Workflow, synthetische Integrationstests | Member ist kein `FileRecord`; Listing-Reuse und `archive-member-reuse/v1` enthalten alle ADR-0038-Versionen, `SECURE_CHANNEL_UNAVAILABLE` verhindert Secret-Übergabe und Source bleibt unverändert. |
 
-Die reale Toolanbindung, sichere Secret-Übergabe, private Testextraktion,
-Prozessisolation und Archive-Member-Extraktion beginnen erst in einem separaten
-Frontier-Task nach erfolgreicher Prüfung dieser Vorarbeiten.
+FG-A-RUNTIME ist nach erfolgreicher Prüfung dieser Vorarbeiten durch ADR-0039
+akzeptiert. Die reale Toolanbindung beginnt mit den nachstehenden Paketen. Eine
+sichere Secret-Übergabe bleibt davon getrennt bis FG-A-SECRET blockiert.
+
+## Folgepakete für FG-A-RUNTIME
+
+ADR-0039 trennt die freigegebene unverschlüsselte Runtime von der weiterhin
+blockierten Passwortverarbeitung. Die nachstehenden Pakete dürfen keine
+Source-Media-Mutation, Raw-Ausgabe-Persistenz, Online-Passwortrecherche oder
+W10-Funktion einführen.
+
+| Paket | Ergebnis und erlaubter Dateibereich | Gezielter Nachweis | Routing und Stopbedingung |
+|---|---|---|---|
+| S-EBAR-01 | Archive-Execution-DTOs trennen Listing-, Integrity- und Extraction-Provenance. Erlaubt: `src/foliotone/archive/workflow.py`, `src/foliotone/archive/__init__.py`, `tests/unit/test_archive_workflow.py`. | Exakte Execution-ID-Sum-Types, Statusmatrix, Reuse-v1-Characterization und pfadfreie Repräsentation. | Spark `high`; 5.4 Mini, danach Terra als Fallback. Stop bei zusätzlicher Domain- oder Persistenzentscheidung. |
+| S-EBAR-02 | Ein reiner bounded `archive-7zip-slt-parser/v1` verarbeitet synthetische Chunkstreams. Erlaubt: neue Datei `src/foliotone/archive/sevenzip_slt.py`, `src/foliotone/archive/__init__.py`, neue fokussierte Unit-Testdatei. | Chunkgrenzen, UTF-8, 8-MiB-/1-MiB-Limits, Member-/Feldbounds, ephemerer Kommentar und keinerlei Raw-Artefakt, Preview oder Pfadleck. | Spark `high`; 5.4 Mini, danach Terra als Fallback. Stop bei unentschiedener Encoding-, Redaktions- oder Feldsemantik. |
+| FG-A-IMAGE | Dokumentationsgate für den Supply-Chain-Vertrag von `archive-linux-container-runner/v1`. Erlaubt: neue ADR sowie unmittelbar betroffene Safety-/Tool-/Planungsdokumente. | Projekt-eigenes Image-Build-Rezept oder operator-provided Image, gepinnte Base-/Result-Digests, offizielle 7zz-26.02-Quelle, veröffentlichte Checksumme und dokumentierter Signaturnachweis-Status, Lizenz/Redistribution, SBOM/Provenance, numerische non-root UID/GID, Reproduzierbarkeit/Updates und private/öffentliche CI-Handhabung sind exakt entschieden; keine Toolausführung im Gate. | Sol `high`; kein Spark-Fallback. Ohne vollständigen Supply-Chain-Nachweis bleibt S-EBAR-03 blockiert. |
+| S-EBAR-03 | Mechanische Umsetzung des durch FG-A-IMAGE fixierten Packaging-/Identitätsvertrags, getrennte Archive-`ToolCapability`-Werte und feste Command Builder. Erlaubt: die durch FG-A-IMAGE exakt benannten Packaging-/Manifestdateien, `src/foliotone/archive/sevenzip.py`, `src/foliotone/core/enums.py` sowie eine fokussierte Unit- und eine Integrationstestdatei. | Die vom Gate vorgegebenen Base-/Result-Digests, 7zz-Version, Artefakt-SHA-256 und UID/GID werden unverändert umgesetzt und vor Ausführung geprüft; Golden argv für `i`, `l`, `t`, `x`; `-p`, freie Optionen, Wildcards, Listfiles, Pull und mutierende Shapes werden abgewiesen. | Spark `high`; 5.4 Mini, danach Terra als Fallback. Ohne akzeptiertes FG-A-IMAGE blockiert; Stop bei Abweichung von Gatewerten oder Command Shape. |
+| EBAR-04 | Docker-Backend `archive-linux-container-runner/v1`. Erlaubt: neue Dateien `src/foliotone/archive/process_runner.py`, `src/foliotone/archive/container_sandbox.py`, eine Unit- und eine Integrationstestdatei. | Exakt validierte Volumegruppe wird nach opaque privatem Temp-Staging kopiert und byte-/vollhashverifiziert; niemals ScanRoot-Mount. Input read-only und getrennter Output read-write sind die einzigen Mounts; non-root, `network=none`, read-only Root-FS, Capabilities drop-all, no-new-privileges, Default-oder-strengeres Seccomp, keine Devices, feste PID-/RAM-/CPU-Limits, minimales Environment sowie vollständiger Kill/Remove/Cleanup. Native Windows bleibt bis `FG-A-WINDOWS-SANDBOX` `TOOL_UNAVAILABLE`. | Sol `high`; 5.5 nur ohne offene Secret-/Sandboxfrage. Stop bei nicht belegbarer Source-, Netzwerk-, Filesystem-, Supply-Chain- oder Cleanup-Isolation. |
+| EBAR-05 | Reales unverschlüsseltes Listing und Integrity. Erlaubt: neue Datei `src/foliotone/archive/provider.py`, `src/foliotone/archive/workflow.py`, eine Unit- und eine Integrationstestdatei. | Generierte synthetische Archive prüfen feste Status-/Fehlermatrix, getrennte Execution-Provenance, keine Raw-Artefakte und unveränderte Sourcebytes. | Terra `medium`, bei schichtübergreifender Diagnose `high`; Fallback 5.4. Stop bei Verschlüsselung oder ungeklärter Toolfehlermatrix. |
+| EBAR-06 | Private Extraction-Sandbox, Live-Budgets, Workspace-Revalidierung und Member-Hashing. Erlaubt: neue Datei `src/foliotone/archive/extraction.py`, `src/foliotone/archive/safety_policy.py`, eine Unit- und eine Integrationstestdatei. | Traversal, Links/Reparse Points/Devices, Kollisionen, Bombenlimits, Prozessabbruch, listed/extracted-Gleichheit, Größen/CRC, Cleanup und keine Partial-Evidence. | Sol `high`; kein Spark-/Terra-Fallback. Stop bei unvollständiger Prozess-, Filesystem- oder Cleanup-Isolation. |
+| FG-A-SECRET | Separates dokumentationsbasiertes Gate für Helper, Kanal und tatsächlich unterstützte verschlüsselte Formate. Erlaubt: neue ADR sowie die unmittelbar betroffenen Safety-/Tool-/Planungsdokumente. | Primärquellen, Leakage-Matrix, explizite Handle-Vererbung, Speicherbereinigung und adversarial Fixtureplan; keine Toolausführung im Gate. | Sol `xhigh`; kein niedrigeres Fallback. Ohne technischen Nachweis bleibt `SECURE_CHANNEL_UNAVAILABLE`. |
+| FG-A-PERSISTENCE | Separates Gate benennt immutable Archive-/Member-/Execution-Lineage, Reuse, Tabellen, Indizes, Lease/Fencing und Migration nach dem dann aktuellen Head. Erlaubt: neue ADR und unmittelbar betroffene Planungs-/Persistenzarchitektur-Dokumente. | Schema-, Privacy-, Restart-, Stale-Writer- und Migration-in-place-Widerspruchsprüfung; kein Code und keine Migration im Gate. | Sol `high`; kein Spark-Fallback. Stop bei offener Writer-, Reuse- oder Privacy-Semantik. |
+| S-EBAR-07 | Die durch FG-A-PERSISTENCE exakt benannte additive Migration und der insert-only Archive-Store werden mechanisch umgesetzt. Der Gate-PR legt den exakten Dateibereich fest. | Upgrade vom vorherigen Head, Head-Eindeutigkeit, Insert/read, idempotente Wiederholung, Reuse, atomarer Rollback und keine Raw-/Pfad-/Secretspalten. | Spark `high`; 5.4 Mini, danach Terra als Fallback. Stop bei zusätzlicher Schema- oder Reuse-Entscheidung. |
+| EBAR-08 | Restartbare Collection-Orchestrierung ergänzt Lease/Fencing, Heartbeat und pfadfreie Reports. Der Dateibereich wird durch FG-A-PERSISTENCE festgelegt. | Deterministische Konkurrenz-, stale-Takeover-, Resume-, Keeper-, bounded Batch- und echte SQLite-read-only Reporttests. | Sol `high`; kein Spark-Fallback. Stop bei ungeklärter Writer- oder stale-Fencing-Semantik. |
+| EBAR-09 | Status, Backlog und EB-A2-/EB-A3-Übergang werden nach Gesamtprüfung synchronisiert. Erlaubt: `docs/planning/PROJECT_STATUS.md`, `docs/planning/BACKLOG.md`, Archive-Roadmap und tatsächlich betroffene Referenz. | Link-, Status-, Privacy- und W10-Widerspruchssuche sowie gezielte Archive-Regressionen. | Luna `medium`; semantische Integration Terra `medium`. Kein EB-A3-Start ohne eigenes Gate. |
+
+S-EBAR-01 und S-EBAR-02 laufen zuerst. Danach entscheidet FG-A-IMAGE den
+Supply-Chain-Vertrag; erst dann folgen S-EBAR-03 und EBAR-04 bis EBAR-06 in
+dieser Reihenfolge. Danach legt
+FG-A-PERSISTENCE den exakten Schema- und Writer-Vertrag fest; erst dann darf
+S-EBAR-07 beginnen. FG-A-SECRET kann später folgen und blockiert die
+unverschlüsselte Strecke nicht.
 
 ## Abnahme eines Spark-Pakets
 
@@ -355,7 +385,11 @@ FG-07 → S-EB07-01..09
 FG-08 → S-EB08-01..09
 
 parallel nach EB-01:
-FG-A → S-EBA-01..07 → Frontier-Implementierung der sicheren Extraction Runtime
+FG-A → S-EBA-01..07 → FG-A-RUNTIME → S-EBAR-01..EBAR-06
+    → FG-A-PERSISTENCE → S-EBAR-07..EBAR-09
+
+separat und weiterhin blockiert:
+FG-A-SECRET → erst danach sichere Passwortversuche
 ```
 
 Unabhängige Pakete dürfen erst parallel laufen, wenn ihre Dateibereiche sich

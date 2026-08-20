@@ -52,9 +52,48 @@ stdout/stderr, argv noch Environment erreichen.
 
 Da 7-Zip-Listing Containerkommentare mit Secretmaterial ausgeben kann, darf
 die bestehende Raw-stdout/stderr-Persistenz der `ToolRuntime` nicht verwendet
-werden. Die reale Archive-Runtime bleibt blockiert, bis ein begrenzter
-Streaming-Parser Rohoutput nach secretfreier Normalisierung verwirft und weder
-Preview noch Raw Artifact erzeugt.
+werden. ADR-0039 akzeptiert für unverschlüsselte Archive eine separate
+`ArchiveProcessRunner`-Grenze. Sie verarbeitet stdout unmittelbar mit einem
+begrenzten Streaming-Parser, klassifiziert stderr ausschließlich in feste
+Fehlerliterale und verwirft Rohbytes nach secretfreier Normalisierung. Preview,
+Raw Artifact, Raw Log und eine frei übernommene Host-Environment sind
+verboten.
+
+Die unverschlüsselte Runtime setzt die ADR-0038-Limits während der Ausführung
+durch und beendet bei Timeout oder Grenzverletzung den vollständigen
+Prozessbaum. `archive-linux-container-runner/v1` ist der erste freigegebene
+Backendvertrag. Er startet in der primären Docker/Linux-Runtime ausschließlich
+ein digest-gepinntes Image mit verifizierter eingebetteter 7zz-26.02-Identität:
+non-root, `network=none`, read-only Root-Filesystem, alle Capabilities entfernt,
+no-new-privileges, Default-oder-strengeres Seccomp, ohne Devices und mit festen
+PID-, RAM-, CPU- und Laufzeitgrenzen. Timeout und Cancellation erzwingen Kill
+und Entfernung des gesamten Containers.
+
+Imagequelle, Build-Rezept, Base-/Result-Digests, offizielle 7zz-Artefakt-
+Checksumme, dokumentierter Signaturnachweis-Status, Lizenz/Redistribution,
+SBOM/Provenance und numerische UID/GID werden vor der Implementierung durch
+FG-A-IMAGE festgelegt. S-EBAR-03 darf diese Supply-Chain-Werte nur umsetzen
+und prüfen.
+
+Die tatsächliche Source und jeder ScanRoot werden niemals gemountet. Eine
+bereits vollständig validierte Volumegruppe wird in ein opaque privates
+Temp-Staging kopiert, vor und nach der Kopie gegen Source-Observation, Bytes
+und vollständige Hashes geprüft und ausschließlich read-only gemountet. Ein
+getrennter privater Output-Workspace ist der einzige read-write Mount. Listing,
+Integritätstest und private Extraktion besitzen getrennte `ToolExecution`-
+Provenance. Nach der Extraktion wird der private Workspace erneut auf Pfade,
+Links, Reparse Points, Devices, Kollisionen, Größen und Vollständigkeit geprüft,
+bevor Member gehasht und beide privaten Workspaces bereinigt werden.
+
+Native Windows-Ausführung bleibt `TOOL_UNAVAILABLE`, bis
+`FG-A-WINDOWS-SANDBOX` Netzwerk- und Filesystemisolation belegt. Job Objects
+und explizite Handle-Allowlists begrenzen diese Zugriffe nicht und sind allein
+keine Sandbox.
+
+Diese Runtime-Freigabe umfasst keinen Secret-Kanal. Reale Passwortversuche
+bleiben bis FG-A-SECRET `SECURE_CHANNEL_UNAVAILABLE`. Der vorhandene
+7-Zip-CLI-Adapter darf niemals `-p` verwenden. stdin-, PTY-, argv- und
+Environment-Workarounds bleiben ausgeschlossen.
 
 `archive-safety-policy/v1` begrenzt Member, Bytes, Ratio, Pfade, Laufzeiten,
 Ausgaben und Parallelität. Traversal, absolute/Device-/ADS-Pfade, normalisierte
