@@ -44,6 +44,7 @@ MAX_SCAN_HEARTBEAT_SECONDS = 60.0
 SCAN_HEARTBEAT_LOCK_RETRY_DELAYS_SECONDS = (0.25, 0.5, 1.0, 2.0)
 HASH_PROGRESS_REPORT_INTERVAL_SECONDS = 2.0
 DISCOVERY_PROGRESS_REPORT_INTERVAL_SECONDS = 2.0
+RECONCILIATION_PROGRESS_REPORT_FILES = 16
 _HASH_STATES = frozenset(
     {
         FileChangeState.NEW,
@@ -249,6 +250,7 @@ class _ReconciliationProgressKeeper:
         self._batch_bytes = batch_bytes
         self._report = report
         self._interval_seconds = interval_seconds
+        self._last_file_reported = 0
         self._stop = Event()
         self._thread = Thread(
             target=self._report_until_stopped,
@@ -280,6 +282,17 @@ class _ReconciliationProgressKeeper:
                 reconciled_bytes=reconciled_bytes,
             )
         )
+
+    def record_progress(self, reconciled_files: int, reconciled_bytes: int) -> None:
+        """Emit bounded in-batch steps even when reconciliation is very fast."""
+
+        self._meter.set_progress(reconciled_files, reconciled_bytes)
+        if (
+            reconciled_files == self._batch_files
+            or reconciled_files - self._last_file_reported >= RECONCILIATION_PROGRESS_REPORT_FILES
+        ):
+            self._report_once()
+            self._last_file_reported = reconciled_files
 
 
 class _HashReadMeter:
@@ -572,8 +585,8 @@ class IncrementalScanner:
                         batch,
                         self._clock(),
                         on_item_reconciled=(
-                            reconciliation_meter.set_progress
-                            if reconciliation_meter is not None
+                            reconciliation_keeper.record_progress
+                            if reconciliation_keeper is not None
                             else None
                         ),
                     )
