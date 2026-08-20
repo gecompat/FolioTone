@@ -261,11 +261,11 @@ Official references:
 
 ### Archiv-Listing und sichere Testextraktion
 
-Priority: **high / FG-A-RUNTIME accepted, implementation pending**
+Priority: **high / runtime available, real format profiles pending**
 
 Evaluated snapshot: **7-Zip 26.02 and libarchive 3.8.9 on 2026-08-20;
-tool contract accepted by ADR-0038 and unencrypted runtime contract accepted by
-ADR-0039, no real adapter implemented**
+tool/runtime contracts accepted by ADR-0038 through ADR-0041, real
+format-profile gate accepted by ADR-0044, no real provider implemented**
 
 Candidate roles:
 
@@ -289,12 +289,21 @@ Die allgemeine Formulierung zu Runtime-Artefakten gilt nicht für rohe
 und private Membernamen enthalten. Die bestehende `ToolRuntime` persistiert
 stdout/stderr unverändert und ist deshalb für den realen Adapter ungeeignet.
 ADR-0039 akzeptiert dafür eine spezialisierte `ArchiveProcessRunner`-Grenze,
-nicht eine Erweiterung der generischen `ToolRuntime`. stdout wird bis zur
-ADR-0038-Grenze direkt mit `archive-7zip-slt-parser/v1` verarbeitet; stderr
-wird nur in feste Fehlerliterale klassifiziert. Rohbytes, Previews und Raw-
-Artefakte werden nicht persistiert. Die Runtime verwendet ein minimales
+nicht eine Erweiterung der generischen `ToolRuntime`. stdout wird inkrementell
+verarbeitet; stderr wird begrenzt verworfen und ist keine Ursachen-Authority.
+Rohbytes, Previews und Raw-Artefakte werden nicht persistiert. Die Runtime
+verwendet ein minimales
 allowlist-basiertes Environment und muss bei Timeout oder Grenzverletzung den
 vollständigen Prozessbaum beenden.
+
+Die reale Golden-Prüfung von `archive-7zip-slt-parser/v2` hat vor EBAR-05 für
+alle neun vorgesehenen Familien geschlossen abgebrochen. ADR-0044 verlangt
+deshalb formatgebundene, durch ein geschütztes Linux-Messmanifest belegte
+Produktionsprofile. gzip, bzip2, xz und zstd bleiben bis EBAR-06 ausschließlich
+`OUTER_COMPRESSION_ONLY`: kein produktiver Listing-/Integrity-Lauf, keine
+Member-Evidence, Encryption `UNKNOWN` und keine Extraction-Freigabe. Erst eine
+private begrenzte Dekompression mit erneuter Signaturprüfung darf den inneren
+TAR-Container auswerten.
 
 Der erste freigegebene Backendvertrag heißt
 `archive-linux-container-runner/v1` für die primäre Docker/Linux-Runtime. Er
