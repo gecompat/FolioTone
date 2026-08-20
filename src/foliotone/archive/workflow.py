@@ -53,11 +53,73 @@ class ArchiveIntegrityStatus(StrEnum):
     POLICY_REJECTED = "POLICY_REJECTED"
 
 
+class ArchiveExtractionStatus(StrEnum):
+    NOT_ATTEMPTED = "NOT_ATTEMPTED"
+    EXTRACTED = "EXTRACTED"
+    LIMIT_EXCEEDED = "LIMIT_EXCEEDED"
+    TIMED_OUT = "TIMED_OUT"
+    TOOL_UNAVAILABLE = "TOOL_UNAVAILABLE"
+    TOOL_FAILED = "TOOL_FAILED"
+    POLICY_REJECTED = "POLICY_REJECTED"
+    VALIDATION_FAILED = "VALIDATION_FAILED"
+
+
 class ArchiveMemberCrcStatus(StrEnum):
     NOT_AVAILABLE = "NOT_AVAILABLE"
     NOT_TESTED = "NOT_TESTED"
     MATCHED = "MATCHED"
     MISMATCHED = "MISMATCHED"
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveListingExecution:
+    """Secret-free provenance for one listing step."""
+
+    status: ArchiveListingStatus
+    execution_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.status, ArchiveListingStatus):
+            raise ValueError("status must be ArchiveListingStatus")
+        _validate_execution_id(
+            status=self.status,
+            idle_status=ArchiveListingStatus.NOT_ATTEMPTED,
+            execution_id=self.execution_id,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveIntegrityExecution:
+    """Secret-free provenance for one integrity step."""
+
+    status: ArchiveIntegrityStatus = ArchiveIntegrityStatus.NOT_TESTED
+    execution_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.status, ArchiveIntegrityStatus):
+            raise ValueError("status must be ArchiveIntegrityStatus")
+        _validate_execution_id(
+            status=self.status,
+            idle_status=ArchiveIntegrityStatus.NOT_TESTED,
+            execution_id=self.execution_id,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveExtractionExecution:
+    """Secret-free provenance for one extraction step."""
+
+    status: ArchiveExtractionStatus = ArchiveExtractionStatus.NOT_ATTEMPTED
+    execution_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.status, ArchiveExtractionStatus):
+            raise ValueError("status must be ArchiveExtractionStatus")
+        _validate_execution_id(
+            status=self.status,
+            idle_status=ArchiveExtractionStatus.NOT_ATTEMPTED,
+            execution_id=self.execution_id,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,15 +245,28 @@ class ArchiveMemberObservation:
             _require_optional_size("observed_uncompressed_bytes", self.observed_uncompressed_bytes)
             assert self.member_sha256 is not None
             _require_sha256("member_sha256", self.member_sha256)
+        if self.member_kind is not ArchiveMemberKind.REGULAR_FILE and any(
+            value is not None
+            for value in (
+                self.extraction_execution_id,
+                self.observed_uncompressed_bytes,
+                self.member_sha256,
+            )
+        ):
+            raise ValueError("non-file archive members cannot carry extraction evidence")
 
 
 @dataclass(frozen=True, slots=True)
 class ArchiveListingResult:
-    listing_status: ArchiveListingStatus
-    execution_id: str
+    listing_execution: ArchiveListingExecution
     encryption_status: ArchiveEncryptionStatus
     reuse_key: ArchiveReuseKey
-    integrity_status: ArchiveIntegrityStatus = ArchiveIntegrityStatus.NOT_TESTED
+    integrity_execution: ArchiveIntegrityExecution = field(
+        default_factory=ArchiveIntegrityExecution
+    )
+    extraction_execution: ArchiveExtractionExecution = field(
+        default_factory=ArchiveExtractionExecution
+    )
     password_attempt_status: ArchivePasswordAttemptStatus = (
         ArchivePasswordAttemptStatus.NOT_ATTEMPTED
     )
@@ -199,15 +274,16 @@ class ArchiveListingResult:
     members: tuple[ArchiveMemberObservation, ...] = ()
 
     def __post_init__(self) -> None:
-        if not isinstance(self.listing_status, ArchiveListingStatus):
-            raise ValueError("listing_status must be ArchiveListingStatus")
-        _require_opaque("execution_id", self.execution_id)
+        if not isinstance(self.listing_execution, ArchiveListingExecution):
+            raise ValueError("listing_execution must be ArchiveListingExecution")
         if not isinstance(self.encryption_status, ArchiveEncryptionStatus):
             raise ValueError("encryption_status must be ArchiveEncryptionStatus")
         if not isinstance(self.reuse_key, ArchiveReuseKey):
             raise ValueError("reuse_key must be ArchiveReuseKey")
-        if not isinstance(self.integrity_status, ArchiveIntegrityStatus):
-            raise ValueError("integrity_status must be ArchiveIntegrityStatus")
+        if not isinstance(self.integrity_execution, ArchiveIntegrityExecution):
+            raise ValueError("integrity_execution must be ArchiveIntegrityExecution")
+        if not isinstance(self.extraction_execution, ArchiveExtractionExecution):
+            raise ValueError("extraction_execution must be ArchiveExtractionExecution")
         if not isinstance(self.password_attempt_status, ArchivePasswordAttemptStatus):
             raise ValueError("password_attempt_status must be ArchivePasswordAttemptStatus")
         if not isinstance(self.extraction_policy_status, ArchiveSafetyStatus):
@@ -226,6 +302,49 @@ class ArchiveListingResult:
         if self.encryption_status is ArchiveEncryptionStatus.HEADERS_ENCRYPTED:
             if self.members or self.listing_status is not ArchiveListingStatus.PASSWORD_REQUIRED:
                 raise ValueError("encrypted headers require a password-required empty listing")
+        if (
+            self.integrity_execution.status is not ArchiveIntegrityStatus.NOT_TESTED
+            and self.listing_status is not ArchiveListingStatus.LISTED
+        ):
+            raise ValueError("integrity execution requires a listed archive")
+        if self.extraction_execution.status is not ArchiveExtractionStatus.NOT_ATTEMPTED:
+            if (
+                self.listing_status is not ArchiveListingStatus.LISTED
+                or self.integrity_execution.status is not ArchiveIntegrityStatus.PASSED
+                or self.encryption_status is not ArchiveEncryptionStatus.NONE
+            ):
+                raise ValueError("extraction execution requires safe successful preconditions")
+            if (
+                self.extraction_execution.status is ArchiveExtractionStatus.POLICY_REJECTED
+                and self.extraction_policy_status is not ArchiveSafetyStatus.POLICY_REJECTED
+            ):
+                raise ValueError("policy-rejected extraction requires a rejected policy")
+            if (
+                self.extraction_execution.status is ArchiveExtractionStatus.LIMIT_EXCEEDED
+                and self.extraction_policy_status
+                not in {ArchiveSafetyStatus.ACCEPTED, ArchiveSafetyStatus.LIMIT_EXCEEDED}
+            ):
+                raise ValueError("limit-exceeded extraction requires accepted or limited policy")
+            if (
+                self.extraction_execution.status
+                not in {
+                    ArchiveExtractionStatus.POLICY_REJECTED,
+                    ArchiveExtractionStatus.LIMIT_EXCEEDED,
+                }
+                and self.extraction_policy_status is not ArchiveSafetyStatus.ACCEPTED
+            ):
+                raise ValueError("extraction execution requires an accepted policy")
+        execution_ids = tuple(
+            execution_id
+            for execution_id in (
+                self.listing_execution.execution_id,
+                self.integrity_execution.execution_id,
+                self.extraction_execution.execution_id,
+            )
+            if execution_id is not None
+        )
+        if len(set(execution_ids)) != len(execution_ids):
+            raise ValueError("archive execution IDs must be distinct")
         expected_attempt = (
             ArchivePasswordAttemptStatus.NOT_ATTEMPTED
             if self.encryption_status
@@ -250,7 +369,10 @@ class ArchiveListingResult:
         ordinals = tuple(member.member_ordinal for member in self.members)
         if ordinals != tuple(range(len(self.members))):
             raise ValueError("archive members must use contiguous canonical ordinals")
-        if any(member.listing_execution_id != self.execution_id for member in self.members):
+        if any(
+            member.listing_execution_id != self.listing_execution.execution_id
+            for member in self.members
+        ):
             raise ValueError("archive members must bind the listing execution")
         if len({member.member_identity for member in self.members}) != len(self.members):
             raise ValueError("archive member identities must be unique")
@@ -289,13 +411,19 @@ class ArchiveListingResult:
         extracted = tuple(member.extraction_execution_id is not None for member in regular_members)
         if any(extracted) and not all(extracted):
             raise ValueError("partial extraction cannot form member evidence")
-        if any(extracted):
+        if self.extraction_execution.status is not ArchiveExtractionStatus.EXTRACTED and any(
+            member.extraction_execution_id is not None for member in self.members
+        ):
+            raise ValueError("failed extraction cannot form member evidence")
+        if self.extraction_execution.status is ArchiveExtractionStatus.EXTRACTED:
             if (
-                self.encryption_status is not ArchiveEncryptionStatus.NONE
-                or self.extraction_policy_status is not ArchiveSafetyStatus.ACCEPTED
-                or self.integrity_status is not ArchiveIntegrityStatus.PASSED
+                not all(extracted)
+                or any(
+                    member.extraction_execution_id != self.extraction_execution.execution_id
+                    for member in regular_members
+                )
             ):
-                raise ValueError("extracted members require a safe successful result")
+                raise ValueError("extracted members require complete execution provenance")
             if any(
                 member.declared_uncompressed_bytes is None
                 or member.observed_uncompressed_bytes != member.declared_uncompressed_bytes
@@ -304,6 +432,24 @@ class ArchiveListingResult:
                 for member in regular_members
             ):
                 raise ValueError("extracted member size or CRC evidence is inconsistent")
+
+    @property
+    def listing_status(self) -> ArchiveListingStatus:
+        """Read-only compatibility view; new DTOs use ``listing_execution``."""
+
+        return self.listing_execution.status
+
+    @property
+    def execution_id(self) -> str | None:
+        """Read-only compatibility view of the listing execution identifier."""
+
+        return self.listing_execution.execution_id
+
+    @property
+    def integrity_status(self) -> ArchiveIntegrityStatus:
+        """Read-only compatibility view; new DTOs use ``integrity_execution``."""
+
+        return self.integrity_execution.status
 
 
 class FakeArchiveListingProvider:
@@ -409,6 +555,18 @@ def _require_opaque(name: str, value: str) -> None:
         or any(character in value for character in ("/", "\\", ":"))
     ):
         raise ValueError(f"{name} must be a bounded path-free value")
+
+
+def _validate_execution_id(
+    *, status: StrEnum, idle_status: StrEnum, execution_id: str | None
+) -> None:
+    if status is idle_status:
+        if execution_id is not None:
+            raise ValueError("idle archive execution cannot have an execution_id")
+        return
+    if execution_id is None:
+        raise ValueError("executed archive step requires an execution_id")
+    _require_opaque("execution_id", execution_id)
 
 
 def _require_optional_size(name: str, value: int | None) -> None:

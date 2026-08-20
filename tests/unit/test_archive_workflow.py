@@ -14,10 +14,15 @@ from foliotone.archive import (
     ARCHIVE_MEMBER_REUSE_PROFILE,
     ARCHIVE_SAFETY_POLICY_PROFILE,
     ArchiveEncryptionStatus,
+    ArchiveExtractionExecution,
+    ArchiveExtractionStatus,
+    ArchiveIntegrityExecution,
     ArchiveIntegrityStatus,
+    ArchiveListingExecution,
     ArchiveListingResult,
     ArchiveListingStatus,
     ArchiveMemberCrcStatus,
+    ArchiveMemberKind,
     ArchiveMemberObservation,
     ArchivePasswordAttemptStatus,
     ArchiveReuseKey,
@@ -76,8 +81,9 @@ def _member(**changes: object) -> ArchiveMemberObservation:
 
 def _listed(*members: ArchiveMemberObservation) -> ArchiveListingResult:
     return ArchiveListingResult(
-        listing_status=ArchiveListingStatus.LISTED,
-        execution_id="execution-1",
+        listing_execution=ArchiveListingExecution(
+            ArchiveListingStatus.LISTED, "execution-1"
+        ),
         encryption_status=ArchiveEncryptionStatus.NONE,
         reuse_key=_key(),
         members=members,
@@ -100,8 +106,7 @@ def test_fake_provider_is_non_executing_and_member_is_not_file_record() -> None:
 def test_secure_channel_and_encrypted_header_contracts_fail_closed() -> None:
     data_encrypted = replace(_member(), encryption_status=ArchiveEncryptionStatus.DATA_ENCRYPTED)
     listed = ArchiveListingResult(
-        ArchiveListingStatus.LISTED,
-        "execution-1",
+        ArchiveListingExecution(ArchiveListingStatus.LISTED, "execution-1"),
         ArchiveEncryptionStatus.DATA_ENCRYPTED,
         _key(),
         password_attempt_status=ArchivePasswordAttemptStatus.SECURE_CHANNEL_UNAVAILABLE,
@@ -112,8 +117,7 @@ def test_secure_channel_and_encrypted_header_contracts_fail_closed() -> None:
     assert listed.password_attempt_status is ArchivePasswordAttemptStatus.SECURE_CHANNEL_UNAVAILABLE
 
     headers = ArchiveListingResult(
-        ArchiveListingStatus.PASSWORD_REQUIRED,
-        "execution-2",
+        ArchiveListingExecution(ArchiveListingStatus.PASSWORD_REQUIRED, "execution-2"),
         ArchiveEncryptionStatus.HEADERS_ENCRYPTED,
         _key(),
         password_attempt_status=ArchivePasswordAttemptStatus.SECURE_CHANNEL_UNAVAILABLE,
@@ -121,7 +125,12 @@ def test_secure_channel_and_encrypted_header_contracts_fail_closed() -> None:
     )
     assert headers.members == ()
     with pytest.raises(ValueError, match="encrypted headers"):
-        replace(headers, listing_status=ArchiveListingStatus.LISTED)
+        replace(
+            headers,
+            listing_execution=ArchiveListingExecution(
+                ArchiveListingStatus.LISTED, "execution-3"
+            ),
+        )
     with pytest.raises(ValueError, match="secure"):
         replace(listed, password_attempt_status=ArchivePasswordAttemptStatus.ACCEPTED)
 
@@ -131,8 +140,7 @@ def test_unknown_declared_size_is_preserved_but_blocks_extraction() -> None:
     with pytest.raises(ValueError, match="blocked"):
         _listed(unknown)
     blocked = ArchiveListingResult(
-        ArchiveListingStatus.LISTED,
-        "execution-1",
+        ArchiveListingExecution(ArchiveListingStatus.LISTED, "execution-1"),
         ArchiveEncryptionStatus.NONE,
         _key(),
         extraction_policy_status=ArchiveSafetyStatus.POLICY_REJECTED,
@@ -156,17 +164,24 @@ def test_extraction_fields_are_jointly_nullable_and_hash_bounded() -> None:
     with pytest.raises(ValueError, match="SHA-256"):
         replace(extracted, member_sha256="not-a-hash")
 
-    with pytest.raises(ValueError, match="safe successful"):
+    with pytest.raises(ValueError, match="failed extraction"):
         _listed(extracted)
     successful = ArchiveListingResult(
-        ArchiveListingStatus.LISTED,
-        "execution-1",
+        ArchiveListingExecution(ArchiveListingStatus.LISTED, "execution-1"),
         ArchiveEncryptionStatus.NONE,
         _key(),
-        integrity_status=ArchiveIntegrityStatus.PASSED,
+        integrity_execution=ArchiveIntegrityExecution(
+            ArchiveIntegrityStatus.PASSED, "integrity-1"
+        ),
+        extraction_execution=ArchiveExtractionExecution(
+            ArchiveExtractionStatus.EXTRACTED, "extract-1"
+        ),
         members=(extracted,),
     )
     assert successful.members == (extracted,)
+    assert successful.execution_id == "execution-1"
+    assert successful.listing_status is ArchiveListingStatus.LISTED
+    assert successful.integrity_status is ArchiveIntegrityStatus.PASSED
 
     second = _member(
         member_ordinal=1,
@@ -174,11 +189,15 @@ def test_extraction_fields_are_jointly_nullable_and_hash_bounded() -> None:
     )
     with pytest.raises(ValueError, match="partial extraction"):
         ArchiveListingResult(
-            ArchiveListingStatus.LISTED,
-            "execution-1",
+            ArchiveListingExecution(ArchiveListingStatus.LISTED, "execution-1"),
             ArchiveEncryptionStatus.NONE,
             _key(),
-            integrity_status=ArchiveIntegrityStatus.PASSED,
+            integrity_execution=ArchiveIntegrityExecution(
+                ArchiveIntegrityStatus.PASSED, "integrity-1"
+            ),
+            extraction_execution=ArchiveExtractionExecution(
+                ArchiveExtractionStatus.EXTRACTED, "extract-1"
+            ),
             members=(extracted, second),
         )
 
@@ -192,6 +211,212 @@ def test_member_lineage_and_canonical_ordinals_are_required() -> None:
         _listed(replace(_member(), volume_group_fingerprint=SHA_D))
     with pytest.raises(ValueError, match="safety"):
         replace(_member(), member_path_safe="../private")
+
+
+@pytest.mark.parametrize(
+    ("snapshot_type", "idle_status", "active_status"),
+    [
+        (
+            ArchiveListingExecution,
+            ArchiveListingStatus.NOT_ATTEMPTED,
+            ArchiveListingStatus.LISTED,
+        ),
+        (
+            ArchiveIntegrityExecution,
+            ArchiveIntegrityStatus.NOT_TESTED,
+            ArchiveIntegrityStatus.PASSED,
+        ),
+        (
+            ArchiveExtractionExecution,
+            ArchiveExtractionStatus.NOT_ATTEMPTED,
+            ArchiveExtractionStatus.EXTRACTED,
+        ),
+    ],
+)
+def test_execution_snapshots_are_exact_status_id_sum_types(
+    snapshot_type: type[object], idle_status: object, active_status: object
+) -> None:
+    idle = snapshot_type(idle_status)  # type: ignore[operator]
+    active = snapshot_type(active_status, "step-1")  # type: ignore[operator]
+    assert idle.execution_id is None  # type: ignore[attr-defined]
+    assert active.execution_id == "step-1"  # type: ignore[attr-defined]
+    with pytest.raises(ValueError, match="idle"):
+        snapshot_type(idle_status, "step-1")  # type: ignore[operator]
+    with pytest.raises(ValueError, match="requires"):
+        snapshot_type(active_status)  # type: ignore[operator]
+    with pytest.raises(ValueError, match="path-free"):
+        snapshot_type(active_status, "private/path")  # type: ignore[operator]
+
+
+def test_every_execution_status_requires_the_contractual_id_shape() -> None:
+    for snapshot_type, idle_status, statuses in (
+        (
+            ArchiveListingExecution,
+            ArchiveListingStatus.NOT_ATTEMPTED,
+            ArchiveListingStatus,
+        ),
+        (
+            ArchiveIntegrityExecution,
+            ArchiveIntegrityStatus.NOT_TESTED,
+            ArchiveIntegrityStatus,
+        ),
+        (
+            ArchiveExtractionExecution,
+            ArchiveExtractionStatus.NOT_ATTEMPTED,
+            ArchiveExtractionStatus,
+        ),
+    ):
+        for status in statuses:
+            if status is idle_status:
+                assert snapshot_type(status).execution_id is None
+                with pytest.raises(ValueError, match="idle"):
+                    snapshot_type(status, "step-1")
+            else:
+                assert snapshot_type(status, "step-1").execution_id == "step-1"
+                with pytest.raises(ValueError, match="requires"):
+                    snapshot_type(status)
+
+
+def test_execution_snapshot_matrix_fails_closed_and_preserves_provenance() -> None:
+    listing = ArchiveListingExecution(ArchiveListingStatus.LISTED, "execution-1")
+    integrity = ArchiveIntegrityExecution(ArchiveIntegrityStatus.PASSED, "integrity-1")
+    extraction = ArchiveExtractionExecution(ArchiveExtractionStatus.EXTRACTED, "extract-1")
+    extracted = replace(
+        _member(),
+        extraction_execution_id="extract-1",
+        observed_uncompressed_bytes=20,
+        member_sha256=SHA_D,
+        crc_status=ArchiveMemberCrcStatus.MATCHED,
+    )
+    result = ArchiveListingResult(
+        listing,
+        ArchiveEncryptionStatus.NONE,
+        _key(),
+        integrity_execution=integrity,
+        extraction_execution=extraction,
+        members=(extracted,),
+    )
+    assert result.listing_execution is listing
+    assert result.integrity_execution is integrity
+    assert result.extraction_execution is extraction
+    assert "private/book.epub" not in repr(result)
+    assert "private/book.epub" not in repr(listing)
+
+    with pytest.raises(ValueError, match="distinct"):
+        replace(result, integrity_execution=ArchiveIntegrityExecution(
+            ArchiveIntegrityStatus.PASSED, "execution-1"
+        ))
+    with pytest.raises(ValueError, match="integrity execution requires"):
+        ArchiveListingResult(
+            ArchiveListingExecution(ArchiveListingStatus.TOOL_FAILED, "listing-2"),
+            ArchiveEncryptionStatus.NONE,
+            _key(),
+            integrity_execution=integrity,
+            extraction_policy_status=ArchiveSafetyStatus.POLICY_REJECTED,
+        )
+    with pytest.raises(ValueError, match="safe successful preconditions"):
+        ArchiveListingResult(
+            listing,
+            ArchiveEncryptionStatus.DATA_ENCRYPTED,
+            _key(),
+            integrity_execution=integrity,
+            extraction_execution=extraction,
+            password_attempt_status=ArchivePasswordAttemptStatus.SECURE_CHANNEL_UNAVAILABLE,
+            extraction_policy_status=ArchiveSafetyStatus.POLICY_REJECTED,
+            members=(replace(extracted, encryption_status=ArchiveEncryptionStatus.DATA_ENCRYPTED),),
+        )
+    with pytest.raises(ValueError, match="failed extraction"):
+        replace(
+            result,
+            extraction_execution=ArchiveExtractionExecution(
+                ArchiveExtractionStatus.VALIDATION_FAILED, "extract-2"
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    ("status", "policy_status"),
+    [
+        (ArchiveExtractionStatus.POLICY_REJECTED, ArchiveSafetyStatus.POLICY_REJECTED),
+        (ArchiveExtractionStatus.LIMIT_EXCEEDED, ArchiveSafetyStatus.ACCEPTED),
+        (ArchiveExtractionStatus.LIMIT_EXCEEDED, ArchiveSafetyStatus.LIMIT_EXCEEDED),
+        (ArchiveExtractionStatus.TIMED_OUT, ArchiveSafetyStatus.ACCEPTED),
+        (ArchiveExtractionStatus.TOOL_UNAVAILABLE, ArchiveSafetyStatus.ACCEPTED),
+        (ArchiveExtractionStatus.TOOL_FAILED, ArchiveSafetyStatus.ACCEPTED),
+        (ArchiveExtractionStatus.VALIDATION_FAILED, ArchiveSafetyStatus.ACCEPTED),
+    ],
+)
+def test_terminal_extraction_statuses_obey_the_policy_matrix(
+    status: ArchiveExtractionStatus, policy_status: ArchiveSafetyStatus
+) -> None:
+    result = ArchiveListingResult(
+        ArchiveListingExecution(ArchiveListingStatus.LISTED, "execution-1"),
+        ArchiveEncryptionStatus.NONE,
+        _key(),
+        integrity_execution=ArchiveIntegrityExecution(
+            ArchiveIntegrityStatus.PASSED, "integrity-1"
+        ),
+        extraction_execution=ArchiveExtractionExecution(status, "extract-1"),
+        extraction_policy_status=policy_status,
+        members=(_member(),),
+    )
+    assert result.extraction_execution.status is status
+
+
+@pytest.mark.parametrize(
+    ("status", "policy_status"),
+    [
+        (ArchiveExtractionStatus.POLICY_REJECTED, ArchiveSafetyStatus.ACCEPTED),
+        (ArchiveExtractionStatus.POLICY_REJECTED, ArchiveSafetyStatus.LIMIT_EXCEEDED),
+        (ArchiveExtractionStatus.LIMIT_EXCEEDED, ArchiveSafetyStatus.POLICY_REJECTED),
+        (ArchiveExtractionStatus.EXTRACTED, ArchiveSafetyStatus.POLICY_REJECTED),
+        (ArchiveExtractionStatus.EXTRACTED, ArchiveSafetyStatus.LIMIT_EXCEEDED),
+        (ArchiveExtractionStatus.TIMED_OUT, ArchiveSafetyStatus.POLICY_REJECTED),
+        (ArchiveExtractionStatus.TOOL_FAILED, ArchiveSafetyStatus.LIMIT_EXCEEDED),
+    ],
+)
+def test_terminal_extraction_statuses_reject_invalid_policy_combinations(
+    status: ArchiveExtractionStatus, policy_status: ArchiveSafetyStatus
+) -> None:
+    with pytest.raises(ValueError, match="policy"):
+        ArchiveListingResult(
+            ArchiveListingExecution(ArchiveListingStatus.LISTED, "execution-1"),
+            ArchiveEncryptionStatus.NONE,
+            _key(),
+            integrity_execution=ArchiveIntegrityExecution(
+                ArchiveIntegrityStatus.PASSED, "integrity-1"
+            ),
+            extraction_execution=ArchiveExtractionExecution(status, "extract-1"),
+            extraction_policy_status=policy_status,
+            members=(_member(),),
+        )
+
+
+@pytest.mark.parametrize("member_kind", [ArchiveMemberKind.DIRECTORY, ArchiveMemberKind.SYMLINK])
+def test_non_file_members_reject_extraction_evidence(member_kind: ArchiveMemberKind) -> None:
+    with pytest.raises(ValueError, match="non-file"):
+        replace(
+            _member(member_kind=member_kind),
+            extraction_execution_id="extract-1",
+            observed_uncompressed_bytes=20,
+            member_sha256=SHA_D,
+        )
+
+
+def test_extraction_status_literals_are_exact_and_legacy_constructor_fields_are_absent() -> None:
+    assert tuple(ArchiveExtractionStatus) == (
+        ArchiveExtractionStatus.NOT_ATTEMPTED,
+        ArchiveExtractionStatus.EXTRACTED,
+        ArchiveExtractionStatus.LIMIT_EXCEEDED,
+        ArchiveExtractionStatus.TIMED_OUT,
+        ArchiveExtractionStatus.TOOL_UNAVAILABLE,
+        ArchiveExtractionStatus.TOOL_FAILED,
+        ArchiveExtractionStatus.POLICY_REJECTED,
+        ArchiveExtractionStatus.VALIDATION_FAILED,
+    )
+    assert {"execution_id", "integrity_status", "listing_status"}.isdisjoint(
+        ArchiveListingResult.__dataclass_fields__
+    )
 
 
 @pytest.mark.parametrize(
@@ -236,8 +461,7 @@ def test_failed_or_limited_snapshot_never_replaces_reusable_success() -> None:
         ArchiveListingStatus.POLICY_REJECTED,
     ):
         failed = ArchiveListingResult(
-            status,
-            "failed-execution",
+            ArchiveListingExecution(status, "failed-execution"),
             ArchiveEncryptionStatus.NONE,
             key,
             extraction_policy_status=ArchiveSafetyStatus.POLICY_REJECTED,
