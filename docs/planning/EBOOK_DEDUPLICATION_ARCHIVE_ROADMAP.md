@@ -3,7 +3,8 @@
 ## Status und Geltungsbereich
 
 **Status:** In Ausführung; FG-A, S-EBA-01 bis S-EBA-07, FG-A-RUNTIME,
-S-EBAR-01, S-EBAR-02 und FG-A-IMAGE abgeschlossen
+S-EBAR-01 bis S-EBAR-03 und FG-A-IMAGE abgeschlossen;
+FG-A-RUNTIME-AVAILABILITY durch ADR-0041 akzeptiert
 
 **Stand:** 2026-08-20
 
@@ -43,10 +44,18 @@ FG-A-IMAGE ist durch
 akzeptiert. Das Gate wählt ein projekt-eigenes `linux/amd64`-`scratch`-Image
 mit festen 7zz-26.02- und Lizenzinputs, UID/GID `65532:65532`, gepinntem
 Buildx-/BuildKit-Profil, reproduzierbarem Plattform-Manifest-Digest-Lock sowie
-nachträglich angehängter SBOM und Provenance. Bis S-EBAR-03 den Digest
-reproduzierbar ermittelt und publiziert sowie öffentliche/source-associated
-GHCR-Konfiguration und anonymen Digestabruf verifiziert hat, bleibt die
-Runtime `TOOL_UNAVAILABLE`.
+nachträglich angehängter SBOM und Provenance. S-EBAR-03 hat Rezept,
+Bootstrap-Lock, SPDX, Custom-SLSA-Workflow, Toolmanifest und Command Builder
+umgesetzt.
+
+FG-A-RUNTIME-AVAILABILITY ist durch
+[ADR-0041](../decisions/ADR-0041-offline-archive-runtime-availability.md)
+akzeptiert. Der nächste Schritt S-EBAR-03A bindet den exakten Manifestdigest,
+Custom-SLSA-/SPDX-Evidence und GitHub-Workflowidentity in einen reviewten
+Release-Acceptance-Record, provisioniert den lokalen State und prüft OCI-
+Config/RootFS bei jedem Lauf offline. `BOOTSTRAP_LOCKED` und lokales Inspect
+allein bleiben `TOOL_UNAVAILABLE`. Public Visibility und Source-Association
+werden nur beim Provisioning beziehungsweise Refresh erneut geprüft.
 
 ## Planungsentscheidung
 
@@ -237,10 +246,10 @@ Umfang:
 
 ### EA4 — Begrenztes Listing und Integritätstest
 
-**Status:** FG-A-RUNTIME und FG-A-IMAGE sind durch ADR-0039 beziehungsweise
-ADR-0040 akzeptiert. S-EBAR-01 und S-EBAR-02 sind umgesetzt. Der nächste
-Schritt ist S-EBAR-03 mit reproduzierbarem Image-Bootstrap, Digest-Lock,
-Toolmanifest und festen Command Buildern.
+**Status:** FG-A-RUNTIME, FG-A-IMAGE und FG-A-RUNTIME-AVAILABILITY sind durch
+ADR-0039, ADR-0040 beziehungsweise ADR-0041 akzeptiert. S-EBAR-01 bis
+S-EBAR-03 sind umgesetzt. Der nächste Schritt ist S-EBAR-03A mit
+Release-Acceptance, kontrollierter Provisionierung und Offline-Availability.
 
 **Ziel:** Archive werden ohne dauerhafte Extraktion technisch bewertet.
 
@@ -266,8 +275,8 @@ und extrahierte Mitglieder, Größen und CRC-/Toolbefunde müssen konsistent
 sein. Fehler, Passwortbedarf, fehlende Volumes oder Limits erzeugen einen
 terminalen technischen Befund, aber keine Source-Operation. Der Workspace
 wird nach sicherer Evidence-Übernahme bereinigt. S-EBA-01 bis S-EBA-07,
-S-EBAR-01, S-EBAR-02, FG-A-RUNTIME und FG-A-IMAGE sind abgeschlossen; die
-Runtime-Implementierung wird mit S-EBAR-03 fortgesetzt. Die 7-Zip-CLI darf
+S-EBAR-01 bis S-EBAR-03, FG-A-RUNTIME und FG-A-IMAGE sind abgeschlossen;
+ADR-0041 schiebt S-EBAR-03A verpflichtend vor EBAR-04. Die 7-Zip-CLI darf
 kein Secret über `-p` erhalten.
 
 ## FG-A-RUNTIME-Folgepakete und Modellrouting
@@ -281,6 +290,8 @@ S-EBAR-01 Execution-DTOs
     -> S-EBAR-02 Streamingparser
     -> FG-A-IMAGE Supply-Chain- und Packagingentscheidung
     -> S-EBAR-03 Gatewerte, Toolmanifest und Command Builder
+    -> FG-A-RUNTIME-AVAILABILITY Release-Authority-Entscheidung
+    -> S-EBAR-03A Acceptance, Provisioning und Offline-Availability
     -> EBAR-04 isolierter Docker/Linux-Streaming-Runner
     -> EBAR-05 unverschlüsseltes Listing und Integrity
     -> EBAR-06 private Extraction-Sandbox
@@ -292,10 +303,12 @@ S-EBAR-01 Execution-DTOs
 
 Die mechanischen S-EBAR-Pakete verwenden 5.3 Codex Spark mit Thinking `high`;
 zulässige Fallbacks sind 5.4 Mini und danach 5.6 Terra. FG-A-IMAGE wurde mit
-5.6 Sol `high` durch ADR-0040 abgeschlossen; S-EBAR-03 übernimmt nur die
-exakten Gatewerte und ermittelt den noch nicht erfindbaren Result-Digest
-mechanisch durch zwei identische Offline-Builds. Gewöhnliche Integration
-verwendet 5.6 Terra.
+5.6 Sol `high` durch ADR-0040 abgeschlossen; S-EBAR-03 hat die exakten
+Gatewerte und den Result-Digest mechanisch durch zwei identische Offline-
+Builds umgesetzt. FG-A-RUNTIME-AVAILABILITY wurde mit 5.6 Sol `high`
+entschieden; S-EBAR-03A verwendet ebenfalls 5.6 Sol `high`, mit 5.5 nur als
+Fallback ohne neue Trust-Root- oder Signaturentscheidung. Gewöhnliche
+Integration verwendet 5.6 Terra.
 Docker/Linux-Streaming-Runner und Extraction-Sandbox verwenden
 5.6 Sol mit Thinking `high`. Nur FG-A-SECRET verwendet 5.6 Sol mit Thinking
 `xhigh` und besitzt kein niedriger eingestuftes Fallback. Status-, CI- und
