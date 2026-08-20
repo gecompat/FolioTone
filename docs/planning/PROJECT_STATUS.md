@@ -4,7 +4,7 @@ Stand: 2026-08-20
 
 ## Aktuelle Welle
 
-**FG-A-EXTRACTION-QUOTA entschieden — nächstes Paket: neutrales S-EBAR-04Q**
+**S-EBAR-04Q umgesetzt — nächstes Gate: FG-A-WORKSPACE-BACKEND**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -171,15 +171,21 @@ bindet Locator, CRC und Memberidentität an denselben EBAR-05-Lauf; der reine
 Extraction-Validator prüft Workspaceprojektion, Größen, CRC, SHA-256,
 Deadline und Keine-Partial-Evidence ohne Tool- oder Filesystemauthority.
 
-FG-A-EXTRACTION-QUOTA ist durch ADR-0049 entschieden. Der Kernvertrag ist eine
-dateisystemneutrale, atomar begrenzte Workspace-Capability. S-EBAR-04Q
-implementiert als Nächstes ausschließlich den neutralen Provider-, Lease-,
-Capability-, Empty-Revalidation-, Return- und Quarantänevertrag mit
-begrenzten Fakes. Ein konkretes Dateisystem, Volume- oder Quota-Backend folgt
-als eigenes Plattformpaket mit nicht überspringbarem Konformitätsgate.
-FolioTone erhält weder `root` noch `CAP_SYS_ADMIN`, Device- oder Mountzugriff.
-S-EBAR-04A und EBAR-06 bleiben bis zur Annahme eines realen Adapters
-`TOOL_UNAVAILABLE`.
+FG-A-EXTRACTION-QUOTA ist durch ADR-0049 entschieden. S-EBAR-04Q implementiert
+den dateisystemneutralen Provider-, Lease-, Capability-,
+Empty-Revalidation-, Return- und Quarantänevertrag. Die feste
+Adapter-Allowlist ist leer; damit kann dieses Paket allein kein reales Backend
+freigeben. Direkte Konstruktion, Kopie, Serialisierung, fremder Return,
+Überschreitung von zwei Leases, ungültige Attestation und fehlgeschlagener
+Return werden geschlossen abgewiesen beziehungsweise quarantänisiert.
+
+Als Nächstes entscheidet FG-A-WORKSPACE-BACKEND das erste konkrete
+Plattformpaket und dessen nicht überspringbares Konformitätsgate. FolioTone
+erhält weder `root` noch `CAP_SYS_ADMIN`, Device- oder Mountzugriff. S-EBAR-04A
+und EBAR-06 bleiben bis zur Annahme eines realen Adapters `TOOL_UNAVAILABLE`.
+
+Fokussiert verifiziert wurden 18 Unit-Tests sowie Ruff und Mypy nur für den
+neuen Scope; der vollständige Gate läuft genau einmal am stabilen PR.
 
 Die spezialisierte Runtime darf anschließend ausschließlich unverschlüsselte
 Archive über bounded Streaming ohne Raw-Artefakt oder Preview verarbeiten.
