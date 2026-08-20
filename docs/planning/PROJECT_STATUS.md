@@ -140,6 +140,15 @@ nicht statussetzender Entwurf in
 `docs/planning/FUTURE_CAPABILITY_MAP.md` konsolidiert. Der Entwurf ändert
 weder die EB-Reihenfolge noch die W10-Sperre.
 
+Der langfristige Entwurf umfasst jetzt zusätzlich portable Objekt-Lineage und
+den bounded, idempotenten Austausch zwischen mehreren FolioTone-Systemen.
+ADR-0042 ist `Proposed`; FUT-010 bleibt deshalb `DECISION`. Vorgesehen sind
+getrennte Frontier-Gates für Knoten-/Objektreferenzen, Austauschpaket,
+Merge-/Trust-/Conflict-Regeln und read-only Kennzeichnungsträger. Es wurde
+keine Persistenz, kein Export/Import, kein Sync und kein Kennzeichnungs- oder
+Calibre-Write implementiert. Die aktive E-Book-/Archive-Reihenfolge sowie die
+W10-Sperre bleiben unverändert.
+
 Die repositoryweite Ausführungsrichtlinie
 `docs/planning/MODEL_ROUTING_POLICY.md` ordnet kommende Aufgaben
 ressourcenbewusst 5.3 Codex Spark, 5.6 Luna, 5.6 Terra oder 5.6 Sol zu. Neue
@@ -1288,6 +1297,9 @@ Noch nicht vorhanden sind unter anderem:
   synthetischen S-EBA-01 bis S-EBA-07 sowie FG-A-RUNTIME sind abgeschlossen;
 - medienübergreifende Classification- und kanonische Relation-Projektion über
   den book-only EB-04-Vertrag hinaus;
+- portable Knoten-/Objektreferenzen, Austauschpakete, Multi-Instanz-Merge,
+  Trust-/Conflict-Regeln sowie jede eingebettete oder externe
+  Bibliothekskennzeichnung; ADR-0042 ist nur `Proposed`;
 - externe Knowledge Provider und Provider Cache über den synthetischen Vertrag
   hinaus;
 - jede W10-Ausführung einschließlich Quarantäne, Purge und

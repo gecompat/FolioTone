@@ -1,7 +1,7 @@
 # Evidence-driven Collection Intelligence
 
 **Status:** Entwurf
-**Stand:** 2026-08-18
+**Stand:** 2026-08-20
 **Autorität:** strategische Produktvision, keine Architekturentscheidung und
 keine Statusquelle
 
@@ -49,6 +49,12 @@ beantworten:
   ohne Identität und Qualität zu vermischen?
 - Welche Objekte sind neu, verschwunden, verändert, unvollständig,
   beschädigt, ungesichert oder reviewpflichtig?
+- Welche FolioTone-Datensätze, externen Bibliothekskopien und Derivate gehören
+  zu derselben nachvollziehbaren Lineage, auch wenn Pfad, Dateiname oder
+  Dateibytes verändert wurden?
+- Wie können zwei FolioTone-Systeme ausgewählte Daten austauschen oder
+  fusionieren, ohne Provenance, lokale Entscheidungen oder Konflikte zu
+  verlieren?
 - Welche geplante Aufräum- oder Importentscheidung wäre möglich, welche
   Preconditions und Blocker gelten und wie könnte sie später kontrolliert
   rückgängig gemacht werden?
@@ -162,6 +168,49 @@ Erfahrung aus E-Books, Musik und einer dritten unabhängigen Domäne soll zeigen
 welche gemeinsamen Konzepte tatsächlich stabil sind. Ein graphförmiges
 Fachmodell erfordert ebenfalls keine Graphdatenbank. SQLite bleibt zunächst
 System of Record; Such- oder Graphsichten wären rebuildbare Projektionen.
+
+## Portable Objektidentität und föderierter Austausch
+
+FolioTone soll ausgewählte Datensätze später medienübergreifend transportieren
+und zwischen mehreren FolioTone-Systemen nachvollziehbar abgleichen können.
+Diese Fähigkeit benötigt eine portable Referenz auf die von einem System
+erzeugte Datensatz-Lineage sowie eine dauerhafte Knotenidentität. Die portable
+Referenz ergänzt die lokale `EntityId`; sie ersetzt weder File- noch
+Domain-Identität.
+
+Ein Pfad, Dateiname, aktueller Datei-Hash oder externer Katalog-Identifier ist
+keine ausreichende portable Identität. Derselbe Hash kann mehrere getrennte
+Kopien beschreiben. Eine Metadatenkorrektur kann den Hash verändern. ISBN,
+MusicBrainz-ID oder vergleichbare Identifier adressieren fachliche Ebenen und
+nicht automatisch eine konkrete Datei beziehungsweise deren FolioTone-
+Lineage.
+
+Eine in OPF, XMP, Audio-Metadaten, einem externen Custom Field oder einem
+Sidecar gespeicherte FolioTone-Referenz kann den Kontext transportieren. Sie
+bleibt veränderbare Evidence und darf einen Merge nicht allein autorisieren.
+Die FolioTone-Persistenz und ein versioniertes, bounded Austauschpaket bleiben
+die maßgeblichen Träger. Das Lesen einer vorhandenen Kennzeichnung kann später
+read-only erfolgen; jedes Einbetten oder Aktualisieren in Source Media oder
+einer externen Bibliothek bleibt W10-blockiert.
+
+Ein föderierter Austausch muss mindestens:
+
+- ausstellenden Knoten, Objekt-/Record-Art, stabile Referenz und
+  Profilversion binden;
+- Observation-, Assertion-, Evidence-, Relation- und Review-Provenance
+  erhalten;
+- offline, scope-begrenzt, privacy-geprüft und idempotent importierbar sein;
+- unabhängig erzeugte Referenzen als Matching-/Review-Fall behandeln;
+- konkurrierende Revisionen und lokale Entscheidungen getrennt erhalten;
+- ohne Last-write-wins allein nach Wall-Clock-Zeit auskommen;
+- Clone-, Backup-, Restore-, Replay-, Widerrufs- und Trust-Grenzen ausdrücklich
+  definieren.
+
+Die Richtung setzt weder Event Sourcing noch CRDTs, Echtzeit-Synchronisation
+oder eine zentrale Registry voraus. Signatur, Verschlüsselung, Transport und
+Vertrauen sind separate Verträge. [ADR-0042](../decisions/ADR-0042-federated-object-identity-and-exchange.md)
+beschreibt das vorgeschlagene Frontier-Gate; sie ist noch keine akzeptierte
+Architekturentscheidung.
 
 Eine Dateiendung bestimmt keine exklusive Medienlinie. Ein PDF kann
 E-Book, Comic oder allgemeines Dokument sein; M4A und Opus können Musik oder
@@ -540,6 +589,9 @@ Die Richtung ist erfolgreich umgesetzt, wenn:
 - freie lokale Suche begrenzt, sicher und erklärbar funktioniert;
 - Review und Benutzerpräferenzen erhalten bleiben, ohne Rohdaten zu
   überschreiben;
+- ausgewählte Datensätze zwischen FolioTone-Systemen idempotent ausgetauscht
+  und Konflikte ohne Verlust ihrer Ursprungsprovenance nachvollzogen werden
+  können;
 - neue Medien eine gemeinsame Infrastruktur nutzen, ohne ihre
   Identitätsmodelle zu verlieren;
 - jeder mögliche Write-Schritt vor der Ausführung erneut validiert,
@@ -555,6 +607,8 @@ Frontier-Entscheidungen:
 - Preference-/Policy-Modell und Best-Representation-Erklärung;
 - mögliche additive `Expression`-, `Representation`- und
   `Derivation`-Konzepte;
+- portable Knoten-/Objektreferenzen, Austauschpaket, Clone-/Restore-Semantik,
+  Trust und deterministische Konfliktbehandlung für mehrere FolioTone-Systeme;
 - Hörbuch- und Comic-Identität;
 - Bild-Sensitivität, Derivation und perceptual Matching;
 - Replica-, Backup- und Restore-Evidence;
