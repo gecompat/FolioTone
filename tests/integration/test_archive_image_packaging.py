@@ -69,9 +69,10 @@ def test_checked_in_archive_image_recipe_has_exact_public_supply_chain_contracts
         "tests/integration/test_archive_image_packaging.py",
     ):
         assert workflow.count(scoped_path) == 2
-    assert workflow.count("docker buildx build --builder") == 3
-    assert workflow.count("--platform linux/amd64 --network none --no-cache") == 3
-    assert workflow.count("--provenance=false --sbom=false") == 3
+    assert workflow.count("docker buildx build --builder") == 4
+    assert workflow.count("type=docker,dest=${RUNNER_TEMP}/archive-measurement.docker.tar") == 1
+    assert workflow.count("--platform linux/amd64 --network none --no-cache") == 4
+    assert workflow.count("--provenance=false --sbom=false") == 4
     pinned_actions = {
         "actions/attest@daf44fb950173508f38bd2406030372c1d1162b1": 1,
         "actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34": 1,

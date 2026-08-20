@@ -1,0 +1,12 @@
+rar-test-files/LICENSE.cc0 -text whitespace=-blank-at-eof
+rar-test-files/LICENSE.md -text whitespace=-blank-at-eof
+rar-test-files/README.md -text
+rar-test-files/build/*.rar -text
+direct/*.zip -text
+direct/*.7z -text
+direct/*.tar -text
+outer/*.tar.gz -text
+outer/*.tar.bz2 -text
+outer/*.tar.xz -text
+outer/*.tar.zst -text
+expected-measurement.json -text
