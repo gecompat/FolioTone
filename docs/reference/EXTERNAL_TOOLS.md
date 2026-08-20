@@ -261,10 +261,11 @@ Official references:
 
 ### Archiv-Listing und sichere Testextraktion
 
-Priority: **high / FG-A accepted, runtime pending**
+Priority: **high / FG-A-RUNTIME accepted, implementation pending**
 
 Evaluated snapshot: **7-Zip 26.02 and libarchive 3.8.9 on 2026-08-20;
-tool contract accepted by ADR-0038, no real adapter implemented**
+tool contract accepted by ADR-0038 and unencrypted runtime contract accepted by
+ADR-0039, no real adapter implemented**
 
 Candidate roles:
 
@@ -287,9 +288,42 @@ Die allgemeine Formulierung zu Runtime-Artefakten gilt nicht für rohe
 7-Zip-Archive-Ausgabe: `l -slt` kann Containerkommentare mit Passwortmaterial
 und private Membernamen enthalten. Die bestehende `ToolRuntime` persistiert
 stdout/stderr unverändert und ist deshalb für den realen Adapter ungeeignet.
-Das spätere Runtime-Gate muss einen bounded Streaming-Parser ohne Raw-
-Artifact, Preview oder Log einführen und ausschließlich normalisierte,
-secretfreie DTOs speichern.
+ADR-0039 akzeptiert dafür eine spezialisierte `ArchiveProcessRunner`-Grenze,
+nicht eine Erweiterung der generischen `ToolRuntime`. stdout wird bis zur
+ADR-0038-Grenze direkt mit `archive-7zip-slt-parser/v1` verarbeitet; stderr
+wird nur in feste Fehlerliterale klassifiziert. Rohbytes, Previews und Raw-
+Artefakte werden nicht persistiert. Die Runtime verwendet ein minimales
+allowlist-basiertes Environment und muss bei Timeout oder Grenzverletzung den
+vollständigen Prozessbaum beenden.
+
+Der erste freigegebene Backendvertrag heißt
+`archive-linux-container-runner/v1` für die primäre Docker/Linux-Runtime. Er
+verwendet nur ein lokal vorhandenes, per Digest gepinntes Image. FG-A-IMAGE
+entscheidet zuerst Build-/Bezugsmodell, Base-/Result-Digests, offizielle
+7zz-26.02-Artefaktidentität, Lizenz/Redistribution, SBOM/Provenance, numerische
+UID/GID, Reproduzierbarkeit/Updates und CI-Handhabung. S-EBAR-03 übernimmt und
+prüft anschließend nur diese exakten Werte. Der Container läuft non-root mit
+`network=none`, read-only
+Root-Filesystem, `cap-drop=ALL`, no-new-privileges, Default-oder-strengerem
+Seccomp, ohne Devices, mit festen PID-/RAM-/CPU-Grenzen, fester Entrypoint/argv
+und minimalem Environment. Timeout und Cancellation erzwingen Kill und
+Entfernung des Containers.
+
+Die tatsächliche Source und jeder ScanRoot werden niemals gemountet. FolioTone
+kopiert genau die validierte Volumegruppe in ein opaque privates Input-Staging
+unter dem konfigurierten Temp-Root, bewahrt nur die nötige Suffix-/Volumeform
+und prüft Source-Observation, Bytes und vollständige Hashes vor und nach der
+Kopie. Nur dieses Staging wird read-only gemountet; ein getrenntes privates
+Output-Verzeichnis ist der einzige read-write Mount. Beide werden nach dem
+Lauf bereinigt. Native Windows-Ausführung bleibt `TOOL_UNAVAILABLE`, bis
+`FG-A-WINDOWS-SANDBOX` Netzwerk- und Filesystemisolation nachweist. Job
+Objects und Handle-Allowlisten allein sind dafür unzureichend.
+
+Die Freigabe umfasst nur unverschlüsseltes Listing, Integrity und die nach
+vollständiger Policy-Prüfung zulässige private Testextraktion. Listing,
+Integrity und Extraction erhalten getrennte `ToolExecution`-Provenance. Die
+Extraction wird erst nach einer erneuten Workspace-Prüfung und vollständigem
+Member-/Größen-/CRC-Abgleich als erfolgreich behandelt.
 
 libarchive/bsdtar 3.8.9 bleibt zurückgestellt. libarchive besitzt einen
 Passphrase-Callback und breite Leseunterstützung, deckt verschlüsselte RAR-/7z-
@@ -306,12 +340,19 @@ spätere verschlüsselte Runtime benötigt ein eigenes Frontier-Gate und einen
 isolierten Helper-/anonymen-Pipe-Vertrag; stdin-, PTY-, argv- und
 Environment-Workarounds sind nicht akzeptiert.
 
+Dieses Gate heißt FG-A-SECRET und bleibt blockiert. Es muss einen konkreten
+Helper, die tatsächlich unterstützte verschlüsselte Formatmatrix, explizite
+Handle-Vererbung, Speicherbereinigung und adversarial Leakage-Tests festlegen.
+Ohne diesen Nachweis bleibt der Status `SECURE_CHANNEL_UNAVAILABLE`; die
+unverschlüsselte Runtime darf daraus keine implizite Passwortfreigabe ableiten.
+
 Eine erfolgreiche Extraktion ist keine Löschfreigabe. CBR, CBZ und EPUB sind
 Publikationscontainer und werden nicht als automatisch entbehrliche Archive
 behandelt. Der detaillierte Stufenvertrag steht in
 [`EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md`](../planning/EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md);
 die bindenden Literale, Budgets, Command Shapes, Secret- und Sandbox-Grenzen
-stehen in [ADR-0038](../decisions/ADR-0038-safe-archive-container-analysis.md).
+stehen in [ADR-0038](../decisions/ADR-0038-safe-archive-container-analysis.md)
+und [ADR-0039](../decisions/ADR-0039-safe-archive-runtime-and-secret-channel.md).
 
 Official references:
 
@@ -326,6 +367,15 @@ Official references:
 - https://github.com/libarchive/libarchive/blob/master/libarchive/test/test_read_format_7zip_encryption_data.c
 - https://github.com/libarchive/libarchive/issues/2516
 - https://github.com/libarchive/libarchive/blob/master/tar/bsdtar.1
+- https://docs.docker.com/reference/cli/docker/container/run/
+- https://docs.docker.com/engine/storage/bind-mounts/
+- https://docs.docker.com/engine/network/drivers/none/
+- https://docs.docker.com/engine/containers/resource_constraints/
+- https://docs.docker.com/engine/security/seccomp/
+- https://docs.docker.com/build/building/best-practices/
+- https://docs.docker.com/build/metadata/attestations/sbom/
+- https://docs.docker.com/build/metadata/attestations/slsa-provenance/
+- https://www.7-zip.org/license.txt
 
 ## Music tools
 

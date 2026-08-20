@@ -4,7 +4,8 @@ Stand: 2026-08-20
 
 ## Aktuelle Welle
 
-**FG-A ACCEPTED — nächste Welle: S-EBA-01 (synthetische Archive-Fixtures)**
+**FG-A-RUNTIME ACCEPTED — nächste Welle: S-EBAR-01
+(Archive-Execution-DTOs und Characterization-Tests)**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -24,10 +25,28 @@ Mypy, Dokumentationsprüfungen und `git diff --check` sind vor dem PR-Gate
 auszuführen; ein vollständiger Gate bleibt dem koordinierenden PR vorbehalten.
 
 FG-A ist durch ADR-0038 akzeptiert. Die mechanischen Pakete S-EBA-01 bis
-S-EBA-07 bleiben strikt synthetisch beziehungsweise Fake-only. Der nächste
-Schritt ist S-EBA-01; reale 7-Zip-Ausführung, Passwortprüfung und Extraktion
-bleiben bis zu einem separaten Streaming-Runner-/Secret-Helper-Frontiergate
-blockiert. W10 bleibt davon unabhängig ausdrücklich gesperrt.
+S-EBA-07 sind auf `main` abgeschlossen und bleiben strikt synthetisch
+beziehungsweise Fake-only. Sie liefern Fixture-, Signatur-, Sidecar-, lokale
+Secret-Candidate-, `SecretHandle`-, Safety-Policy- und Fake-Workflow-Verträge,
+starten aber kein reales Archivtool.
+
+FG-A-RUNTIME ist durch ADR-0039 akzeptiert. Die nächste Welle S-EBAR-01
+trennt Listing-, Integrity- und Extraction-Provenance vor der realen
+Toolanbindung. Die spezialisierte Runtime darf anschließend ausschließlich
+unverschlüsselte Archive über bounded Streaming ohne Raw-Artefakt oder Preview
+verarbeiten. Reale Passwortversuche bleiben bis zu einem separaten
+FG-A-SECRET mit belegtem Helper-/Pipe-/Handle-Vertrag
+`SECURE_CHANNEL_UNAVAILABLE`. W10 bleibt unabhängig ausdrücklich gesperrt.
+Nach S-EBAR-02 muss FG-A-IMAGE den Image-Build-/Supply-Chain-Vertrag
+akzeptieren; S-EBAR-03 darf Quellen, Digests, Lizenz, Redistribution, SBOM,
+Provenance oder UID/GID nicht selbst wählen und bleibt bis dahin blockiert.
+Der erste Runtimebackend ist `archive-linux-container-runner/v1` für die
+primäre Docker/Linux-Runtime. Er verwendet ausschließlich ein
+digest-gepinntes Image mit verifizierter eingebetteter 7zz-26.02-Identität,
+opaque privates Input-Staging statt eines ScanRoot-Mounts und eine getrennte
+Output-Sandbox. Native Windows-Ausführung bleibt `TOOL_UNAVAILABLE`, bis
+`FG-A-WINDOWS-SANDBOX` Netzwerk- und Filesystemisolation nachweist; Job
+Objects und Handle-Allowlisten allein genügen nicht.
 
 ADR-0036 akzeptiert Open Library als ersten realen, optionalen und begrenzten
 Book Provider. Der Vertrag erlaubt nur feste JSON-Endpoints für `Work`,
@@ -1214,15 +1233,15 @@ paketierten Schema-Head, die gemeinsame Scan-/Hash-/Collection-Lineage, die
 Inventarartefakte bytegenau und die begrenzte Formatabdeckung über dieselbe
 echte Read-only-Verbindung, ohne Source Media zu öffnen. Der vollständige
 private Inventar-/Collection-Lauf und Bericht werden noch abgeschlossen.
-EB-06, EB-07 und EB-08 sind abgeschlossen. EB-07 liefert die persistierte
+EB-04, EB-06, EB-07 und EB-08 sind abgeschlossen. EB-07 liefert die persistierte
 read-only Reconciliation und den pfadfreien CLI-Report; die Capture-
 Orchestrierung bleibt offen. EB-08 liefert den nicht ausführbaren,
 content-addressed ConsolidationPlan einschließlich read-only Report und
-statischem Non-Execution-Gate. FG-03A/EB-03A und EB-03B sind abgeschlossen;
-der nächste maßgebliche Implementierungsschritt ist das im Endgame-Plan
-vorgesehene FG-04-Gate. Die
-Archivstrecke bleibt eine getrennte Folgearbeit. W10 bleibt unverändert
-gesperrt. Music W4 bleibt
+statischem Non-Execution-Gate. FG-03A/EB-03A und EB-03B sind abgeschlossen.
+In der getrennten Archivstrecke sind FG-A und S-EBA-01 bis S-EBA-07
+abgeschlossen; FG-A-RUNTIME ist durch ADR-0039 akzeptiert. Der nächste
+maßgebliche Implementierungsschritt ist S-EBAR-01. Reale Passwortversuche
+bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert gesperrt. Music W4 bleibt
 bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
 ausschließlich die CLI.
 
@@ -1241,6 +1260,8 @@ Noch nicht vorhanden sind unter anderem:
   Matching für `EXACT_DUPLICATE`, `SAME_EDITION` und `SAME_WORK` ist
   implementiert;
 - vollständiger realer Sammlungslauf und zusätzliche qpdf-Struktur-Evidence;
+- reale Archive-Runtime, Archive-Persistenz und Collection-Orchestrierung; die
+  synthetischen S-EBA-01 bis S-EBA-07 sowie FG-A-RUNTIME sind abgeschlossen;
 - medienübergreifende Classification- und kanonische Relation-Projektion über
   den book-only EB-04-Vertrag hinaus;
 - externe Knowledge Provider und Provider Cache über den synthetischen Vertrag

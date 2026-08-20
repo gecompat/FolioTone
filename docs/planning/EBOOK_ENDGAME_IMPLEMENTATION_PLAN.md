@@ -83,7 +83,9 @@ Noch nicht vorhanden bzw. nicht vollständig:
 - vollständige persistierte Classification-Projektion;
 - kanonische Relation-Projektion aus bestätigten book-only
   Relation Candidates;
-- Archive-/Sidecar-/Archive-Member-Analyse.
+- reale Archive-Runtime, Archive-Persistenz und Collection-Orchestrierung;
+  die synthetischen S-EBA-01 bis S-EBA-07 und FG-A-RUNTIME sind
+  abgeschlossen.
 
 `foliotone.matching` und `foliotone.review` besitzen die book-only Verträge
 und Workflows aus EB-05/EB-06. ADR-0034 ist mit S-EB08-01 bis S-EB08-09
@@ -99,9 +101,11 @@ bleibt jeder Plan `NOT_EXECUTABLE` und es existiert kein Mutationspfad.
 ## Hauptempfehlung
 
 Die abgeschlossene kritische Kette bleibt provider- und Calibre-unabhängig.
-Der nächste Schritt ist nun **FG-03A**, das Frontier-Gate für den
-Provider-Cache-Vertrag von EB-03A; es ist keine Provider- oder
-Calibre-Implementierung.
+EB-03A, EB-03B, EB-04 sowie die book-only Kette bis EB-08 sind abgeschlossen.
+In der getrennten Archivstrecke sind FG-A und S-EBA-01 bis S-EBA-07
+abgeschlossen; FG-A-RUNTIME ist durch ADR-0039 akzeptiert. Der nächste Schritt
+ist **S-EBAR-01**, das DTO- und Characterization-Paket vor der realen
+unverschlüsselten Archive-Runtime.
 
 Empfohlene kritische Kette:
 
@@ -1828,7 +1832,20 @@ Das Sicherheits- und Vertragsgate FG-A ist durch
 akzeptiert. Es legt die Container-/Formatmatrix, 7-Zip-26.02-Entscheidung,
 read-only Command Shapes, Statuswerte, Profile, Budgets, Memberpfade,
 `SecretHandle`-Grenze und Reuse-Identität fest. Die reale Tool- und
-Extraction Runtime bleibt ein späteres Frontier-Paket.
+Extraction Runtime ist durch das separate
+[FG-A-RUNTIME](../decisions/ADR-0039-safe-archive-runtime-and-secret-channel.md)
+für unverschlüsselte Archive vertraglich freigegeben, aber noch nicht
+implementiert. Reale Passwortversuche bleiben bis FG-A-SECRET blockiert.
+Nach S-EBAR-02 entscheidet FG-A-IMAGE den Image-Build-/Supply-Chain-Vertrag;
+S-EBAR-03 bleibt bis zur akzeptierten Entscheidung blockiert und setzt danach
+nur die exakten Gatewerte mechanisch um.
+Der erste freigegebene Backendvertrag ist
+`archive-linux-container-runner/v1` für die primäre Docker/Linux-Runtime. Er
+verwendet ein digest-gepinntes Image mit exakt verifizierter eingebetteter
+7zz-26.02-Identität, opaque vollhashgeprüftes Input-Staging statt eines
+ScanRoot-Mounts und einen getrennten Output-Workspace. Native Windows-
+Ausführung bleibt bis zum akzeptierten `FG-A-WINDOWS-SANDBOX`
+`TOOL_UNAVAILABLE`; Job Objects und Handle-Allowlisten allein genügen nicht.
 
 ## Empfehlung
 
@@ -1965,10 +1982,10 @@ bestimmtes Tool verwendet werden kann.
 Für die gewählte 7-Zip-26.02-CLI ist diese Blockade eingetreten: Der
 dokumentierte `-p{password}`-Parameter würde das Secret in argv offenlegen;
 die aktuelle `ToolRuntime` besitzt keinen Secret-Kanal. S-EBA-01 bis
-S-EBA-07 dürfen deshalb nur `SECURE_CHANNEL_UNAVAILABLE` modellieren. Eine
-echte Passwortprüfung benötigt danach ein separates Frontier-Gate und einen
-isolierten Helper-/Pipe-Vertrag. Eine undokumentierte stdin-, PTY- oder
-Environment-Lösung ist ausgeschlossen.
+S-EBA-07 modellieren deshalb nur `SECURE_CHANNEL_UNAVAILABLE`. ADR-0039 gibt
+die unverschlüsselte Runtime getrennt frei. Eine echte Passwortprüfung
+benötigt FG-A-SECRET und einen isolierten Helper-/Pipe-/Handle-Vertrag. Eine
+undokumentierte stdin-, PTY- oder Environment-Lösung ist ausgeschlossen.
 
 ---
 
@@ -2264,9 +2281,11 @@ SOURCE MEDIA READ-ONLY
 
 # 36. Empfohlene konkrete Entwicklungsreihenfolge
 
-EB-00, EB-01, EB-02, EB-05, EB-06, EB-07 und EB-08/W9 sind abgeschlossen.
-Als nächstes ist FG-03A für EB-03A erforderlich. Die Tabelle bleibt als
-Abhängigkeitsfolge maßgeblich; sie ist keine zweite Statusquelle.
+EB-00 bis EB-08/W9 einschließlich EB-03A, EB-03B und EB-04 sind in ihrem
+book-only Scope abgeschlossen. In der Archivstrecke sind FG-A und S-EBA-01 bis
+S-EBA-07 abgeschlossen; FG-A-RUNTIME ist akzeptiert. Als Nächstes folgt
+S-EBAR-01. Die Tabelle bleibt als Abhängigkeitsfolge maßgeblich; sie ist keine
+zweite Statusquelle.
 
 | Reihenfolge | Welle | Inhalt | Priorität | Abhängigkeit |
 |---:|---|---|---|---|
@@ -2497,17 +2516,18 @@ ohne die Fähigkeit, Source Media zu verändern.
 
 # 42. Empfohlener unmittelbarer nächster Implementierungsschritt
 
-EB-00, EB-01/E4, EB-02, EB-05, EB-06, EB-07 und EB-08/W9 sind abgeschlossen.
+Die book-only Wellen EB-00 bis EB-08/W9 sind abgeschlossen. FG-A,
+S-EBA-01 bis S-EBA-07 und FG-A-RUNTIME sind ebenfalls abgeschlossen.
 Unmittelbar als Nächstes:
 
-**S-EB03A-01 – immutable Content-/Failure-Slot-DTOs, Cache-Limits sowie feste
-Result-/Freshness-Literale nach ADR-0035.**
+**S-EBAR-01 – getrennte Archive-Execution-DTOs und Characterization-Tests für
+Listing-, Integrity- und Extraction-Provenance nach ADR-0039.**
 
-FG-03A ist durch ADR-0035 akzeptiert. Danach folgen die atomaren
-S-EB03A-Pakete strikt in Katalogreihenfolge. Archive
-EA1 kann weiterhin nur innerhalb seines eigenen Gates vorbereitet werden.
-Jede Filesystem-Mutation, mutierende Calibre-Operation und ausführbare
-W10-Strecke bleibt ausgeschlossen.
+Danach folgen die atomaren FG-A-RUNTIME-Pakete strikt in Katalogreihenfolge.
+Die unverschlüsselte Runtime ist vertraglich freigegeben, aber noch nicht
+implementiert. Passwortversuche bleiben bis FG-A-SECRET blockiert. Jede
+Filesystem-Mutation, mutierende Calibre-Operation und ausführbare W10-Strecke
+bleibt ausgeschlossen.
 
 ---
 
