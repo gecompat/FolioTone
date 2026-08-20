@@ -38,6 +38,7 @@ IMAGE_REFERENCE = (
     "sha256:26c9c2fa32f93210a46fcf6b9651006038f9e766a1d791b463ce9875815a8287"
 )
 CONTAINER_ID = "a" * 64
+SYNTHETIC_ROOT = (Path.cwd() / "synthetic-archive-container").resolve()
 
 
 class _FakeProcess:
@@ -171,7 +172,7 @@ class _FakeFilesystem:
         self.events = events
         self.cleanup_ok = cleanup_ok
         self.stage_calls = 0
-        temp = Path("C:/rep/tmp/FolioTone/container-test")
+        temp = SYNTHETIC_ROOT / "tmp" / "container-test"
         root = temp / (".archive-" + "b" * 32)
         self.sandbox = StagedArchiveSandbox(temp, root, root / "input", root / "output")
 
@@ -330,8 +331,8 @@ class _Availability:
 
 
 def _preflight() -> ArchiveRuntimePreflightInputs:
-    root = Path("C:/rep/pu/FolioTone/packaging/archive/7zip-26.02")
-    private = Path("C:/rep/tmp/FolioTone/archive-runtime-state")
+    root = SYNTHETIC_ROOT / "packaging" / "archive" / "7zip-26.02"
+    private = SYNTHETIC_ROOT / "tmp" / "archive-runtime-state"
     return ArchiveRuntimePreflightInputs(
         root / "archive-image.lock.json",
         root / "archive-runtime-release.json",
@@ -339,13 +340,13 @@ def _preflight() -> ArchiveRuntimePreflightInputs:
         root / "archive-runtime-evidence",
         private / "state",
         private,
-        Path("C:/rep/cache/FolioTone/archive-runtime.oci.tar"),
+        SYNTHETIC_ROOT / "cache" / "archive-runtime.oci.tar",
     )
 
 
 def _request() -> ArchiveContainerRequest:
     volume = ArchiveVolumeSource(
-        Path("C:/rep/artifacts/FolioTone/synthetic-scan/archive.fixture"),
+        SYNTHETIC_ROOT / "artifacts" / "synthetic-scan" / "archive.fixture",
         9,
         "1" * 64,
         "archive",
@@ -353,7 +354,7 @@ def _request() -> ArchiveContainerRequest:
     return ArchiveContainerRequest(
         (volume,),
         build_7zzs_information_command(),
-        (Path("C:/rep/artifacts/FolioTone/synthetic-scan"),),
+        (SYNTHETIC_ROOT / "artifacts" / "synthetic-scan",),
     )
 
 
@@ -403,7 +404,7 @@ def test_request_rejects_extraction_until_ebar06_live_workspace_contract() -> No
         ArchiveContainerRequest(
             (volume,),
             build_7zzs_extraction_command(),
-            (Path("C:/rep/artifacts/FolioTone/synthetic-scan"),),
+            (SYNTHETIC_ROOT / "artifacts" / "synthetic-scan",),
         )
 
 
