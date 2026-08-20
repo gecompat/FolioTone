@@ -1836,9 +1836,15 @@ Extraction Runtime ist durch das separate
 [FG-A-RUNTIME](../decisions/ADR-0039-safe-archive-runtime-and-secret-channel.md)
 für unverschlüsselte Archive vertraglich freigegeben, aber noch nicht
 implementiert. Reale Passwortversuche bleiben bis FG-A-SECRET blockiert.
-Nach S-EBAR-02 entscheidet FG-A-IMAGE den Image-Build-/Supply-Chain-Vertrag;
-S-EBAR-03 bleibt bis zur akzeptierten Entscheidung blockiert und setzt danach
-nur die exakten Gatewerte mechanisch um.
+S-EBAR-01 und S-EBAR-02 sind umgesetzt. FG-A-IMAGE ist durch
+[ADR-0040](../decisions/ADR-0040-reproducible-archive-runtime-image.md)
+akzeptiert. S-EBAR-03 setzt als Nächstes das projekt-eigene
+`linux/amd64`-`scratch`-Rezept, die festen 7zz-/Lizenzinputs, UID/GID
+`65532:65532`, das gepinnte Buildx-/BuildKit-Profil, den zweistufigen
+Plattform-Manifest-Digest-Lock sowie nachträglich angehängte SBOM und
+Provenance mechanisch um. Bis zum reproduzierbaren, ohne Inline-Attestations
+publizierten und anonym verifizierten Digest in einem öffentlichen,
+source-associated GHCR-Package bleibt die Runtime `TOOL_UNAVAILABLE`.
 Der erste freigegebene Backendvertrag ist
 `archive-linux-container-runner/v1` für die primäre Docker/Linux-Runtime. Er
 verwendet ein digest-gepinntes Image mit exakt verifizierter eingebetteter
@@ -2517,11 +2523,14 @@ ohne die Fähigkeit, Source Media zu verändern.
 # 42. Empfohlener unmittelbarer nächster Implementierungsschritt
 
 Die book-only Wellen EB-00 bis EB-08/W9 sind abgeschlossen. FG-A,
-S-EBA-01 bis S-EBA-07 und FG-A-RUNTIME sind ebenfalls abgeschlossen.
-Unmittelbar als Nächstes:
+S-EBA-01 bis S-EBA-07, FG-A-RUNTIME, S-EBAR-01, S-EBAR-02 und FG-A-IMAGE sind
+ebenfalls abgeschlossen. Unmittelbar als Nächstes:
 
-**S-EBAR-01 – getrennte Archive-Execution-DTOs und Characterization-Tests für
-Listing-, Integrity- und Extraction-Provenance nach ADR-0039.**
+**S-EBAR-03 – reproduzierbares 7zz-26.02-`scratch`-Image mit gepinntem
+Buildx-/BuildKit-Profil, zweistufigem Plattform-Manifest-Digest-Lock,
+nachträglicher SBOM/Provenance, öffentlicher/source-associated und anonym
+verifizierter GHCR-Freigabe, Toolmanifest und festen Command Buildern nach
+ADR-0040.**
 
 Danach folgen die atomaren FG-A-RUNTIME-Pakete strikt in Katalogreihenfolge.
 Die unverschlüsselte Runtime ist vertraglich freigegeben, aber noch nicht
