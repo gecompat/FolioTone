@@ -302,8 +302,11 @@ ausgeben. Ein Kommentar kann selbst Passwortmaterial enthalten. Die aktuelle
 `ToolRuntime` persistiert stdout/stderr unverändert und darf deshalb auch für
 unverschlüsseltes reales Archive-Listing nicht wiederverwendet werden. Der
 spätere Frontier-Task benötigt einen bounded Streaming-Runner, der stdout
-direkt mit `archive-7zip-slt-parser/v1` verarbeitet, lokale Passwortkandidaten
-ephemer abzweigt und die Rohbytes danach verwirft. stderr wird nur in feste
+direkt mit `archive-7zip-slt-parser/v1` verarbeitet, einen begrenzten
+Containerkommentar zunächst ausschließlich ephemer und redigiert abzweigt und
+die Rohbytes danach verwirft. Die Umwandlung des Kommentars in einen lokalen
+Passwortkandidaten benötigt die in ADR-0039 getrennt benannte Brücke; der
+Parser darf ihn nicht als Directory-Sidecar umetikettieren. stderr wird nur in feste
 Fehlerliterale klassifiziert und ebenfalls nicht als Raw Artifact, Preview
 oder Log persistiert. Persistierbar ist ausschließlich ein normalisiertes,
 secretfreies DTO. Diese Outputlücke ist neben dem Secret-Kanal ein harter

@@ -171,8 +171,10 @@ Ausführung als begrenzter Bytestream unmittelbar an
 - dekodiert ausschließlich den festgelegten UTF-8-Vertrag;
 - begrenzt Zeilenlänge, Feldzahl und Memberzahl;
 - normalisiert nur allowlist-basierte Felder;
-- leitet einen begrenzten Containerkommentar ausschließlich ephemer an den
-  lokalen Secret-Candidate-Parser weiter;
+- gibt einen begrenzten Containerkommentar ausschließlich als redigiertes
+  ephemeres Objekt an den aufrufenden In-Memory-Workflow zurück; eine spätere
+  separat getestete Brücke darf ihn an den lokalen Secret-Candidate-Parser
+  übergeben;
 - verwirft Rohbytes nach der Verarbeitung;
 - gibt private Memberlocator nur an die interne Path- und Safety-Prüfung
   weiter.
@@ -182,6 +184,146 @@ in feste technische Status- beziehungsweise Fehlerliterale klassifiziert.
 Rohtext und unbekannte Fehlermeldungen werden nicht persistiert. Exceptions,
 `repr`, CLI-Ausgabe und Telemetrie dürfen weder Raw-Ausgabe noch Membernamen,
 Containerkommentare, Source-Pfade oder Secretmaterial enthalten.
+
+### Exakter `archive-7zip-slt-parser/v1`-Vertrag
+
+S-EBAR-02 implementiert ausschließlich einen inkrementellen Parser für den
+stdout-Bytestream des fest gepinnten 7zz 26.02. Der Parser startet kein Tool,
+öffnet keine Datei und besitzt keine Persistenz-, Logging-, Preview- oder
+Artefaktschnittstelle. Seine öffentlichen Ergebnisse sind ein Sum-Type mit
+exakt `PARSED`, `LIMIT_EXCEEDED`, `ENCODING_REJECTED` und
+`GRAMMAR_REJECTED`. Nur `PARSED` darf Header, Members oder einen ephemeren
+Kommentar tragen; jeder andere Status verwirft alle bis dahin gelesenen
+Teilwerte.
+
+Der Streamvertrag ist exakt:
+
+```text
+max_stdout_bytes             = 8_388_608
+max_chunk_bytes              = 262_144
+max_chunks                   = 65_536
+max_line_utf8_bytes          = 8_192
+max_line_codepoints          = 4_096
+max_fields_per_record        = 32
+max_member_records           = 10_000
+max_member_path_utf8_bytes   = 4_096
+max_member_path_codepoints   = 1_024
+max_comment_utf8_bytes       = 4_096
+max_comment_codepoints       = 4_096
+```
+
+Chunks müssen `bytes` sein und dürfen die Chunkgrenze nicht überschreiten;
+auch leere Chunks zählen gegen die Chunkgrenze. Dekodiert wird mit einem
+zustandsbehafteten, strikt fehlschlagenden UTF-8-Decoder. Genau ein UTF-8-BOM
+ist ausschließlich am Streamanfang zulässig. `LF` und `CRLF` sind zulässige
+Zeilenenden; einzelnes `CR`, NUL und andere C0-/C1-Steuerzeichen außer dem
+jeweiligen Zeilenende werden abgewiesen. Ein Stream muss mit einem
+Zeilenende abschließen. Die Bytegrenze wird vor dem Dekodieren, die
+Codepointgrenze vor jeder Feldübernahme geprüft.
+
+Die v1-Grammatik besteht aus einem Archive-Header, der exakten Trennzeile
+`----------` und null bis 10.000 Member-Records. Records werden durch genau
+eine Leerzeile getrennt. Jede Feldzeile hat exakt die Form
+`ASCII_FIELD_NAME = VALUE`; führende oder nachlaufende Leerzeichen,
+Fortsetzungszeilen, doppelte Felder, Material vor dem Header, eine zweite
+Trennzeile und Material nach dem letzten abgeschlossenen Record sind
+ungültig. Feldreihenfolge ist nicht materiell; Member-Reihenfolge bleibt die
+vom Tool gelieferte Reihenfolge und erzeugt die spätere kanonische Ordinalzahl.
+
+Der Archive-Header akzeptiert ausschließlich:
+
+```text
+Path
+Type
+Physical Size
+Headers Size
+Method
+Solid
+Blocks
+Volumes
+Total Physical Size
+Tail Size
+Embedded Stub Size
+Characteristics
+Comment
+```
+
+Ein Member-Record akzeptiert ausschließlich:
+
+```text
+Path
+Folder
+Size
+Packed Size
+Modified
+Created
+Accessed
+Attributes
+Encrypted
+CRC
+Method
+Block
+Characteristics
+Host OS
+Version
+Volume Index
+Offset
+Symbolic Link
+Hard Link
+User
+Group
+Alternate Stream
+Anti
+```
+
+`Path` ist in beiden Recordarten Pflicht. Im Header sind zusätzlich `Type`
+und `Physical Size`, im Member zusätzlich `Folder`, `Size`, `Packed Size` und
+`Encrypted` Pflicht. `Folder`, `Encrypted`, `Solid`, `Alternate Stream` und
+`Anti` akzeptieren ausschließlich `+` oder `-`. Größen, Counts, Block- und
+Offsetwerte sind kanonische nichtnegative ASCII-Dezimalzahlen ohne Vorzeichen
+oder führende Null außer dem Einzelwert `0`; sie dürfen `2^63 - 1` nicht
+überschreiten. `CRC` ist, wenn vorhanden, exakt acht uppercase
+Hexadezimalzeichen. Unbekannte Felder, unbekannte boolesche Werte oder
+abweichende numerische Formen ergeben `GRAMMAR_REJECTED`; sie werden niemals
+ignoriert. Die spätere EBAR-05-Fixturematrix muss für jedes freigegebene
+Archivformat belegen, dass 7zz 26.02 innerhalb dieser v1-Allowlist bleibt.
+Eine notwendige Erweiterung verlangt ein neues Parserprofil oder eine
+explizite ADR-Änderung und darf nicht still in v1 aufgenommen werden.
+
+Der Parser übernimmt nur die für Safety und technische Evidence nötigen
+Werte. Archive- und Member-`Path` bleiben private, `repr=False` markierte
+Locator und durchlaufen danach unverändert die vorhandene Path-/Safety-
+Prüfung; sie erscheinen nie in öffentlichen DTOs oder Fehlermeldungen.
+`Symbolic Link`, `Hard Link`, `User`, `Group` und `Characteristics` werden
+ausschließlich durch ihre Feldpräsenz auf je ein boolesches Unsafe-Flag
+projiziert; ihr potentiell privater Wert wird unmittelbar verworfen.
+`Alternate Stream` und `Anti` werden aus ihrem festen `+`-/`-`-Wert auf
+boolesche Unsafe-Flags projiziert. Kein Wert dieser Felder darf in ein DTO,
+einen Fingerprint, `repr`/`str` oder eine Fehlermeldung gelangen. Jedes gesetzte
+Unsafe-Flag wird von der nachfolgenden Safety-Prüfung fail-closed bewertet,
+nicht als vertrauenswürdige Metadaten. Leere Werte der präsenzbasierten Felder
+sind weiterhin Feldpräsenz und damit unsafe; ein doppeltes Feld bleibt ein
+Grammatikfehler.
+
+`Comment` ist eine Sondergrenze. Höchstens der einzelne Header-Kommentar wird
+bis zu den oben festgelegten Grenzen in einem
+`EphemeralArchiveComment`-Objekt mit vollständig redigiertem `repr`/`str`
+zurückgegeben. Memberkommentare machen v1 `GRAMMAR_REJECTED`; sie werden nicht
+als Secretquelle interpretiert. Das ephemere Objekt bietet keine
+Serialisierung und darf nur innerhalb desselben In-Memory-Workflows an eine
+spätere, separat getestete Comment-Candidate-Brücke übergeben werden. S-EBAR-02
+erzeugt noch keinen `ArchiveSecretCandidate`: Die bestehende Sidecar-API ist
+absichtlich auf `DIRECTORY_SIDECAR` beschränkt und darf nicht falsch als
+`ARCHIVE_COMMENT` verwendet werden. Bis eine Folgeänderung diese Brücke exakt
+definiert, wird der Kommentar nach dem Parseraufruf verworfen und es findet
+kein Passwortversuch statt.
+
+Der Parser kopiert Raw-Zeilen oder unbekannte Feldwerte niemals in Status,
+Exception oder Textdarstellung. Seine Fehler geben ausschließlich Profil und
+festen Status zurück. Unit-Tests müssen Chunk-Splits an jedem UTF-8- und
+CRLF-Grenzpunkt, zu viele leere Chunks, BOM-/Encodingfehler, jede einzelne
+Boundkante, unbekannte/doppelte Felder, Steuerzeichen, unvollständige Records,
+Kommentarredaktion sowie pathfreie `repr`/`str`-Ausgaben abdecken.
 
 Ein Überschreiten der stdout-/stderr-, Zeit-, Prozess-, Speicher- oder
 Workspace-Grenze beendet den vollständigen Prozessbaum. Bereits geparste
@@ -372,7 +514,7 @@ läuft genau ein vollständiger PR-CI-Gate.
 | Paket | Inhalt | Modell und Thinking |
 |---|---|---|
 | S-EBAR-01 | Characterization-Tests, getrennte Archive-Execution-DTOs und vollständige Listing-/Integrity-/Extraction-Provenance | 5.3 Codex Spark `high`; Fallback 5.4 Mini, danach 5.6 Terra |
-| S-EBAR-02 | Reiner bounded `archive-7zip-slt-parser/v1` mit Chunk-, Encoding-, Limit- und Redaktionsfällen | 5.3 Codex Spark `high`; Fallback 5.4 Mini, danach 5.6 Terra |
+| S-EBAR-02 | Reiner bounded `archive-7zip-slt-parser/v1` mit der exakten v1-Feld-/Record-Allowlist, Chunk-, Encoding-, Limit- und Redaktionsfällen sowie ausschließlich ephemerem Header-Kommentar ohne Sidecar-Umetikettierung | 5.3 Codex Spark `high`; Fallback 5.4 Mini, danach 5.6 Terra |
 | FG-A-IMAGE | Projekt-eigenes Build-Rezept oder operator-provided Image, Digests, offizielle 7zz-Artefaktidentität, Lizenz/Redistribution, SBOM/Provenance, numerische UID/GID, Reproduzierbarkeit, Updates und CI-Grenzen entscheiden | 5.6 Sol `high`; kein Spark-Fallback |
 | S-EBAR-03 | Die durch FG-A-IMAGE exakt festgelegten Image-/7zz-Identitäten, Packagingdateien und UID/GID mechanisch umsetzen und verifizieren; Toolmanifest, Startprüfung und feste Command Builder ohne freie Argumente | 5.3 Codex Spark `high`; Fallback 5.4 Mini, danach 5.6 Terra; ohne akzeptiertes FG-A-IMAGE blockiert |
 | EBAR-04 | Docker-Backend `archive-linux-container-runner/v1` mit opaque Input-Staging, getrenntem Output, festen Mount-/Netzwerk-/Capability-/Seccomp-/Ressourcengrenzen und vollständigem Kill/Remove | 5.6 Sol `high`; Fallback 5.5 nur, wenn keine Secret- oder neue Sandboxentscheidung offen ist |
