@@ -1,5 +1,13 @@
 """Safe, read-only archive observation contracts."""
 
+from foliotone.archive.sidecars import (
+    ARCHIVE_SIDECAR_PROFILE,
+    MAX_ARCHIVE_SIDECAR_FILES,
+    ArchiveSidecar,
+    ArchiveSidecarClassification,
+    ArchiveSidecarKind,
+    classify_archive_sidecars,
+)
 from foliotone.archive.signatures import (
     ARCHIVE_SIGNATURE_PROFILE,
     MAX_ARCHIVE_HEADER_BYTES,
@@ -26,4 +34,10 @@ __all__ = [
     "ArchiveVolumeGroup",
     "group_archive_volume_names",
     "observe_archive_signature",
+    "ARCHIVE_SIDECAR_PROFILE",
+    "MAX_ARCHIVE_SIDECAR_FILES",
+    "ArchiveSidecar",
+    "ArchiveSidecarClassification",
+    "ArchiveSidecarKind",
+    "classify_archive_sidecars",
 ]
