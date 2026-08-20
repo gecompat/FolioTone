@@ -254,11 +254,18 @@ jobs:
             --repository-commit "${GITHUB_SHA}" \
             --invocation-id "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}" \
             --output "${RUNNER_TEMP}/archive-image-provenance.json"
+      - name: Prepare minimal GHCR credentials for attestation actions
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/foliotone-publish-docker-config
+        run: |
+          set -euo pipefail
+          test -s "${DOCKER_CONFIG}/config.json"
+          install -d -m 0700 "$HOME/.docker"
+          test ! -e "$HOME/.docker/config.json"
+          install -m 0600 "${DOCKER_CONFIG}/config.json" "$HOME/.docker/config.json"
       - name: Attach exact custom SLSA provenance
         id: custom-provenance
         uses: actions/attest@daf44fb950173508f38bd2406030372c1d1162b1
-        env:
-          DOCKER_CONFIG: ${{ runner.temp }}/foliotone-publish-docker-config
         with:
           subject-name: ghcr.io/gecompat/foliotone-archive-7zip
           subject-digest: ${{ steps.identity.outputs.digest }}
@@ -267,13 +274,19 @@ jobs:
           push-to-registry: true
       - name: Attach separate SPDX SBOM
         uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34
-        env:
-          DOCKER_CONFIG: ${{ runner.temp }}/foliotone-publish-docker-config
         with:
           subject-name: ghcr.io/gecompat/foliotone-archive-7zip
           subject-digest: ${{ steps.identity.outputs.digest }}
           sbom-path: packaging/archive/7zip-26.02/archive-image.spdx.json
           push-to-registry: true
+      - name: Remove attestation registry credentials
+        if: always()
+        run: |
+          set -euo pipefail
+          if test -f "$HOME/.docker/config.json"; then
+            rm -- "$HOME/.docker/config.json"
+          fi
+          rmdir "$HOME/.docker" 2>/dev/null || true
       - name: Verify exact attestations and credential-free public manifest
         env:
           DOCKER_CONFIG: ${{ runner.temp }}/foliotone-publish-docker-config
