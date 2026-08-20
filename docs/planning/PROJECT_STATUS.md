@@ -258,9 +258,10 @@ Mapper-Verträge. S-EB07-09 ergänzt den SELECT-only
 SQLite-Read-only-Verbindung; sie führt keine Migration, keine Calibre-
 Capture und keine schreibende Operation aus.
 
-Die Persistenz- und Reportstrecke von EB-07 ist damit abgeschlossen. Die
-Capture-Orchestrierung gegen eine konfigurierte Calibre-Bibliothek bleibt
-ausdrücklich offen. EB-08, die Archivstrecke und die W10-Sperre bleiben
+Die Persistenz-, Report- und read-only Capture-Strecke von EB-07 ist damit
+abgeschlossen. Der Capture-Service erwirbt die `EBOOK_ANALYSIS`-Lease, bindet
+den neuesten abgeschlossenen EBOOK-Scan und persistiert den terminalen
+Snapshotgraphen atomar. EB-08, die Archivstrecke und die W10-Sperre bleiben
 unverändert.
 
 Die langfristige Produktausrichtung und Medienfolge wurden als ausdrücklich
@@ -1412,8 +1413,8 @@ Inventarartefakte bytegenau und die begrenzte Formatabdeckung über dieselbe
 echte Read-only-Verbindung, ohne Source Media zu öffnen. Der vollständige
 private Inventar-/Collection-Lauf und Bericht werden noch abgeschlossen.
 EB-04, EB-06, EB-07 und EB-08 sind abgeschlossen. EB-07 liefert die persistierte
-read-only Reconciliation und den pfadfreien CLI-Report; die Capture-
-Orchestrierung bleibt offen. EB-08 liefert den nicht ausführbaren,
+read-only Reconciliation, den pfadfreien CLI-Report und die vollständige
+read-only Capture-Orchestrierung. EB-08 liefert den nicht ausführbaren,
 content-addressed ConsolidationPlan einschließlich read-only Report und
 statischem Non-Execution-Gate. FG-03A/EB-03A und EB-03B sind abgeschlossen.
 In der getrennten Archivstrecke sind FG-A, S-EBA-01 bis S-EBA-07,
@@ -1432,8 +1433,6 @@ Noch nicht vorhanden sind unter anderem:
 
 - weitere Formate außerhalb der expliziten EPUB/MOBI/AZW/AZW3-Text-Allowlist
   sowie alle Music-ToolProvider;
-- Calibre Library Reconciliation über den synthetischen Fixture- und
-  ADR-Vertrag hinaus;
 - vollständiger Offline-Orchestrator und Review-CLI für Entity Resolution;
 - eine weitergehende Classification Engine über den abgeschlossenen EB-04-
   Assertion-/Projection-Vertrag hinaus;
