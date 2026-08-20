@@ -1823,6 +1823,13 @@ Für Semantik, Reihenfolge und Status der EA1- bis EA12-Wellen bleibt
 `EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md` maßgeblich. EB-A1 bis EB-A3 sind nur
 Lieferbündel und ersetzen oder nummerieren die EA-Wellen nicht neu.
 
+Das Sicherheits- und Vertragsgate FG-A ist durch
+[ADR-0038](../decisions/ADR-0038-safe-archive-container-analysis.md)
+akzeptiert. Es legt die Container-/Formatmatrix, 7-Zip-26.02-Entscheidung,
+read-only Command Shapes, Statuswerte, Profile, Budgets, Memberpfade,
+`SecretHandle`-Grenze und Reuse-Identität fest. Die reale Tool- und
+Extraction Runtime bleibt ein späteres Frontier-Paket.
+
 ## Empfehlung
 
 ### Sofort parallel möglich
@@ -1856,6 +1863,7 @@ EA10 kompletter Deduplication Plan
 **entspricht:** EA1–EA3
 **Priorität:** P1
 **Kann nach EB-01 parallel laufen.**
+**Verbindlicher Vertrag:** ADR-0038
 
 ## Containerklassen
 
@@ -1954,6 +1962,14 @@ Password Handling mit diesem Tool blockiert.
 Die Sicherheitsanforderung darf nicht gelockert werden, nur damit ein
 bestimmtes Tool verwendet werden kann.
 
+Für die gewählte 7-Zip-26.02-CLI ist diese Blockade eingetreten: Der
+dokumentierte `-p{password}`-Parameter würde das Secret in argv offenlegen;
+die aktuelle `ToolRuntime` besitzt keinen Secret-Kanal. S-EBA-01 bis
+S-EBA-07 dürfen deshalb nur `SECURE_CHANNEL_UNAVAILABLE` modellieren. Eine
+echte Passwortprüfung benötigt danach ein separates Frontier-Gate und einen
+isolierten Helper-/Pipe-Vertrag. Eine undokumentierte stdin-, PTY- oder
+Environment-Lösung ist ausgeschlossen.
+
 ---
 
 # 29. Lokale Passwortkandidaten
@@ -1987,6 +2003,12 @@ Kein:
 **entspricht:** EA4–EA6
 **Priorität:** P1
 
+ADR-0038 setzt für `archive-safety-policy/v1` exakte Defaults, darunter
+10.000 Member, 8 GiB Gesamtgröße, 2 GiB je Member, Ratio 1.000, keine
+Nested-Verarbeitung (`max_nested_depth=0`), feste Laufzeit-/Ausgabegrenzen
+und höchstens zwei parallele Archive Jobs. Abweichende Profile benötigen ein
+neues Security Review.
+
 ## Sicherheitsbudgets
 
 Profile müssen harte Grenzen definieren:
@@ -2015,6 +2037,8 @@ Nested Archive Processing standardmäßig restriktiv.
 - Windows ADS;
 - Symlinks;
 - Reparse Points;
+- Hardlinks, FIFOs, Sockets und Device Members;
+- NFC-/Casefold-/Separator-normalisierte Zielkollisionen;
 - Root Escape.
 
 ---
@@ -2061,14 +2085,23 @@ Eigene Entity/Evidence:
 ```text
 ArchiveMemberObservation
 ------------------------
-archive_id
-volume_group
+archive_observation_id
+volume_group_fingerprint
+member_ordinal
 member_identity
 member_path_safe
-member_size
-member_hash
+member_kind
+declared_compressed_bytes
+declared_uncompressed_bytes
+observed_uncompressed_bytes
+member_sha256
+crc_status
+encryption_status
+listing_execution_id
+extraction_execution_id
 listing_profile
-tool_execution
+extraction_profile
+safety_profile
 secret_version
 ```
 
@@ -2083,11 +2116,15 @@ Archive Member Evidence kann wiederverwendet werden, wenn identisch:
 ```text
 archive full SHA-256
 archive volume set
-tool version
-adapter version
-listing/extraction profile
-Secret version
+ToolProvider und Toolversion
+Adapter-/Parserversion
+Listing-, Extraction- und Safety-Profil
+Secret-Version oder `NONE`
 ```
+
+Die exakten Reuse-Profile heißen `archive-listing-reuse/v1` und
+`archive-member-reuse/v1`. Ein neueres terminales Fehler- oder Limitresultat
+darf ältere Evidence nicht still als aktuell erscheinen lassen.
 
 Ändert sich eines davon, wird nur die betroffene Ableitung stale.
 

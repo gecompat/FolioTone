@@ -23,6 +23,13 @@ gruppiert EA1 bis EA10 in die Lieferpakete EB-A1 bis EB-A3. Die EA-Nummerierung,
 Semantik und Statuswerte dieses Dokuments bleiben maßgeblich; insbesondere
 werden EA11 und EA12 dadurch nicht freigegeben.
 
+Das Frontier-Gate FG-A ist durch
+[ADR-0038](../decisions/ADR-0038-safe-archive-container-analysis.md)
+akzeptiert. Die ADR ist für Format-/Signatur-Allowlist, 7-Zip-Toolmanifest,
+Statuswerte, Budgets, Memberpfade, lokale Sidecarklassen, Secret-Grenze,
+Profile und Evidence Reuse verbindlich. Sie implementiert noch keine reale
+Toolausführung, Persistenz oder Extraktion.
+
 ## Planungsentscheidung
 
 Archive werden nicht pauschal als Verpackung behandelt, die nach einer
@@ -142,7 +149,9 @@ muss mindestens festlegen:
 
 ### EA1 — Archivscope und Toolbewertung
 
-**Ziel:** Unterstützte Container und eine sichere read-only Toolchain werden
+**Status:** Gate durch ADR-0038 akzeptiert; mechanische S-EBA-Pakete offen.
+
+**Ziel:** Unterstützte Container und eine sichere read-only Toolchain sind
 verbindlich entschieden.
 
 Umfang:
@@ -150,19 +159,23 @@ Umfang:
 - Signatur- und Suffixmatrix für ZIP, RAR, 7z, CBR, CBZ, TAR und
   komprimierte TAR-Varianten;
 - Mehrteil-Erkennung für RAR- und 7z-Volumes;
-- aktuelle Bewertung dokumentierter Automationsschnittstellen, insbesondere
-  7-Zip und libarchive/bsdtar sowie geeigneter RAR-Unterstützung;
+- 7-Zip 26.02 als optionaler Baseline-`ToolProvider` nur für die festen
+  unverschlüsselten read-only Shapes aus ADR-0038; libarchive/bsdtar bleibt
+  geprüft und zurückgestellt;
 - Lizenz-, Redistributions-, Version-, Exitcode-, Passwort- und
   Container-Sicherheitsbewertung;
 - Entscheidung, welche Formate Publikationscontainer bleiben und welche nur
   als generische Archive gelten;
-- Proposed ADR für Archive-Evidence, Secret-Grenze und Extraktionssandbox.
+- akzeptierte ADR für Archive-Evidence, Secret-Grenze und
+  Extraktionssandbox.
 
 Abnahme:
 
 - keine Source-Media-Write-Capability;
 - mindestens ein synthetisches Fixture je unterstützter Containerklasse;
-- Entscheidung zu ToolProvider-Reuse statt nativer Dekompression.
+- `ToolProvider`-Reuse statt nativer Dekompression;
+- verschlüsselte Runtime bleibt `SECURE_CHANNEL_UNAVAILABLE`, solange ein
+  separates Frontier-Gate keinen sicheren Helper-/Pipe-Vertrag belegt.
 
 ### EA2 — Read-only Archiv- und Sidecar-Inventar
 
@@ -203,7 +216,10 @@ Umfang:
 Schutzgrenzen umfassen Mitgliederzahl, Gesamtgröße, Einzelgröße,
 Kompressionsverhältnis, Verschachtelung, Pfadlänge, Laufzeit und
 stdout/stderr-Artefaktgröße. Abgewiesen werden Traversal, absolute Pfade,
-Gerätepfade, Alternate Data Streams, Symlinks und Reparse-Point-Ziele.
+Gerätepfade, Alternate Data Streams, Symlinks, Reparse-Point-Ziele,
+Hardlinks, FIFOs, Sockets, Devices und normalisierte Zielkollisionen. Die
+exakten v1-Grenzen stehen in ADR-0038; `max_nested_depth=0` verhindert in der
+ersten Runtime jede automatische Nested-Verarbeitung.
 
 ### EA5 — Private Testextraktion
 
@@ -214,7 +230,9 @@ Die Source bleibt read-only. Jedes Mitglied wird gestreamt gehasht; erwartete
 und extrahierte Mitglieder, Größen und CRC-/Toolbefunde müssen konsistent
 sein. Fehler, Passwortbedarf, fehlende Volumes oder Limits erzeugen einen
 terminalen technischen Befund, aber keine Source-Operation. Der Workspace
-wird nach sicherer Artifact-Übernahme bereinigt.
+wird nach sicherer Artifact-Übernahme bereinigt. Diese reale Runtime beginnt
+erst nach S-EBA-01 bis S-EBA-07 und einem weiteren Frontier-Gate; die
+7-Zip-CLI darf kein Secret über `-p` erhalten.
 
 ### EA6 — Archivmitglied-Evidence und Wiederverwendung
 
