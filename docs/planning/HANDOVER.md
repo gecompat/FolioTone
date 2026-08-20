@@ -73,17 +73,20 @@ Legacy-`RUNNING`-Zustände werden nicht automatisch übernommen.
 
 ### Archive-Extraction-Fortsetzung
 
-S-EBAR-05A und S-EBAR-06A sind auf `main` abgeschlossen. ADR-0049 entscheidet
-FG-A-EXTRACTION-QUOTA als dateisystemneutrale, atomar begrenzte
+S-EBAR-05A, S-EBAR-06A und S-EBAR-04Q sind auf `main` abgeschlossen. ADR-0049
+entscheidet FG-A-EXTRACTION-QUOTA als dateisystemneutrale, atomar begrenzte
 Workspace-Capability. FolioTone erhält keine Mount-, Device-, `root`- oder
 `CAP_SYS_ADMIN`-Authority.
 
-Das nächste mechanische Paket ist S-EBAR-04Q. Es implementiert ausschließlich
-den neutralen Provider-, Lease-, Capability-, Empty-Revalidation-, Return-
-und Quarantänevertrag mit begrenzten Fakes. Ein reales Backend folgt als
-eigener Plattformadapter mit nicht überspringbarem Konformitätsgate. Bis zu
-dessen Annahme bleiben S-EBAR-04A, EBAR-06 und jede reale Extraction
-`TOOL_UNAVAILABLE`.
+[ADR-0050](../decisions/ADR-0050-linux-docker-workspace-backend-unavailable.md)
+schließt FG-A-WORKSPACE-BACKEND negativ und fail-closed ab: Für den
+kombinierten Byte-, Objekt-, Reserve- und Consumer-Lifecycle ist noch kein
+unprivilegiert live attestierbares Linux-/Docker-Backend belegt. Die
+Adapter-Allowlist bleibt leer. S-EBAR-04A, EBAR-06 und jede reale Extraction
+bleiben `TOOL_UNAVAILABLE`. Ein späteres docs-only
+FG-A-WORKSPACE-BACKEND-REVALIDATION beginnt erst mit einem konkreten
+administrativ vorprovisionierten Backend und einem echten Linux-/Docker-
+Conformancehost; es autorisiert selbst noch keine Implementierung.
 
 ### `W3-017` (E5 synthetischer Performance-/Restart-Vertrag)
 

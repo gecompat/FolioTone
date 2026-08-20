@@ -1,10 +1,10 @@
 # Projektstatus
 
-Stand: 2026-08-20
+Stand: 2026-08-21
 
 ## Aktuelle Welle
 
-**S-EBAR-04Q umgesetzt — nächstes Gate: FG-A-WORKSPACE-BACKEND**
+**FG-A-WORKSPACE-BACKEND abgeschlossen — reales Backend bleibt `TOOL_UNAVAILABLE`**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -179,10 +179,16 @@ freigeben. Direkte Konstruktion, Kopie, Serialisierung, fremder Return,
 Überschreitung von zwei Leases, ungültige Attestation und fehlgeschlagener
 Return werden geschlossen abgewiesen beziehungsweise quarantänisiert.
 
-Als Nächstes entscheidet FG-A-WORKSPACE-BACKEND das erste konkrete
-Plattformpaket und dessen nicht überspringbares Konformitätsgate. FolioTone
-erhält weder `root` noch `CAP_SYS_ADMIN`, Device- oder Mountzugriff. S-EBAR-04A
-und EBAR-06 bleiben bis zur Annahme eines realen Adapters `TOOL_UNAVAILABLE`.
+[ADR-0050](../decisions/ADR-0050-linux-docker-workspace-backend-unavailable.md)
+schließt FG-A-WORKSPACE-BACKEND als negative, fail-closed Entscheidung ab.
+Bind-Mount, Docker-Layer, `tmpfs` und eine nicht konkret live attestierte
+Linux-Quota belegen den kombinierten Byte-, Objekt-, Reserve- und
+Consumer-Lifecycle nicht vollständig. Die Adapter-Allowlist bleibt leer.
+FolioTone erhält weder `root` noch `CAP_SYS_ADMIN`, Device- oder Mountzugriff;
+kein Dateisystem und FIEMAP werden Kernvoraussetzung. S-EBAR-04A und EBAR-06
+bleiben bis zu einem späteren erfolgreichen
+FG-A-WORKSPACE-BACKEND-REVALIDATION auf einem echten Linux-/Docker-
+Conformancehost `TOOL_UNAVAILABLE`.
 
 Fokussiert verifiziert wurden 18 Unit-Tests sowie Ruff und Mypy nur für den
 neuen Scope; der vollständige Gate läuft genau einmal am stabilen PR.

@@ -62,8 +62,10 @@ entscheidet FG-A-STORAGE-FAMILY. [ADR-0047](../decisions/ADR-0047-final-archive-
 akzeptiert danach den finalen maschinenlesbaren Formatlock. S-EBAR-02C und
 EBAR-05 sind umgesetzt. [ADR-0048](../decisions/ADR-0048-private-archive-extraction-lifecycle.md)
 entscheidet vor EBAR-06 den privaten Listing-/CRC-Handoff, den Runner-owned
-Workspace-Consumer-Lifecycle und die getrennte Wrappergrenze. Als Nächstes
-folgt S-EBAR-05A. `BOOTSTRAP_LOCKED` und lokales
+Workspace-Consumer-Lifecycle und die getrennte Wrappergrenze. S-EBAR-05A,
+S-EBAR-06A und S-EBAR-04Q sind umgesetzt. ADR-0050 schließt
+FG-A-WORKSPACE-BACKEND negativ; die Backend-Allowlist bleibt leer und reale
+Extraction `TOOL_UNAVAILABLE`. `BOOTSTRAP_LOCKED` und lokales
 Inspect allein bleiben keine Runtime-Authority; Public Visibility und
 Source-Association werden nur beim
 Provisioning beziehungsweise Refresh erneut geprüft.
@@ -281,10 +283,11 @@ ersten Runtime jede automatische Nested-Verarbeitung.
 **Status:** Der Grundvertrag ist durch ADR-0039 akzeptiert. ADR-0048 hat die
 Handoff-, Quota- und Runner-Lifecycle-Lücken geordnet. S-EBAR-05A und
 S-EBAR-06A sind abgeschlossen. ADR-0049 entscheidet FG-A-EXTRACTION-QUOTA als
-dateisystemneutrale Workspace-Capability. Vor EBAR-06 folgen S-EBAR-04Q, ein
-reales Plattformadapter-Gate und
-S-EBAR-04A. Passwortgeschützte Extraktion
-bleibt unabhängig davon blockiert.
+dateisystemneutrale Workspace-Capability; S-EBAR-04Q ist umgesetzt.
+[ADR-0050](../decisions/ADR-0050-linux-docker-workspace-backend-unavailable.md)
+akzeptiert noch kein reales Plattformbackend. S-EBAR-04A und EBAR-06 bleiben
+bis zu einem erfolgreichen Revalidation-Gate `TOOL_UNAVAILABLE`.
+Passwortgeschützte Extraktion bleibt unabhängig davon blockiert.
 
 **Ziel:** Ein technisch zulässiges Archiv kann in einem ephemeren privaten
 Workspace vollständig geprüft werden.
@@ -302,9 +305,11 @@ privaten Locator-/CRC-Werte desselben EBAR-05-Laufs; S-EBAR-06A stellt den
 reinen internen Validator bereit. ADR-0049 akzeptiert als harten
 Workspace-Cap eine dateisystemneutrale Capability. S-EBAR-04Q implementiert
 danach den neutralen Provider-, Lease-, Capability-, Return- und
-Quarantänevertrag; ein reales Backend folgt getrennt je Plattform; S-EBAR-04A
-stellt anschließend den
-bounded Consumer-Lifecycle bereit. Erst danach beginnt EBAR-06 für direkte
+Quarantänevertrag. ADR-0050 weist die aktuell untersuchten Linux-/Docker-
+Kandidaten fail-closed ab; die Allowlist bleibt leer. Erst ein späteres
+erfolgreiches Backend-Revalidation-Gate darf ein mechanisches Plattformpaket
+autorisieren. Danach stellt S-EBAR-04A den bounded Consumer-Lifecycle bereit;
+erst anschließend beginnt EBAR-06 für direkte
 unverschlüsselte `MEASURED`-Fälle. Die 7-Zip-CLI darf kein Secret über `-p`
 erhalten.
 
@@ -334,9 +339,11 @@ S-EBAR-01 Execution-DTOs
     -> S-EBAR-06A reiner interner Extraction-Validator
     -> FG-A-EXTRACTION-QUOTA neutrale harte Workspace-Capability
     -> S-EBAR-04Q neutraler Provider-/Lease-Vertrag
-    -> S-EBAR-04Q-<PLATFORM> reales Backend-Konformitätsgate
-    -> S-EBAR-04A privater Workspace-Consumer-Lifecycle
-    -> EBAR-06 direkte private Extraction-Sandbox
+    -> FG-A-WORKSPACE-BACKEND negative fail-closed Entscheidung
+    -> FG-A-WORKSPACE-BACKEND-REVALIDATION erst mit realem Kandidaten/Host
+    -> <PLATTFORMPAKET> erst nach akzeptierter Backend-ADR
+    -> S-EBAR-04A privater Workspace-Consumer-Lifecycle, derzeit blockiert
+    -> EBAR-06 direkte private Extraction-Sandbox, derzeit blockiert
     -> FG-A-WRAPPER-PIPELINE separates späteres Wrapper-Gate
     -> FG-A-PERSISTENCE Schema-, Reuse- und Writer-Gate
     -> S-EBAR-07 Persistenz

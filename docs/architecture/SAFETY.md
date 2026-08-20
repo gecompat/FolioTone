@@ -185,6 +185,15 @@ FolioTone erhält keine Host-Capability. Kann ein Adapter harten Cap,
 Live-Abbruch, no-follow-Revalidierung oder Cleanup nicht belegen, bleibt
 Extraction `TOOL_UNAVAILABLE`.
 
+[ADR-0050](../decisions/ADR-0050-linux-docker-workspace-backend-unavailable.md)
+belegt für die aktuelle Linux-/Docker-Grenze keinen vollständigen Adapter:
+Bind-Mount, Docker-Layer, `tmpfs` und nicht konkret live attestierte Linux-
+Quota erfüllen Byte-, Objekt-, Reserve- und Consumer-Lifecycle nicht gemeinsam.
+Die Adapter-Allowlist bleibt daher leer. ext4, NTFS, Btrfs, XFS und FIEMAP
+sind keine allgemeine Projektvoraussetzung. Ein späterer Adapter darf lokale
+Backend-Eigenschaften nur hinter einem eigenen Capability-/Conformance-Gate
+verwenden und muss jede fehlende Live-Attestation fail-closed behandeln.
+
 Native Windows-Ausführung bleibt `TOOL_UNAVAILABLE`, bis
 `FG-A-WINDOWS-SANDBOX` Netzwerk- und Filesystemisolation belegt. Job Objects
 und explizite Handle-Allowlists begrenzen diese Zugriffe nicht und sind allein
