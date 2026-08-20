@@ -670,9 +670,12 @@ des Prozesses, beendet Überläufe fail-closed und die vier fachlichen
 verpflichtende UTC-normalisierte Inventory-Evidence, Exact-ID-Suche und
 Kategorie-CSV werden strikt und begrenzt geparst, und der kanonische
 `calibre-library-inventory-digest/v1` bindet ID, UUID, Änderungszeit sowie
-Formattyp und relativen Locator. Offen bleibt `S-EB07-11B`, die eigentliche
-Capture-Orchestrierung mit paginiertem Vorher-/Nachher-Inventar,
-OPF-Projektion, Lease-Keeper und atomarer Snapshot-Persistenz.
+Formattyp und relativen Locator. `S-EB07-11B1` validiert außerdem jedes
+begrenzte OPF-Dokument, bindet dessen exakte Bytes als Metadatenfingerprint und
+projiziert Capture-Evidence rein und fail-closed in den bestehenden atomaren
+Record-/Format-Snapshotgraphen. Offen bleibt `S-EB07-11B2`, die eigentliche
+Capture-Orchestrierung mit paginiertem Vorher-/Nachher-Inventar, Exact-ID-,
+Kategorie- und OPF-Läufen, Lease-Keeper und atomarer Snapshot-Persistenz.
 
 ### calibre EPUB/MOBI/AZW/AZW3-Text und normalisierter Fingerprint
 
