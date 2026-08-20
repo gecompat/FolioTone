@@ -7,6 +7,8 @@ from foliotone.index.scanner import (
     _DiscoveryProgressReporter,
     _HashProgressKeeper,
     _HashReadMeter,
+    _ReconciliationMeter,
+    _ReconciliationProgressKeeper,
 )
 
 
@@ -33,6 +35,30 @@ def test_hash_progress_keeper_reports_current_and_average_read_rates() -> None:
     assert progress.bytes_read == 2 * 1024 * 1024
     assert progress.current_bytes_per_second == 1024 * 1024
     assert progress.average_bytes_per_second == 1024 * 1024
+
+
+def test_reconciliation_progress_keeper_reports_partial_atomic_batch() -> None:
+    meter = _ReconciliationMeter()
+    reports = []
+    keeper = _ReconciliationProgressKeeper(
+        meter,
+        processed_files=256,
+        processed_bytes=3 * 1024 * 1024,
+        batch_files=256,
+        batch_bytes=2 * 1024 * 1024,
+        report=reports.append,
+        interval_seconds=1.0,
+    )
+    meter.set_progress(17, 128 * 1024)
+
+    keeper._report_once()
+
+    assert len(reports) == 1
+    progress = reports[0]
+    assert progress.processed_files == 256
+    assert progress.batch_files == 256
+    assert progress.reconciled_files == 17
+    assert progress.reconciled_bytes == 128 * 1024
 
 
 def test_discovery_progress_reports_live_enumeration_rate() -> None:

@@ -120,12 +120,25 @@ class ReconciliationProgress:
     processed_bytes: int
     batch_files: int
     batch_bytes: int
+    reconciled_files: int
+    reconciled_bytes: int
 
     def __post_init__(self) -> None:
-        if min(self.processed_files, self.processed_bytes, self.batch_files, self.batch_bytes) < 0:
+        if min(
+            self.processed_files,
+            self.processed_bytes,
+            self.batch_files,
+            self.batch_bytes,
+            self.reconciled_files,
+            self.reconciled_bytes,
+        ) < 0:
             raise ValueError("reconciliation progress counts must not be negative")
         if self.batch_files <= 0:
             raise ValueError("batch_files must be positive")
+        if self.reconciled_files > self.batch_files:
+            raise ValueError("reconciled_files must not exceed batch_files")
+        if self.reconciled_bytes > self.batch_bytes:
+            raise ValueError("reconciled_bytes must not exceed batch_bytes")
 
 
 ProgressReporter = Callable[
@@ -193,6 +206,80 @@ class _DiscoveryProgressReporter:
         )
         self._last_reported_at = now
         self._last_reported_bytes = discovered_bytes
+
+
+class _ReconciliationMeter:
+    """Share completed work within one atomic index-reconciliation batch."""
+
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self._reconciled_files = 0
+        self._reconciled_bytes = 0
+
+    def set_progress(self, reconciled_files: int, reconciled_bytes: int) -> None:
+        with self._lock:
+            self._reconciled_files = reconciled_files
+            self._reconciled_bytes = reconciled_bytes
+
+    def snapshot(self) -> tuple[int, int]:
+        with self._lock:
+            return self._reconciled_files, self._reconciled_bytes
+
+
+class _ReconciliationProgressKeeper:
+    """Publish live progress while the store reconciles one atomic batch."""
+
+    def __init__(
+        self,
+        meter: _ReconciliationMeter,
+        *,
+        processed_files: int,
+        processed_bytes: int,
+        batch_files: int,
+        batch_bytes: int,
+        report: ProgressReporter,
+        interval_seconds: float = HASH_PROGRESS_REPORT_INTERVAL_SECONDS,
+    ) -> None:
+        if interval_seconds <= 0:
+            raise ValueError("interval_seconds must be positive")
+        self._meter = meter
+        self._processed_files = processed_files
+        self._processed_bytes = processed_bytes
+        self._batch_files = batch_files
+        self._batch_bytes = batch_bytes
+        self._report = report
+        self._interval_seconds = interval_seconds
+        self._stop = Event()
+        self._thread = Thread(
+            target=self._report_until_stopped,
+            name="foliotone-reconciliation-progress",
+            daemon=True,
+        )
+
+    def __enter__(self) -> _ReconciliationProgressKeeper:
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_exception: object) -> None:
+        self._stop.set()
+        self._thread.join()
+
+    def _report_until_stopped(self) -> None:
+        while not self._stop.wait(self._interval_seconds):
+            self._report_once()
+
+    def _report_once(self) -> None:
+        reconciled_files, reconciled_bytes = self._meter.snapshot()
+        self._report(
+            ReconciliationProgress(
+                processed_files=self._processed_files,
+                processed_bytes=self._processed_bytes,
+                batch_files=self._batch_files,
+                batch_bytes=self._batch_bytes,
+                reconciled_files=reconciled_files,
+                reconciled_bytes=reconciled_bytes,
+            )
+        )
 
 
 class _HashReadMeter:
@@ -457,9 +544,42 @@ class IncrementalScanner:
                         processed_bytes=processed_bytes,
                         batch_files=len(batch),
                         batch_bytes=sum(item.size_bytes for item in batch),
+                        reconciled_files=0,
+                        reconciled_bytes=0,
                     )
                 )
-                outcome = self._store.process_batch(root, owned, batch, self._clock())
+                reconciliation_meter = (
+                    _ReconciliationMeter() if self._progress is not None else None
+                )
+                reconciliation_keeper = (
+                    _ReconciliationProgressKeeper(
+                        reconciliation_meter,
+                        processed_files=processed_files,
+                        processed_bytes=processed_bytes,
+                        batch_files=len(batch),
+                        batch_bytes=sum(item.size_bytes for item in batch),
+                        report=self._emit_progress,
+                    )
+                    if reconciliation_meter is not None
+                    else None
+                )
+                try:
+                    if reconciliation_keeper is not None:
+                        reconciliation_keeper.__enter__()
+                    outcome = self._store.process_batch(
+                        root,
+                        owned,
+                        batch,
+                        self._clock(),
+                        on_item_reconciled=(
+                            reconciliation_meter.set_progress
+                            if reconciliation_meter is not None
+                            else None
+                        ),
+                    )
+                finally:
+                    if reconciliation_keeper is not None:
+                        reconciliation_keeper.__exit__(None, None, None)
                 counts.update(event.change_state for event in outcome.events)
                 hash_failures += self._hash_changed(
                     batch,

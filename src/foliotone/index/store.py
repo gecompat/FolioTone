@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 
@@ -361,6 +361,8 @@ class SQLiteIndexStore:
         owned: OwnedScanRun,
         discovered: tuple[DiscoveredFile, ...],
         observed_at: datetime,
+        *,
+        on_item_reconciled: Callable[[int, int], None] | None = None,
     ) -> BatchOutcome:
         """Compare and persist a bounded batch in one transaction."""
         if not discovered:
@@ -385,6 +387,7 @@ class SQLiteIndexStore:
             events: list[FileScanEvent] = []
             new_records: list[FileRecord] = []
             existing_records: list[FileRecord] = []
+            reconciled_bytes = 0
             for item in discovered:
                 current = existing.get(item.relative_path)
                 record, state = _reconcile_file(root, current, item, observed_at)
@@ -413,6 +416,9 @@ class SQLiteIndexStore:
                 )
                 observations.append(observation)
                 events.append(event)
+                reconciled_bytes += item.size_bytes
+                if on_item_reconciled is not None:
+                    on_item_reconciled(len(observations), reconciled_bytes)
 
             _insert_many(connection, new_records)
             _update_many(connection, existing_records)
