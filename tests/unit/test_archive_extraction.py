@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import copy
+import importlib.util
 import json
 from dataclasses import FrozenInstanceError, replace
-from types import SimpleNamespace
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
 
-import tests.unit.test_ebar05_archive_provider as provider_fixture
 from foliotone.archive.extraction import (
     _MAX_STREAM_CHUNK_BYTES,
     _ArchiveExtractionValidationError,
@@ -29,6 +30,19 @@ from foliotone.archive.safety_policy import (
     ArchiveMemberKind,
 )
 from foliotone.archive.workflow import ArchiveMemberCrcStatus
+
+
+def _load_provider_fixture() -> ModuleType:
+    fixture_path = Path(__file__).with_name("test_ebar05_archive_provider.py")
+    spec = importlib.util.spec_from_file_location("_ebar05_provider_fixture", fixture_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("provider fixture module is unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+provider_fixture = _load_provider_fixture()
 
 
 class _FakeCapability:
