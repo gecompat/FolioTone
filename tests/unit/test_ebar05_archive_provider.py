@@ -21,6 +21,9 @@ from foliotone.archive.provider import (
     ArchiveProviderOutcome,
     ArchiveProviderResult,
     ArchiveSevenZipProvider,
+    _ArchiveExtractionHandoff,
+    _ArchiveExtractionMemberHandoff,
+    _attach_extraction_handoff,
     _inspect,
     _listing_status,
     build_archive_provider_input_identity,
@@ -28,8 +31,11 @@ from foliotone.archive.provider import (
 )
 from foliotone.archive.safety_policy import ArchiveSafetyStatus
 from foliotone.archive.sevenzip import build_7zzs_listing_command
-from foliotone.archive.sevenzip_slt import ArchiveSevenZipSltParseStatus
-from foliotone.archive.signatures import observe_archive_signature_v2
+from foliotone.archive.sevenzip_slt import (
+    ArchiveSevenZipFormatCase,
+    ArchiveSevenZipSltParseStatus,
+)
+from foliotone.archive.signatures import ArchiveStorageFamily, observe_archive_signature_v2
 from foliotone.archive.workflow import (
     ArchiveEncryptionStatus,
     ArchiveIntegrityStatus,
@@ -172,6 +178,225 @@ def test_every_measured_cell_uses_locked_parser_and_exact_provenance() -> None:
             1 if capability["case_kind"] in {"ALL_ENCRYPTED", "MIXED"} else 2
         )
         assert "member-" not in repr(outcome)
+
+
+def test_private_handoff_binds_the_single_accepted_run_without_rendering_members() -> None:
+    lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
+    capability = next(
+        item
+        for item in lock["capabilities"]
+        if item["storage_family"] == "RAR4" and item["case_kind"] == "PLAINTEXT_REGULAR"
+    )
+    outcome, runner = _inspect_capability(capability)
+
+    handoff = outcome._extraction_handoff
+    assert isinstance(handoff, _ArchiveExtractionHandoff)
+    assert handoff.outcome is outcome
+    assert handoff.parser_result is outcome._private_parser_result
+    assert outcome.result is not None
+    assert handoff.listing_result.listing_execution is outcome.result.listing_execution
+    assert handoff.listing_execution is outcome.executions[0]
+    assert handoff.integrity_execution is outcome.executions[1]
+    assert handoff.archive_full_sha256 == outcome.result.reuse_key.archive_full_sha256
+    assert handoff.volume_group_fingerprint == outcome.result.reuse_key.volume_group_fingerprint
+    assert handoff.signature_profile == "archive-signature-observer/v2"
+    assert handoff.storage_family.value == "RAR4"
+    assert handoff.case_kind.value == "PLAINTEXT_REGULAR"
+    assert handoff.parser_profile == "archive-7zip-slt-parser/v3"
+    assert handoff.format_lock_profile == "archive-7zip-format-lock/v1"
+    assert len(handoff.format_lock_sha256) == 64
+    assert handoff.compatibility_profile == "archive-publication-storage-compatibility/v1"
+    assert len(handoff.members) == outcome.result.member_count
+    assert tuple(item.member_ordinal for item in handoff.members) == tuple(
+        item.member_ordinal for item in handoff.listing_result.members
+    )
+    assert tuple(item.member_identity for item in handoff.members) == tuple(
+        item.member_identity for item in handoff.listing_result.members
+    )
+    assert len(runner.requests) == 2
+    for rendered in (repr(handoff), str(handoff), repr(outcome), str(outcome)):
+        assert "member-" not in rendered
+        assert "ABCDEF12" not in rendered
+
+
+def test_private_handoff_rejects_equal_id_result_and_member_lineage_tampering() -> None:
+    lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
+    capability = next(
+        item
+        for item in lock["capabilities"]
+        if item["storage_family"] == "RAR4" and item["case_kind"] == "PLAINTEXT_REGULAR"
+    )
+    outcome, _runner = _inspect_capability(capability)
+    handoff = outcome._extraction_handoff
+    assert isinstance(handoff, _ArchiveExtractionHandoff)
+
+    def fresh_outcome() -> ArchiveProviderOutcome:
+        fresh = ArchiveProviderOutcome(outcome.profile, outcome.result, outcome.executions)
+        object.__setattr__(fresh, "_private_listing_result", handoff.listing_result)
+        object.__setattr__(fresh, "_private_parser_result", handoff.parser_result)
+        return fresh
+
+    other_valid_result = replace(handoff.listing_result)
+    assert other_valid_result is not handoff.listing_result
+    assert (
+        other_valid_result.listing_execution.execution_id
+        == handoff.listing_result.listing_execution.execution_id
+    )
+    with pytest.raises(ValueError, match="lineage"):
+        _attach_extraction_handoff(
+            fresh_outcome(),
+            other_valid_result,
+            outcome.executions,
+            _signature("RAR4"),  # type: ignore[arg-type]
+            handoff.parser_result,
+        )
+
+    foreign_parser_result = replace(handoff.parser_result)
+    assert foreign_parser_result is not handoff.parser_result
+    with pytest.raises(ValueError, match="lineage"):
+        _attach_extraction_handoff(
+            fresh_outcome(),
+            handoff.listing_result,
+            outcome.executions,
+            _signature("RAR4"),  # type: ignore[arg-type]
+            foreign_parser_result,
+        )
+
+    changed_locator = replace(handoff.members[0], member_locator="different-member.bin")
+    changed_identity = replace(handoff.members[0], member_identity="f" * 64)
+    changed_crc = replace(handoff.members[0], listed_crc32="12345678")
+    with pytest.raises(ValueError, match="member lineage"):
+        replace(
+            handoff,
+            outcome=fresh_outcome(),
+            members=(changed_locator, *handoff.members[1:]),
+        )
+    with pytest.raises(ValueError, match="member lineage"):
+        replace(
+            handoff,
+            outcome=fresh_outcome(),
+            members=(changed_identity, *handoff.members[1:]),
+        )
+    with pytest.raises(ValueError, match="member lineage"):
+        replace(
+            handoff,
+            outcome=fresh_outcome(),
+            members=(changed_crc, *handoff.members[1:]),
+        )
+
+
+def test_private_handoff_dtos_fail_closed_on_direct_mutation() -> None:
+    lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
+    capability = next(
+        item
+        for item in lock["capabilities"]
+        if item["storage_family"] == "RAR4" and item["case_kind"] == "PLAINTEXT_REGULAR"
+    )
+    outcome, _runner = _inspect_capability(capability)
+    handoff = outcome._extraction_handoff
+    assert isinstance(handoff, _ArchiveExtractionHandoff)
+    member = handoff.members[0]
+    assert isinstance(member, _ArchiveExtractionMemberHandoff)
+
+    with pytest.raises(ValueError, match="ordinal"):
+        replace(member, member_ordinal=True)
+    with pytest.raises(ValueError, match="kind"):
+        replace(member, member_kind="REGULAR_FILE")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="size"):
+        replace(member, declared_uncompressed_bytes=-1)
+    with pytest.raises(ValueError, match="CRC"):
+        replace(member, listed_crc32="private-crc")
+    with pytest.raises(ValueError, match="identity"):
+        replace(member, member_identity="A" * 64)
+    with pytest.raises(ValueError, match="flags"):
+        replace(member, encrypted=True)
+
+    def fresh_outcome() -> ArchiveProviderOutcome:
+        fresh = ArchiveProviderOutcome(outcome.profile, outcome.result, outcome.executions)
+        object.__setattr__(fresh, "_private_listing_result", handoff.listing_result)
+        object.__setattr__(fresh, "_private_parser_result", handoff.parser_result)
+        return fresh
+
+    for mutation in (
+        {"format_lock_sha256": "f" * 64},
+        {"signature_profile": "archive-signature-observer/v1"},
+        {"compatibility_profile": "archive-publication-storage-compatibility/v0"},
+        {"storage_family": ArchiveStorageFamily.UNKNOWN},
+        {"case_kind": ArchiveSevenZipFormatCase.ALL_ENCRYPTED},
+        {"case_kind": ArchiveSevenZipFormatCase.DIRECTORY},
+        {"members": list(handoff.members)},
+    ):
+        with pytest.raises(ValueError):
+            replace(handoff, outcome=fresh_outcome(), **mutation)  # type: ignore[arg-type]
+
+
+def test_private_handoff_is_absent_for_every_non_extractable_terminal_state() -> None:
+    lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
+    regular = next(
+        item
+        for item in lock["capabilities"]
+        if item["storage_family"] == "RAR4" and item["case_kind"] == "PLAINTEXT_REGULAR"
+    )
+    encrypted = next(
+        item
+        for item in lock["capabilities"]
+        if item["storage_family"] == "ZIP" and item["case_kind"] == "ALL_ENCRYPTED"
+    )
+    rejected = next(
+        item
+        for item in lock["capabilities"]
+        if item["storage_family"] == "TAR" and item["case_kind"] == "SYMBOLIC_LINK"
+    )
+    outcomes = [
+        _inspect_capability(encrypted)[0],
+        _inspect_capability(rejected)[0],
+        _inspect(
+            _FakeRunner([(ArchiveContainerRunStatus.COMPLETED, (b"Unknown = private\n\n",))]),
+            _request(),
+            signature=_signature("RAR4"),  # type: ignore[arg-type]
+            archive_observation_id="archive-observation-1",
+            archive_full_sha256="a" * 64,
+            volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+            cancellation=None,
+            now=_clock(),
+        ),
+        _inspect(
+            _FakeRunner(
+                [
+                    (ArchiveContainerRunStatus.COMPLETED, (_stream(regular),)),
+                    (ArchiveContainerRunStatus.TOOL_FAILED, ()),
+                ]
+            ),
+            _request(),
+            signature=_signature("RAR4"),  # type: ignore[arg-type]
+            archive_observation_id="archive-observation-1",
+            archive_full_sha256="a" * 64,
+            volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+            cancellation=None,
+            now=_clock(),
+        ),
+        _inspect(
+            _FakeRunner([(ArchiveContainerRunStatus.CANCELLED, ())]),
+            _request(),
+            signature=_signature("ZIP"),  # type: ignore[arg-type]
+            archive_observation_id="archive-observation-1",
+            archive_full_sha256="a" * 64,
+            volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+            cancellation=None,
+            now=_clock(),
+        ),
+        _inspect(
+            _FakeRunner([]),
+            _request(),
+            signature=observe_archive_signature_v2("book.tar.gz", b"\x1f\x8b"),
+            archive_observation_id="archive-observation-1",
+            archive_full_sha256="a" * 64,
+            volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+            cancellation=None,
+            now=_clock(),
+        ),
+    ]
+    assert all(outcome._extraction_handoff is None for outcome in outcomes)
 
 
 def test_wrapper_is_rejected_without_runner_or_execution() -> None:
