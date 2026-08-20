@@ -174,6 +174,7 @@ class _ScanConsoleProgress:
         self._clock = clock
         self._started_at = clock()
         self._active_line = False
+        self._active_phase: str | None = None
         self._line_width = 0
 
     def announce(self, message: str) -> None:
@@ -203,7 +204,7 @@ class _ScanConsoleProgress:
                 f"{progress.current_bytes_per_second / (1024 * 1024):.1f} MiB/s; "
                 f"average-throughput={progress.average_bytes_per_second / (1024 * 1024):.1f} MiB/s"
             )
-            self._write_progress_line(text, completed=False)
+            self._write_progress_line(text, phase="hashing", completed=False)
             return
         if isinstance(progress, DiscoveryProgress):
             text = (
@@ -214,7 +215,7 @@ class _ScanConsoleProgress:
                 f"{progress.current_bytes_per_second / (1024 * 1024):.1f} MiB/s; "
                 f"average-throughput={progress.average_bytes_per_second / (1024 * 1024):.1f} MiB/s"
             )
-            self._write_progress_line(text, completed=False)
+            self._write_progress_line(text, phase="discovering", completed=False)
             return
         if isinstance(progress, ReconciliationProgress):
             text = (
@@ -225,7 +226,7 @@ class _ScanConsoleProgress:
                 f"batch-data={progress.reconciled_bytes / (1024 * 1024):.1f}/"
                 f"{progress.batch_bytes / (1024 * 1024):.1f} MiB"
             )
-            self._write_progress_line(text, completed=False)
+            self._write_progress_line(text, phase="reconciling", completed=False)
             return
         elapsed = max(self._clock() - self._started_at, 0.001)
         mib_per_second = progress.processed_bytes / (1024 * 1024) / elapsed
@@ -241,14 +242,21 @@ class _ScanConsoleProgress:
         )
         if progress.hash_failures:
             text += f"; hash-failures={progress.hash_failures}"
-        self._write_progress_line(text, completed=progress.phase is ScanProgressPhase.COMPLETED)
+        self._write_progress_line(
+            text,
+            phase=phase,
+            completed=progress.phase is ScanProgressPhase.COMPLETED,
+        )
 
-    def _write_progress_line(self, text: str, *, completed: bool) -> None:
+    def _write_progress_line(self, text: str, *, phase: str, completed: bool) -> None:
         if self._stream.isatty():
+            if self._active_line and self._active_phase != phase:
+                self.close_line()
             padded = text.ljust(self._line_width)
             self._stream.write(f"\r{padded}")
             self._line_width = max(self._line_width, len(text))
             self._active_line = True
+            self._active_phase = phase
             if completed:
                 self.close_line()
         else:
@@ -260,6 +268,7 @@ class _ScanConsoleProgress:
             self._stream.write("\n")
             self._stream.flush()
             self._active_line = False
+            self._active_phase = None
 
 
 def _scan_progress_enabled(requested: bool | None) -> bool:
