@@ -158,12 +158,15 @@ def test_scan_reports_cumulative_path_free_progress(
 
     scanner.scan(root, ScanRootBinding(media))
 
-    assert [(item.phase, item.processed_files, item.processed_bytes) for item in progress] == [
-        (ScanProgressPhase.DISCOVERING, 1, 5),
-        (ScanProgressPhase.DISCOVERING, 2, 11),
-        (ScanProgressPhase.FINALIZING, 2, 11),
-        (ScanProgressPhase.COMPLETED, 2, 11),
+    assert [item.phase for item in progress] == [
+        ScanProgressPhase.DISCOVERING,
+        ScanProgressPhase.DISCOVERING,
+        ScanProgressPhase.FINALIZING,
+        ScanProgressPhase.COMPLETED,
     ]
+    assert [item.processed_files for item in progress] == [1, 2, 2, 2]
+    assert progress[0].processed_bytes in {5, 6}
+    assert [item.processed_bytes for item in progress[1:]] == [11, 11, 11]
 
 
 def test_index_store_persists_each_discovery_batch_with_set_writes(

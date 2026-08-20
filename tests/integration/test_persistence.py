@@ -761,7 +761,9 @@ def test_migration_from_previous_head_adds_provider_cache_entries(
     assert second_revision == "0018_book_classification_projection"
 
 
-def test_migrate_repairs_exact_empty_0016_table_left_by_interrupt(tmp_path: Path) -> None:
+def test_migration_repairs_exact_empty_0016_table_left_by_interrupt(
+    tmp_path: Path,
+) -> None:
     path = tmp_path / "interrupted-consolidation.db"
     migrate(path, "0015_calibre_library_reconciliation")
     legacy = create_sqlite_engine(path)
