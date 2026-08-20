@@ -36,8 +36,8 @@ bounded `archive-7zip-slt-parser/v1`. Beide Pakete sind auf `main`
 abgeschlossen und verwenden ausschließlich synthetische Daten.
 
 FG-A-IMAGE ist durch ADR-0040 akzeptiert. Das projekt-eigene Image verwendet
-für genau `linux/amd64` `FROM scratch`, das unveränderte offizielle
-7zz-26.02-Artefakt mit festem Upstream-SHA-256, vollständige Lizenzhinweise
+für genau `linux/amd64` `FROM scratch`, den unveränderten offiziellen
+statischen `7zzs`-26.02-Tar-Member mit festem Upstream-SHA-256, vollständige Lizenzhinweise
 und `USER 65532:65532`. Der Upstream-Release besitzt keinen unabhängigen
 Signaturnachweis; FolioTone dokumentiert ihn deshalb als
 `UNSIGNED_UPSTREAM_RELEASE`. S-EBAR-03 setzt als Nächstes das Offline-Rezept,
@@ -56,7 +56,7 @@ belegtem Helper-/Pipe-/Handle-Vertrag `SECURE_CHANNEL_UNAVAILABLE`. W10 bleibt
 unabhängig ausdrücklich gesperrt.
 Der erste Runtimebackend ist `archive-linux-container-runner/v1` für die
 primäre Docker/Linux-Runtime. Er verwendet ausschließlich ein
-digest-gepinntes Image mit verifizierter eingebetteter 7zz-26.02-Identität,
+digest-gepinntes Image mit verifizierter eingebetteter `7zzs`-26.02-Identität,
 opaque privates Input-Staging statt eines ScanRoot-Mounts und eine getrennte
 Output-Sandbox. Native Windows-Ausführung bleibt `TOOL_UNAVAILABLE`, bis
 `FG-A-WINDOWS-SANDBOX` Netzwerk- und Filesystemisolation nachweist; Job

@@ -1,4 +1,4 @@
-# ADR-0040: Reproduzierbares 7zz-Runtime-Image und attestierte Result-Identität
+# ADR-0040: Reproduzierbares 7zzs-Runtime-Image und attestierte Result-Identität
 
 - Status: Accepted
 - Datum: 2026-08-20
@@ -57,7 +57,7 @@ benötigen ein neues Gate mit gepinntem Base-Digest.
 Das Image enthält ausschließlich:
 
 ```text
-/usr/local/bin/7zz
+/usr/local/bin/7zzs
 /usr/share/licenses/7zip/License.txt
 /usr/share/licenses/7zip/copying.txt
 /usr/share/licenses/7zip/unRarLicense.txt
@@ -76,10 +76,10 @@ die Bind-Mount-Projektion das nicht beweisen, bleibt das Backend
 `TOOL_UNAVAILABLE`.
 
 Das Image enthält keine Shell, keinen Paketmanager, keine CA-Zertifikate, keinen
-Loader und keine FolioTone-Source. `7zz` hat Modus `0555`; die vier Texte haben
+Loader und keine FolioTone-Source. `7zzs` hat Modus `0555`; die vier Texte haben
 Modus `0444`. Alle Dateien gehören numerisch `0:0`. Das Image setzt exakt
 `USER 65532:65532`, `WORKDIR /workspace` und den JSON-Entrypoint
-`["/usr/local/bin/7zz"]`; es setzt kein `CMD` und kein `ENV`. Die Runtime
+`["/usr/local/bin/7zzs"]`; es setzt kein `CMD` und kein `ENV`. Die Runtime
 verwendet weiterhin das read-only Root-Filesystem und stellt Schreibraum nur
 durch den von ADR-0039 erlaubten Output-Mount bereit.
 
@@ -91,7 +91,7 @@ ADD rootfs.tar /
 LABEL org.opencontainers.image.source="https://github.com/gecompat/FolioTone"
 USER 65532:65532
 WORKDIR /workspace
-ENTRYPOINT ["/usr/local/bin/7zz"]
+ENTRYPOINT ["/usr/local/bin/7zzs"]
 ```
 
 Der Vorbereitungsschritt erzeugt `rootfs.tar` deterministisch aus genau den
@@ -104,8 +104,10 @@ Extended Attributes, ACLs, Links, Devices und weitere Metadaten sind verboten.
 `rootfs.tar` ist der einzige Dateiinput des netzwerklosen Docker-Builds; Lock,
 SBOM, Git-Metadaten und heruntergeladene Archive liegen nicht im Buildkontext.
 
-Vor dem Build muss S-EBAR-03 das `7zz`-Objekt als Linux-x86-64-ELF prüfen und
-`PT_INTERP`, `DT_NEEDED`, Links sowie alle nicht regulären Artefakte
+Vor dem Build muss S-EBAR-03 das Tar-Member `7zzs` mit Größe `3763320` Byte und
+SHA-256 `20df89e993594c1bb7686f125dabe1acc56c109fb1d9b40435ea5fcbc1ca3453`
+als unverändertes Linux-x86-64-ELF `ET_EXEC` prüfen. `PT_INTERP`, `PT_DYNAMIC`,
+`DT_NEEDED`, Links sowie alle nicht regulären Artefakte werden
 fail-closed abweisen. Dadurch ist belegt, dass das Binärobjekt ohne weitere
 Runtime-Dateien im `scratch`-Image lauffähig sein kann. Eine Abweichung stoppt
 S-EBAR-03; sie darf nicht durch die Wahl eines Distribution-Base-Images
@@ -124,6 +126,9 @@ Der einzige ausführbare Input für `archive-7zip-image/v1` ist:
 | Archiv-SHA-256 | `41aaba7b1235304ab5aa0624530c67ae829496cd29e875925271efdccc28c03e` |
 | Release-Tag-Commit | `f9d78aff31a5f2521ae7ddbdc97c4a8855808959` |
 | Signaturstatus | `UNSIGNED_UPSTREAM_RELEASE` |
+| Ausführbares Tar-Member | `7zzs` |
+| Ausführbares Member-Größe | `3763320` Byte |
+| Ausführbares Member-SHA-256 | `20df89e993594c1bb7686f125dabe1acc56c109fb1d9b40435ea5fcbc1ca3453` |
 | `SOURCE_DATE_EPOCH` | `1782345600` |
 
 Der Build lädt den Upstream-Tarball nicht in einer Dockerfile-Instruction.
@@ -200,17 +205,18 @@ gepushten Single-Platform-Ergebnis exakt denselben gelockten
 oder eine durch andere Medientyp-, Kompressions- oder Timestamp-Einstellungen
 erzeugte Manifestidentität darf nie als Runtimeidentität übernommen werden.
 
-Die Lizenztexte stammen unverändert aus dem offiziellen `26.02`-Source-Tag.
-Ihre erwarteten UTF-8-Raw-SHA-256-Werte lauten:
+Die Binärdistribution liefert `License.txt` und `readme.txt` als eigene,
+unveränderte Tar-Member. `copying.txt` und `unRarLicense.txt` stammen weiter
+unverändert aus dem offiziellen `26.02`-Source-Tag. Die erwarteten Bytes lauten:
 
 | Datei | Feste Raw-URL unter `26.02` | SHA-256 |
 |---|---|---|
-| `DOC/License.txt` | `https://raw.githubusercontent.com/ip7z/7zip/26.02/DOC/License.txt` | `dac8389b6bc39339537bc351772106afe7951cb242cdf03e855b67c3a683deb1` |
+| Tar-Member `License.txt` | `7z2602-linux-x64.tar.xz` | Größe `6029` Byte; SHA-256 `1790374e5352329cedb46ee3808930a88e9ca2f08b82b10fcf5cf605d2c301b1` |
 | `DOC/copying.txt` | `https://raw.githubusercontent.com/ip7z/7zip/26.02/DOC/copying.txt` | `dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551` |
 | `DOC/unRarLicense.txt` | `https://raw.githubusercontent.com/ip7z/7zip/26.02/DOC/unRarLicense.txt` | `17bd9fa4399092c777536fff045b41df76ec9d2ac4c9b8e7345d3b8b6ccc7976` |
-| `DOC/readme.txt` | `https://raw.githubusercontent.com/ip7z/7zip/26.02/DOC/readme.txt` | `a9da4cbb46df9e86d986660e7427e7b4ca385760ed9919557501125af1c6b78a` |
+| Tar-Member `readme.txt` | `7z2602-linux-x64.tar.xz` | Größe `3863` Byte; SHA-256 `c3ecf1b8f38631d6ef8a35048e80da77b31cf292a42b3e8793afd44bf4f001b0` |
 
-S-EBAR-03 darf diese Dateien im Repository unter
+S-EBAR-03 darf diese vier Dateien im Repository unter
 `packaging/archive/7zip-26.02/licenses/` spiegeln, muss Byteidentität und
 Hashes aber gegen den festen Upstream-Tag prüfen. Der zugehörige Source-
 Tarball wird ebenfalls aus demselben offiziellen Release geladen, vor jeder
@@ -258,7 +264,10 @@ packaging/archive/7zip-26.02/licenses/*
 
 `archive-image.lock.json` verwendet Profil `archive-image-lock/v1` und bindet
 mindestens Recipe-Profil, Plattform, alle oben genannten URLs und Hashes,
-den nach Extraktion berechneten `7zz`-SHA-256, UID/GID, `SOURCE_DATE_EPOCH`,
+den eindeutig benannten `executable_member_name`, die
+`executable_member_size_bytes` und den `executable_member_sha256` von `7zzs`,
+die beiden eindeutig benannten `binary_tar_license_*`- und
+`binary_tar_readme_*`-Felder, UID/GID, `SOURCE_DATE_EPOCH`,
 Buildx-Version, Assetgröße und Asset-SHA-256, BuildKit-Version, Builder-OCI-
 Index-Digest und erwarteten `linux/amd64`-Child-Digest, das feste
 `archive-image-build/v1`-Aufrufprofil einschließlich
@@ -295,7 +304,7 @@ Runtime melden dann `TOOL_UNAVAILABLE`. Tags wie `latest` oder
 ## SBOM und Provenance
 
 Die deterministische SPDX-2.3-SBOM benennt mindestens das Runtime-Image,
-7-Zip 26.02, den SHA-256 des Upstream-Tarballs und des extrahierten `7zz`, die
+7-Zip 26.02, den SHA-256 des Upstream-Tarballs und des extrahierten `7zzs`, die
 vier Lizenzklassifikationen beziehungsweise LicenseRefs und die vier
 mitgelieferten Lizenz-/Hinweisdateien sowie den vollständigen Source-Tarball.
 Ein Scannerfund darf ergänzt werden, ersetzt diese explizite

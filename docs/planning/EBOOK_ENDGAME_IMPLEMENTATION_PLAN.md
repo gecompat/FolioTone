@@ -1839,7 +1839,7 @@ implementiert. Reale Passwortversuche bleiben bis FG-A-SECRET blockiert.
 S-EBAR-01 und S-EBAR-02 sind umgesetzt. FG-A-IMAGE ist durch
 [ADR-0040](../decisions/ADR-0040-reproducible-archive-runtime-image.md)
 akzeptiert. S-EBAR-03 setzt als Nächstes das projekt-eigene
-`linux/amd64`-`scratch`-Rezept, die festen 7zz-/Lizenzinputs, UID/GID
+`linux/amd64`-`scratch`-Rezept, den statischen `7zzs`-Tar-Member sowie die festen Binär- und Source-Lizenzinputs, UID/GID
 `65532:65532`, das gepinnte Buildx-/BuildKit-Profil, den zweistufigen
 Plattform-Manifest-Digest-Lock sowie nachträglich angehängte SBOM und
 Provenance mechanisch um. Bis zum reproduzierbaren, ohne Inline-Attestations
@@ -1848,7 +1848,7 @@ source-associated GHCR-Package bleibt die Runtime `TOOL_UNAVAILABLE`.
 Der erste freigegebene Backendvertrag ist
 `archive-linux-container-runner/v1` für die primäre Docker/Linux-Runtime. Er
 verwendet ein digest-gepinntes Image mit exakt verifizierter eingebetteter
-7zz-26.02-Identität, opaque vollhashgeprüftes Input-Staging statt eines
+`7zzs`-26.02-Identität, opaque vollhashgeprüftes Input-Staging statt eines
 ScanRoot-Mounts und einen getrennten Output-Workspace. Native Windows-
 Ausführung bleibt bis zum akzeptierten `FG-A-WINDOWS-SANDBOX`
 `TOOL_UNAVAILABLE`; Job Objects und Handle-Allowlisten allein genügen nicht.
@@ -2526,7 +2526,7 @@ Die book-only Wellen EB-00 bis EB-08/W9 sind abgeschlossen. FG-A,
 S-EBA-01 bis S-EBA-07, FG-A-RUNTIME, S-EBAR-01, S-EBAR-02 und FG-A-IMAGE sind
 ebenfalls abgeschlossen. Unmittelbar als Nächstes:
 
-**S-EBAR-03 – reproduzierbares 7zz-26.02-`scratch`-Image mit gepinntem
+**S-EBAR-03 – reproduzierbares statisches `7zzs`-26.02-`scratch`-Image mit gepinntem
 Buildx-/BuildKit-Profil, zweistufigem Plattform-Manifest-Digest-Lock,
 nachträglicher SBOM/Provenance, öffentlicher/source-associated und anonym
 verifizierter GHCR-Freigabe, Toolmanifest und festen Command Buildern nach
