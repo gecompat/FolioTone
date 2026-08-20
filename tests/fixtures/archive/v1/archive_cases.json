@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "synthetic_only": true,
+  "signatures": [
+    {"name": "zip-local", "suffix": ".zip", "header_hex": "504b0304", "expected_format": "ZIP"},
+    {"name": "zip-empty", "suffix": ".zip", "header_hex": "504b0506", "expected_format": "ZIP"},
+    {"name": "zip-spanned", "suffix": ".zip", "header_hex": "504b0708", "expected_format": "ZIP"},
+    {"name": "epub-basis", "suffix": ".epub", "header_hex": "504b0304", "expected_format": "EPUB"},
+    {"name": "cbz-basis", "suffix": ".cbz", "header_hex": "504b0304", "expected_format": "CBZ"},
+    {"name": "rar4", "suffix": ".rar", "header_hex": "526172211a0700", "expected_format": "RAR4"},
+    {"name": "cbr-basis", "suffix": ".cbr", "header_hex": "526172211a0700", "expected_format": "CBR"},
+    {"name": "rar5", "suffix": ".rar", "header_hex": "526172211a070100", "expected_format": "RAR5"},
+    {"name": "seven-z", "suffix": ".7z", "header_hex": "377abcaf271c", "expected_format": "SEVEN_Z"},
+    {"name": "gzip-outer", "suffix": ".tar.gz", "header_hex": "1f8b", "expected_format": "TAR_GZIP"},
+    {"name": "bzip2-outer", "suffix": ".tar.bz2", "header_hex": "425a68", "expected_format": "TAR_BZIP2"},
+    {"name": "xz-outer", "suffix": ".tar.xz", "header_hex": "fd377a585a00", "expected_format": "TAR_XZ"},
+    {"name": "zstd-outer", "suffix": ".tar.zst", "header_hex": "28b52ffd", "expected_format": "TAR_ZSTD"},
+    {"name": "suffix-mismatch", "suffix": ".zip", "header_hex": "526172211a0700", "expected_status": "SIGNATURE_SUFFIX_MISMATCH"},
+    {"name": "unknown", "suffix": ".arc", "header_hex": "deadbeef", "expected_status": "UNKNOWN_SIGNATURE"},
+    {
+      "name": "tar-header-only",
+      "suffix": ".tar",
+      "header_hex": "73796e7468657469632e74787400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000030303030363030003030303030303000303030303030300030303030303030303030300030303030303030303030300030313034373600203000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000757374617200303000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "tail_padding_hex": "000000",
+      "expected_format": "TAR",
+      "expected_checksum": 4414
+    }
+  ],
+  "volume_groups": [
+    {"name": "rar-new-valid", "members": ["book.part01.rar", "book.part02.rar"], "expected_status": "LISTED"},
+    {"name": "rar-new-gap", "members": ["book.part01.rar", "book.part03.rar"], "expected_status": "MISSING_VOLUME"},
+    {"name": "rar-new-mixed-width", "members": ["book.part1.rar", "book.part02.rar"], "expected_status": "POLICY_REJECTED"},
+    {"name": "rar-old-valid", "members": ["book.rar", "book.r00", "book.r01"], "expected_status": "LISTED"},
+    {"name": "seven-z-valid", "members": ["book.7z.001", "book.7z.002"], "expected_status": "LISTED"},
+    {"name": "seven-z-gap", "members": ["book.7z.001", "book.7z.003"], "expected_status": "MISSING_VOLUME"},
+    {"name": "split-zip-inventory", "members": ["book.z01", "book.z02", "book.zip"], "expected_status": "UNSUPPORTED_FORMAT"}
+  ]
+}
