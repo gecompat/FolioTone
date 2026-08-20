@@ -71,6 +71,20 @@ Legacy-`RUNNING`-Zustände werden nicht automatisch übernommen.
 
 ## Verifizierter aktueller Stand
 
+### Archive-Extraction-Fortsetzung
+
+S-EBAR-05A und S-EBAR-06A sind auf `main` abgeschlossen. ADR-0049 entscheidet
+FG-A-EXTRACTION-QUOTA als dateisystemneutrale, atomar begrenzte
+Workspace-Capability. FolioTone erhält keine Mount-, Device-, `root`- oder
+`CAP_SYS_ADMIN`-Authority.
+
+Das nächste mechanische Paket ist S-EBAR-04Q. Es implementiert ausschließlich
+den neutralen Provider-, Lease-, Capability-, Empty-Revalidation-, Return-
+und Quarantänevertrag mit begrenzten Fakes. Ein reales Backend folgt als
+eigener Plattformadapter mit nicht überspringbarem Konformitätsgate. Bis zu
+dessen Annahme bleiben S-EBAR-04A, EBAR-06 und jede reale Extraction
+`TOOL_UNAVAILABLE`.
+
 ### `W3-017` (E5 synthetischer Performance-/Restart-Vertrag)
 
 Die E5-Verifikation wurde auf Testebene ergänzt: neue synthetische

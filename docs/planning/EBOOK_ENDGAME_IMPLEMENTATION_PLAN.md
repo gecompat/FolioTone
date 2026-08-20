@@ -1852,9 +1852,11 @@ entscheidet FG-A-STORAGE-FAMILY und ADR-0047 den finalen Formatlock.
 S-EBAR-02C und EBAR-05 sind umgesetzt.
 [ADR-0048](../decisions/ADR-0048-private-archive-extraction-lifecycle.md)
 entscheidet vor EBAR-06 den privaten Listing-/CRC-Handoff, den reinen internen
-Extraction-Validator, ein separates Gate für einen harten Linux-Workspace-Cap
-und den Runner-owned Workspace-Consumer-Lifecycle. Als Nächstes folgen
-S-EBAR-05A, S-EBAR-06A, FG-A-EXTRACTION-QUOTA, S-EBAR-04Q und S-EBAR-04A.
+Extraction-Validator, ein separates Gate für einen harten Workspace-Cap
+und den Runner-owned Workspace-Consumer-Lifecycle. S-EBAR-05A und S-EBAR-06A
+sind umgesetzt. ADR-0049 akzeptiert die dateisystemneutrale
+Workspace-Capability; als Nächstes folgt das neutrale S-EBAR-04Q. Ein reales
+Plattformbackend benötigt danach ein eigenes Konformitätsgate.
 Die vier äußeren Kompressionsstreams bleiben bis zu einem
 separaten FG-A-WRAPPER-PIPELINE bei `OUTER_COMPRESSION_ONLY` und erhalten in
 EBAR-06 keinen Lauf.
@@ -2112,9 +2114,11 @@ separates Frontier-Gate.
 S-EBAR-05A reicht Locator und CRC ausschließlich underscore-intern aus
 demselben EBAR-05-Lauf weiter. S-EBAR-06A implementiert daraus den exakten
 reinen Extraction-Consumer ohne Tool- oder Filesystemzugriff.
-FG-A-EXTRACTION-QUOTA muss einen atomar durchgesetzten Linux-Workspace-Cap
-festlegen; S-EBAR-04Q implementiert dessen unprivilegierte Quota-Slot-
-Capability. Periodisches Scannen ist lediglich Frühabbruch. S-EBAR-04A lässt
+FG-A-EXTRACTION-QUOTA ist durch ADR-0049 als dateisystemneutrale, atomar
+begrenzte Workspace-Capability entschieden. S-EBAR-04Q implementiert deren
+neutralen Provider-, Lease-, Capability-, Return- und Quarantänevertrag.
+Konkrete Backends folgen getrennt je Plattform. Periodisches Scannen ist lediglich
+Frühabbruch. S-EBAR-04A lässt
 nur diesen privaten Extraction-Consumer zwischen bewiesener
 Container-Abwesenheit und
 Runner-owned Cleanup auf eine borrowed no-follow-Workspace-Capability

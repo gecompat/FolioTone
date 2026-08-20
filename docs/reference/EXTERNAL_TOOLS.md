@@ -398,9 +398,14 @@ schließt dafür vor EBAR-06 die privaten Handoff-, Validator- und
 Runner-Lifecycle-Lücken. S-EBAR-05A bewahrt
 Locator und CRC ausschließlich in einem underscore-internen Handoff desselben
 EBAR-05-Laufs. S-EBAR-06A stellt daraus den exakten reinen internen
-Extraction-Validator bereit. FG-A-EXTRACTION-QUOTA entscheidet anschließend
-den harten Linux-Workspace-Cap; S-EBAR-04Q implementiert dessen
-unprivilegierte Quota-Slot-Capability. Periodisches Scannen ist nur Frühabbruch
+Extraction-Validator bereit. ADR-0049 entscheidet FG-A-EXTRACTION-QUOTA als
+dateisystemneutrale, atomar begrenzte Workspace-Capability. S-EBAR-04Q
+implementiert ausschließlich den neutralen Provider-, Lease-, Capability-,
+Empty-Revalidation-, Return- und Quarantänevertrag. Ein konkretes Backend
+folgt als separates Plattformpaket mit eigenem Konformitätsgate. FolioTone
+ruft dafür kein `fallocate`, `mkfs`, `losetup`, `mount`
+oder `umount` auf und erhält weder `root` noch Linux-Capabilities oder
+Devicezugriff. Periodisches Scannen ist nur Frühabbruch
 und keine Budget-Authority. S-EBAR-04A sperrt Extraction auf der öffentlichen
 Runnergrenze und führt einen privaten synchronen Workspace-Consumer ein. Der
 Runner hält den Output während des Toollaufs unter dem akzeptierten harten Cap

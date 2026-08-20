@@ -150,10 +150,12 @@ private Memberlocator und CRC-Werte ausschließlich als redigierten
 In-Memory-Handoff desselben Listing-/Integrity-Laufs. S-EBAR-06A implementiert
 den exakten underscore-internen, reinen Extraction-Validator ohne Tool- oder
 Filesystemzugriff. FG-A-EXTRACTION-QUOTA muss danach einen harten, atomar
-durchgesetzten Linux-Workspace-Cap für Gesamtbytes, Member und Reserve
+durchgesetzten, plattformneutral beschriebenen Workspace-Cap für Gesamtbytes,
+Member und Reserve
 akzeptieren; Polling allein ist dafür kein Sicherheitsbeweis. S-EBAR-04Q
-implementiert danach die exakt entschiedene unprivilegierte Quota-Slot-
-Capability. Erst S-EBAR-04A erweitert den Runner um einen nicht öffentlichen
+implementiert danach den exakt entschiedenen neutralen Provider- und
+Capability-Vertrag. Erst ein reales Adaptergate und danach S-EBAR-04A
+erweitern den Runner um einen nicht öffentlichen
 Workspace-Consumer-Lifecycle.
 Der Runner
 beweist zuerst die Container-Abwesenheit, leiht danach eine opaque no-follow-
@@ -172,9 +174,16 @@ Workspacegröße und freien Reserveplatz nur als zusätzlichen Frühabbruch
 bestehende Cancellation-/Kill-Grenze und wird danach `LIMIT_EXCEEDED`;
 `RLIMIT_FSIZE` begrenzt zusätzlich jedes einzelne Output-Member. Der harte
 Gesamtbudgetnachweis muss aus dem akzeptierten FG-A-EXTRACTION-QUOTA-Vertrag
-stammen und Überschreitungen zwischen zwei Scans verhindern. Kann das
-Linux-Backend harten Cap, Live-Abbruch, no-follow-Revalidierung oder Cleanup
-nicht belegen, bleibt Extraction `TOOL_UNAVAILABLE`.
+stammen und Überschreitungen zwischen zwei Scans verhindern. ADR-0049
+akzeptiert dafür eine dateisystemneutrale, atomar begrenzte
+Workspace-Capability. Nutzbare Bytes, Objektzahl und Reserve müssen durch den
+jeweiligen Plattformadapter unabhängig von Polling erzwungen werden.
+S-EBAR-04Q implementiert nur den neutralen Provider-, Lease-, Capability-,
+Return- und Quarantänevertrag. Ein konkretes Dateisystem, Volume- oder
+Quota-Backend wird ausschließlich in einem separaten Adaptergate akzeptiert.
+FolioTone erhält keine Host-Capability. Kann ein Adapter harten Cap,
+Live-Abbruch, no-follow-Revalidierung oder Cleanup nicht belegen, bleibt
+Extraction `TOOL_UNAVAILABLE`.
 
 Native Windows-Ausführung bleibt `TOOL_UNAVAILABLE`, bis
 `FG-A-WINDOWS-SANDBOX` Netzwerk- und Filesystemisolation belegt. Job Objects
