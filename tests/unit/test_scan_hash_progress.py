@@ -61,6 +61,26 @@ def test_reconciliation_progress_keeper_reports_partial_atomic_batch() -> None:
     assert progress.reconciled_bytes == 128 * 1024
 
 
+def test_reconciliation_progress_keeper_reports_fast_file_steps() -> None:
+    meter = _ReconciliationMeter()
+    reports = []
+    keeper = _ReconciliationProgressKeeper(
+        meter,
+        processed_files=0,
+        processed_bytes=0,
+        batch_files=32,
+        batch_bytes=32,
+        report=reports.append,
+        interval_seconds=1.0,
+    )
+
+    keeper.record_progress(15, 15)
+    keeper.record_progress(16, 16)
+    keeper.record_progress(32, 32)
+
+    assert [progress.reconciled_files for progress in reports] == [16, 32]
+
+
 def test_discovery_progress_reports_live_enumeration_rate() -> None:
     meter = _DiscoveryMeter()
     reports = []
