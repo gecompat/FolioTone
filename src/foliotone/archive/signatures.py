@@ -1,0 +1,420 @@
+"""Pure bounded archive signature and volume-name observations."""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Iterable
+from dataclasses import dataclass, field
+from enum import StrEnum
+from itertools import islice
+from pathlib import PurePath
+from typing import Final
+
+ARCHIVE_SIGNATURE_PROFILE: Final = "archive-signature-observer/v1"
+MAX_ARCHIVE_HEADER_BYTES: Final = 512
+MAX_ARCHIVE_VOLUMES: Final = 256
+
+
+class ArchiveContainerClass(StrEnum):
+    PUBLICATION_CONTAINER = "PUBLICATION_CONTAINER"
+    GENERIC_ARCHIVE = "GENERIC_ARCHIVE"
+    UNSUPPORTED_CONTAINER = "UNSUPPORTED_CONTAINER"
+    UNKNOWN_CONTAINER = "UNKNOWN_CONTAINER"
+
+
+class ArchiveFormatKind(StrEnum):
+    EPUB = "EPUB"
+    CBZ = "CBZ"
+    CBR = "CBR"
+    ZIP = "ZIP"
+    RAR4 = "RAR4"
+    RAR5 = "RAR5"
+    SEVEN_Z = "SEVEN_Z"
+    TAR = "TAR"
+    TAR_GZIP = "TAR_GZIP"
+    TAR_BZIP2 = "TAR_BZIP2"
+    TAR_XZ = "TAR_XZ"
+    TAR_ZSTD = "TAR_ZSTD"
+    UNKNOWN = "UNKNOWN"
+
+
+class ArchiveRecognitionStatus(StrEnum):
+    MATCHED = "MATCHED"
+    SIGNATURE_SUFFIX_MISMATCH = "SIGNATURE_SUFFIX_MISMATCH"
+    OUTER_COMPRESSION_ONLY = "OUTER_COMPRESSION_ONLY"
+    UNSUPPORTED_FORMAT = "UNSUPPORTED_FORMAT"
+    UNKNOWN_SIGNATURE = "UNKNOWN_SIGNATURE"
+
+
+class ArchiveListingStatus(StrEnum):
+    NOT_ATTEMPTED = "NOT_ATTEMPTED"
+    LISTED = "LISTED"
+    PASSWORD_REQUIRED = "PASSWORD_REQUIRED"
+    UNSUPPORTED_FORMAT = "UNSUPPORTED_FORMAT"
+    UNSUPPORTED_METHOD = "UNSUPPORTED_METHOD"
+    MISSING_VOLUME = "MISSING_VOLUME"
+    CORRUPT = "CORRUPT"
+    LIMIT_EXCEEDED = "LIMIT_EXCEEDED"
+    TIMED_OUT = "TIMED_OUT"
+    TOOL_UNAVAILABLE = "TOOL_UNAVAILABLE"
+    TOOL_FAILED = "TOOL_FAILED"
+    POLICY_REJECTED = "POLICY_REJECTED"
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveSignatureObservation:
+    profile: str
+    container_class: ArchiveContainerClass
+    format_kind: ArchiveFormatKind
+    recognition_status: ArchiveRecognitionStatus
+    inspected_bytes: int
+    structural_confirmation_required: bool
+
+    def __post_init__(self) -> None:
+        if self.profile != ARCHIVE_SIGNATURE_PROFILE:
+            raise ValueError("unsupported archive signature profile")
+        if not isinstance(self.container_class, ArchiveContainerClass):
+            raise ValueError("container_class must be ArchiveContainerClass")
+        if not isinstance(self.format_kind, ArchiveFormatKind):
+            raise ValueError("format_kind must be ArchiveFormatKind")
+        if not isinstance(self.recognition_status, ArchiveRecognitionStatus):
+            raise ValueError("recognition_status must be ArchiveRecognitionStatus")
+        if isinstance(self.inspected_bytes, bool) or not isinstance(self.inspected_bytes, int):
+            raise ValueError("inspected_bytes must be an integer")
+        if not 0 <= self.inspected_bytes <= MAX_ARCHIVE_HEADER_BYTES:
+            raise ValueError("inspected_bytes exceeds the signature bound")
+        if not isinstance(self.structural_confirmation_required, bool):
+            raise ValueError("structural_confirmation_required must be bool")
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveVolumeGroup:
+    status: ArchiveListingStatus
+    entry_name: str | None = field(default=None, repr=False)
+    members: tuple[str, ...] = field(default=(), repr=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.status, ArchiveListingStatus):
+            raise ValueError("status must be ArchiveListingStatus")
+        if not isinstance(self.members, tuple):
+            raise ValueError("archive volume members must be a tuple")
+        if len(self.members) > MAX_ARCHIVE_VOLUMES:
+            raise ValueError("archive volume group exceeds the bound")
+        for member in self.members:
+            _require_basename(member)
+        if len(set(self.members)) != len(self.members):
+            raise ValueError("archive volume members must be unique")
+        if self.entry_name is not None:
+            _require_basename(self.entry_name)
+        if self.status in {ArchiveListingStatus.LISTED, ArchiveListingStatus.UNSUPPORTED_FORMAT}:
+            if self.entry_name is None or not self.members or self.entry_name not in self.members:
+                raise ValueError("complete volume groups require a canonical entry")
+        elif self.entry_name is not None:
+            raise ValueError("incomplete volume groups cannot expose an entry")
+
+
+_ZIP_SIGNATURES: Final = (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")
+_RAR4: Final = b"Rar!\x1a\x07\x00"
+_RAR5: Final = b"Rar!\x1a\x07\x01\x00"
+_SEVEN_Z: Final = b"7z\xbc\xaf'\x1c"
+_OUTER_SIGNATURES: Final = (
+    (b"\x1f\x8b", ArchiveFormatKind.TAR_GZIP, (".tar.gz", ".tgz")),
+    (b"BZh", ArchiveFormatKind.TAR_BZIP2, (".tar.bz2", ".tbz2")),
+    (b"\xfd7zXZ\x00", ArchiveFormatKind.TAR_XZ, (".tar.xz", ".txz")),
+    (b"(\xb5/\xfd", ArchiveFormatKind.TAR_ZSTD, (".tar.zst", ".tzst")),
+)
+_UNSUPPORTED_SUFFIXES: Final = (
+    ".arj",
+    ".cab",
+    ".exe",
+    ".iso",
+    ".wim",
+    ".gz",
+    ".bz2",
+    ".xz",
+    ".zst",
+)
+_NEW_RAR = re.compile(r"^(?P<stem>.+)\.part(?P<number>[0-9]{1,6})\.rar$", re.IGNORECASE)
+_OLD_RAR_PART = re.compile(r"^(?P<stem>.+)\.r(?P<number>[0-9]{2})$", re.IGNORECASE)
+_SEVEN_Z_PART = re.compile(r"^(?P<stem>.+)\.7z\.(?P<number>[0-9]{3,6})$", re.IGNORECASE)
+_SPLIT_ZIP_PART = re.compile(r"^(?P<stem>.+)\.z(?P<number>[0-9]{2})$", re.IGNORECASE)
+
+
+def observe_archive_signature(basename: str, header: bytes) -> ArchiveSignatureObservation:
+    """Observe supplied bounded bytes without opening or decompressing a source."""
+
+    name = _require_basename(basename)
+    if not isinstance(header, bytes) or len(header) > MAX_ARCHIVE_HEADER_BYTES:
+        raise ValueError("archive header must be bytes bounded to 512")
+    lower = name.lower()
+    inspected = len(header)
+
+    if any(header.startswith(signature) for signature in _ZIP_SIGNATURES):
+        expected = _zip_suffix_kind(lower)
+        if expected is None:
+            return _observation(
+                ArchiveContainerClass.GENERIC_ARCHIVE,
+                ArchiveFormatKind.ZIP,
+                ArchiveRecognitionStatus.SIGNATURE_SUFFIX_MISMATCH,
+                inspected,
+            )
+        container = (
+            ArchiveContainerClass.PUBLICATION_CONTAINER
+            if expected in {ArchiveFormatKind.EPUB, ArchiveFormatKind.CBZ}
+            else ArchiveContainerClass.GENERIC_ARCHIVE
+        )
+        return _observation(
+            container,
+            expected,
+            ArchiveRecognitionStatus.MATCHED,
+            inspected,
+            structural=container is ArchiveContainerClass.PUBLICATION_CONTAINER,
+        )
+
+    if header.startswith(_RAR5) or header.startswith(_RAR4):
+        signature_kind = (
+            ArchiveFormatKind.RAR5 if header.startswith(_RAR5) else ArchiveFormatKind.RAR4
+        )
+        if lower.endswith(".cbr"):
+            return _observation(
+                ArchiveContainerClass.PUBLICATION_CONTAINER,
+                ArchiveFormatKind.CBR,
+                ArchiveRecognitionStatus.MATCHED,
+                inspected,
+                structural=True,
+            )
+        if _is_rar_suffix(lower):
+            return _observation(
+                ArchiveContainerClass.GENERIC_ARCHIVE,
+                signature_kind,
+                ArchiveRecognitionStatus.MATCHED,
+                inspected,
+            )
+        return _observation(
+            ArchiveContainerClass.GENERIC_ARCHIVE,
+            signature_kind,
+            ArchiveRecognitionStatus.SIGNATURE_SUFFIX_MISMATCH,
+            inspected,
+        )
+
+    if header.startswith(_SEVEN_Z):
+        status = (
+            ArchiveRecognitionStatus.MATCHED
+            if _is_seven_z_suffix(lower)
+            else ArchiveRecognitionStatus.SIGNATURE_SUFFIX_MISMATCH
+        )
+        return _observation(
+            ArchiveContainerClass.GENERIC_ARCHIVE,
+            ArchiveFormatKind.SEVEN_Z,
+            status,
+            inspected,
+        )
+
+    if _valid_tar_header(header):
+        status = (
+            ArchiveRecognitionStatus.MATCHED
+            if lower.endswith(".tar")
+            else ArchiveRecognitionStatus.SIGNATURE_SUFFIX_MISMATCH
+        )
+        return _observation(
+            ArchiveContainerClass.GENERIC_ARCHIVE,
+            ArchiveFormatKind.TAR,
+            status,
+            inspected,
+        )
+
+    for signature, format_kind, suffixes in _OUTER_SIGNATURES:
+        if header.startswith(signature):
+            if lower.endswith(suffixes):
+                return _observation(
+                    ArchiveContainerClass.GENERIC_ARCHIVE,
+                    format_kind,
+                    ArchiveRecognitionStatus.OUTER_COMPRESSION_ONLY,
+                    inspected,
+                    structural=True,
+                )
+            if lower.endswith(_UNSUPPORTED_SUFFIXES):
+                return _observation(
+                    ArchiveContainerClass.UNSUPPORTED_CONTAINER,
+                    ArchiveFormatKind.UNKNOWN,
+                    ArchiveRecognitionStatus.UNSUPPORTED_FORMAT,
+                    inspected,
+                )
+            return _observation(
+                ArchiveContainerClass.GENERIC_ARCHIVE,
+                format_kind,
+                ArchiveRecognitionStatus.SIGNATURE_SUFFIX_MISMATCH,
+                inspected,
+            )
+
+    if lower.endswith(_UNSUPPORTED_SUFFIXES) or lower.endswith((".z01", ".z02")):
+        return _observation(
+            ArchiveContainerClass.UNSUPPORTED_CONTAINER,
+            ArchiveFormatKind.UNKNOWN,
+            ArchiveRecognitionStatus.UNSUPPORTED_FORMAT,
+            inspected,
+        )
+    return _observation(
+        ArchiveContainerClass.UNKNOWN_CONTAINER,
+        ArchiveFormatKind.UNKNOWN,
+        ArchiveRecognitionStatus.UNKNOWN_SIGNATURE,
+        inspected,
+    )
+
+
+def group_archive_volume_names(names: Iterable[str]) -> ArchiveVolumeGroup:
+    """Classify one already bounded set of basenames without filesystem access."""
+
+    iterator = iter(names)
+    materialized = tuple(
+        _require_basename(name) for name in islice(iterator, MAX_ARCHIVE_VOLUMES + 1)
+    )
+    if not materialized or len(materialized) > MAX_ARCHIVE_VOLUMES:
+        return ArchiveVolumeGroup(ArchiveListingStatus.POLICY_REJECTED)
+    if len(set(materialized)) != len(materialized):
+        return ArchiveVolumeGroup(ArchiveListingStatus.POLICY_REJECTED)
+    if len({name.casefold() for name in materialized}) != len(materialized):
+        return ArchiveVolumeGroup(ArchiveListingStatus.POLICY_REJECTED)
+
+    matchers = (_group_new_rar, _group_old_rar, _group_seven_z, _group_split_zip)
+    results = tuple(result for matcher in matchers if (result := matcher(materialized)) is not None)
+    if len(results) != 1:
+        return ArchiveVolumeGroup(ArchiveListingStatus.POLICY_REJECTED)
+    return results[0]
+
+
+def _observation(
+    container_class: ArchiveContainerClass,
+    format_kind: ArchiveFormatKind,
+    status: ArchiveRecognitionStatus,
+    inspected: int,
+    *,
+    structural: bool = False,
+) -> ArchiveSignatureObservation:
+    return ArchiveSignatureObservation(
+        profile=ARCHIVE_SIGNATURE_PROFILE,
+        container_class=container_class,
+        format_kind=format_kind,
+        recognition_status=status,
+        inspected_bytes=inspected,
+        structural_confirmation_required=structural,
+    )
+
+
+def _zip_suffix_kind(lower: str) -> ArchiveFormatKind | None:
+    if lower.endswith(".epub"):
+        return ArchiveFormatKind.EPUB
+    if lower.endswith(".cbz"):
+        return ArchiveFormatKind.CBZ
+    if lower.endswith(".zip"):
+        return ArchiveFormatKind.ZIP
+    return None
+
+
+def _is_rar_suffix(lower: str) -> bool:
+    return bool(
+        lower.endswith(".rar") or re.search(r"\.r[0-9]{2}$", lower) or _NEW_RAR.fullmatch(lower)
+    )
+
+
+def _is_seven_z_suffix(lower: str) -> bool:
+    return lower.endswith(".7z") or _SEVEN_Z_PART.fullmatch(lower) is not None
+
+
+def _valid_tar_header(header: bytes) -> bool:
+    if len(header) < 512:
+        return False
+    checksum_field = header[148:156]
+    try:
+        stored = int(checksum_field.rstrip(b" \x00") or b"0", 8)
+    except ValueError:
+        return False
+    candidate = bytearray(header[:512])
+    candidate[148:156] = b"        "
+    return stored == sum(candidate)
+
+
+def _require_basename(value: str) -> str:
+    if not isinstance(value, str) or not value or len(value) > 1_024:
+        raise ValueError("archive name must be a bounded basename")
+    if PurePath(value).name != value or any(character in value for character in ("/", "\\", ":")):
+        raise ValueError("archive name must not contain a path")
+    if any(ord(character) < 32 or ord(character) == 127 for character in value):
+        raise ValueError("archive name contains control characters")
+    return value
+
+
+def _group_new_rar(names: tuple[str, ...]) -> ArchiveVolumeGroup | None:
+    matches = tuple(_NEW_RAR.fullmatch(name) for name in names)
+    if not all(matches):
+        return None
+    return _numbered_group(names, matches, unsupported=False)
+
+
+def _group_seven_z(names: tuple[str, ...]) -> ArchiveVolumeGroup | None:
+    matches = tuple(_SEVEN_Z_PART.fullmatch(name) for name in names)
+    if not all(matches):
+        return None
+    return _numbered_group(names, matches, unsupported=False)
+
+
+def _numbered_group(
+    names: tuple[str, ...],
+    matches: tuple[re.Match[str] | None, ...],
+    *,
+    unsupported: bool,
+) -> ArchiveVolumeGroup:
+    captured = tuple(match for match in matches if match is not None)
+    stems = {match.group("stem") for match in captured}
+    widths = {len(match.group("number")) for match in captured}
+    if len(stems) != 1 or len(widths) != 1:
+        return ArchiveVolumeGroup(ArchiveListingStatus.POLICY_REJECTED)
+    ordered = tuple(
+        sorted(zip(names, captured, strict=True), key=lambda item: int(item[1].group("number")))
+    )
+    numbers = tuple(int(match.group("number")) for _, match in ordered)
+    if numbers != tuple(range(1, len(numbers) + 1)):
+        return ArchiveVolumeGroup(ArchiveListingStatus.MISSING_VOLUME)
+    members = tuple(name for name, _ in ordered)
+    status = ArchiveListingStatus.UNSUPPORTED_FORMAT if unsupported else ArchiveListingStatus.LISTED
+    return ArchiveVolumeGroup(status=status, entry_name=members[0], members=members)
+
+
+def _group_old_rar(names: tuple[str, ...]) -> ArchiveVolumeGroup | None:
+    rar_names = tuple(name for name in names if name.lower().endswith(".rar"))
+    part_pairs = tuple(
+        (name, _OLD_RAR_PART.fullmatch(name)) for name in names if name not in rar_names
+    )
+    if len(rar_names) != 1 or not part_pairs or not all(match for _, match in part_pairs):
+        return None
+    entry = rar_names[0]
+    entry_stem = entry[:-4]
+    captured = tuple((name, match) for name, match in part_pairs if match is not None)
+    if any(match.group("stem") != entry_stem for _, match in captured):
+        return ArchiveVolumeGroup(ArchiveListingStatus.POLICY_REJECTED)
+    ordered = tuple(sorted(captured, key=lambda item: int(item[1].group("number"))))
+    numbers = tuple(int(match.group("number")) for _, match in ordered)
+    if numbers != tuple(range(len(numbers))):
+        return ArchiveVolumeGroup(ArchiveListingStatus.MISSING_VOLUME)
+    members = (entry, *(name for name, _ in ordered))
+    return ArchiveVolumeGroup(ArchiveListingStatus.LISTED, entry, tuple(members))
+
+
+def _group_split_zip(names: tuple[str, ...]) -> ArchiveVolumeGroup | None:
+    zip_names = tuple(name for name in names if name.lower().endswith(".zip"))
+    part_pairs = tuple(
+        (name, _SPLIT_ZIP_PART.fullmatch(name)) for name in names if name not in zip_names
+    )
+    if len(zip_names) != 1 or not part_pairs or not all(match for _, match in part_pairs):
+        return None
+    entry = zip_names[0]
+    entry_stem = entry[:-4]
+    captured = tuple((name, match) for name, match in part_pairs if match is not None)
+    if any(match.group("stem") != entry_stem for _, match in captured):
+        return ArchiveVolumeGroup(ArchiveListingStatus.POLICY_REJECTED)
+    ordered = tuple(sorted(captured, key=lambda item: int(item[1].group("number"))))
+    numbers = tuple(int(match.group("number")) for _, match in ordered)
+    if numbers != tuple(range(1, len(numbers) + 1)):
+        return ArchiveVolumeGroup(ArchiveListingStatus.MISSING_VOLUME)
+    members = (*(name for name, _ in ordered), entry)
+    return ArchiveVolumeGroup(ArchiveListingStatus.UNSUPPORTED_FORMAT, entry, tuple(members))
