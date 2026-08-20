@@ -3,8 +3,9 @@
 ## Status und Geltungsbereich
 
 **Status:** In Ausführung; FG-A, S-EBA-01 bis S-EBA-07, FG-A-RUNTIME,
-S-EBAR-01 bis S-EBAR-03 und FG-A-IMAGE abgeschlossen;
-FG-A-RUNTIME-AVAILABILITY durch ADR-0041 akzeptiert
+S-EBAR-01 bis S-EBAR-03A, FG-A-IMAGE, FG-A-RUNTIME-AVAILABILITY, EBAR-04,
+S-EBAR-02A und S-EBAR-02B abgeschlossen; FG-A-FORMAT-LOCK offen; nächstes
+Paket S-EBAR-02B2
 
 **Stand:** 2026-08-20
 
@@ -50,12 +51,16 @@ umgesetzt.
 
 FG-A-RUNTIME-AVAILABILITY ist durch
 [ADR-0041](../decisions/ADR-0041-offline-archive-runtime-availability.md)
-akzeptiert. Der nächste Schritt S-EBAR-03A bindet den exakten Manifestdigest,
-Custom-SLSA-/SPDX-Evidence und GitHub-Workflowidentity in einen reviewten
-Release-Acceptance-Record, provisioniert den lokalen State und prüft OCI-
-Config/RootFS bei jedem Lauf offline. `BOOTSTRAP_LOCKED` und lokales Inspect
-allein bleiben `TOOL_UNAVAILABLE`. Public Visibility und Source-Association
-werden nur beim Provisioning beziehungsweise Refresh erneut geprüft.
+akzeptiert und S-EBAR-03A ist umgesetzt. EBAR-04 stellt den isolierten
+Docker/Linux-Streaming-Runner bereit. S-EBAR-02B hat danach das geschützte
+Linux-Messmanifest erzeugt; [ADR-0045](../decisions/ADR-0045-archive-7zip-format-lock.md)
+stuft es als diagnostische Happy-Path-Evidence ein und akzeptiert noch keinen
+Formatlock. Als Nächstes erweitert S-EBAR-02B2 die Fallmatrix und korrigiert
+die Boolklassifikation. Danach folgen FG-A-STORAGE-FAMILY, der finale
+FG-A-FORMAT-LOCK und erst dann S-EBAR-02C. `BOOTSTRAP_LOCKED` und lokales
+Inspect allein bleiben keine Runtime-Authority; Public Visibility und
+Source-Association werden nur beim
+Provisioning beziehungsweise Refresh erneut geprüft.
 
 ## Planungsentscheidung
 
@@ -248,9 +253,11 @@ Umfang:
 
 **Status:** FG-A-RUNTIME, FG-A-IMAGE und FG-A-RUNTIME-AVAILABILITY sind durch
 ADR-0039, ADR-0040 beziehungsweise ADR-0041 akzeptiert. S-EBAR-01 bis
-S-EBAR-03A, EBAR-04 und S-EBAR-02A sind umgesetzt. Die reale Golden-Prüfung
-von Parser v2 löste den vorgesehenen Stop aus. ADR-0044 schiebt deshalb
-S-EBAR-02B, FG-A-FORMAT-LOCK und S-EBAR-02C vor EBAR-05.
+S-EBAR-03A, EBAR-04, S-EBAR-02A und S-EBAR-02B sind umgesetzt. Die reale
+Golden-Prüfung von Parser v2 löste den vorgesehenen Stop aus. ADR-0045 hält
+FG-A-FORMAT-LOCK wegen unvollständiger Fallmatrix, falscher Boolklassifikation
+und kollidierender Publication-/Storage-Achse offen. S-EBAR-02B2 ist das
+nächste Paket vor FG-A-STORAGE-FAMILY.
 
 **Ziel:** Archive werden ohne dauerhafte Extraktion technisch bewertet.
 
@@ -276,9 +283,10 @@ und extrahierte Mitglieder, Größen und CRC-/Toolbefunde müssen konsistent
 sein. Fehler, Passwortbedarf, fehlende Volumes oder Limits erzeugen einen
 terminalen technischen Befund, aber keine Source-Operation. Der Workspace
 wird nach sicherer Evidence-Übernahme bereinigt. S-EBA-01 bis S-EBA-07,
-S-EBAR-01 bis S-EBAR-03, FG-A-RUNTIME und FG-A-IMAGE sind abgeschlossen;
-ADR-0041 schiebt S-EBAR-03A verpflichtend vor EBAR-04. Die 7-Zip-CLI darf
-kein Secret über `-p` erhalten.
+S-EBAR-01 bis S-EBAR-03A, FG-A-RUNTIME, FG-A-IMAGE,
+FG-A-RUNTIME-AVAILABILITY, EBAR-04, S-EBAR-02A und S-EBAR-02B sind
+abgeschlossen. FG-A-FORMAT-LOCK bleibt offen. Die 7-Zip-CLI darf kein Secret
+über `-p` erhalten.
 
 ## FG-A-RUNTIME-Folgepakete und Modellrouting
 
@@ -296,7 +304,9 @@ S-EBAR-01 Execution-DTOs
     -> EBAR-04 isolierter Docker/Linux-Streaming-Runner
     -> S-EBAR-02A Member-only-Parser v2 für den festen -ba-SLT-Stream
     -> S-EBAR-02B hashgebundener Formatkorpus und Linux-Messmanifest
-    -> FG-A-FORMAT-LOCK exakte Review der beobachteten Formatprofile
+    -> S-EBAR-02B2 korrigierte und erweiterte Measurement-Matrix
+    -> FG-A-STORAGE-FAMILY orthogonales Publication-/Storage-Routing
+    -> FG-A-FORMAT-LOCK finaler maschinenlesbarer Lock
     -> S-EBAR-02C formatgebundene Produktionsparser
     -> EBAR-05 unverschlüsseltes Listing und Integrity
     -> EBAR-06 private Extraction-Sandbox
@@ -306,14 +316,12 @@ S-EBAR-01 Execution-DTOs
     -> EBAR-09 Abschluss und EB-A3-Übergang
 ```
 
-Die mechanischen S-EBAR-Pakete verwenden 5.3 Codex Spark mit Thinking `high`;
-zulässige Fallbacks sind 5.4 Mini und danach 5.6 Terra. FG-A-IMAGE wurde mit
-5.6 Sol `high` durch ADR-0040 abgeschlossen; S-EBAR-03 hat die exakten
-Gatewerte und den Result-Digest mechanisch durch zwei identische Offline-
-Builds umgesetzt. FG-A-RUNTIME-AVAILABILITY wurde mit 5.6 Sol `high`
-entschieden; S-EBAR-03A verwendet ebenfalls 5.6 Sol `high`, mit 5.5 nur als
-Fallback ohne neue Trust-Root- oder Signaturentscheidung. Gewöhnliche
-Integration verwendet 5.6 Terra.
+Die mechanischen S-EBAR-Pakete verwenden das im Spark-Katalog jeweils
+festgelegte Routing. FG-A-IMAGE und FG-A-RUNTIME-AVAILABILITY wurden als
+Frontier-Gates abgeschlossen; S-EBAR-03 bis S-EBAR-03A, EBAR-04,
+S-EBAR-02A und S-EBAR-02B sind umgesetzt. S-EBAR-02B2 verwendet 5.6 Terra
+`medium`; bei Lizenz-, Link-, Encryption-, Format- oder Privacysemantik gilt
+die im Katalog festgelegte Eskalation auf 5.6 Sol `high`.
 Docker/Linux-Streaming-Runner und Extraction-Sandbox verwenden
 5.6 Sol mit Thinking `high`. Nur FG-A-SECRET verwendet 5.6 Sol mit Thinking
 `xhigh` und besitzt kein niedriger eingestuftes Fallback. Status-, CI- und

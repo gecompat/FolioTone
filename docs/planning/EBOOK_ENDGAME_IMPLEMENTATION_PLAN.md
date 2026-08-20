@@ -1,6 +1,6 @@
 # FolioTone – detaillierte Planung der nächsten E-Book-Wellen
 
-**Planungsstand:** 2026-08-19
+**Planungsstand:** 2026-08-20
 **Basis:** maßgeblicher Implementierungsstand aus `PROJECT_STATUS.md` und
 `BACKLOG.md` zum genannten Planungsstand
 **Scope:** E-Book-Linie einschließlich Authority Resolution, Enrichment,
@@ -103,9 +103,11 @@ bleibt jeder Plan `NOT_EXECUTABLE` und es existiert kein Mutationspfad.
 Die abgeschlossene kritische Kette bleibt provider- und Calibre-unabhängig.
 EB-03A, EB-03B, EB-04 sowie die book-only Kette bis EB-08 sind abgeschlossen.
 In der getrennten Archivstrecke sind FG-A und S-EBA-01 bis S-EBA-07
-abgeschlossen; FG-A-RUNTIME ist durch ADR-0039 akzeptiert. Der nächste Schritt
-ist **S-EBAR-01**, das DTO- und Characterization-Paket vor der realen
-unverschlüsselten Archive-Runtime.
+abgeschlossen. FG-A-RUNTIME, FG-A-IMAGE und FG-A-RUNTIME-AVAILABILITY sind
+akzeptiert; S-EBAR-01 bis S-EBAR-03A, EBAR-04 sowie S-EBAR-02A und
+S-EBAR-02B sind umgesetzt. FG-A-FORMAT-LOCK bleibt nach ADR-0045 offen.
+Der nächste Schritt ist **S-EBAR-02B2**, die korrigierte und erweiterte
+Measurement-Matrix vor FG-A-STORAGE-FAMILY.
 
 Empfohlene kritische Kette:
 
@@ -1831,21 +1833,24 @@ Das Sicherheits- und Vertragsgate FG-A ist durch
 [ADR-0038](../decisions/ADR-0038-safe-archive-container-analysis.md)
 akzeptiert. Es legt die Container-/Formatmatrix, 7-Zip-26.02-Entscheidung,
 read-only Command Shapes, Statuswerte, Profile, Budgets, Memberpfade,
-`SecretHandle`-Grenze und Reuse-Identität fest. Die reale Tool- und
-Extraction Runtime ist durch das separate
+`SecretHandle`-Grenze und Reuse-Identität fest. Die produktive Listing- und
+Extraction-Orchestrierung ist durch das separate
 [FG-A-RUNTIME](../decisions/ADR-0039-safe-archive-runtime-and-secret-channel.md)
-für unverschlüsselte Archive vertraglich freigegeben, aber noch nicht
-implementiert. Reale Passwortversuche bleiben bis FG-A-SECRET blockiert.
-S-EBAR-01 bis S-EBAR-03 sind umgesetzt. FG-A-IMAGE ist durch
+für unverschlüsselte Archive vertraglich freigegeben, aber noch nicht als
+Provider umgesetzt. Reale Passwortversuche bleiben bis FG-A-SECRET blockiert.
+S-EBAR-01 bis S-EBAR-03A und EBAR-04 sind umgesetzt. FG-A-IMAGE ist durch
 [ADR-0040](../decisions/ADR-0040-reproducible-archive-runtime-image.md)
 akzeptiert. FG-A-RUNTIME-AVAILABILITY ist durch
 [ADR-0041](../decisions/ADR-0041-offline-archive-runtime-availability.md)
-akzeptiert. S-EBAR-03A implementiert als Nächstes den reviewten Release-
-Acceptance-Record, kontrollierte Erstprovisionierung, Rotation/Revocation und
-die Per-Run-Offline-Revalidierung von Custom SLSA, SPDX, Manifest, OCI-Config
-und RootFS. Public Visibility und Source-Association bleiben Provisioning-
-beziehungsweise Refresh-Gates. Bis Record, Evidence und lokaler State
-vollständig konsistent sind, bleibt die Runtime `TOOL_UNAVAILABLE`.
+akzeptiert. S-EBAR-03A implementiert den reviewten Release-Acceptance-Record,
+kontrollierte Erstprovisionierung, Rotation/Revocation und die Per-Run-
+Offline-Revalidierung von Custom SLSA, SPDX, Manifest, OCI-Config und RootFS.
+S-EBAR-02B ist abgeschlossen;
+[ADR-0045](../decisions/ADR-0045-archive-7zip-format-lock.md) stuft dessen
+Happy-Path-Messung als diagnostisch ein und hält FG-A-FORMAT-LOCK offen. Als
+Nächstes folgen S-EBAR-02B2, FG-A-STORAGE-FAMILY, der finale Formatlock und
+erst dann S-EBAR-02C. Die vier äußeren Kompressionsstreams bleiben bis EBAR-06
+bei `OUTER_COMPRESSION_ONLY`.
 Der erste freigegebene Backendvertrag ist
 `archive-linux-container-runner/v1` für die primäre Docker/Linux-Runtime. Er
 verwendet ein digest-gepinntes Image mit exakt verifizierter eingebetteter
@@ -2290,9 +2295,11 @@ SOURCE MEDIA READ-ONLY
 
 EB-00 bis EB-08/W9 einschließlich EB-03A, EB-03B und EB-04 sind in ihrem
 book-only Scope abgeschlossen. In der Archivstrecke sind FG-A und S-EBA-01 bis
-S-EBA-07 abgeschlossen; FG-A-RUNTIME ist akzeptiert. Als Nächstes folgt
-S-EBAR-01. Die Tabelle bleibt als Abhängigkeitsfolge maßgeblich; sie ist keine
-zweite Statusquelle.
+S-EBA-07 abgeschlossen; FG-A-RUNTIME, FG-A-IMAGE und
+FG-A-RUNTIME-AVAILABILITY sind akzeptiert. S-EBAR-01 bis S-EBAR-03A, EBAR-04
+sowie S-EBAR-02A und S-EBAR-02B sind umgesetzt. FG-A-FORMAT-LOCK bleibt offen.
+Als Nächstes folgt S-EBAR-02B2. Die Tabelle bleibt als Abhängigkeitsfolge
+maßgeblich; sie ist keine zweite Statusquelle.
 
 | Reihenfolge | Welle | Inhalt | Priorität | Abhängigkeit |
 |---:|---|---|---|---|
@@ -2524,18 +2531,19 @@ ohne die Fähigkeit, Source Media zu verändern.
 # 42. Empfohlener unmittelbarer nächster Implementierungsschritt
 
 Die book-only Wellen EB-00 bis EB-08/W9 sind abgeschlossen. FG-A,
-S-EBA-01 bis S-EBA-07, FG-A-RUNTIME, S-EBAR-01 bis S-EBAR-03 und FG-A-IMAGE
-sind abgeschlossen; FG-A-RUNTIME-AVAILABILITY ist durch ADR-0041 akzeptiert.
-Unmittelbar als Nächstes:
+S-EBA-01 bis S-EBA-07, FG-A-RUNTIME, S-EBAR-01 bis S-EBAR-03A, FG-A-IMAGE,
+FG-A-RUNTIME-AVAILABILITY, EBAR-04, S-EBAR-02A und S-EBAR-02B sind
+abgeschlossen. ADR-0045 ist akzeptiert, hält FG-A-FORMAT-LOCK aber ausdrücklich
+offen. Unmittelbar als Nächstes:
 
-**S-EBAR-03A – reviewter `archive-runtime-release/v1`-Record, exakt gehashte
-Custom-SLSA-/SPDX- und Trust-Root-Evidence, kontrollierte Provisionierung,
-Rotation/Revocation sowie netzwerkfreie lokale OCI-/Docker-Revalidierung nach
-ADR-0041.**
+**S-EBAR-02B2 – additiver Measurement-v2-Korpus mit Directory-, Encryption-
+und positiven Linkfällen, korrigierter `VT_BOOL`-Klassifikation und
+formatgebundenen Unsupported-Dispositionen.**
 
-Danach folgen die atomaren FG-A-RUNTIME-Pakete strikt in Katalogreihenfolge.
-Die unverschlüsselte Runtime ist vertraglich freigegeben, aber noch nicht
-implementiert. Passwortversuche bleiben bis FG-A-SECRET blockiert. Jede
+Danach folgen FG-A-STORAGE-FAMILY, der finale FG-A-FORMAT-LOCK und S-EBAR-02C
+strikt in Katalogreihenfolge.
+Die produktive Formatparserstrecke ist noch nicht implementiert.
+Passwortversuche bleiben bis FG-A-SECRET blockiert. Jede
 Filesystem-Mutation, mutierende Calibre-Operation und ausführbare W10-Strecke
 bleibt ausgeschlossen.
 

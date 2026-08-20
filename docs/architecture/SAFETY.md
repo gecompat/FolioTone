@@ -54,10 +54,21 @@ Da 7-Zip-Listing Containerkommentare mit Secretmaterial ausgeben kann, darf
 die bestehende Raw-stdout/stderr-Persistenz der `ToolRuntime` nicht verwendet
 werden. ADR-0039 akzeptiert für unverschlüsselte Archive eine separate
 `ArchiveProcessRunner`-Grenze. Sie verarbeitet stdout unmittelbar mit einem
-begrenzten Streaming-Parser, klassifiziert stderr ausschließlich in feste
-Fehlerliterale und verwirft Rohbytes nach secretfreier Normalisierung. Preview,
-Raw Artifact, Raw Log und eine frei übernommene Host-Environment sind
-verboten.
+begrenzten Streaming-Parser. stderr wird begrenzt und unverändert verworfen;
+weder Prosa noch grobe 7-Zip-Exitcodes sind Ursachen-Authority. Ein nicht
+strukturierter Fehler wird ausschließlich `TOOL_FAILED`. Preview, Raw
+Artifact, Raw Log und eine frei übernommene Host-Environment sind verboten.
+
+ADR-0045 akzeptiert noch keinen Produktionslock. Das aktuelle Measurement
+belegt nur unverschlüsselte Regular-File-Happy-Paths und klassifiziert drei
+`VT_BOOL`-Felder falsch. Vor einem Formatparser müssen S-EBAR-02B2 Directory-,
+Encryption- und positive Linkfälle messen oder source-gepinnt als unsupported
+disponieren sowie FG-A-STORAGE-FAMILY Publication Kind und Storage Family
+orthogonal trennen. Nicht belegte Kombinationen bleiben fail-closed; private
+Linkziele dürfen auch in der erweiterten Messung nie Manifest, Digest, Log oder
+Artefakt erreichen. gzip, bzip2, xz und zstd bleiben bis EBAR-06
+`OUTER_COMPRESSION_ONLY` ohne produktiven Listing-/Integrity-Provider oder
+Member-Evidence.
 
 Die unverschlüsselte Runtime setzt die ADR-0038-Limits während der Ausführung
 durch und beendet bei Timeout oder Grenzverletzung den vollständigen
@@ -92,8 +103,8 @@ abhängiges ELF, unvollständige Lizenzhinweise, eine fehlende Attestation oder
 eine fehlgeschlagene anonyme Verifikation ergeben fail-closed
 `TOOL_UNAVAILABLE`.
 
-ADR-0041 akzeptiert FG-A-RUNTIME-AVAILABILITY und schiebt S-EBAR-03A
-verpflichtend vor EBAR-04. `BOOTSTRAP_LOCKED`, lokales Docker Image Inspect
+ADR-0041 akzeptiert FG-A-RUNTIME-AVAILABILITY; S-EBAR-03A hat diese Grenze vor
+EBAR-04 umgesetzt. `BOOTSTRAP_LOCKED`, lokales Docker Image Inspect
 oder eine erfolgreiche `7zzs i`-Probe sind einzeln und gemeinsam keine
 Runtime-Authority. Erst ein reviewter `archive-runtime-release/v1`-Record in
 der vertrauenswürdigen FolioTone-Source bindet den exakten Manifestdigest,

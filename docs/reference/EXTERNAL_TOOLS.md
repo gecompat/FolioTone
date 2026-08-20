@@ -261,11 +261,12 @@ Official references:
 
 ### Archiv-Listing und sichere Testextraktion
 
-Priority: **high / runtime available, real format profiles pending**
+Priority: **high / runtime available, measurement extension and format lock pending**
 
 Evaluated snapshot: **7-Zip 26.02 and libarchive 3.8.9 on 2026-08-20;
-tool/runtime contracts accepted by ADR-0038 through ADR-0041, real
-format-profile gate accepted by ADR-0044, no real provider implemented**
+tool/runtime contracts accepted by ADR-0038 through ADR-0041, measurement
+gate defined by ADR-0044, correction sequence accepted by ADR-0045, no final
+format lock and no real listing or integrity provider implemented**
 
 Candidate roles:
 
@@ -299,7 +300,16 @@ vollständigen Prozessbaum beenden.
 Die reale Golden-Prüfung von `archive-7zip-slt-parser/v2` hat vor EBAR-05 für
 alle neun vorgesehenen Familien geschlossen abgebrochen. ADR-0044 verlangt
 deshalb formatgebundene, durch ein geschütztes Linux-Messmanifest belegte
-Produktionsprofile. gzip, bzip2, xz und zstd bleiben bis EBAR-06 ausschließlich
+Produktionsprofile. [ADR-0045](../decisions/ADR-0045-archive-7zip-format-lock.md)
+stellt fest, dass Measurement v1 nur den Regular-File-Happy-Path abdeckt und
+die Boolklassifikation von `Commented`, `Split Before` und `Split After`
+korrigiert werden muss. Measurement `40a6ee...` und Vorabkandidat `fdebe71...`
+sind diagnostisch, nicht autoritativ. Als Nächstes folgt S-EBAR-02B2 mit
+Directory-, Encryption- und positiver Linkmatrix. Danach trennt
+FG-A-STORAGE-FAMILY ZIP/RAR4/RAR5/7z/TAR von den Publication-Kinds
+EPUB/CBZ/CBR; erst ein weiteres Gate darf einen maschinenlesbaren finalen Lock
+mit eigenem Digest akzeptieren. gzip, bzip2, xz und zstd bleiben bis EBAR-06
+ausschließlich
 `OUTER_COMPRESSION_ONLY`: kein produktiver Listing-/Integrity-Lauf, keine
 Member-Evidence, Encryption `UNKNOWN` und keine Extraction-Freigabe. Erst eine
 private begrenzte Dekompression mit erneuter Signaturprüfung darf den inneren
@@ -343,10 +353,10 @@ Entfernung des Containers.
 [ADR-0041](../decisions/ADR-0041-offline-archive-runtime-availability.md)
 entscheidet die verbleibende Availability-Grenze. Der Bootstrap-Lock und ein
 lokales Image Inspect beweisen keine akzeptierte Release-Lineage. S-EBAR-03A
-muss deshalb vor EBAR-04 einen reviewten `archive-runtime-release/v1`-Record,
+hat deshalb vor EBAR-04 einen reviewten `archive-runtime-release/v1`-Record,
 die exakt gehashten Custom-SLSA-/SPDX-Bundles und GitHub-Workflowclaims, eine
 kontrollierte Erstprovisionierung sowie einen monotonen lokalen State
-implementieren. Ein ungepinntes System-`gh` ist nicht die Runtime-Authority;
+implementiert. Ein ungepinntes System-`gh` ist nicht die Runtime-Authority;
 die reviewte FolioTone-Source autorisiert die gebundenen Evidence-Bytes.
 
 Public Visibility und Source-Association werden beim Provisioning und
