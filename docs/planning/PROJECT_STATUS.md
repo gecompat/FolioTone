@@ -677,8 +677,11 @@ Record-/Format-Snapshotgraphen. `S-EB07-11B2A` führt nun die vollständige,
 global begrenzte Read-Sequenz mit Keyset-Pagination, Exact-ID-, Kategorie- und
 OPF-Läufen aus, bindet alle Ausführungen an dieselbe opake Capture-Identität
 und fencet jeden Tool-Write unter einer bestehenden `EBOOK_ANALYSIS`-Lease.
-Offen bleibt `S-EB07-11B2B`: Lease-Erwerb und -Keeper, Latest-Scan-Bindung und
-atomare Persistenz des terminalen Snapshotgraphen.
+`S-EB07-11B2B` schließt die Orchestrierung: Der Service erwirbt und erneuert
+selbst die `EBOOK_ANALYSIS`-Lease, bindet nach Erwerb den neuesten
+abgeschlossenen EBOOK-Scan, persistiert den terminalen Record-/Formatgraphen
+atomar und gibt die Lease auch auf Fehlerpfaden frei. Die read-only
+Calibre-Capture-Schiene aus ADR-0033 ist damit vollständig implementiert.
 
 ### calibre EPUB/MOBI/AZW/AZW3-Text und normalisierter Fingerprint
 

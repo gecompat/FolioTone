@@ -591,6 +591,7 @@ class IncrementalScanner:
     ) -> int:
         if self._hash_mode is HashMode.NONE or self._fingerprints is None:
             return 0
+        fingerprint_writer = self._fingerprints
         if len(observations) != len(discovered) or len(events) != len(discovered):
             raise RuntimeError("index batch outcome is not aligned with discovery batch")
         batch_time = self._clock()
@@ -599,7 +600,7 @@ class IncrementalScanner:
             for observation, event in zip(observations, events, strict=True)
             if event.change_state is FileChangeState.UNCHANGED
         )
-        reused = self._fingerprints.reuse_latest(
+        reused = fingerprint_writer.reuse_latest(
             unchanged,
             self._hash_mode,
             batch_time,
@@ -632,7 +633,7 @@ class IncrementalScanner:
             item: DiscoveredFile, observation: FileObservation
         ) -> tuple[Fingerprint, ...]:
             try:
-                return self._fingerprints.calculate(
+                return fingerprint_writer.calculate(
                     observation,
                     item.physical_path,
                     self._hash_mode,
@@ -643,7 +644,7 @@ class IncrementalScanner:
                     meter.complete_file()
 
         if meter is not None:
-            self._fingerprints.set_read_observer(meter.add_bytes)
+            fingerprint_writer.set_read_observer(meter.add_bytes)
         try:
             if progress_keeper is not None:
                 progress_keeper.__enter__()
@@ -675,7 +676,7 @@ class IncrementalScanner:
                         else:
                             fingerprints.extend(calculated)
                 except KeyboardInterrupt:
-                    self._fingerprints.cancel_pending()
+                    fingerprint_writer.cancel_pending()
                     cancel_futures = True
                     for future in futures:
                         future.cancel()
@@ -686,8 +687,8 @@ class IncrementalScanner:
             if progress_keeper is not None:
                 progress_keeper.__exit__(None, None, None)
             if meter is not None:
-                self._fingerprints.set_read_observer(None)
-        self._fingerprints.save_many(
+                fingerprint_writer.set_read_observer(None)
+        fingerprint_writer.save_many(
             fingerprints,
             write_lease=write_lease,
             committed_at=self._clock(),

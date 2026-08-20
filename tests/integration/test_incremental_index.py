@@ -31,6 +31,7 @@ from foliotone.index import (
     HashMode,
     IncrementalScanner,
     RelocationCandidateDetector,
+    ScanProgress,
     ScanProgressPhase,
     ScanRootBinding,
     SQLiteIndexStore,
@@ -206,15 +207,16 @@ def test_scan_reports_cumulative_path_free_progress(
 
     scanner.scan(root, ScanRootBinding(media))
 
-    assert [item.phase for item in progress] == [
+    scan_progress = [item for item in progress if isinstance(item, ScanProgress)]
+    assert [item.phase for item in scan_progress] == [
         ScanProgressPhase.DISCOVERING,
         ScanProgressPhase.DISCOVERING,
         ScanProgressPhase.FINALIZING,
         ScanProgressPhase.COMPLETED,
     ]
-    assert [item.processed_files for item in progress] == [1, 2, 2, 2]
-    assert progress[0].processed_bytes in {5, 6}
-    assert [item.processed_bytes for item in progress[1:]] == [11, 11, 11]
+    assert [item.processed_files for item in scan_progress] == [1, 2, 2, 2]
+    assert scan_progress[0].processed_bytes in {5, 6}
+    assert [item.processed_bytes for item in scan_progress[1:]] == [11, 11, 11]
 
 
 def test_index_store_persists_each_discovery_batch_with_set_writes(

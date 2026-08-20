@@ -50,15 +50,15 @@ from foliotone.index import (
     MAX_DUPLICATE_HASH_WORKERS,
     MAX_SCAN_HASH_WORKERS,
     DeletionConfirmationPolicy,
-    DuplicateHashCandidateError,
     DiscoveryProgress,
+    DuplicateHashCandidateError,
     DuplicateHashCandidateService,
     FingerprintWriter,
-    HashProgress,
     HashMode,
+    HashProgress,
     IncrementalScanner,
-    RelocationCandidateDetector,
     ReconciliationProgress,
+    RelocationCandidateDetector,
     ScanLeaseError,
     ScanProgress,
     ScanProgressPhase,
@@ -199,7 +199,8 @@ class _ScanConsoleProgress:
                 "Scan progress: hashing; "
                 f"batch={progress.completed_files}/{progress.batch_files}; "
                 f"read={progress.bytes_read / (1024 * 1024):.1f} MiB; "
-                f"current-throughput={progress.current_bytes_per_second / (1024 * 1024):.1f} MiB/s; "
+                "current-throughput="
+                f"{progress.current_bytes_per_second / (1024 * 1024):.1f} MiB/s; "
                 f"average-throughput={progress.average_bytes_per_second / (1024 * 1024):.1f} MiB/s"
             )
             self._write_progress_line(text, completed=False)
@@ -209,7 +210,8 @@ class _ScanConsoleProgress:
                 "Scan progress: discovering; "
                 f"files={progress.discovered_files}; "
                 f"data={progress.discovered_bytes / (1024 * 1024):.1f} MiB; "
-                f"current-throughput={progress.current_bytes_per_second / (1024 * 1024):.1f} MiB/s; "
+                "current-throughput="
+                f"{progress.current_bytes_per_second / (1024 * 1024):.1f} MiB/s; "
                 f"average-throughput={progress.average_bytes_per_second / (1024 * 1024):.1f} MiB/s"
             )
             self._write_progress_line(text, completed=False)
