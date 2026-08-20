@@ -3,6 +3,7 @@ from __future__ import annotations
 import gzip
 import hashlib
 import importlib.util
+import inspect
 import io
 import json
 import subprocess
@@ -11,8 +12,19 @@ import tarfile
 import urllib.error
 import urllib.request
 from pathlib import Path
+from types import ModuleType
 
 import pytest
+
+
+def _load_supply_chain_module(name: str) -> ModuleType:
+    root = Path(__file__).parents[2] / "packaging" / "archive" / "7zip-26.02"
+    spec = importlib.util.spec_from_file_location(name, root / "supply_chain_evidence.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_checked_in_archive_image_recipe_has_exact_public_supply_chain_contracts() -> None:
@@ -74,6 +86,9 @@ def test_checked_in_archive_image_recipe_has_exact_public_supply_chain_contracts
     assert "supply_chain_evidence.py verify-attestation" in workflow
     assert "supply_chain_evidence.py verify-registry" in workflow
     assert "verify-sbom-attestation" in workflow
+    assert workflow.count("verify-release --cryptographic") == 1
+    assert workflow.count("supply_chain_evidence.py verify-release") == 1
+    assert workflow.count("verify-offline-release --artifact") == 1
     assert workflow.count("--bundle-from-oci") == 2
     assert workflow.count("Prepare minimal GHCR credentials for attestation actions") == 1
     assert workflow.count(
@@ -84,6 +99,20 @@ def test_checked_in_archive_image_recipe_has_exact_public_supply_chain_contracts
     assert "curl " not in workflow
     assert "/users/gecompat/packages/container/foliotone-archive-7zip" in workflow
     assert "/orgs/gecompat/packages/" not in workflow
+
+
+def test_provision_cli_delegates_all_authority_to_the_single_complete_entry() -> None:
+    module = _load_supply_chain_module("foliotone_test_provision_delegation")
+    source = inspect.getsource(module.provision_runtime)
+    assert "provision_archive_7zip_runtime" in source
+    assert "verify_public_manifest" not in source
+    assert "verify_public_source_association" not in source
+    assert "verify_checked_in_release" not in source
+    parameters = inspect.signature(module.provision_runtime).parameters
+    assert "artifact" in parameters
+    assert "release_path" not in parameters
+    assert "revocations_path" not in parameters
+    assert "evidence_directory" not in parameters
 
 
 def test_custom_provenance_is_deterministic_and_verified_exactly(tmp_path: Path) -> None:
@@ -157,14 +186,17 @@ def test_custom_provenance_is_deterministic_and_verified_exactly(tmp_path: Path)
             }
         }
     }
-    result.write_text(json.dumps([entry, entry]), encoding="utf-8")
+    result.write_text(json.dumps([entry]), encoding="utf-8")
     module.verify_attestation_result(result, first, commit, invocation_id)
     result.write_text("[]", encoding="utf-8")
-    with pytest.raises(module.EvidenceVerificationError, match="at least one"):
+    with pytest.raises(module.EvidenceVerificationError, match="exactly one"):
+        module.verify_attestation_result(result, first, commit, invocation_id)
+    result.write_text(json.dumps([entry, entry]), encoding="utf-8")
+    with pytest.raises(module.EvidenceVerificationError, match="exactly one"):
         module.verify_attestation_result(result, first, commit, invocation_id)
     mismatched = json.loads(json.dumps(entry))
     mismatched["verificationResult"]["statement"]["predicateType"] = "wrong"
-    result.write_text(json.dumps([entry, mismatched]), encoding="utf-8")
+    result.write_text(json.dumps([mismatched]), encoding="utf-8")
     with pytest.raises(module.EvidenceVerificationError, match="content mismatch"):
         module.verify_attestation_result(result, first, commit, invocation_id)
     sbom = json.loads((root / "archive-image.spdx.json").read_text(encoding="utf-8"))
@@ -172,11 +204,11 @@ def test_custom_provenance_is_deterministic_and_verified_exactly(tmp_path: Path)
     statement = sbom_entry["verificationResult"]["statement"]
     statement["predicateType"] = "https://spdx.dev/Document/v2.3"
     statement["predicate"] = sbom
-    result.write_text(json.dumps([sbom_entry, sbom_entry]), encoding="utf-8")
+    result.write_text(json.dumps([sbom_entry]), encoding="utf-8")
     module.verify_sbom_attestation_result(result)
     bad_sbom = json.loads(json.dumps(sbom_entry))
     bad_sbom["verificationResult"]["statement"]["predicate"]["name"] = "wrong"
-    result.write_text(json.dumps([sbom_entry, bad_sbom]), encoding="utf-8")
+    result.write_text(json.dumps([bad_sbom]), encoding="utf-8")
     with pytest.raises(module.EvidenceVerificationError, match="content mismatch"):
         module.verify_sbom_attestation_result(result)
 
@@ -189,7 +221,37 @@ def test_registry_verifier_uses_only_exact_bounded_bearer_flow() -> None:
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
-    manifest = b'{"schemaVersion":2}'
+    lock = module._load_lock()
+    manifest = json.dumps(
+        {
+            "schemaVersion": 2,
+            "mediaType": module.MANIFEST_MEDIA_TYPE,
+            "config": {
+                "mediaType": "application/vnd.oci.image.config.v1+json",
+                "digest": lock["runtime_config_digest"],
+                "size": lock["runtime_config_size_bytes"],
+            },
+            "layers": [
+                {
+                    "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                    "digest": lock["runtime_rootfs_layer_digest"],
+                    "size": lock["runtime_rootfs_layer_size_bytes"],
+                    "annotations": {
+                        "buildkit/rewritten-timestamp": "1782345600"
+                    },
+                },
+                {
+                    "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                    "digest": lock["runtime_workdir_layer_digest"],
+                    "size": lock["runtime_workdir_layer_size_bytes"],
+                    "annotations": {
+                        "buildkit/rewritten-timestamp": "1782345600"
+                    },
+                },
+            ],
+        },
+        separators=(",", ":"),
+    ).encode()
     module.MANIFEST_SIZE = len(manifest)
     module.MANIFEST_DIGEST = "sha256:" + hashlib.sha256(manifest).hexdigest()
     module.MANIFEST_URL = (

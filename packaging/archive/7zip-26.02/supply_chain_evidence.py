@@ -6,8 +6,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import shutil
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -15,6 +18,8 @@ from pathlib import Path
 from typing import Any
 
 PACKAGE_DIR = Path(__file__).resolve().parent
+REPOSITORY_ROOT = PACKAGE_DIR.parents[2]
+SOURCE_ROOT = REPOSITORY_ROOT / "src"
 PREDICATE_TYPE = "https://slsa.dev/provenance/v1"
 GITHUB_WORKFLOW_BUILD_TYPE = "https://actions.github.io/buildtypes/workflow/v1"
 GITHUB_WORKFLOW_BUILDER_ID = (
@@ -288,8 +293,8 @@ def _verify_attestation_results(
     if result_path.stat().st_size > 4_194_304:
         raise EvidenceVerificationError("attestation verification output exceeds bound")
     results = json.loads(result_path.read_text(encoding="utf-8"))
-    if not isinstance(results, list) or not results:
-        raise EvidenceVerificationError("at least one verified attestation required")
+    if not isinstance(results, list) or len(results) != 1:
+        raise EvidenceVerificationError("exactly one verified attestation required")
     expected_subject = [
         {
             "name": IMAGE_NAME,
@@ -327,6 +332,93 @@ def _read_bounded(response: Any, maximum: int, label: str) -> bytes:
     if raw_length is not None and len(payload) != int(raw_length):
         raise EvidenceVerificationError(f"{label} Content-Length mismatch")
     return payload
+
+
+def _archive_runtime_module() -> Any:
+    source = str(SOURCE_ROOT)
+    if source not in sys.path:
+        sys.path.insert(0, source)
+    from foliotone.archive import sevenzip
+
+    return sevenzip
+
+
+def verify_checked_in_release(*, cryptographic: bool = False) -> dict[str, object]:
+    """Validate the reviewed record and its exact local evidence without network."""
+
+    runtime = _archive_runtime_module()
+    release_path = PACKAGE_DIR / "archive-runtime-release.json"
+    release, _ = runtime._load_release(release_path)
+    runtime._verify_package_hashes(runtime._TRUSTED_PACKAGE_DIRECTORY, release)
+    revocations = runtime._load_revocations(PACKAGE_DIR / "archive-runtime-revocations.json")
+    runtime._verify_evidence(PACKAGE_DIR / "archive-runtime-evidence", release)
+    runtime._verify_not_revoked(release, revocations)
+    if cryptographic:
+        executable = Path(shutil.which("gh") or "")
+        if not executable.is_file():
+            raise EvidenceVerificationError("offline attestation verifier unavailable")
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix="foliotone-reviewed-manifest-", suffix=".json"
+        )
+        os.close(descriptor)
+        artifact = Path(temporary_name)
+        try:
+            artifact.write_bytes(_reviewed_manifest_bytes())
+            runtime._verify_offline_attestations(
+                artifact,
+                executable,
+                PACKAGE_DIR / "archive-runtime-evidence",
+                release,
+            )
+        finally:
+            artifact.unlink(missing_ok=True)
+    return {
+        "profile": "archive-runtime-release-verification/v1",
+        "release_id": release["release_id"],
+        "verified": True,
+    }
+
+
+def verify_public_source_association(opener: Any | None = None) -> dict[str, object]:
+    """Check the protected GHCR package visibility and repository association."""
+
+    token = os.environ.get("GH_TOKEN")
+    if not token or len(token.encode("utf-8")) > MAX_TOKEN_BYTES:
+        raise EvidenceVerificationError("GitHub package verification credential missing")
+    request = urllib.request.Request(
+        "https://api.github.com/users/gecompat/packages/container/"
+        "foliotone-archive-7zip",
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "User-Agent": "FolioTone archive-image/v1",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    client = opener or urllib.request.build_opener(_NoRedirect())
+    try:
+        with client.open(request, timeout=30) as response:
+            if response.status != 200:
+                raise EvidenceVerificationError("GitHub package status mismatch")
+            payload = _read_bounded(response, 262_144, "GitHub package response")
+    except (OSError, urllib.error.URLError) as error:
+        raise EvidenceVerificationError("GitHub package verification failed") from error
+    finally:
+        request.remove_header("Authorization")
+        token = ""
+    try:
+        package = json.loads(payload)
+    except (UnicodeError, json.JSONDecodeError) as error:
+        raise EvidenceVerificationError("GitHub package response schema invalid") from error
+    repository = package.get("repository") if isinstance(package, dict) else None
+    if (
+        not isinstance(package, dict)
+        or package.get("visibility") != "public"
+        or not isinstance(repository, dict)
+        or repository.get("full_name") != "gecompat/FolioTone"
+    ):
+        raise EvidenceVerificationError("GitHub package association mismatch")
+    return {"profile": "archive-package-association-verification/v1", "verified": True}
 
 
 def verify_public_manifest(opener: Any | None = None) -> dict[str, object]:
@@ -410,7 +502,118 @@ def verify_public_manifest(opener: Any | None = None) -> dict[str, object]:
         raise EvidenceVerificationError("registry manifest descriptor size mismatch")
     if "sha256:" + hashlib.sha256(body).hexdigest() != MANIFEST_DIGEST:
         raise EvidenceVerificationError("registry manifest body digest mismatch")
+    try:
+        manifest = json.loads(body)
+    except (UnicodeError, json.JSONDecodeError) as error:
+        raise EvidenceVerificationError("registry manifest schema invalid") from error
+    lock = _load_lock()
+    expected_config = {
+        "mediaType": "application/vnd.oci.image.config.v1+json",
+        "digest": lock["runtime_config_digest"],
+        "size": lock["runtime_config_size_bytes"],
+    }
+    expected_layers = [
+        {
+            "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+            "digest": lock["runtime_rootfs_layer_digest"],
+            "size": lock["runtime_rootfs_layer_size_bytes"],
+            "annotations": {"buildkit/rewritten-timestamp": "1782345600"},
+        },
+        {
+            "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+            "digest": lock["runtime_workdir_layer_digest"],
+            "size": lock["runtime_workdir_layer_size_bytes"],
+            "annotations": {"buildkit/rewritten-timestamp": "1782345600"},
+        },
+    ]
+    if (
+        not isinstance(manifest, dict)
+        or set(manifest) != {"schemaVersion", "mediaType", "config", "layers"}
+        or manifest.get("schemaVersion") != 2
+        or manifest.get("mediaType") != MANIFEST_MEDIA_TYPE
+        or manifest.get("config") != expected_config
+        or manifest.get("layers") != expected_layers
+    ):
+        raise EvidenceVerificationError("registry manifest identity graph mismatch")
     return {"profile": "archive-public-manifest-verification/v1", "verified": True}
+
+
+def verify_offline_bundles(artifact_path: Path, gh_executable: Path | None = None) -> None:
+    """Use gh only as a provisioning check; reviewed source remains the authority."""
+
+    runtime = _archive_runtime_module()
+    release, _ = runtime._load_release(PACKAGE_DIR / "archive-runtime-release.json")
+    runtime._verify_package_hashes(runtime._TRUSTED_PACKAGE_DIRECTORY, release)
+    runtime._verify_evidence(PACKAGE_DIR / "archive-runtime-evidence", release)
+    executable = gh_executable or Path(shutil.which("gh") or "")
+    if not executable.is_file():
+        raise EvidenceVerificationError("offline attestation verifier unavailable")
+    try:
+        runtime._verify_offline_attestations(
+            artifact_path,
+            executable,
+            PACKAGE_DIR / "archive-runtime-evidence",
+            release,
+        )
+    except RuntimeError as error:
+        raise EvidenceVerificationError("offline attestation verification failed") from error
+
+
+def _reviewed_manifest_bytes() -> bytes:
+    lock = _load_lock()
+    value = {
+        "schemaVersion": 2,
+        "mediaType": MANIFEST_MEDIA_TYPE,
+        "config": {
+            "mediaType": "application/vnd.oci.image.config.v1+json",
+            "digest": lock["runtime_config_digest"],
+            "size": lock["runtime_config_size_bytes"],
+        },
+        "layers": [
+            {
+                "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                "digest": lock["runtime_rootfs_layer_digest"],
+                "size": lock["runtime_rootfs_layer_size_bytes"],
+                "annotations": {"buildkit/rewritten-timestamp": "1782345600"},
+            },
+            {
+                "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                "digest": lock["runtime_workdir_layer_digest"],
+                "size": lock["runtime_workdir_layer_size_bytes"],
+                "annotations": {"buildkit/rewritten-timestamp": "1782345600"},
+            },
+        ],
+    }
+    payload = json.dumps(value, indent=2).encode("utf-8")
+    if len(payload) != MANIFEST_SIZE or "sha256:" + hashlib.sha256(payload).hexdigest() != (
+        MANIFEST_DIGEST
+    ):
+        raise EvidenceVerificationError("reviewed manifest reconstruction mismatch")
+    return payload
+
+
+def provision_runtime(
+    *,
+    state_root: Path,
+    state_parent: Path,
+    scan_roots: tuple[Path, ...],
+    oci_layout: Path,
+    artifact: Path,
+    refresh: bool,
+    now: Any | None = None,
+) -> None:
+    """Invoke the sole complete production state-creating entry."""
+
+    runtime = _archive_runtime_module()
+    runtime.provision_archive_7zip_runtime(
+        local_state_root=state_root,
+        private_state_parent=state_parent,
+        scan_roots=scan_roots,
+        oci_layout_path=oci_layout,
+        attestation_artifact_path=artifact,
+        now=now,
+        refresh=refresh,
+    )
 
 
 def main() -> int:
@@ -428,6 +631,17 @@ def main() -> int:
     sbom_attestation = subparsers.add_parser("verify-sbom-attestation")
     sbom_attestation.add_argument("--result", required=True, type=Path)
     subparsers.add_parser("verify-registry")
+    release_verification = subparsers.add_parser("verify-release")
+    release_verification.add_argument("--cryptographic", action="store_true")
+    offline_release = subparsers.add_parser("verify-offline-release")
+    offline_release.add_argument("--artifact", required=True, type=Path)
+    provision = subparsers.add_parser("provision")
+    provision.add_argument("--state-root", required=True, type=Path)
+    provision.add_argument("--state-parent", required=True, type=Path)
+    provision.add_argument("--scan-root", required=True, action="append", type=Path)
+    provision.add_argument("--oci-layout", required=True, type=Path)
+    provision.add_argument("--artifact", required=True, type=Path)
+    provision.add_argument("--refresh", action="store_true")
     arguments = parser.parse_args()
     try:
         if arguments.command == "provenance":
@@ -445,10 +659,35 @@ def main() -> int:
             )
         elif arguments.command == "verify-sbom-attestation":
             verify_sbom_attestation_result(arguments.result)
-        else:
+        elif arguments.command == "verify-registry":
             print(json.dumps(verify_public_manifest(), sort_keys=True))
+        elif arguments.command == "verify-release":
+            print(
+                json.dumps(
+                    verify_checked_in_release(cryptographic=arguments.cryptographic),
+                    sort_keys=True,
+                )
+            )
+        elif arguments.command == "verify-offline-release":
+            verify_offline_bundles(arguments.artifact)
+            print(
+                json.dumps(
+                    {"profile": "archive-offline-attestation-verification/v1", "verified": True},
+                    sort_keys=True,
+                )
+            )
+        else:
+            provision_runtime(
+                state_root=arguments.state_root,
+                state_parent=arguments.state_parent,
+                scan_roots=tuple(arguments.scan_root),
+                oci_layout=arguments.oci_layout,
+                artifact=arguments.artifact,
+                refresh=arguments.refresh,
+            )
+            print(json.dumps({"profile": "archive-runtime-provisioning/v1", "verified": True}))
         return 0
-    except (EvidenceVerificationError, OSError, UnicodeError, json.JSONDecodeError):
+    except (RuntimeError, OSError, UnicodeError, json.JSONDecodeError):
         print("archive supply-chain evidence verification failed", file=sys.stderr)
         return 1
 
