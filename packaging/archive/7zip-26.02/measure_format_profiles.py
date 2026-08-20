@@ -454,13 +454,14 @@ def docker_argv(image: str, fixture_root: Path, relative_path: str) -> list[str]
     ]
 
 
-def _classify(field: str, value: str) -> str:
+def _classify(field: str, value: str, *, strict_bool: bool = True) -> str:
     if field in BOOL_FIELDS:
         if value == "+":
             return "BOOL_PLUS"
         if value == "-":
             return "BOOL_MINUS"
-        raise MeasurementError("BOOL_VALUE_REJECTED")
+        if strict_bool:
+            raise MeasurementError("BOOL_VALUE_REJECTED")
     if not value:
         return "EMPTY"
     if field == "Path":
@@ -524,7 +525,16 @@ def project_stream(stream: Any, fixture: dict[str, Any]) -> list[dict[str, objec
         if not FIELD_NAME.fullmatch(name) or name in names or len(fields) >= MAX_FIELDS:
             raise MeasurementError("OUTPUT_GRAMMAR_REJECTED")
         names.add(name)
-        fields.append({"name": name, "value_class": _classify(name, value)})
+        fields.append(
+            {
+                "name": name,
+                "value_class": _classify(
+                    name,
+                    value,
+                    strict_bool="case_kind" in fixture,
+                ),
+            }
+        )
     if fields or len(records) < fixture["min_records"]:
         raise MeasurementError("RECORD_COUNT_REJECTED")
     return records

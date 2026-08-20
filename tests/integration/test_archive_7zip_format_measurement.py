@@ -86,6 +86,20 @@ def test_archive_format_measurement_fixtures_are_raw_hash_bound_and_value_free()
         }
     ]
     assert b"private-name" not in module._canonical({"records": projected})
+    legacy_empty_bool = module.project_stream(
+        io.BytesIO(b"Path = private-name\nAlternate Stream = \n\n"),
+        {
+            "id": "zip",
+            "sha256": "a" * 64,
+            "format_kind": "ZIP",
+            "record_role": "DIRECT_MEMBER",
+            "min_records": 1,
+        },
+    )
+    assert legacy_empty_bool[0]["fields"][1] == {
+        "name": "Alternate Stream",
+        "value_class": "EMPTY",
+    }
     argv = module.docker_argv("sha256:" + "a" * 64, FIXTURES, "direct/zip.zip")
     assert "--pull=never" in argv and "--network=none" in argv and "--read-only" in argv
     assert "--cap-drop" in argv and "no-new-privileges" in argv
