@@ -97,6 +97,12 @@ jobs:
               --output "type=oci,dest=${RUNNER_TEMP}/archive-${ordinal}.oci.tar,oci-mediatypes=true,compression=gzip,force-compression=true,rewrite-timestamp=true" \
               "${RUNNER_TEMP}/foliotone-archive-context"
           done
+          docker buildx build --builder "$builder" \
+            --platform linux/amd64 --network none --no-cache \
+            --provenance=false --sbom=false \
+            --build-arg SOURCE_DATE_EPOCH=1782345600 \
+            --output "type=docker,dest=${RUNNER_TEMP}/archive-measurement.docker.tar,compression=gzip,force-compression=true,rewrite-timestamp=true" \
+            "${RUNNER_TEMP}/foliotone-archive-context"
           first="$(python packaging/archive/7zip-26.02/inspect_oci_layout.py "${RUNNER_TEMP}/archive-1.oci.tar")"
           second="$(python packaging/archive/7zip-26.02/inspect_oci_layout.py "${RUNNER_TEMP}/archive-2.oci.tar")"
           test "$first" = "$second"
@@ -125,7 +131,7 @@ jobs:
           expected="$(python -c 'import json; print(json.load(open("packaging/archive/7zip-26.02/archive-image.lock.json"))["runtime_platform_manifest_digest"])')"
           observed="$(IDENTITY="$identity" python -c 'import json,os; print(json.loads(os.environ["IDENTITY"])["runtime_platform_manifest_digest"])')"
           test "$observed" = "$expected"
-          docker load --input "${RUNNER_TEMP}/archive-1.oci.tar"
+          docker load --input "${RUNNER_TEMP}/archive-measurement.docker.tar"
           image="$(python -c 'import json; print(json.load(open("packaging/archive/7zip-26.02/archive-image.lock.json"))["runtime_config_digest"])')"
           docker image inspect "$image" >/dev/null
           python packaging/archive/7zip-26.02/measure_format_profiles.py \
