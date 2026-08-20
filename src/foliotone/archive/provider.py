@@ -25,6 +25,7 @@ from foliotone.archive.safety_policy import (
     ArchiveMemberDescriptor,
     ArchiveMemberKind,
     ArchiveSafetyStatus,
+    is_safe_archive_member_locator,
     validate_archive_safety,
 )
 from foliotone.archive.secret_handle import ArchivePasswordAttemptStatus
@@ -37,16 +38,23 @@ from foliotone.archive.sevenzip import (
     build_7zzs_listing_command,
 )
 from foliotone.archive.sevenzip_slt import (
+    ARCHIVE_7ZIP_FORMAT_LOCK_PROFILE,
+    ARCHIVE_7ZIP_FORMAT_LOCK_SHA256,
     ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE,
+    ArchiveSevenZipFormatCase,
     ArchiveSevenZipSltMember,
     ArchiveSevenZipSltParseStatus,
     _ArchiveSevenZipLockedPrivateParseResult,
     _parse_archive_7zip_slt_members_locked_private,
 )
 from foliotone.archive.signatures import (
+    ARCHIVE_PUBLICATION_STORAGE_COMPATIBILITY,
+    ARCHIVE_SIGNATURE_PROFILE_V2,
     ArchiveListingStatus,
+    ArchiveOuterCompressionKind,
     ArchiveRecognitionStatus,
     ArchiveSignatureObservationV2,
+    ArchiveStorageFamily,
 )
 from foliotone.archive.workflow import (
     ARCHIVE_EXTRACTION_PROFILE,
@@ -69,6 +77,7 @@ ARCHIVE_PROVIDER_PROFILE: Final = "archive-7zip-provider/v1"
 _INPUT_DOMAIN: Final = b"archive-7zip-provider-input/v1\x00"
 _VOLUME_GROUP_DOMAIN: Final = b"archive-volume-group/v1\x00"
 _SHA256: Final = re.compile(r"[0-9a-f]{64}\Z")
+_CRC32: Final = re.compile(r"[0-9A-F]{8}\Z")
 _INPUT_IDENTITY: Final = re.compile(r"archive-7zip-provider-input/v1:[0-9a-f]{64}\Z")
 _OPAQUE: Final = re.compile(r"[A-Za-z0-9._@-]{1,256}\Z")
 _SENTINEL: Final = object()
@@ -92,6 +101,18 @@ _PROVIDER_INTEGRITY_STATUSES: Final = frozenset(
         ArchiveIntegrityStatus.TOOL_UNAVAILABLE,
         ArchiveIntegrityStatus.TOOL_FAILED,
         ArchiveIntegrityStatus.POLICY_REJECTED,
+    }
+)
+_EXTRACTABLE_LOCKED_CASES: Final = frozenset(
+    {
+        (ArchiveStorageFamily.ZIP, ArchiveSevenZipFormatCase.PLAINTEXT_REGULAR),
+        (ArchiveStorageFamily.ZIP, ArchiveSevenZipFormatCase.DIRECTORY),
+        (ArchiveStorageFamily.RAR4, ArchiveSevenZipFormatCase.PLAINTEXT_REGULAR),
+        (ArchiveStorageFamily.RAR5, ArchiveSevenZipFormatCase.PLAINTEXT_REGULAR),
+        (ArchiveStorageFamily.SEVEN_Z, ArchiveSevenZipFormatCase.PLAINTEXT_REGULAR),
+        (ArchiveStorageFamily.SEVEN_Z, ArchiveSevenZipFormatCase.DIRECTORY),
+        (ArchiveStorageFamily.TAR, ArchiveSevenZipFormatCase.PLAINTEXT_REGULAR),
+        (ArchiveStorageFamily.TAR, ArchiveSevenZipFormatCase.DIRECTORY),
     }
 )
 
@@ -196,6 +217,15 @@ class ArchiveProviderOutcome:
     profile: str
     result: ArchiveProviderResult | None = field(default=None, repr=False)
     executions: tuple[ToolExecution, ...] = ()
+    _extraction_handoff: _ArchiveExtractionHandoff | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _private_listing_result: ArchiveListingResult | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _private_parser_result: _ArchiveSevenZipLockedPrivateParseResult | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
         if self.profile != ARCHIVE_PROVIDER_PROFILE:
@@ -275,6 +305,233 @@ class ArchiveProviderOutcome:
         )
         if tuple((item.capability, item.status) for item in self.executions) != expected_executions:
             raise ValueError("tool execution statuses do not match archive result states")
+
+
+@dataclass(frozen=True, slots=True)
+class _ArchiveExtractionMemberHandoff:
+    """Private, non-rendering member binding for the future extraction boundary."""
+
+    member_ordinal: int = field(repr=False)
+    member_locator: str = field(repr=False)
+    member_kind: ArchiveMemberKind = field(repr=False)
+    declared_compressed_bytes: int = field(repr=False)
+    declared_uncompressed_bytes: int = field(repr=False)
+    listed_crc32: str | None = field(repr=False)
+    member_identity: str = field(repr=False)
+    is_directory: bool = field(repr=False)
+    encrypted: bool = field(repr=False)
+    symbolic_link: bool = field(repr=False)
+    hard_link: bool = field(repr=False)
+    user_present: bool = field(repr=False)
+    group_present: bool = field(repr=False)
+    characteristics_present: bool = field(repr=False)
+    alternate_stream: bool = field(repr=False)
+    anti_item: bool = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.member_ordinal, bool)
+            or not isinstance(self.member_ordinal, int)
+            or self.member_ordinal < 0
+        ):
+            raise ValueError("private archive member ordinal is invalid")
+        if not is_safe_archive_member_locator(self.member_locator):
+            raise ValueError("private archive member locator is invalid")
+        if not isinstance(self.member_kind, ArchiveMemberKind) or self.member_kind not in {
+            ArchiveMemberKind.REGULAR_FILE,
+            ArchiveMemberKind.DIRECTORY,
+        }:
+            raise ValueError("private archive member kind is not extractable")
+        for value in (
+            self.declared_compressed_bytes,
+            self.declared_uncompressed_bytes,
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError("private archive member size is invalid")
+        if self.listed_crc32 is not None and (
+            not isinstance(self.listed_crc32, str)
+            or _CRC32.fullmatch(self.listed_crc32) is None
+        ):
+            raise ValueError("private archive member CRC is invalid")
+        if not isinstance(self.member_identity, str) or _SHA256.fullmatch(
+            self.member_identity
+        ) is None:
+            raise ValueError("private archive member identity is invalid")
+        if any(
+            not isinstance(value, bool)
+            for value in (
+                self.is_directory,
+                self.encrypted,
+                self.symbolic_link,
+                self.hard_link,
+                self.user_present,
+                self.group_present,
+                self.characteristics_present,
+                self.alternate_stream,
+                self.anti_item,
+            )
+        ):
+            raise ValueError("private archive member flags are invalid")
+        if (
+            self.is_directory
+            is not (self.member_kind is ArchiveMemberKind.DIRECTORY)
+            or self.encrypted
+            or self.symbolic_link
+            or self.hard_link
+            or self.user_present
+            or self.group_present
+            or self.characteristics_present
+            or self.alternate_stream
+            or self.anti_item
+        ):
+            raise ValueError("private archive member flags are not extractable")
+
+
+@dataclass(frozen=True, slots=True)
+class _ArchiveExtractionHandoff:
+    """Private one-run lineage envelope; never a public or persistent DTO."""
+
+    outcome: ArchiveProviderOutcome = field(repr=False)
+    listing_result: ArchiveListingResult = field(repr=False)
+    listing_execution: ToolExecution = field(repr=False)
+    integrity_execution: ToolExecution = field(repr=False)
+    parser_result: _ArchiveSevenZipLockedPrivateParseResult = field(repr=False)
+    archive_full_sha256: str = field(repr=False)
+    volume_group_fingerprint: str = field(repr=False)
+    signature_profile: str = field(repr=False)
+    storage_family: ArchiveStorageFamily = field(repr=False)
+    case_kind: ArchiveSevenZipFormatCase = field(repr=False)
+    parser_profile: str = field(repr=False)
+    format_lock_profile: str = field(repr=False)
+    format_lock_sha256: str = field(repr=False)
+    compatibility_profile: str = field(repr=False)
+    members: tuple[_ArchiveExtractionMemberHandoff, ...] = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.outcome, ArchiveProviderOutcome):
+            raise ValueError("private archive handoff outcome is invalid")
+        if not isinstance(self.listing_result, ArchiveListingResult):
+            raise ValueError("private archive handoff listing result is invalid")
+        if not isinstance(
+            self.parser_result, _ArchiveSevenZipLockedPrivateParseResult
+        ):
+            raise ValueError("private archive handoff parser result is invalid")
+        if not isinstance(self.listing_execution, ToolExecution) or not isinstance(
+            self.integrity_execution, ToolExecution
+        ):
+            raise ValueError("private archive handoff executions are invalid")
+        if self.outcome._extraction_handoff is not None:
+            raise ValueError("private archive handoff is already sealed")
+        public = self.outcome.result
+        if (
+            public is None
+            or self.outcome._private_listing_result is not self.listing_result
+            or self.outcome._private_parser_result is not self.parser_result
+            or self.listing_result.listing_execution is not public.listing_execution
+            or self.listing_result.integrity_execution is not public.integrity_execution
+            or self.listing_result.reuse_key is not public.reuse_key
+            or len(self.outcome.executions) != 2
+            or self.listing_execution is not self.outcome.executions[0]
+            or self.integrity_execution is not self.outcome.executions[1]
+            or str(self.listing_execution.id)
+            != self.listing_result.listing_execution.execution_id
+            or str(self.integrity_execution.id)
+            != self.listing_result.integrity_execution.execution_id
+        ):
+            raise ValueError("private archive handoff object lineage is inconsistent")
+        if (
+            public.listing_status is not ArchiveListingStatus.LISTED
+            or public.integrity_status is not ArchiveIntegrityStatus.PASSED
+            or public.encryption_status is not ArchiveEncryptionStatus.NONE
+            or public.extraction_policy_status is not ArchiveSafetyStatus.ACCEPTED
+        ):
+            raise ValueError("private archive handoff state is not extractable")
+        for value in (self.archive_full_sha256, self.volume_group_fingerprint):
+            if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
+                raise ValueError("private archive handoff material identity is invalid")
+        if (
+            self.archive_full_sha256
+            != self.listing_result.reuse_key.archive_full_sha256
+            or self.volume_group_fingerprint
+            != self.listing_result.reuse_key.volume_group_fingerprint
+            or self.signature_profile != ARCHIVE_SIGNATURE_PROFILE_V2
+            or not isinstance(self.storage_family, ArchiveStorageFamily)
+            or self.storage_family is ArchiveStorageFamily.UNKNOWN
+            or not isinstance(self.case_kind, ArchiveSevenZipFormatCase)
+            or (self.storage_family, self.case_kind) not in _EXTRACTABLE_LOCKED_CASES
+            or self.parser_profile != ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE
+            or self.format_lock_profile != ARCHIVE_7ZIP_FORMAT_LOCK_PROFILE
+            or self.format_lock_sha256 != ARCHIVE_7ZIP_FORMAT_LOCK_SHA256
+            or self.compatibility_profile != ARCHIVE_PUBLICATION_STORAGE_COMPATIBILITY
+        ):
+            raise ValueError("private archive handoff profiles are inconsistent")
+        parser_public = self.parser_result.public
+        if (
+            parser_public.status is not ArchiveSevenZipSltParseStatus.PARSED
+            or parser_public.signature_profile != self.signature_profile
+            or parser_public.storage_family is not self.storage_family
+            or parser_public.case_kind is not self.case_kind
+            or parser_public.profile != self.parser_profile
+            or parser_public.lock_profile != self.format_lock_profile
+            or parser_public.lock_sha256 != self.format_lock_sha256
+            or parser_public.compatibility != self.compatibility_profile
+        ):
+            raise ValueError("private archive handoff parser lineage is inconsistent")
+        if (
+            not isinstance(self.members, tuple)
+            or not self.members
+            or len(self.members) != len(self.listing_result.members)
+            or len(self.members) != public.member_count
+            or any(
+                not isinstance(member, _ArchiveExtractionMemberHandoff)
+                for member in self.members
+            )
+            or tuple(member.member_ordinal for member in self.members)
+            != tuple(range(len(self.members)))
+        ):
+            raise ValueError("private archive handoff members are inconsistent")
+        if len(self.parser_result.members) != len(self.members):
+            raise ValueError("private archive handoff parser members are inconsistent")
+        for private, listed, parsed in zip(
+            self.members,
+            self.listing_result.members,
+            self.parser_result.members,
+            strict=True,
+        ):
+            expected_identity = build_archive_member_identity(
+                archive_full_sha256=self.archive_full_sha256,
+                volume_group_fingerprint=self.volume_group_fingerprint,
+                member_path_safe=private.member_locator,
+                member_ordinal=private.member_ordinal,
+            )
+            if (
+                private.member_locator != listed.member_path_safe
+                or private.member_locator != parsed.locator
+                or private.member_ordinal != listed.member_ordinal
+                or private.member_kind is not listed.member_kind
+                or private.member_kind is not _member_kind(parsed)
+                or private.declared_compressed_bytes
+                != listed.declared_compressed_bytes
+                or private.declared_compressed_bytes
+                != parsed.declared_compressed_bytes
+                or private.declared_uncompressed_bytes
+                != listed.declared_uncompressed_bytes
+                or private.declared_uncompressed_bytes
+                != parsed.declared_uncompressed_bytes
+                or private.listed_crc32 != parsed.crc32
+                or private.member_identity != listed.member_identity
+                or private.member_identity != expected_identity
+                or private.is_directory is not parsed.is_directory
+                or private.encrypted is not parsed.encrypted
+                or private.symbolic_link is not parsed.symbolic_link
+                or private.hard_link is not parsed.hard_link
+                or private.user_present is not parsed.user_present
+                or private.group_present is not parsed.group_present
+                or private.characteristics_present is not parsed.characteristics_present
+                or private.alternate_stream is not parsed.alternate_stream
+                or private.anti_item is not parsed.anti_item
+            ):
+                raise ValueError("private archive handoff member lineage is inconsistent")
 
 
 def build_archive_provider_input_identity(
@@ -465,17 +722,29 @@ def _inspect(
         if integrity_status is ArchiveIntegrityStatus.PASSED
         else ArchiveSafetyStatus.POLICY_REJECTED
     )
-    return _provider_outcome(
-        ArchiveListingResult(
-            listing_snapshot,
-            encryption,
-            reuse_key,
-            ArchiveIntegrityExecution(integrity_status, str(integrity_execution.id)),
-            extraction_policy_status=policy_status,
-            members=members,
-        ),
-        executions,
+    result = ArchiveListingResult(
+        listing_snapshot,
+        encryption,
+        reuse_key,
+        ArchiveIntegrityExecution(integrity_status, str(integrity_execution.id)),
+        extraction_policy_status=policy_status,
+        members=members,
     )
+    outcome = _provider_outcome(result, executions)
+    if (
+        integrity_status is ArchiveIntegrityStatus.PASSED
+        and safety.status is ArchiveSafetyStatus.ACCEPTED
+    ):
+        object.__setattr__(outcome, "_private_listing_result", result)
+        object.__setattr__(outcome, "_private_parser_result", parsed)
+        _attach_extraction_handoff(
+            outcome,
+            result,
+            executions,
+            signature,
+            parsed,
+        )
+    return outcome
 
 
 def _provider_outcome(
@@ -493,6 +762,116 @@ def _provider_outcome(
         len(result.members),
     )
     return ArchiveProviderOutcome(ARCHIVE_PROVIDER_PROFILE, public, executions)
+
+
+def _attach_extraction_handoff(
+    outcome: ArchiveProviderOutcome,
+    result: ArchiveListingResult,
+    executions: tuple[ToolExecution, ...],
+    signature: ArchiveSignatureObservationV2,
+    parsed: _ArchiveSevenZipLockedPrivateParseResult,
+) -> None:
+    """Attach the sealed private continuation only after all EBAR-05 gates pass."""
+
+    if (
+        outcome.result is None
+        or outcome._extraction_handoff is not None
+        or outcome._private_listing_result is not result
+        or outcome._private_parser_result is not parsed
+        or result.listing_execution is not outcome.result.listing_execution
+        or result.integrity_execution is not outcome.result.integrity_execution
+        or result.reuse_key is not outcome.result.reuse_key
+        or outcome.result.listing_status is not ArchiveListingStatus.LISTED
+        or outcome.result.integrity_status is not ArchiveIntegrityStatus.PASSED
+        or outcome.result.encryption_status is not ArchiveEncryptionStatus.NONE
+        or outcome.result.extraction_policy_status is not ArchiveSafetyStatus.ACCEPTED
+        or signature.recognition_status is not ArchiveRecognitionStatus.MATCHED
+        or signature.outer_compression_kind is not ArchiveOuterCompressionKind.NONE
+        or signature.storage_family is ArchiveStorageFamily.UNKNOWN
+        or not isinstance(parsed, _ArchiveSevenZipLockedPrivateParseResult)
+        or parsed.public.status is not ArchiveSevenZipSltParseStatus.PARSED
+        or parsed.public.signature_profile != signature.profile
+        or parsed.public.storage_family is not signature.storage_family
+        or parsed.public.compatibility != signature.compatibility
+        or parsed.public.profile != ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE
+        or parsed.public.lock_profile != ARCHIVE_7ZIP_FORMAT_LOCK_PROFILE
+        or parsed.public.lock_sha256 != ARCHIVE_7ZIP_FORMAT_LOCK_SHA256
+        or not isinstance(parsed.public.case_kind, ArchiveSevenZipFormatCase)
+        or len(executions) != 2
+        or tuple(str(item.id) for item in executions)
+        != tuple(
+            item
+            for item in (
+                outcome.result.listing_execution.execution_id,
+                outcome.result.integrity_execution.execution_id,
+            )
+            if item is not None
+        )
+        or len(parsed.members) != len(result.members)
+    ):
+        raise ValueError("archive extraction handoff lineage is inconsistent")
+    case_kind = parsed.public.case_kind
+    assert isinstance(case_kind, ArchiveSevenZipFormatCase)
+    private_members = tuple(
+        _ArchiveExtractionMemberHandoff(
+            member_ordinal=observation.member_ordinal,
+            member_locator=parsed.locator,
+            member_kind=observation.member_kind,
+            declared_compressed_bytes=parsed.declared_compressed_bytes,
+            declared_uncompressed_bytes=parsed.declared_uncompressed_bytes,
+            listed_crc32=parsed.crc32,
+            member_identity=observation.member_identity,
+            is_directory=parsed.is_directory,
+            encrypted=parsed.encrypted,
+            symbolic_link=parsed.symbolic_link,
+            hard_link=parsed.hard_link,
+            user_present=parsed.user_present,
+            group_present=parsed.group_present,
+            characteristics_present=parsed.characteristics_present,
+            alternate_stream=parsed.alternate_stream,
+            anti_item=parsed.anti_item,
+        )
+        for observation, parsed in zip(result.members, parsed.members, strict=True)
+    )
+    if any(
+        observation.member_ordinal != ordinal
+        or observation.member_path_safe != parsed.locator
+        or observation.member_kind is not _member_kind(parsed)
+        or observation.declared_compressed_bytes != parsed.declared_compressed_bytes
+        or observation.declared_uncompressed_bytes != parsed.declared_uncompressed_bytes
+        or observation.member_identity
+        != build_archive_member_identity(
+            archive_full_sha256=result.reuse_key.archive_full_sha256,
+            volume_group_fingerprint=result.reuse_key.volume_group_fingerprint,
+            member_path_safe=parsed.locator,
+            member_ordinal=ordinal,
+        )
+        for ordinal, (observation, parsed) in enumerate(
+            zip(result.members, parsed.members, strict=True)
+        )
+    ):
+        raise ValueError("archive extraction handoff members are inconsistent")
+    object.__setattr__(
+        outcome,
+        "_extraction_handoff",
+        _ArchiveExtractionHandoff(
+            outcome=outcome,
+            listing_result=result,
+            listing_execution=executions[0],
+            integrity_execution=executions[1],
+            parser_result=parsed,
+            archive_full_sha256=result.reuse_key.archive_full_sha256,
+            volume_group_fingerprint=result.reuse_key.volume_group_fingerprint,
+            signature_profile=signature.profile,
+            storage_family=signature.storage_family,
+            case_kind=case_kind,
+            parser_profile=ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE,
+            format_lock_profile=ARCHIVE_7ZIP_FORMAT_LOCK_PROFILE,
+            format_lock_sha256=ARCHIVE_7ZIP_FORMAT_LOCK_SHA256,
+            compatibility_profile=signature.compatibility,
+            members=private_members,
+        ),
+)
 
 
 def _stream_listing(
