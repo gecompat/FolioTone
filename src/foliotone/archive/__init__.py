@@ -104,6 +104,22 @@ from foliotone.archive.workflow import (
     FakeArchiveListingReuseStore,
     build_archive_member_identity,
 )
+from foliotone.archive.sevenzip_slt import (
+    ARCHIVE_7ZIP_SLT_PARSER_PROFILE,
+    MAX_CHUNK_BYTES,
+    MAX_CHUNKS,
+    MAX_COMMENT_CODEPOINTS,
+    MAX_COMMENT_UTF8_BYTES,
+    MAX_FIELDS_PER_RECORD,
+    MAX_LINE_CODEPOINTS,
+    MAX_LINE_UTF8_BYTES,
+    ArchiveSevenZipSltHeader,
+    ArchiveSevenZipSltMember,
+    ArchiveSevenZipSltParseResult,
+    ArchiveSevenZipSltParseStatus,
+    EphemeralArchiveComment,
+    parse_archive_7zip_slt,
+)
 
 __all__ = [
     "ARCHIVE_SIGNATURE_PROFILE",
@@ -198,4 +214,18 @@ __all__ = [
     "FakeArchiveListingProvider",
     "FakeArchiveListingReuseStore",
     "build_archive_member_identity",
+    "ARCHIVE_7ZIP_SLT_PARSER_PROFILE",
+    "MAX_CHUNK_BYTES",
+    "MAX_CHUNKS",
+    "MAX_COMMENT_CODEPOINTS",
+    "MAX_COMMENT_UTF8_BYTES",
+    "MAX_FIELDS_PER_RECORD",
+    "MAX_LINE_CODEPOINTS",
+    "MAX_LINE_UTF8_BYTES",
+    "ArchiveSevenZipSltHeader",
+    "ArchiveSevenZipSltMember",
+    "ArchiveSevenZipSltParseResult",
+    "ArchiveSevenZipSltParseStatus",
+    "EphemeralArchiveComment",
+    "parse_archive_7zip_slt",
 ]
