@@ -13,6 +13,11 @@ from foliotone.index import (
 )
 
 
+class _TTYBuffer(io.StringIO):
+    def isatty(self) -> bool:
+        return True
+
+
 def test_scan_worker_auto_policy_is_bounded_and_explicit_override_wins(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -94,6 +99,36 @@ def test_scan_progress_renderer_reports_discovery_and_reconciliation(
             average_bytes_per_second=1 * 1024 * 1024,
         )
     )
+
+
+def test_tty_progress_closes_a_phase_before_rendering_the_next(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stream = _TTYBuffer()
+    monkeypatch.setattr(cli_module.sys, "stderr", stream)
+    progress = cli_module._ScanConsoleProgress(True)
+
+    progress.report(
+        DiscoveryProgress(
+            discovered_files=10,
+            discovered_bytes=4 * 1024 * 1024,
+            current_bytes_per_second=2 * 1024 * 1024,
+            average_bytes_per_second=1 * 1024 * 1024,
+        )
+    )
+    progress.report(
+        ReconciliationProgress(
+            processed_files=8,
+            processed_bytes=3 * 1024 * 1024,
+            batch_files=2,
+            batch_bytes=1 * 1024 * 1024,
+            reconciled_files=1,
+            reconciled_bytes=512 * 1024,
+        )
+    )
+
+    assert "Scan progress: discovering;" in stream.getvalue()
+    assert "\n\rScan progress: reconciling;" in stream.getvalue()
     progress.report(
         ReconciliationProgress(
             processed_files=8,
