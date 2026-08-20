@@ -71,8 +71,9 @@ class _FakeRunner:
 
 
 def _request() -> ArchiveContainerRequest:
+    synthetic_root = Path.cwd().resolve()
     source = ArchiveVolumeSource(
-        Path("C:/rep/tmp/FolioTone/ebar05/source.bin"),
+        synthetic_root / ".synthetic-ebar05-source.bin",
         1,
         "a" * 64,
         "archive",
@@ -80,7 +81,7 @@ def _request() -> ArchiveContainerRequest:
     return ArchiveContainerRequest(
         (source,),
         build_7zzs_listing_command(),
-        (Path("C:/rep/tmp/FolioTone/ebar05/scan"),),
+        (synthetic_root,),
     )
 
 
