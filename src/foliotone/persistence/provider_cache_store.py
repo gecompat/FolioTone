@@ -6,9 +6,11 @@ import hashlib
 import json
 import re
 import unicodedata
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from threading import Lock
 from typing import Final
 
 from sqlalchemy import Connection, Engine, delete, func, insert, select, update
@@ -39,6 +41,7 @@ _HEX64_RE = re.compile(r"[0-9a-f]{64}")
 _TECHNICAL_ID_RE = re.compile(r"[a-z0-9._-]+")
 _TECHNICAL_VERSION_SEGMENT_RE = re.compile(r"[a-z0-9._-]+")
 _MAX_KEY_COMPONENT_LENGTH: Final = 128
+_PROVIDER_CACHE_WRITE_LOCK = Lock()
 
 
 class ProviderCacheStoreError(RuntimeError):
@@ -234,9 +237,7 @@ class SQLiteProviderCacheStore:
                 .mappings()
                 .one_or_none()
             )
-        return (
-            None if row is None else _row_to_entry(row, self._limits.max_entry_payload_bytes)
-        )
+        return None if row is None else _row_to_entry(row, self._limits.max_entry_payload_bytes)
 
     def compare_and_replace(
         self,
@@ -271,57 +272,56 @@ class SQLiteProviderCacheStore:
         )
         table = w3_schema.provider_cache_entries
 
-        with self._engine.begin() as connection:
-            self._acquire_writer_lock(connection, staged.source_cache_key)
-            self._prune_expired(
-                connection,
-                now=now,
-                limit=limits.expired_prune_batch_size,
-                except_source_cache_key=entry.source_cache_key,
-            )
-            current = self._get(connection, staged.source_cache_key)
-            if current is None:
-                if expected_generation != 0:
-                    raise ProviderCacheStoreConflictError(None)
-                projected_count = self._entry_count(connection) + 1
-                projected_payload_bytes = self._payload_total(connection) + staged_payload
-            else:
-                if current.generation != expected_generation:
-                    raise ProviderCacheStoreConflictError(current)
-                current_payload = _slot_payload_bytes(current.slots)
-                projected_count = self._entry_count(connection)
-                projected_payload_bytes = (
-                    self._payload_total(connection)
-                    - current_payload
-                    + staged_payload
+        with _PROVIDER_CACHE_WRITE_LOCK:
+            with _immediate_transaction(self._engine) as connection:
+                self._acquire_writer_lock(connection, staged.source_cache_key)
+                self._prune_expired(
+                    connection,
+                    now=now,
+                    limit=limits.expired_prune_batch_size,
+                    except_source_cache_key=entry.source_cache_key,
                 )
-
-            if projected_count > limits.max_entries_total:
-                raise ProviderCacheStoreCapacityError()
-            if projected_payload_bytes > limits.max_payload_bytes_total:
-                raise ProviderCacheStoreCapacityError()
-
-            row = _entry_to_row(staged)
-            if current is None:
-                try:
-                    connection.execute(insert(table).values(**row))
-                except IntegrityError as error:
-                    if _key_already_exists(connection, staged.source_cache_key):
-                        latest = self._get(connection, staged.source_cache_key)
-                        raise ProviderCacheStoreConflictError(latest) from error
-                    raise
-            else:
-                result = connection.execute(
-                    update(table)
-                    .where(
-                        table.c.source_cache_key == staged.source_cache_key,
-                        table.c.generation == expected_generation,
+                current = self._get(connection, staged.source_cache_key)
+                if current is None:
+                    if expected_generation != 0:
+                        raise ProviderCacheStoreConflictError(None)
+                    projected_count = self._entry_count(connection) + 1
+                    projected_payload_bytes = self._payload_total(connection) + staged_payload
+                else:
+                    if current.generation != expected_generation:
+                        raise ProviderCacheStoreConflictError(current)
+                    current_payload = _slot_payload_bytes(current.slots)
+                    projected_count = self._entry_count(connection)
+                    projected_payload_bytes = (
+                        self._payload_total(connection) - current_payload + staged_payload
                     )
-                    .values(**row)
-                )
-                if result.rowcount != 1:
-                    latest = self._get(connection, staged.source_cache_key)
-                    raise ProviderCacheStoreConflictError(latest)
+
+                if projected_count > limits.max_entries_total:
+                    raise ProviderCacheStoreCapacityError()
+                if projected_payload_bytes > limits.max_payload_bytes_total:
+                    raise ProviderCacheStoreCapacityError()
+
+                row = _entry_to_row(staged)
+                if current is None:
+                    try:
+                        connection.execute(insert(table).values(**row))
+                    except IntegrityError as error:
+                        if _key_already_exists(connection, staged.source_cache_key):
+                            latest = self._get(connection, staged.source_cache_key)
+                            raise ProviderCacheStoreConflictError(latest) from error
+                        raise
+                else:
+                    result = connection.execute(
+                        update(table)
+                        .where(
+                            table.c.source_cache_key == staged.source_cache_key,
+                            table.c.generation == expected_generation,
+                        )
+                        .values(**row)
+                    )
+                    if result.rowcount != 1:
+                        latest = self._get(connection, staged.source_cache_key)
+                        raise ProviderCacheStoreConflictError(latest)
 
         return staged
 
@@ -363,9 +363,7 @@ class SQLiteProviderCacheStore:
             .mappings()
             .one_or_none()
         )
-        return None if row is None else _row_to_entry(
-            row, self._limits.max_entry_payload_bytes
-        )
+        return None if row is None else _row_to_entry(row, self._limits.max_entry_payload_bytes)
 
     @staticmethod
     def _entry_count(connection: Connection) -> int:
@@ -388,6 +386,21 @@ class SQLiteProviderCacheStore:
             .where(w3_schema.provider_cache_entries.c.source_cache_key == source_cache_key)
             .values(generation=w3_schema.provider_cache_entries.c.generation)
         )
+
+
+@contextmanager
+def _immediate_transaction(engine: Engine) -> Iterator[Connection]:
+    """Serialize capacity decisions before SQLite takes a deferred read snapshot."""
+
+    with engine.connect() as connection:
+        connection.exec_driver_sql("BEGIN IMMEDIATE")
+        try:
+            yield connection
+        except BaseException:
+            connection.rollback()
+            raise
+        else:
+            connection.commit()
 
 
 def canonical_provider_cache_content_payload(
