@@ -129,6 +129,34 @@ def test_tty_progress_closes_a_phase_before_rendering_the_next(
 
     assert "Scan progress: discovering;" in stream.getvalue()
     assert "\n\rScan progress: reconciling;" in stream.getvalue()
+
+
+def test_explicit_overwrite_does_not_depend_on_stderr_tty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stream = io.StringIO()
+    monkeypatch.setattr(cli_module.sys, "stderr", stream)
+    progress = cli_module._ScanConsoleProgress(True, overwrite=True)
+
+    progress.report(
+        DiscoveryProgress(
+            discovered_files=10,
+            discovered_bytes=4 * 1024 * 1024,
+            current_bytes_per_second=2 * 1024 * 1024,
+            average_bytes_per_second=1 * 1024 * 1024,
+        )
+    )
+    progress.report(
+        DiscoveryProgress(
+            discovered_files=11,
+            discovered_bytes=5 * 1024 * 1024,
+            current_bytes_per_second=2 * 1024 * 1024,
+            average_bytes_per_second=1 * 1024 * 1024,
+        )
+    )
+
+    assert stream.getvalue().count("\r") == 2
+    assert "\n" not in stream.getvalue()
     progress.report(
         ReconciliationProgress(
             processed_files=8,

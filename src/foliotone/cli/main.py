@@ -167,10 +167,12 @@ class _ScanConsoleProgress:
         self,
         enabled: bool,
         *,
+        overwrite: bool = False,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._enabled = enabled
         self._stream = sys.stderr
+        self._overwrite = overwrite or self._stream.isatty()
         self._clock = clock
         self._started_at = clock()
         self._active_line = False
@@ -249,7 +251,7 @@ class _ScanConsoleProgress:
         )
 
     def _write_progress_line(self, text: str, *, phase: str, completed: bool) -> None:
-        if self._stream.isatty():
+        if self._overwrite:
             if self._active_line and self._active_phase != phase:
                 self.close_line()
             padded = text.ljust(self._line_width)
@@ -1580,7 +1582,10 @@ def _run_scan(
     deletion_policy: DeletionConfirmationPolicy | None,
 ) -> int:
     database: Path = args.database
-    progress = _ScanConsoleProgress(_scan_progress_enabled(args.progress))
+    progress = _ScanConsoleProgress(
+        _scan_progress_enabled(args.progress),
+        overwrite=args.progress is True,
+    )
     progress.announce("preparing database schema")
     try:
         migrate(database)
