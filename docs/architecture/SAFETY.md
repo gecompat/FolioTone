@@ -34,6 +34,35 @@ Rules:
 
 Examples: beets, SongKong, calibre and Picard all have workflows capable of changing media/library state; these write-capable functions remain unauthorized through W9.
 
+## Archive- und Secret-Sicherheit
+
+ADR-0038 ist der bindende Vertrag für Archive. Archive sind Container-
+Evidence und nicht automatisch Duplikate. Listing geht jedem Integritätstest
+und jeder späteren Extraktion voraus. Source-Archive bleiben read-only;
+Extraktion darf ausschließlich in einem neuen privaten, begrenzten Workspace
+außerhalb jedes `ScanRoot` erfolgen.
+
+Die gewählte 7-Zip-26.02-CLI wird nur über feste read-only Command Shapes
+verwendet. Ihre dokumentierte Passwortoption würde das Secret in argv
+offenlegen und ist daher verboten. Bis ein separates Frontier-Gate einen
+isolierten Helper-/Pipe-Kanal technisch belegt, endet jede reale
+Passwortanforderung mit `SECURE_CHANNEL_UNAVAILABLE`. Secretmaterial darf
+weder Persistenz, `ToolArtifact`, `ToolResult`, Cache, Exception, `repr`, Log,
+stdout/stderr, argv noch Environment erreichen.
+
+Da 7-Zip-Listing Containerkommentare mit Secretmaterial ausgeben kann, darf
+die bestehende Raw-stdout/stderr-Persistenz der `ToolRuntime` nicht verwendet
+werden. Die reale Archive-Runtime bleibt blockiert, bis ein begrenzter
+Streaming-Parser Rohoutput nach secretfreier Normalisierung verwirft und weder
+Preview noch Raw Artifact erzeugt.
+
+`archive-safety-policy/v1` begrenzt Member, Bytes, Ratio, Pfade, Laufzeiten,
+Ausgaben und Parallelität. Traversal, absolute/Device-/ADS-Pfade, normalisierte
+Zielkollisionen, Symlinks, Reparse Points, Hardlinks, FIFOs, Sockets und
+Devices werden vor einer Extraktion abgewiesen. Nested Archive Processing ist
+im v1-Profil deaktiviert. W10, Quarantäne, Purge und Empty-Directory-Cleanup
+bleiben davon unberührt gesperrt.
+
 ## External lookup privacy
 
 External knowledge can improve identification, but network use must not silently disclose unnecessary collection context.

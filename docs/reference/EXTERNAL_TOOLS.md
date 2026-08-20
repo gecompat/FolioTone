@@ -261,7 +261,10 @@ Official references:
 
 ### Archiv-Listing und sichere Testextraktion
 
-Priority: **planned / evaluation required**
+Priority: **high / FG-A accepted, runtime pending**
+
+Evaluated snapshot: **7-Zip 26.02 and libarchive 3.8.9 on 2026-08-20;
+tool contract accepted by ADR-0038, no real adapter implemented**
 
 Candidate roles:
 
@@ -271,17 +274,58 @@ Candidate roles:
 - begrenzte private Testextraktion ohne Source-Media-Mutation;
 - maschinenlesbare Mitglieder- und Fehlerausgabe für versionierte Evidence.
 
-Vor einer Implementierung werden insbesondere 7-Zip,
-libarchive/bsdtar und geeignete RAR-Unterstützung anhand aktueller offizieller
-Dokumentation bewertet. Zu prüfen sind dokumentierte CLI-/Library-Verträge,
-Versionserkennung, Exitcodes, Passwortübergabe ohne Prozessargument,
-Mehrteilarchive, Lizenz und Redistribution sowie Traversal-, Symlink-,
-Decompression-Bomb- und Ressourcengrenzen.
+ADR-0038 wählt 7-Zip 26.02 als optionalen Baseline-`ToolProvider` für exakt
+erzeugte read-only `i`-, `l -slt`-, `t`- und später `x`-Shapes. Die
+FolioTone-Allowlist umfasst ZIP, RAR 4/5, 7z, TAR sowie gzip-, bzip2-, xz- und
+zstd-komprimierte TAR-Unterformen; EPUB, CBZ und CBR bleiben
+Publikationscontainer. Andere von 7-Zip technisch lesbare Formate sind nicht
+dadurch freigegeben. Toolausgaben bleiben bounded und verlassen keine private
+Runtime-Grenze; Source und vollständige Volumegruppen werden read-only
+geöffnet.
+
+Die allgemeine Formulierung zu Runtime-Artefakten gilt nicht für rohe
+7-Zip-Archive-Ausgabe: `l -slt` kann Containerkommentare mit Passwortmaterial
+und private Membernamen enthalten. Die bestehende `ToolRuntime` persistiert
+stdout/stderr unverändert und ist deshalb für den realen Adapter ungeeignet.
+Das spätere Runtime-Gate muss einen bounded Streaming-Parser ohne Raw-
+Artifact, Preview oder Log einführen und ausschließlich normalisierte,
+secretfreie DTOs speichern.
+
+libarchive/bsdtar 3.8.9 bleibt zurückgestellt. libarchive besitzt einen
+Passphrase-Callback und breite Leseunterstützung, deckt verschlüsselte RAR-/7z-
+Payloads jedoch nicht als gemeinsame Baseline ab. `bsdtar --passphrase`
+dokumentiert seinen eigenen CLI-Weg ausdrücklich als unsicher. Eine parallele
+Fallback-Ausführung würde außerdem eine zweite Parser-/Ergebnissemantik
+einführen.
+
+Die 7-Zip-CLI dokumentiert nur `-p{password}` und besitzt keinen für FolioTone
+freigegebenen Secret-Kanal über separaten File Descriptor. Deshalb ist
+Password Handling im realen v1-Adapter blockiert und liefert
+`SECURE_CHANNEL_UNAVAILABLE`, bevor ein Secret den Prozess erreicht. Eine
+spätere verschlüsselte Runtime benötigt ein eigenes Frontier-Gate und einen
+isolierten Helper-/anonymen-Pipe-Vertrag; stdin-, PTY-, argv- und
+Environment-Workarounds sind nicht akzeptiert.
 
 Eine erfolgreiche Extraktion ist keine Löschfreigabe. CBR, CBZ und EPUB sind
 Publikationscontainer und werden nicht als automatisch entbehrliche Archive
 behandelt. Der detaillierte Stufenvertrag steht in
-[`EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md`](../planning/EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md).
+[`EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md`](../planning/EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md);
+die bindenden Literale, Budgets, Command Shapes, Secret- und Sandbox-Grenzen
+stehen in [ADR-0038](../decisions/ADR-0038-safe-archive-container-analysis.md).
+
+Official references:
+
+- https://www.7-zip.org/download.html
+- https://www.7-zip.org/
+- https://github.com/ip7z/7zip/blob/main/DOC/src-history.txt
+- https://github.com/ip7z/7zip/blob/main/DOC/7zip.hhp
+- https://github.com/ip7z/7zip/issues/184
+- https://github.com/libarchive/libarchive/releases/tag/v3.8.9
+- https://github.com/libarchive/libarchive/wiki/LibarchiveFormats
+- https://github.com/libarchive/libarchive/blob/master/libarchive/archive.h
+- https://github.com/libarchive/libarchive/blob/master/libarchive/test/test_read_format_7zip_encryption_data.c
+- https://github.com/libarchive/libarchive/issues/2516
+- https://github.com/libarchive/libarchive/blob/master/tar/bsdtar.1
 
 ## Music tools
 

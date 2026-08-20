@@ -4,7 +4,9 @@ Stand: 2026-08-20
 
 ## Aktuelle Welle
 
-**EB-04 DONE — Classification Assertions/Projection abgeschlossen; EB-03B DONE**
+**FG-A ACCEPTED — nächste Welle: S-EBA-01 (synthetische Archive-Fixtures)**
+
+**Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
 EB-04 ist mit S-EB04-01 bis S-EB04-07 abgeschlossen. Die additive Migration
 0018, der immutable profiled Assertion-/Lineage-Store, bounded Target-/Profile-
@@ -21,8 +23,11 @@ Die gezielten CLI-/Static-Tests sowie die betroffenen Regressionen, Ruff,
 Mypy, Dokumentationsprüfungen und `git diff --check` sind vor dem PR-Gate
 auszuführen; ein vollständiger Gate bleibt dem koordinierenden PR vorbehalten.
 
-Der nächste geplante Schritt ist `FG-A`, das getrennte Archive-Vertragsgate.
-W10 bleibt davon unabhängig ausdrücklich gesperrt.
+FG-A ist durch ADR-0038 akzeptiert. Die mechanischen Pakete S-EBA-01 bis
+S-EBA-07 bleiben strikt synthetisch beziehungsweise Fake-only. Der nächste
+Schritt ist S-EBA-01; reale 7-Zip-Ausführung, Passwortprüfung und Extraktion
+bleiben bis zu einem separaten Streaming-Runner-/Secret-Helper-Frontiergate
+blockiert. W10 bleibt davon unabhängig ausdrücklich gesperrt.
 
 ADR-0036 akzeptiert Open Library als ersten realen, optionalen und begrenzten
 Book Provider. Der Vertrag erlaubt nur feste JSON-Endpoints für `Work`,

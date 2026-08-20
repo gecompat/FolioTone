@@ -151,7 +151,7 @@ noch implementiert.
 | FG-04 | Durch [ADR-0037](../decisions/ADR-0037-book-classification-assertions-and-projections.md) akzeptiert: book-only Facets/Literale, immutable Assertion-Lineage, Projection-Priorität, Konfliktstatus, Profile, Compatibility und Reprojection. |
 | FG-07 | Durch [ADR-0033](../decisions/ADR-0033-read-only-calibredb-library-reconciliation.md) akzeptiert: vollständige read-only `calibredb`-Command-Shapes, Toolmanifest, Snapshot-Lineage sowie Ownership-/Sidecar-Vertrag. |
 | FG-08 | Durch [ADR-0034](../decisions/ADR-0034-non-executable-consolidation-plans.md) akzeptiert: finale `ConsolidationPlan`-DTOs, Status-/Blocker-Literale, Identity-/Keeper-/Candidate-Grenzen, Precondition-Semantik, kanonische Serialisierung, Persistenzschema und Non-Execution-Grenze. |
-| FG-A | Archivtoolentscheidung, Format-Allowlist, sichere Secret-Übergabe und Extraktions-/Sandbox-Grenzen. |
+| FG-A | Durch [ADR-0038](../decisions/ADR-0038-safe-archive-container-analysis.md) akzeptiert: 7-Zip 26.02 nur für feste read-only Shapes, exakte Format-/Signatur-Allowlist, Status-/Profil-/Budgetliterale, `SecretHandle`-Grenze und blockierte verschlüsselte Runtime ohne sicheren Secret-Kanal. |
 
 ## EB-00: Provider-Vertrag ausrichten
 
@@ -258,19 +258,21 @@ einführen.
 
 ## Begrenzte Spark-Vorarbeiten für EB-A1 und EB-A2
 
-**Voraussetzung:** FG-A ist gemergt. Diese sieben Pakete implementieren keine
-reale Extraktion, keinen Online-Passwortprovider und keine Archive-aware
-Deduplizierung.
+**Voraussetzung:** FG-A ist durch ADR-0038 gemergt. Diese sieben Pakete
+implementieren keine reale Toolausführung, Extraktion, Persistenzmigration,
+sichere Secret-Übergabe, keinen Online-Passwortprovider und keine
+Archive-aware Deduplizierung. Die Literale, Bounds und Profile aus ADR-0038
+sind unverändert zu übernehmen.
 
 | Paket | Ergebnis | Erlaubter Dateibereich | Gezielter Nachweis |
 |---|---|---|---|
-| S-EBA-01 | Kleine synthetische Header-/Suffix-Fixtures bilden Publication Container und freigegebene Generic Archives ab. | neuer Archive-Fixture-Ordner und Fixture-Test | EPUB/CBZ/CBR werden nicht allein wegen ZIP-Signatur als generische Archive klassifiziert. |
-| S-EBA-02 | Ein reiner Signature-/Suffix-Observer erzeugt Evidence und meldet Abweichungen, ohne Dateien umzubenennen. | neues Archive-Modul, Unit-Tests | ZIP-mit-RAR-Signatur und unbekannte Signatur besitzen feste Findings; keine Mutation. |
-| S-EBA-03 | Ein Sidecar-Klassifizierer erkennt nur die in FG-A erlaubten NFO/TXT/DIZ/INFO/URL/HTML/SFV/README/PASSWORD-Klassen. | Archive-Modul, Unit-Tests | Extensionless Fälle sind begrenzt; keine Verzeichnisrekursion oder Inhaltsausführung. |
-| S-EBA-04 | Ein lokaler Kandidatenparser extrahiert begrenzte Passwortkandidaten aus synthetischen Sidecars und gibt ausschließlich ephemere Werte zurück. | neues Secret-Candidate-Modul, Unit-Tests | Limits, Deduplizierung und Ranking sind geprüft; keine Brute-Force-, Kombinations- oder Persistenzfunktion. |
-| S-EBA-05 | `SecretHandle`-/Versuchsmetadaten und Redaction Tests setzen den in FG-A festgelegten Vertrag mechanisch um. | Secret-Contract-Modul, Unit- und statische Tests | Plaintext erscheint weder in Repräsentation, Exception, Log-Record noch persistierbarem DTO. |
-| S-EBA-06 | Reine Budget- und Member-Path-Validatoren lehnen Traversal, absolute/Device Paths, ADS, Symlink-/Reparse-Marker und Root Escape ab. | Archive-Policy-Modul, Unit-Tests | Alle Grenzwerte und adversarial Windows-/POSIX-Pfade sind parametrisiert; keine Toolausführung. |
-| S-EBA-07 | Eine Fake-Tool-Integration modelliert bounded Listing und `ArchiveMemberObservation`, ohne einen echten Extraktionsprozess zu starten. | Archive-Workflow, synthetische Integrationstests | Member ist kein `FileRecord`; Provenance- und Reuse-Key enthalten die in FG-A festgelegten Versionen; Source bleibt unverändert. |
+| S-EBA-01 | Kleine synthetische Header-/Suffix-Fixtures bilden die ADR-0038-Allowlist einschließlich Publication Container, Generic Archives, TAR-Filter und Volumeformen ab. | neuer Archive-Fixture-Ordner und Fixture-Test | EPUB/CBZ/CBR werden nicht allein wegen ZIP-/RAR-Signatur als generische Archive klassifiziert; Fixtures enthalten keine realen Archive oder Secrets. |
+| S-EBA-02 | `archive-signature-observer/v1` erzeugt nur Signature-/Suffix-Evidence und die feste Containerklasse, ohne Dateien umzubenennen. | neues Archive-Modul, Unit-Tests | Alle Signaturen, ZIP-mit-RAR-Signatur, komprimierter Stream ohne bestätigten TAR und unbekannte Signatur besitzen feste Ergebnisse; keine Mutation oder Toolausführung. |
+| S-EBA-03 | `archive-sidecar-classifier/v1` erkennt ausschließlich die in ADR-0038 erlaubten NFO/TXT/DIZ/INFO/URL/HTML/SFV/README/PASSWORD-Klassen im direkten Verzeichnis. | Archive-Modul, Unit-Tests | Extensionless Basenames, 32-Dateien-Grenze und negative Rekursions-/Inhaltsausführungsfälle sind grün. |
+| S-EBA-04 | `archive-secret-candidate/v1` extrahiert unter den exakten ADR-0038-Byte-/Zeilen-/Kandidatenlimits ausschließlich ephemere lokale Kandidaten. | neues Secret-Candidate-Modul, Unit-Tests | Decoder-Allowlist, Deduplizierung, Ranking, 64 Kandidaten/16 Versuche und negative Brute-Force-, Kombinations-, Filename- und Netzwerkfälle sind geprüft. |
+| S-EBA-05 | `SecretHandle`-/Versuchsmetadaten setzen die ADR-0038-Redaction- und Persistenzgrenze mechanisch um. | Secret-Contract-Modul, Unit- und statische Tests | Plaintext, Länge, Prefix und Hash erscheinen weder in `repr`/`str`, Exception, LogRecord, DTO, Cache Key noch persistierbarem Payload. |
+| S-EBA-06 | Reine `archive-safety-policy/v1`-Budget- und Member-Path-Validatoren lehnen sämtliche ADR-0038-Grenzverletzungen ab. | Archive-Policy-Modul, Unit-Tests | Exakte Bounds sowie adversarial Windows-/POSIX-Pfade, NFC-/Casefold-Kollision, Symlink, Reparse Point, Hardlink, Device, nested Archive und Byte-/Ratio-Overflow sind parametrisiert; keine Toolausführung. |
+| S-EBA-07 | Eine Fake-Tool-Integration modelliert `archive-listing/v1`, feste Statuswerte und immutable `ArchiveMemberObservation`, ohne einen echten Extraktionsprozess zu starten. | Archive-Workflow, synthetische Integrationstests | Member ist kein `FileRecord`; Listing-Reuse und `archive-member-reuse/v1` enthalten alle ADR-0038-Versionen, `SECURE_CHANNEL_UNAVAILABLE` verhindert Secret-Übergabe und Source bleibt unverändert. |
 
 Die reale Toolanbindung, sichere Secret-Übergabe, private Testextraktion,
 Prozessisolation und Archive-Member-Extraktion beginnen erst in einem separaten

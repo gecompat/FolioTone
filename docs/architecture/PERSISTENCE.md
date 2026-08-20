@@ -360,6 +360,30 @@ Speicherersparnis bleiben erhalten. Rohe Fingerprint-Werte verlassen die
 Query-Schicht nicht. ADR-0024 definiert Snapshot-, Datenschutz- und
 Nicht-Mutationsvertrag; eine zusätzliche Persistenzmigration ist nicht nötig.
 
+### Geplante Archive-Evidence-Grenze
+
+ADR-0038 legt noch keine Migration oder Tabellennamen fest. Spätere
+Archive-Persistenz verwendet dedizierte insert-only Snapshot-Stores für
+`ArchiveObservation`, Volume-Lineage und `ArchiveMemberObservation`. Ein
+Member wird nicht im generischen `FileRecord`-/`FileObservation`-Schema
+gespeichert. Konkrete Source-, Listing- und Extraction-`ToolExecution`-
+Referenzen bleiben erhalten.
+
+Persistierbar sind ausschließlich opake `SecretHandle`- und
+`secret_version`-Referenzen sowie feste Versuchstatus- und Quellklassen.
+Secretmaterial, dessen Länge, Prefix, Hash oder eine rückrechenbare Ableitung
+gehören weder in Tabellen noch `ToolResult`, `ToolArtifact`, Cache oder
+Runtime-Berichte. Relative Memberlocator bleiben private Persistenzdaten und
+werden nicht in öffentliche Status-/Report-DTOs projiziert.
+
+Listing- und Member-Reuse binden mindestens vollständigen Archive-SHA-256,
+Volumegruppenfingerprint, ToolProvider-/Tool-/Adapter-/Parserversion,
+Listing-, Extraction- und Safety-Profil sowie Secret-Version oder `NONE`.
+Ein neueres terminales Fehlerresultat darf keine ältere erfolgreiche
+Ableitung als aktuell erscheinen lassen. Das spätere Migrationsgate muss
+Bounds, Indizes, Idempotenz, Rollback und den Ausschluss des generischen
+Update-by-ID-Pfads konkret festlegen.
+
 ## Current constraints and deferred integrity
 
 Implemented SQL constraints include:
