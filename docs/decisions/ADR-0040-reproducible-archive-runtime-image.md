@@ -79,7 +79,16 @@ Das Image enthält keine Shell, keinen Paketmanager, keine CA-Zertifikate, keine
 Loader und keine FolioTone-Source. `7zzs` hat Modus `0555`; die vier Texte haben
 Modus `0444`. Alle Dateien gehören numerisch `0:0`. Das Image setzt exakt
 `USER 65532:65532`, `WORKDIR /workspace` und den JSON-Entrypoint
-`["/usr/local/bin/7zzs"]`; es setzt kein `CMD` und kein `ENV`. Die Runtime
+`["/usr/local/bin/7zzs"]`. Das Dockerfile enthält keine `ENV`-Instruction und
+kein `CMD`. BuildKit erzeugt dennoch deterministisch genau den folgenden
+einzigen Eintrag in `Config.Env`:
+
+```text
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+```
+
+Dieser Eintrag ist Teil der gelockten OCI-Konfiguration; ein fehlender,
+zusätzlicher oder abweichender `Config.Env`-Eintrag ist ungültig. Die Runtime
 verwendet weiterhin das read-only Root-Filesystem und stellt Schreibraum nur
 durch den von ADR-0039 erlaubten Output-Mount bereit.
 
@@ -103,6 +112,61 @@ die oben festgelegten Modi und Verzeichnisse Modus `0555`. PAX-Header,
 Extended Attributes, ACLs, Links, Devices und weitere Metadaten sind verboten.
 `rootfs.tar` ist der einzige Dateiinput des netzwerklosen Docker-Builds; Lock,
 SBOM, Git-Metadaten und heruntergeladene Archive liegen nicht im Buildkontext.
+
+## Gemessener OCI-Outputvertrag
+
+**Empirisch:** Der zweimalige Offline-Bootstrap mit den in diesem ADR
+festgelegten Inputs und `archive-image-build/v1` ergab die nachfolgend
+gebundene OCI-Struktur. Diese Werte präzisieren den vorhandenen Rezeptvertrag;
+sie machen das Image nicht runtimeverfügbar und ersetzen keine der späteren
+Publikations- oder Verifikationsbedingungen.
+
+Das OCI-Layout enthält genau einen `linux/amd64`-Descriptor mit genau der
+einzigen Annotation
+`org.opencontainers.image.created=2026-06-25T00:00:00Z`. Sein Manifest lautet
+exakt:
+
+```text
+sha256:26c9c2fa32f93210a46fcf6b9651006038f9e766a1d791b463ce9875815a8287
+```
+
+und hat Größe `838` Byte. Das Manifest referenziert genau die folgende
+Konfiguration:
+
+```text
+sha256:6158a13f41ad2915237fc917abb28a7be373abf060402988898cd85bcd565b9f
+```
+
+mit Größe `1185` Byte sowie genau zwei Layer in dieser Reihenfolge:
+
+| Reihenfolge | Compressed Layer Digest | Gzip-Größe | Uncompressed `diff_id` | Uncompressed-Inhalt |
+|---|---|---:|---|---|
+| 1 | `sha256:ab909aa86586a73ab10913d9662146ae2442e5ce4b74842b54f0984dd18aad4f` | `3298569` Byte | `sha256:b2af5e745f24985c459fd49b2191807b36364540d53d472db3620e0b4cfc024e` | der oben festgelegte `rootfs.tar`-Inhalt |
+| 2 | `sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1` | `32` Byte | `sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef` | der von `WORKDIR /workspace` erzeugte leere Layer: unkomprimiert exakt `1024` Nullbytes und keine Tar-Member |
+
+Die Image-Config besitzt ausschließlich die OCI-Top-Level-Felder
+`architecture`, `os`, `created`, `config`, `rootfs` und `history`.
+`architecture=amd64`, `os=linux` und
+`created=2026-06-25T00:00:00Z` sind fest. `config` enthält ausschließlich
+`User=65532:65532`, `Entrypoint=["/usr/local/bin/7zzs"]`,
+`WorkingDir=/workspace`, den oben festgelegten singleton `Env`-Eintrag und
+das Source-Label `org.opencontainers.image.source=https://github.com/gecompat/FolioTone`.
+`Cmd` ist nicht gesetzt. `rootfs.type=layers` und seine zwei `diff_ids` müssen
+genau den Tabellenwerten in derselben Reihenfolge entsprechen.
+
+`history` enthält exakt fünf Einträge in Dockerfile-Reihenfolge für `ADD`,
+`LABEL`, `USER`, `WORKDIR` und `ENTRYPOINT`. Jeder Eintrag ist auf
+`2026-06-25T00:00:00Z` datiert. Nur `ADD` und `WORKDIR` sind Layer-erzeugende
+Einträge und korrespondieren in dieser Reihenfolge mit den zwei
+`rootfs.diff_ids`; `LABEL`, `USER` und `ENTRYPOINT` sind als leere
+History-Schritte markiert. Zusätzliche History-Einträge, eine abweichende
+Reihenfolge oder eine andere Zuordnung von Layern zu Schritten ist ungültig.
+
+Der SHA-256-Wert des exportierten OCI-Tars
+`b9e2ac16ee11b316dc79311158669e789798bec208add4316ca1408702860fda` ist
+zulässige Auditinformation für diesen Bootstraplauf. Er ist weder
+Runtime-Identität noch Lock-, Registry- oder Verfügbarkeitsnachweis; dafür
+bleibt ausschließlich der Plattform-Manifest-Digest maßgeblich.
 
 Vor dem Build muss S-EBAR-03 das Tar-Member `7zzs` mit Größe `3763320` Byte und
 SHA-256 `20df89e993594c1bb7686f125dabe1acc56c109fb1d9b40435ea5fcbc1ca3453`
@@ -279,13 +343,32 @@ Runnernamen, Repository-Commits und volatile Tags sind verboten. Der
 Repository-Commit wird erst in der nicht zyklischen externen Provenance an
 Lock- und Result-Digest gebunden.
 
+Nach zwei gleichen Bootstrap-Builds hat die Lockdatei exakt den Status
+`BOOTSTRAP_LOCKED`. In diesem Zustand bindet sie zusätzlich die gemessene
+Plattform-Manifest-, Config- und beide Layer-Identitäten einschließlich
+Descriptorgrößen sowie die zwei geordneten `diff_ids` aus dem OCI-Outputvertrag.
+Der Audit-Tar-Hash darf zusätzlich dokumentiert werden, darf aber nicht als
+Ersatz- oder Runtimeidentität verwendet werden. Die gleichzeitig erzeugte
+`archive-image.spdx.json` benennt den gelockten Plattform-Manifest-Digest und
+den Status `BOOTSTRAP_LOCKED`; sie ist Supply-Chain-Evidence, keine
+Verfügbarkeitsbehauptung.
+
+Der Packaging-Inspector prüft für dieses Profil nicht nur die allgemeine
+OCI-Syntax, sondern exakt den Einzel-Descriptor, Manifest- und Config-Digest
+mit Größen, beide geordneten Layer-/`diff_id`-Paare, den singleton
+`Config.Env`-Wert, die fünfteilige History und den leeren zweiten
+`WORKDIR`-Layer. Eine Abweichung verhindert das Schreiben oder Akzeptieren
+eines `BOOTSTRAP_LOCKED`-Locks.
+
 Die zwei Stufen sind:
 
 1. **Bootstrap und Reproduzierbarkeit:** S-EBAR-03 erzeugt den geprüften
    Buildkontext, baut mit `archive-image-build/v1` zweimal mit identischen
-   festen Inputs und verlangt identische `linux/amd64`-Plattform-Manifest-
-   Digests. Erst dieser beobachtete Digest wird in die Lockdatei übernommen.
-   Der Digest ist ein Messergebnis, keine neue Architekturentscheidung.
+   festen Inputs und verlangt den identischen, im OCI-Outputvertrag gebundenen
+   `linux/amd64`-Plattform-Manifest-Digest. Erst dieser beobachtete Digest wird
+   mit Status `BOOTSTRAP_LOCKED` in die Lockdatei übernommen. Der Digest ist
+   ein Messergebnis, keine neue Architekturentscheidung und keine Runtime-
+   Availability- oder Post-Publish-Proof.
 2. **Publikation und Attestation:** Der finale PR-Gate baut erneut gegen die
    Lockdatei. Nach dem Merge baut ein geschützter `main`-Workflow nochmals,
    verweigert jede Digestabweichung, publiziert exakt dieses Manifest nach
