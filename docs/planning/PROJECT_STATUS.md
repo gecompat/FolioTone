@@ -19,6 +19,19 @@ verwenden eine echte SQLite-Read-only-Verbindung und scheitern bei fehlender
 oder inkonsistenter Projektion geschlossen. Classification bestätigt
 keine Identity Relation und autorisiert keine W10-Operation.
 
+Die Scan-CLI zeigt auf einem interaktiven Terminal standardmäßig einen
+pfadfreien Datei-, Datenmengen- und Durchsatzfortschritt auf `stderr`;
+`--progress` und `--no-progress` erlauben eine ausdrückliche Steuerung. Der
+Default `--hash-workers auto` verwendet höchstens die Hälfte der sichtbaren
+CPU-Anzahl und bleibt auf 1 bis 8 begrenzt. Ein `KeyboardInterrupt` beendet die
+CLI ohne Traceback mit Exitcode 130; ein bereits gestarteter `ScanRun` wird
+weiterhin persistent `INTERRUPTED`, und aktive In-Process-Hashreads erhalten
+ein kooperatives Abbruchsignal. Die Batchgröße bleibt bewusst bounded und
+explizit statt durch eine nicht reproduzierbare Laufzeitheuristik verändert zu
+werden. `migrate()` repariert ausschließlich schemaidentische, leere
+0016-Tabellen, die vor dem Alembic-Revisionseintrag durch einen Abbruch
+zurückblieben; abweichende oder befüllte Strukturen bleiben fail-closed.
+
 Die gezielten CLI-/Static-Tests sowie die betroffenen Regressionen, Ruff,
 Mypy, Dokumentationsprüfungen und `git diff --check` sind vor dem PR-Gate
 auszuführen; ein vollständiger Gate bleibt dem koordinierenden PR vorbehalten.

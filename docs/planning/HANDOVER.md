@@ -369,10 +369,15 @@ PDF-Struktur-Gap zurückgestellt.
 - NEW, UNCHANGED, MODIFIED, MISSING, REAPPEARED und opt-in DELETED;
 - unavailable-root Schutz gegen falsches MISSING;
 - read-only `foliotone scan` CLI einschließlich `--resume-run`;
+- interaktiver pfadfreier Scan-Fortschritt auf `stderr`, mit
+  `--progress`/`--no-progress` ausdrücklich steuerbar;
 - begrenzte Batch-Verarbeitung;
 - set-orientierte `FileRecord`-/`FileObservation`-/`FileEvent`-Persistenz je Discovery-Batch;
-- optional 1 bis 8 begrenzte Hash-Worker über `--hash-workers`, Standard 1;
+- 1 bis 8 begrenzte Hash-Worker über `--hash-workers`; `auto` verwendet
+  standardmäßig höchstens die Hälfte der sichtbaren CPU-Anzahl;
 - atomare Fingerprint-Persistenz je Discovery-Batch;
+- sauberer CLI-Abbruch mit Exitcode 130, persistentem `INTERRUPTED` nach
+  Run-Start und kooperativem Abbruch aktiver In-Process-Hashreads;
 - isolierte Hash-I/O-Teilfehler mit selektivem Retry im nächsten Scan;
 - persistente Abwesenheitsserie über `missing_since_at` und `consecutive_missing_scans`;
 - persistente `FileRelocationCandidate`-Records für eindeutige NEW/erstmalig-MISSING Fingerprint-Paare im selben erfolgreichen Scan.

@@ -96,6 +96,49 @@ def test_interrupted_first_scan_resumes_without_rehashing_completed_work(
     assert len(repository(engine, Fingerprint).list_all()) == 3
 
 
+def test_scan_cli_interrupt_is_path_free_and_persists_interrupted(
+    tmp_path: Path,
+    head_database: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    media = tmp_path / "media"
+    media.mkdir()
+    (media / "A.epub").write_bytes(b"alpha")
+    database = head_database
+
+    def interrupted_discovery(_binding: ScanRootBinding):
+        raise KeyboardInterrupt
+        yield
+
+    monkeypatch.setattr(scanner_module, "discover_files", interrupted_discovery)
+
+    exit_code = main(
+        [
+            "scan",
+            "--name",
+            "cli-interrupt",
+            "--path",
+            str(media),
+            "--media-type",
+            "ebook",
+            "--database",
+            str(database),
+            "--no-progress",
+        ]
+    )
+
+    assert exit_code == 130
+    assert capsys.readouterr().out == (
+        "Status: INTERRUPTED\n"
+        "Scan interrupted; rerun with --resume-last-interrupted to continue.\n"
+    )
+    engine = create_sqlite_engine(database)
+    runs = repository(engine, ScanRun).list_all()
+    assert len(runs) == 1
+    assert runs[0].status is ScanRunStatus.INTERRUPTED
+
+
 def test_interrupted_scan_does_not_mark_unseen_known_files_missing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

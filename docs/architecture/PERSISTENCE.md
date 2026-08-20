@@ -130,7 +130,11 @@ Application-created SQLite connections enable `PRAGMA foreign_keys=ON` and a
 Timeout begrenzt vorübergehende Writer-Konkurrenz zwischen den höchstens acht
 Collection-Workern; es ersetzt keine Lease oder Transaction-Grenze.
 
-The Alembic environment also enables foreign keys, but explicitly ends SQLAlchemy's small implicit PRAGMA transaction before starting Alembic's migration transaction. This is important: otherwise the version-table update can be rolled back independently of SQLite DDL.
+The Alembic environment also enables foreign keys, explicitly selects modern
+transaction control for Python's SQLite driver and ends SQLAlchemy's small
+implicit PRAGMA transaction before starting Alembic's migration transaction.
+This keeps SQLite DDL and the Alembic version-table update in the same
+transactional boundary.
 
 ## Migration policy
 
@@ -141,6 +145,10 @@ The Alembic environment also enables foreign keys, but explicitly ends SQLAlchem
 - future SQLite changes use Alembic batch operations when required;
 - CI creates a database from nothing and verifies the Alembic revision;
 - CI also runs a migration inside the built FolioTone Docker image to catch missing packaged migration resources.
+- `migrate()` recognizes only the exact empty, schema-identical 0016 table set
+  that an older interrupted SQLite upgrade could leave before its revision
+  stamp. It removes that empty partial DDL and reruns the immutable migration;
+  incompatible or populated tables fail closed.
 
 ## Repository behavior
 

@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import Engine, create_engine, event, insert, select, update
+from sqlalchemy import Engine, create_engine, event, insert, select, text, update
 from sqlalchemy.engine import Connection
+from sqlalchemy.schema import CreateTable
 
 from foliotone.core.ids import EntityId
 from foliotone.persistence.codecs import Codec, codec_for
@@ -68,7 +70,60 @@ def migrate(database: Path | str, revision: str = "head") -> None:
     """Upgrade a SQLite database to the requested Alembic revision."""
     path = Path(database)
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_file():
+        _repair_empty_interrupted_consolidation_migration(path)
     command.upgrade(alembic_config(path), revision)
+
+
+def _repair_empty_interrupted_consolidation_migration(path: Path) -> None:
+    """Remove only exact empty 0016 DDL left behind before Alembic stamped it."""
+
+    from foliotone.persistence.consolidation_schema import CONSOLIDATION_TABLES
+
+    engine = create_engine(f"sqlite:///{path}")
+    try:
+        with engine.connect() as connection:
+            existing_names = {
+                str(row[0])
+                for row in connection.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table'")
+                )
+            }
+            if "alembic_version" not in existing_names:
+                return
+            version = connection.execute(
+                text("SELECT version_num FROM alembic_version")
+            ).scalar_one_or_none()
+            if version != "0015_calibre_library_reconciliation":
+                return
+            partial = tuple(table for table in CONSOLIDATION_TABLES if table.name in existing_names)
+            if not partial:
+                return
+            for table in partial:
+                stored_sql = connection.execute(
+                    text("SELECT sql FROM sqlite_master WHERE type='table' AND name=:name"),
+                    {"name": table.name},
+                ).scalar_one()
+                expected_sql = str(CreateTable(table).compile(connection))
+                if _normalized_ddl(stored_sql) != _normalized_ddl(expected_sql):
+                    raise RuntimeError(
+                        "interrupted consolidation migration has an incompatible table"
+                    )
+                if connection.execute(text(f'SELECT 1 FROM "{table.name}" LIMIT 1')).first():
+                    raise RuntimeError(
+                        "interrupted consolidation migration contains data and cannot be repaired"
+                    )
+            connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+            connection.commit()
+            with connection.begin():
+                for table in reversed(partial):
+                    table.drop(connection)
+    finally:
+        engine.dispose()
+
+
+def _normalized_ddl(value: str) -> str:
+    return re.sub(r"\s+", " ", value.strip()).replace(" (", "(")
 
 
 @contextmanager

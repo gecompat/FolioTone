@@ -37,6 +37,11 @@ A future upgrade across those guarded boundaries requires CI validation and may 
 - the initial migration contains an explicit schema snapshot rather than calling current metadata dynamically;
 - SQLite foreign keys are enabled for every application connection;
 - the Alembic environment enables foreign keys without leaving an implicit SQLAlchemy transaction open before the migration transaction begins;
+- the Alembic environment uses modern SQLite transaction control so DDL and
+  the revision-table update commit or roll back together;
+- the runtime may repair only the exact schemaidentical and empty partial
+  table set left by an interrupted legacy migration; incompatible or populated
+  structures are never stamped or rewritten automatically;
 - future SQLite schema changes use Alembic-compatible batch operations where needed;
 - migrations run programmatically before repositories are opened for normal use;
 - migration tests build a database from an empty file, assert it reaches the current head, and verify re-running `upgrade head` is idempotent.

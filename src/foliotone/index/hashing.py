@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
+from threading import Event
 
 from sqlalchemy import Engine, and_, func, insert, literal_column, select
 
@@ -21,6 +22,10 @@ from foliotone.persistence.scan_root_lease import (
 
 DEFAULT_CHUNK_BYTES = 4 * 1024 * 1024
 QUICK_SAMPLE_BYTES = 64 * 1024
+
+
+class _HashingCancelled(RuntimeError):
+    """Stop an in-process scan hash worker without exposing partial evidence."""
 
 
 class HashMode(StrEnum):
@@ -42,7 +47,12 @@ class HashValues:
     sha256: str | None = None
 
 
-def quick_file_fingerprint(path: Path, sample_bytes: int = QUICK_SAMPLE_BYTES) -> str:
+def quick_file_fingerprint(
+    path: Path,
+    sample_bytes: int = QUICK_SAMPLE_BYTES,
+    *,
+    cancelled: Callable[[], bool] | None = None,
+) -> str:
     """Hash size plus bounded head/tail samples; small files are hashed completely."""
     if sample_bytes <= 0:
         raise ValueError("sample_bytes must be positive")
@@ -54,33 +64,52 @@ def quick_file_fingerprint(path: Path, sample_bytes: int = QUICK_SAMPLE_BYTES) -
     with path.open("rb") as stream:
         if size <= sample_bytes * 2:
             while chunk := stream.read(sample_bytes):
+                _raise_if_cancelled(cancelled)
                 digest.update(chunk)
         else:
+            _raise_if_cancelled(cancelled)
             digest.update(stream.read(sample_bytes))
             stream.seek(size - sample_bytes)
+            _raise_if_cancelled(cancelled)
             digest.update(stream.read(sample_bytes))
     return digest.hexdigest()
 
 
-def stream_sha256(path: Path, chunk_bytes: int = DEFAULT_CHUNK_BYTES) -> str:
+def stream_sha256(
+    path: Path,
+    chunk_bytes: int = DEFAULT_CHUNK_BYTES,
+    *,
+    cancelled: Callable[[], bool] | None = None,
+) -> str:
     """Calculate full SHA-256 without loading the file into memory."""
     if chunk_bytes <= 0:
         raise ValueError("chunk_bytes must be positive")
     digest = hashlib.sha256()
     with path.open("rb") as stream:
         while chunk := stream.read(chunk_bytes):
+            _raise_if_cancelled(cancelled)
             digest.update(chunk)
     return digest.hexdigest()
 
 
-def calculate_hashes(path: Path, mode: HashMode) -> HashValues:
+def calculate_hashes(
+    path: Path,
+    mode: HashMode,
+    *,
+    cancelled: Callable[[], bool] | None = None,
+) -> HashValues:
     """Apply the configured staged hashing policy."""
     if mode is HashMode.NONE:
         return HashValues()
-    quick = quick_file_fingerprint(path)
+    quick = quick_file_fingerprint(path, cancelled=cancelled)
     if mode is HashMode.QUICK:
         return HashValues(quick=quick)
-    return HashValues(quick=quick, sha256=stream_sha256(path))
+    return HashValues(quick=quick, sha256=stream_sha256(path, cancelled=cancelled))
+
+
+def _raise_if_cancelled(cancelled: Callable[[], bool] | None) -> None:
+    if cancelled is not None and cancelled():
+        raise _HashingCancelled("file hashing was cancelled")
 
 
 class FingerprintWriter:
@@ -90,6 +119,17 @@ class FingerprintWriter:
         self._engine = engine
         self._codec = codec_for(Fingerprint)
         self._write_leases = SQLiteScanRootWriteLeaseStore(engine)
+        self._cancelled = Event()
+
+    def cancel_pending(self) -> None:
+        """Request cooperative termination of active in-process hash reads."""
+
+        self._cancelled.set()
+
+    def reset_cancellation(self) -> None:
+        """Prepare this writer for a new scan after all prior workers stopped."""
+
+        self._cancelled.clear()
 
     def calculate(
         self,
@@ -100,7 +140,11 @@ class FingerprintWriter:
     ) -> tuple[Fingerprint, ...]:
         """Calculate generic fingerprints without opening a persistence transaction."""
 
-        values = calculate_hashes(physical_path, mode)
+        values = calculate_hashes(
+            physical_path,
+            mode,
+            cancelled=self._cancelled.is_set,
+        )
         fingerprints: list[Fingerprint] = []
         if values.quick is not None:
             fingerprints.append(

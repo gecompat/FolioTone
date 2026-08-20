@@ -1,6 +1,8 @@
 import hashlib
 from pathlib import Path
 
+import pytest
+
 from foliotone.index.hashing import (
     HashMode,
     calculate_hashes,
@@ -44,3 +46,11 @@ def test_hash_modes_are_staged(tmp_path: Path) -> None:
     full = calculate_hashes(path, HashMode.FULL)
     assert full.quick == quick.quick
     assert full.sha256 == hashlib.sha256(b"synthetic").hexdigest()
+
+
+def test_stream_hash_stops_on_cooperative_cancellation(tmp_path: Path) -> None:
+    path = tmp_path / "sample.bin"
+    path.write_bytes(b"synthetic")
+
+    with pytest.raises(RuntimeError, match="hashing was cancelled"):
+        stream_sha256(path, chunk_bytes=2, cancelled=lambda: True)

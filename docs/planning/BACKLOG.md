@@ -50,6 +50,7 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W2-010 | DONE | Implement generic ToolProvider runtime with version detection, bounded local/container execution, timeout/cancellation, stdout/stderr artifacts, privacy-safe input identity, isolated work areas and read-only input policy. |
 | W2-011 | DONE | Add bounded strict-JSON Artifact loading plus conservative selective re-analysis decisions; cover malformed structured output and tool/adapter/input/config version changes while preserving auditable executions. |
 | W2-012 | DONE | Verify the documented local Windows/Docker smoke test with synthetic data: persistent `/data`, read-only media mounts, NEW/UNCHANGED/MODIFIED/MISSING/REAPPEARED behavior and unavailable-root protection. |
+| W2-013 | DONE | Make `foliotone scan` operationally observable with path-free interactive progress, clean `KeyboardInterrupt` handling, persisted `INTERRUPTED` runs, cooperatively cancelled hash workers, bounded automatic hash-worker selection and fail-closed repair of the exact empty interrupted-0016 migration shape. |
 
 ## W3 — E-book Analysis / Tool Orchestration
 

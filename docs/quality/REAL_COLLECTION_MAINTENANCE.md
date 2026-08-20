@@ -32,6 +32,12 @@ Hinweise:
 
 - Wenn der Scan nicht abgeschlossen werden kann, wird mit `INTERRUPTED` sauber
   resumierbar.
+- Auf einer interaktiven Konsole zeigt `foliotone scan` standardmäßig einen
+  pfadfreien Datei-, Datenmengen- und Durchsatzfortschritt. `--no-progress`
+  deaktiviert ihn; `--progress` erzwingt ihn auch bei umgeleiteter Ausgabe.
+- `--hash-workers auto` ist der Default. Eine Zahl von 1 bis 8 bleibt für eine
+  gezielte Begrenzung möglich. Die Batchgröße bleibt standardmäßig 256 und wird
+  nicht allein aus dem momentanen Dateidurchsatz abgeleitet.
 - Pfad- und Datenbankparameter sollten auf einen dauerhaften, privaten Pfad in `C:\rep`
   zeigen.
 

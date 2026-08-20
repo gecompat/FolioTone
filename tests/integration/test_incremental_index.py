@@ -28,6 +28,7 @@ from foliotone.index import (
     HashMode,
     IncrementalScanner,
     RelocationCandidateDetector,
+    ScanProgressPhase,
     ScanRootBinding,
     SQLiteIndexStore,
 )
@@ -134,6 +135,35 @@ def test_hash_workers_overlap_calculation_and_persist_one_batch(
     assert summary.counts == {FileChangeState.NEW: 2}
     assert writer.saved_batch_sizes == [2]
     assert len(repository(engine, Fingerprint).list_all()) == 2
+
+
+def test_scan_reports_cumulative_path_free_progress(
+    tmp_path: Path, head_database: Path
+) -> None:
+    media = tmp_path / "media"
+    media.mkdir()
+    (media / "A.epub").write_bytes(b"alpha")
+    (media / "B.epub").write_bytes(b"bravo!")
+    engine = create_sqlite_engine(head_database)
+    store = SQLiteIndexStore(engine)
+    root = store.get_or_create_root("progress", MediaType.EBOOK)
+    progress = []
+    scanner = IncrementalScanner(
+        store,
+        batch_size=1,
+        hash_mode=HashMode.NONE,
+        clock=lambda: NOW,
+        progress=progress.append,
+    )
+
+    scanner.scan(root, ScanRootBinding(media))
+
+    assert [(item.phase, item.processed_files, item.processed_bytes) for item in progress] == [
+        (ScanProgressPhase.DISCOVERING, 1, 5),
+        (ScanProgressPhase.DISCOVERING, 2, 11),
+        (ScanProgressPhase.FINALIZING, 2, 11),
+        (ScanProgressPhase.COMPLETED, 2, 11),
+    ]
 
 
 def test_index_store_persists_each_discovery_batch_with_set_writes(
@@ -255,7 +285,7 @@ def test_unchanged_scan_reuses_only_complete_latest_hash_evidence(
 
     scanner.scan(root, binding)
 
-    def unexpected_hash(_path: Path, _mode: HashMode):
+    def unexpected_hash(_path: Path, _mode: HashMode, **_options: object):
         raise AssertionError("unchanged source must not be re-hashed")
 
     with monkeypatch.context() as context:
@@ -283,9 +313,9 @@ def test_unchanged_scan_reuses_only_complete_latest_hash_evidence(
     calculated_paths: list[Path] = []
     real_calculate = hashing_module.calculate_hashes
 
-    def record_hash(path: Path, mode: HashMode):
+    def record_hash(path: Path, mode: HashMode, **options: object):
         calculated_paths.append(path)
-        return real_calculate(path, mode)
+        return real_calculate(path, mode, **options)
 
     monkeypatch.setattr(hashing_module, "calculate_hashes", record_hash)
     recovered = scanner.scan(root, binding)
@@ -309,10 +339,10 @@ def test_per_file_hash_io_failure_is_isolated_and_retried_selectively(
     binding = ScanRootBinding(media, include_suffixes=frozenset({"epub"}))
     real_calculate = hashing_module.calculate_hashes
 
-    def fail_one(path: Path, mode: HashMode):
+    def fail_one(path: Path, mode: HashMode, **options: object):
         if path == first:
             raise FileNotFoundError(path)
-        return real_calculate(path, mode)
+        return real_calculate(path, mode, **options)
 
     monkeypatch.setattr(hashing_module, "calculate_hashes", fail_one)
     partial = scanner.scan(root, binding)
@@ -323,9 +353,9 @@ def test_per_file_hash_io_failure_is_isolated_and_retried_selectively(
 
     retried_paths: list[Path] = []
 
-    def record_retry(path: Path, mode: HashMode):
+    def record_retry(path: Path, mode: HashMode, **options: object):
         retried_paths.append(path)
-        return real_calculate(path, mode)
+        return real_calculate(path, mode, **options)
 
     monkeypatch.setattr(hashing_module, "calculate_hashes", record_retry)
     recovered = scanner.scan(root, binding)
