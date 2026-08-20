@@ -2,8 +2,8 @@
 
 ## Status und Geltungsbereich
 
-**Status:** In Ausführung; FG-A, S-EBA-01 bis S-EBA-07 und FG-A-RUNTIME
-abgeschlossen
+**Status:** In Ausführung; FG-A, S-EBA-01 bis S-EBA-07, FG-A-RUNTIME,
+S-EBAR-01, S-EBAR-02 und FG-A-IMAGE abgeschlossen
 
 **Stand:** 2026-08-20
 
@@ -37,6 +37,16 @@ akzeptiert. Es erlaubt die Entwicklung einer spezialisierten bounded
 Streaming-Runtime für unverschlüsseltes Listing, Integrity und private
 Testextraktion. Raw-Ausgaben werden nicht persistiert. Reale Passwortversuche
 bleiben bis zum separaten FG-A-SECRET blockiert.
+
+FG-A-IMAGE ist durch
+[ADR-0040](../decisions/ADR-0040-reproducible-archive-runtime-image.md)
+akzeptiert. Das Gate wählt ein projekt-eigenes `linux/amd64`-`scratch`-Image
+mit festen 7zz-26.02- und Lizenzinputs, UID/GID `65532:65532`, gepinntem
+Buildx-/BuildKit-Profil, reproduzierbarem Plattform-Manifest-Digest-Lock sowie
+nachträglich angehängter SBOM und Provenance. Bis S-EBAR-03 den Digest
+reproduzierbar ermittelt und publiziert sowie öffentliche/source-associated
+GHCR-Konfiguration und anonymen Digestabruf verifiziert hat, bleibt die
+Runtime `TOOL_UNAVAILABLE`.
 
 ## Planungsentscheidung
 
@@ -227,8 +237,10 @@ Umfang:
 
 ### EA4 — Begrenztes Listing und Integritätstest
 
-**Status:** FG-A-RUNTIME ist durch ADR-0039 akzeptiert. Der nächste Schritt ist
-S-EBAR-01; die reale Implementierung folgt danach paketweise.
+**Status:** FG-A-RUNTIME und FG-A-IMAGE sind durch ADR-0039 beziehungsweise
+ADR-0040 akzeptiert. S-EBAR-01 und S-EBAR-02 sind umgesetzt. Der nächste
+Schritt ist S-EBAR-03 mit reproduzierbarem Image-Bootstrap, Digest-Lock,
+Toolmanifest und festen Command Buildern.
 
 **Ziel:** Archive werden ohne dauerhafte Extraktion technisch bewertet.
 
@@ -253,9 +265,10 @@ Die Source bleibt read-only. Jedes Mitglied wird gestreamt gehasht; erwartete
 und extrahierte Mitglieder, Größen und CRC-/Toolbefunde müssen konsistent
 sein. Fehler, Passwortbedarf, fehlende Volumes oder Limits erzeugen einen
 terminalen technischen Befund, aber keine Source-Operation. Der Workspace
-wird nach sicherer Evidence-Übernahme bereinigt. S-EBA-01 bis S-EBA-07 und
-FG-A-RUNTIME sind abgeschlossen; die Implementierung beginnt mit S-EBAR-01.
-Die 7-Zip-CLI darf kein Secret über `-p` erhalten.
+wird nach sicherer Evidence-Übernahme bereinigt. S-EBA-01 bis S-EBA-07,
+S-EBAR-01, S-EBAR-02, FG-A-RUNTIME und FG-A-IMAGE sind abgeschlossen; die
+Runtime-Implementierung wird mit S-EBAR-03 fortgesetzt. Die 7-Zip-CLI darf
+kein Secret über `-p` erhalten.
 
 ## FG-A-RUNTIME-Folgepakete und Modellrouting
 
@@ -278,9 +291,11 @@ S-EBAR-01 Execution-DTOs
 ```
 
 Die mechanischen S-EBAR-Pakete verwenden 5.3 Codex Spark mit Thinking `high`;
-zulässige Fallbacks sind 5.4 Mini und danach 5.6 Terra. FG-A-IMAGE entscheidet
-zuvor mit 5.6 Sol `high` den Supply-Chain-Vertrag; S-EBAR-03 übernimmt danach
-nur die exakten Gatewerte. Gewöhnliche Integration verwendet 5.6 Terra.
+zulässige Fallbacks sind 5.4 Mini und danach 5.6 Terra. FG-A-IMAGE wurde mit
+5.6 Sol `high` durch ADR-0040 abgeschlossen; S-EBAR-03 übernimmt nur die
+exakten Gatewerte und ermittelt den noch nicht erfindbaren Result-Digest
+mechanisch durch zwei identische Offline-Builds. Gewöhnliche Integration
+verwendet 5.6 Terra.
 Docker/Linux-Streaming-Runner und Extraction-Sandbox verwenden
 5.6 Sol mit Thinking `high`. Nur FG-A-SECRET verwendet 5.6 Sol mit Thinking
 `xhigh` und besitzt kein niedriger eingestuftes Fallback. Status-, CI- und

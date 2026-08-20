@@ -69,21 +69,39 @@ no-new-privileges, Default-oder-strengeres Seccomp, ohne Devices und mit festen
 PID-, RAM-, CPU- und Laufzeitgrenzen. Timeout und Cancellation erzwingen Kill
 und Entfernung des gesamten Containers.
 
-Imagequelle, Build-Rezept, Base-/Result-Digests, offizielle 7zz-Artefakt-
-Checksumme, dokumentierter Signaturnachweis-Status, Lizenz/Redistribution,
-SBOM/Provenance und numerische UID/GID werden vor der Implementierung durch
-FG-A-IMAGE festgelegt. S-EBAR-03 darf diese Supply-Chain-Werte nur umsetzen
-und prüfen.
+FG-A-IMAGE ist durch ADR-0040 akzeptiert. Das projekt-eigene Runtime-Image
+verwendet für genau `linux/amd64` den leeren, nicht pullbaren
+`FROM scratch`-Ausgangspunkt, das unveränderte offizielle 7zz-26.02-Artefakt
+mit festem SHA-256, vollständige Lizenzhinweise und den numerischen User
+`65532:65532`. Der Upstream-Release ist nicht unabhängig signiert; die
+FolioTone-Attestation ersetzt diesen fehlenden Nachweis nicht.
+
+S-EBAR-03 muss das Image zweimal offline mit identischen Inputs bauen und den
+beobachteten identischen `linux/amd64`-Plattform-Manifest-Digest mit dem fest
+gepinnten Buildx-/BuildKit-Profil in `archive-image-lock/v1` fixieren. Die
+Runtime-Builds enthalten keine Inline-Attestations; erst nach dem geschützten
+Post-Merge-Publish werden SBOM und Provenance an den gelockten Digest
+angehängt. Das GHCR-Package muss explizit öffentlich und mit
+`gecompat/FolioTone` source-associated sein, und ein vollständig anonymer
+Manifest-by-Digest-Abruf muss den gelockten Digest bestätigen. Ein fehlender
+oder abweichender Digest, ein dynamisch abhängiges ELF, unvollständige
+Lizenzhinweise, eine fehlende Attestation oder eine fehlgeschlagene anonyme
+Verifikation ergeben fail-closed `TOOL_UNAVAILABLE`.
 
 Die tatsächliche Source und jeder ScanRoot werden niemals gemountet. Eine
 bereits vollständig validierte Volumegruppe wird in ein opaque privates
 Temp-Staging kopiert, vor und nach der Kopie gegen Source-Observation, Bytes
-und vollständige Hashes geprüft und ausschließlich read-only gemountet. Ein
-getrennter privater Output-Workspace ist der einzige read-write Mount. Listing,
+und vollständige Hashes geprüft und ausschließlich read-only gemountet. Der
+Preflight weist no-follow nach, verbietet Links/Junctions/Reparse Points sowie
+Devices und verlangt container-sichtbar `65532:65532`, Modus `0500` für Input-
+Verzeichnisse und `0400` für Input-Dateien. Ein neu erzeugter leerer Output-
+Workspace mit Owner `65532:65532` und Modus `0700` ist der einzige read-write
+Mount. Zusätzliche ACL-Rechte oder eine nicht beweisbare Bind-Projektion
+beenden den Auftrag vor Toolstart mit `TOOL_UNAVAILABLE`. Listing,
 Integritätstest und private Extraktion besitzen getrennte `ToolExecution`-
-Provenance. Nach der Extraktion wird der private Workspace erneut auf Pfade,
-Links, Reparse Points, Devices, Kollisionen, Größen und Vollständigkeit geprüft,
-bevor Member gehasht und beide privaten Workspaces bereinigt werden.
+Provenance. Nach der Extraktion wird der private Workspace erneut no-follow auf
+Pfade, Links, Reparse Points, Devices, Kollisionen, Größen und Vollständigkeit
+geprüft, bevor Member gehasht und beide privaten Workspaces bereinigt werden.
 
 Native Windows-Ausführung bleibt `TOOL_UNAVAILABLE`, bis
 `FG-A-WINDOWS-SANDBOX` Netzwerk- und Filesystemisolation belegt. Job Objects

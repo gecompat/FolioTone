@@ -350,7 +350,20 @@ werden Größe und vollständiger SHA-256-Wert jedes Staging-Objekts gegen die
 Source-Evidence verifiziert. Jede Änderung, fehlende Volume, zusätzliche Datei
 oder Hashabweichung endet vor dem Containerstart fail-closed. Das Input-
 Staging wird ausschließlich read-only, das getrennte Output-Verzeichnis
-ausschließlich read-write gemountet. Beide privaten Verzeichnisse liegen
+ausschließlich read-write gemountet. Vor der Containererzeugung löst der
+Backend-Preflight beide Roots und jeden Parent no-follow innerhalb des
+konfigurierten FolioTone-Temp-Roots auf. Symlinks, Hardlinks, Junctions,
+Reparse Points, Devices und andere nicht reguläre Einträge sind in Roots,
+Parents und Staging-Membern verboten. Das container-sichtbare Staging gehört
+numerisch `65532:65532`; Verzeichnisse haben Modus `0500`, reguläre Dateien
+`0400`. Der neu erzeugte leere Output-Root gehört numerisch `65532:65532` und
+hat Modus `0700`. Zusätzliche ACL-Rechte für andere Principals sind verboten.
+Der Preflight muss Ownership, Modi, read-only/read-write-Mountflags und
+no-follow-Auflösung sowohl vor dem Start als auch nach Erzeugung der Bind-
+Mount-Konfiguration belegen. Kann eine Host-/Docker-Bind-Projektion diese
+Eigenschaften nicht beweisen, endet der Auftrag vor Toolstart fail-closed mit
+`TOOL_UNAVAILABLE`. Nach dem Lauf werden Output und Staging erneut no-follow
+auf Links und Reparse Points geprüft. Beide privaten Verzeichnisse liegen
 außerhalb jedes `ScanRoot` und werden nach Evidence-Übernahme, Fehler,
 Cancellation oder Timeout vollständig bereinigt.
 
@@ -371,22 +384,26 @@ Der erste freigegebene Backendvertrag ist
 startet ausschließlich ein lokal vorhandenes Image über seine unveränderliche
 Digest-Referenz `repository@sha256:<digest>` mit `--pull=never`.
 
-Der konkrete Imagevertrag ist noch nicht freigegeben. Das separate
-`FG-A-IMAGE` muss vor S-EBAR-03 entscheiden, ob FolioTone ein projekt-eigenes,
-reproduzierbares Image-Build-Rezept pflegt oder ein operator-provided Image
-mit gleichwertiger Attestation akzeptiert. Das Gate fixiert Base- und
-Result-Image-Digests, offizielle Quelle, veröffentlichte Checksumme und den
-dokumentierten Status eines Signaturnachweises für das eingebettete
-7zz-26.02-Artefakt, Lizenz und
-Redistribution, SBOM und Build-Provenance, numerische non-root UID/GID,
-Reproduzierbarkeits- und Update-Regel sowie private und öffentliche CI-Grenzen.
-Bis `FG-A-IMAGE` akzeptiert ist, bleibt S-EBAR-03 blockiert und der Runtime-
-Status `TOOL_UNAVAILABLE`.
+FG-A-IMAGE ist durch
+[ADR-0040](ADR-0040-reproducible-archive-runtime-image.md) akzeptiert. Das
+projekt-eigene `linux/amd64`-Image verwendet `FROM scratch`, das unveränderte
+offizielle 7zz-26.02-Linux-x64-Artefakt mit festem Upstream-SHA-256,
+vollständige Lizenzhinweise und den numerischen User `65532:65532`. Der
+Upstream veröffentlicht keinen unabhängigen Signaturnachweis; dieser Umstand
+bleibt als `UNSIGNED_UPSTREAM_RELEASE` sichtbar.
 
-Nach dem Gate übernimmt S-EBAR-03 die festgelegten Werte mechanisch in das
-Toolmanifest und verifiziert Result-Image-Digest, 7zz-Version und Artefakt-
-SHA-256 beim Start. Es darf keine Quelle, Lizenz, Build- oder
-Redistributionsregel selbst auswählen.
+Der noch nicht gebaute Result-Digest wird nicht erfunden. S-EBAR-03 baut das
+reine Offline-Rezept zweimal, verlangt identische `linux/amd64`-Manifest-
+Plattform-Manifest-Digests und übernimmt erst den beobachteten Wert in
+`archive-image-lock/v1`. Ein geschützter Post-Merge-Build muss denselben Digest
+ohne Inline-Attestations nach GHCR publizieren und SBOM sowie Provenance danach
+an diesen Digest anhängen. Das Package muss durch geschützten Owner-Setup
+öffentlich und mit `gecompat/FolioTone` source-associated sein; ein Abruf der
+Digestreferenz aus einem vollständig anonymen Prozess muss denselben Digest
+liefern. Bis Lock, öffentliche Publikation, Source-Association, anonyme
+Digestverifikation und Attestations vollständig und konsistent sind, bleibt
+der Runtime-Status `TOOL_UNAVAILABLE`. S-EBAR-03 darf keine Quelle, Lizenz,
+Build-, Plattform- oder Redistributionsregel selbst auswählen.
 
 Jeder Containerstart erzwingt mindestens:
 
@@ -519,9 +536,9 @@ läuft genau ein vollständiger PR-CI-Gate.
 |---|---|---|
 | S-EBAR-01 | Characterization-Tests, getrennte Archive-Execution-DTOs und vollständige Listing-/Integrity-/Extraction-Provenance | 5.3 Codex Spark `high`; Fallback 5.4 Mini, danach 5.6 Terra |
 | S-EBAR-02 | Reiner bounded `archive-7zip-slt-parser/v1` mit der exakten v1-Feld-/Record-Allowlist, Chunk-, Encoding-, Limit- und Redaktionsfällen sowie ausschließlich ephemerem Header-Kommentar ohne Sidecar-Umetikettierung | 5.3 Codex Spark `high`; Fallback 5.4 Mini, danach 5.6 Terra |
-| FG-A-IMAGE | Projekt-eigenes Build-Rezept oder operator-provided Image, Digests, offizielle 7zz-Artefaktidentität, Lizenz/Redistribution, SBOM/Provenance, numerische UID/GID, Reproduzierbarkeit, Updates und CI-Grenzen entscheiden | 5.6 Sol `high`; kein Spark-Fallback |
-| S-EBAR-03 | Die durch FG-A-IMAGE exakt festgelegten Image-/7zz-Identitäten, Packagingdateien und UID/GID mechanisch umsetzen und verifizieren; Toolmanifest, Startprüfung und feste Command Builder ohne freie Argumente | 5.3 Codex Spark `high`; Fallback 5.4 Mini, danach 5.6 Terra; ohne akzeptiertes FG-A-IMAGE blockiert |
-| EBAR-04 | Docker-Backend `archive-linux-container-runner/v1` mit opaque Input-Staging, getrenntem Output, festen Mount-/Netzwerk-/Capability-/Seccomp-/Ressourcengrenzen und vollständigem Kill/Remove | 5.6 Sol `high`; Fallback 5.5 nur, wenn keine Secret- oder neue Sandboxentscheidung offen ist |
+| FG-A-IMAGE | Durch ADR-0040 akzeptiert: projekt-eigenes `scratch`-Rezept, feste Upstream-/Lizenzidentitäten, gepinntes Buildx-/BuildKit-Profil, zweistufiger Plattform-Manifest-Digest-Lock, nachträgliche SBOM/Provenance, UID/GID, öffentliche/source-associated GHCR-Freigabe, Updates und CI-Grenzen | 5.6 Sol `high`; kein Spark-Fallback |
+| S-EBAR-03 | Die durch ADR-0040 exakt festgelegten Image-/7zz-/Builderidentitäten und Packagingdateien mechanisch umsetzen, zweimal als einzelnes OCI-Layout ohne Inline-Attestations reproduzierbar bauen, Plattform-Manifest-Digest locken und danach Toolmanifest, Startprüfung sowie feste Command Builder ohne freie Argumente liefern; Publish erst geschützt, öffentlich/source-associated und anonym per Digest verifiziert | 5.3 Codex Spark `high`; Fallback 5.4 Mini, danach 5.6 Terra; bei Builder-, Digest-, ELF-, Lizenz-, Public-/Source-Association-, anonymer Verifikations- oder Attestationsabweichung blockiert |
+| EBAR-04 | Docker-Backend `archive-linux-container-runner/v1` mit opaque Input-Staging `65532:65532` (`0500`/`0400`), leerem Output `65532:65532`/`0700`, no-follow Link-/Junction-/Reparse-Preflight, festen Mount-/Netzwerk-/Capability-/Seccomp-/Ressourcengrenzen und vollständigem Kill/Remove | 5.6 Sol `high`; Fallback 5.5 nur, wenn keine Secret- oder neue Sandboxentscheidung offen ist |
 | EBAR-05 | Reales unverschlüsseltes Listing und Integrity über den akzeptierten Runner | 5.6 Terra `medium`, `high` nur bei schichtübergreifender Diagnose; Fallback 5.4 |
 | EBAR-06 | Private Extraction-Sandbox, Live-Budgets, Workspace-Revalidierung und Member-Hashing | 5.6 Sol `high`; keine Delegation an Spark oder Terra |
 | FG-A-SECRET | Separater Helper-, Kanal-, Format- und adversarial Sicherheitsvertrag | 5.6 Sol `xhigh`; kein niedriger eingestuftes Fallback |

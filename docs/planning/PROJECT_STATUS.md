@@ -4,8 +4,8 @@ Stand: 2026-08-20
 
 ## Aktuelle Welle
 
-**FG-A-RUNTIME ACCEPTED — nächste Welle: S-EBAR-01
-(Archive-Execution-DTOs und Characterization-Tests)**
+**FG-A-IMAGE ACCEPTED — nächste Welle: S-EBAR-03
+(reproduzierbares Runtime-Image, Digest-Lock und Command Builder)**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -30,16 +30,30 @@ beziehungsweise Fake-only. Sie liefern Fixture-, Signatur-, Sidecar-, lokale
 Secret-Candidate-, `SecretHandle`-, Safety-Policy- und Fake-Workflow-Verträge,
 starten aber kein reales Archivtool.
 
-FG-A-RUNTIME ist durch ADR-0039 akzeptiert. Die nächste Welle S-EBAR-01
-trennt Listing-, Integrity- und Extraction-Provenance vor der realen
-Toolanbindung. Die spezialisierte Runtime darf anschließend ausschließlich
-unverschlüsselte Archive über bounded Streaming ohne Raw-Artefakt oder Preview
-verarbeiten. Reale Passwortversuche bleiben bis zu einem separaten
-FG-A-SECRET mit belegtem Helper-/Pipe-/Handle-Vertrag
-`SECURE_CHANNEL_UNAVAILABLE`. W10 bleibt unabhängig ausdrücklich gesperrt.
-Nach S-EBAR-02 muss FG-A-IMAGE den Image-Build-/Supply-Chain-Vertrag
-akzeptieren; S-EBAR-03 darf Quellen, Digests, Lizenz, Redistribution, SBOM,
-Provenance oder UID/GID nicht selbst wählen und bleibt bis dahin blockiert.
+FG-A-RUNTIME ist durch ADR-0039 akzeptiert. S-EBAR-01 implementiert getrennte
+Listing-, Integrity- und Extraction-Provenance; S-EBAR-02 implementiert den
+bounded `archive-7zip-slt-parser/v1`. Beide Pakete sind auf `main`
+abgeschlossen und verwenden ausschließlich synthetische Daten.
+
+FG-A-IMAGE ist durch ADR-0040 akzeptiert. Das projekt-eigene Image verwendet
+für genau `linux/amd64` `FROM scratch`, das unveränderte offizielle
+7zz-26.02-Artefakt mit festem Upstream-SHA-256, vollständige Lizenzhinweise
+und `USER 65532:65532`. Der Upstream-Release besitzt keinen unabhängigen
+Signaturnachweis; FolioTone dokumentiert ihn deshalb als
+`UNSIGNED_UPSTREAM_RELEASE`. S-EBAR-03 setzt als Nächstes das Offline-Rezept,
+den statischen ELF-Nachweis, das gepinnte Buildx-/BuildKit-Profil, den
+zweifachen reproduzierbaren Single-Platform-Build, `archive-image-lock/v1`,
+SBOM/Provenance, Toolmanifest und feste Command Builder mechanisch um. Bis ein
+identischer Plattform-Manifest-Digest ohne Inline-Attestations geschützt nach
+GHCR publiziert, nachträglich attestiert, öffentlich/source-associated
+konfiguriert und anonym per Digest verifiziert wurde, bleibt die Runtime
+`TOOL_UNAVAILABLE`.
+
+Die spezialisierte Runtime darf anschließend ausschließlich unverschlüsselte
+Archive über bounded Streaming ohne Raw-Artefakt oder Preview verarbeiten.
+Reale Passwortversuche bleiben bis zu einem separaten FG-A-SECRET mit
+belegtem Helper-/Pipe-/Handle-Vertrag `SECURE_CHANNEL_UNAVAILABLE`. W10 bleibt
+unabhängig ausdrücklich gesperrt.
 Der erste Runtimebackend ist `archive-linux-container-runner/v1` für die
 primäre Docker/Linux-Runtime. Er verwendet ausschließlich ein
 digest-gepinntes Image mit verifizierter eingebetteter 7zz-26.02-Identität,
@@ -1238,9 +1252,9 @@ read-only Reconciliation und den pfadfreien CLI-Report; die Capture-
 Orchestrierung bleibt offen. EB-08 liefert den nicht ausführbaren,
 content-addressed ConsolidationPlan einschließlich read-only Report und
 statischem Non-Execution-Gate. FG-03A/EB-03A und EB-03B sind abgeschlossen.
-In der getrennten Archivstrecke sind FG-A und S-EBA-01 bis S-EBA-07
-abgeschlossen; FG-A-RUNTIME ist durch ADR-0039 akzeptiert. Der nächste
-maßgebliche Implementierungsschritt ist S-EBAR-01. Reale Passwortversuche
+In der getrennten Archivstrecke sind FG-A, S-EBA-01 bis S-EBA-07,
+FG-A-RUNTIME, S-EBAR-01, S-EBAR-02 und FG-A-IMAGE abgeschlossen. Der nächste
+maßgebliche Implementierungsschritt ist S-EBAR-03. Reale Passwortversuche
 bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert gesperrt. Music W4 bleibt
 bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
 ausschließlich die CLI.

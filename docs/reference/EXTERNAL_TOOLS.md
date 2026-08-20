@@ -299,10 +299,28 @@ vollständigen Prozessbaum beenden.
 Der erste freigegebene Backendvertrag heißt
 `archive-linux-container-runner/v1` für die primäre Docker/Linux-Runtime. Er
 verwendet nur ein lokal vorhandenes, per Digest gepinntes Image. FG-A-IMAGE
-entscheidet zuerst Build-/Bezugsmodell, Base-/Result-Digests, offizielle
-7zz-26.02-Artefaktidentität, Lizenz/Redistribution, SBOM/Provenance, numerische
-UID/GID, Reproduzierbarkeit/Updates und CI-Handhabung. S-EBAR-03 übernimmt und
-prüft anschließend nur diese exakten Werte. Der Container läuft non-root mit
+ist durch [ADR-0040](../decisions/ADR-0040-reproducible-archive-runtime-image.md)
+akzeptiert: FolioTone pflegt für genau `linux/amd64` ein projekt-eigenes
+`FROM scratch`-Rezept mit dem unveränderten offiziellen
+`7z2602-linux-x64.tar.xz`, dessen SHA-256
+`41aaba7b1235304ab5aa0624530c67ae829496cd29e875925271efdccc28c03e`
+beträgt, vollständigen Lizenzhinweisen und `USER 65532:65532`. Das offizielle
+Release besitzt keinen separaten Signaturnachweis; dieser Sachverhalt bleibt
+als `UNSIGNED_UPSTREAM_RELEASE` Teil der Supply-Chain-Evidence.
+
+S-EBAR-03 setzt die festen Werte mechanisch um, prüft ein statisches
+Linux-x86-64-ELF und baut das Offline-Rezept zweimal. Erst ein identischer,
+in `archive-image-lock/v1` gespeicherter `linux/amd64`-Plattform-Manifest-
+Digest hebt zusammen mit seiner geschützten Post-Merge-Publikation nach
+`ghcr.io/gecompat/foliotone-archive-7zip` `TOOL_UNAVAILABLE` auf. Der Build
+verwendet das in ADR-0040 vollständig gepinnte Buildx-/BuildKit-Profil und
+erzeugt das Runtime-Manifest ohne Inline-Attestations; SBOM und Provenance
+werden anschließend an den gelockten Digest angehängt. Das GHCR-Package muss
+durch geschützten Owner-Setup öffentlich und mit `gecompat/FolioTone` source-
+associated sein. Ein neuer Prozess ohne Token, Cookies oder Docker-Config muss
+die Digestreferenz anonym abrufen und exakt bestätigen; jede Abweichung bleibt
+`TOOL_UNAVAILABLE`. Ein Tag ist niemals eine Runtime-Identität. Der
+Container läuft non-root mit
 `network=none`, read-only
 Root-Filesystem, `cap-drop=ALL`, no-new-privileges, Default-oder-strengerem
 Seccomp, ohne Devices, mit festen PID-/RAM-/CPU-Grenzen, fester Entrypoint/argv
@@ -313,9 +331,14 @@ Die tatsächliche Source und jeder ScanRoot werden niemals gemountet. FolioTone
 kopiert genau die validierte Volumegruppe in ein opaque privates Input-Staging
 unter dem konfigurierten Temp-Root, bewahrt nur die nötige Suffix-/Volumeform
 und prüft Source-Observation, Bytes und vollständige Hashes vor und nach der
-Kopie. Nur dieses Staging wird read-only gemountet; ein getrenntes privates
-Output-Verzeichnis ist der einzige read-write Mount. Beide werden nach dem
-Lauf bereinigt. Native Windows-Ausführung bleibt `TOOL_UNAVAILABLE`, bis
+Kopie. No-follow-Preflight und Bind-Projektion müssen für das Staging
+container-sichtbar Owner `65532:65532`, Verzeichnisse `0500`, reguläre Dateien
+`0400` und Link-/Junction-/Reparse-Freiheit beweisen. Nur dieses Staging wird
+read-only gemountet; ein neu erzeugtes leeres privates Output-Verzeichnis mit
+Owner `65532:65532` und Modus `0700` ist der einzige read-write Mount.
+Zusätzliche ACL-Rechte oder nicht beweisbare Mountsemantik schließen das
+Backend fail-closed. Beide Workspaces werden nach dem Lauf erneut no-follow
+geprüft und bereinigt. Native Windows-Ausführung bleibt `TOOL_UNAVAILABLE`, bis
 `FG-A-WINDOWS-SANDBOX` Netzwerk- und Filesystemisolation nachweist. Job
 Objects und Handle-Allowlisten allein sind dafür unzureichend.
 
@@ -373,8 +396,17 @@ Official references:
 - https://docs.docker.com/engine/containers/resource_constraints/
 - https://docs.docker.com/engine/security/seccomp/
 - https://docs.docker.com/build/building/best-practices/
+- https://docs.docker.com/build/building/base-images/
+- https://docs.docker.com/build/ci/github-actions/reproducible-builds/
 - https://docs.docker.com/build/metadata/attestations/sbom/
+- https://github.com/docker/buildx/releases/tag/v0.36.1
+- https://github.com/moby/buildkit/releases/tag/v0.32.2
+- https://docs.docker.com/reference/cli/docker/buildx/build/
+- https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility
+- https://docs.github.com/en/packages/learn-github-packages/connecting-a-repository-to-a-package
+- https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry
 - https://docs.docker.com/build/metadata/attestations/slsa-provenance/
+- https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/use-artifact-attestations
 - https://www.7-zip.org/license.txt
 
 ## Music tools
