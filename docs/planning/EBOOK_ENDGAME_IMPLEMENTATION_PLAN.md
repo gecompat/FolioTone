@@ -106,7 +106,7 @@ In der getrennten Archivstrecke sind FG-A und S-EBA-01 bis S-EBA-07
 abgeschlossen. FG-A-RUNTIME, FG-A-IMAGE und FG-A-RUNTIME-AVAILABILITY sind
 akzeptiert; S-EBAR-01 bis S-EBAR-03A, EBAR-04 sowie S-EBAR-02A,
 S-EBAR-02B und S-EBAR-02B2 sind umgesetzt. FG-A-STORAGE-FAMILY ist durch
-ADR-0046 entschieden. FG-A-FORMAT-LOCK bleibt nach ADR-0045 offen und ist der
+ADR-0046 und FG-A-FORMAT-LOCK durch ADR-0047 entschieden. S-EBAR-02C ist der
 nächste Schritt.
 
 Empfohlene kritische Kette:
@@ -1847,9 +1847,9 @@ kontrollierte Erstprovisionierung, Rotation/Revocation und die Per-Run-
 Offline-Revalidierung von Custom SLSA, SPDX, Manifest, OCI-Config und RootFS.
 S-EBAR-02B ist abgeschlossen;
 [ADR-0045](../decisions/ADR-0045-archive-7zip-format-lock.md) stuft dessen
-Happy-Path-Messung als diagnostisch ein und hält FG-A-FORMAT-LOCK offen.
-S-EBAR-02B2 ist umgesetzt und ADR-0046 entscheidet FG-A-STORAGE-FAMILY. Als
-Nächstes folgen der finale Formatlock und erst dann S-EBAR-02C. Die vier
+Happy-Path-Messung als diagnostisch ein. S-EBAR-02B2 ist umgesetzt, ADR-0046
+entscheidet FG-A-STORAGE-FAMILY und ADR-0047 den finalen Formatlock. Als
+Nächstes folgt S-EBAR-02C. Die vier
 äußeren Kompressionsstreams bleiben bis EBAR-06
 bei `OUTER_COMPRESSION_ONLY`.
 Der erste freigegebene Backendvertrag ist

@@ -29,6 +29,16 @@ def _load_measurement_module() -> ModuleType:
     return module
 
 
+def _load_format_lock_module() -> ModuleType:
+    script = ROOT / "packaging" / "archive" / "7zip-26.02" / "verify_format_lock.py"
+    spec = importlib.util.spec_from_file_location("archive_format_lock", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def test_archive_format_measurement_fixtures_are_raw_hash_bound_and_value_free() -> None:
     expected = (
         (
@@ -209,8 +219,124 @@ def test_archive_format_measurement_v2_workflow_is_verify_only() -> None:
     workflow = (ROOT / ".github" / "workflows" / "archive-image.yml").read_text(
         encoding="utf-8"
     )
-    assert workflow.count("--fixtures tests/fixtures/archive/7zip-26.02/v2") == 2
+    assert workflow.count("measure_format_profiles.py") == 3
+    assert workflow.count("archive-7zip-format-measurement-v2-") >= 4
     assert "archive-7zip-format-measurement-v2-a.json" in workflow
     assert "archive-7zip-format-measurement-v2-b.json" in workflow
     assert "tests/fixtures/archive/7zip-26.02/v2/expected-measurement.json" in workflow
+    assert "verify_format_lock.py" in workflow
+    assert "archive-format.lock.json" in workflow
+    assert "archive-format.lock.sha256" in workflow
     assert "PUBLIC-FIXTURE-NOT-A-SECRET-v2" not in workflow
+
+
+def test_archive_format_lock_is_canonical_complete_and_verify_only(
+    tmp_path: Path,
+) -> None:
+    module = _load_format_lock_module()
+    lock_path = ROOT / "packaging/archive/7zip-26.02/archive-format.lock.json"
+    digest_path = ROOT / "packaging/archive/7zip-26.02/archive-format.lock.sha256"
+    module.verify_lock(
+        fixture_manifest_path=FIXTURES_V2 / "fixture-manifest.json",
+        measurement_path=FIXTURES_V2 / "expected-measurement.json",
+        lock_path=lock_path,
+        digest_path=digest_path,
+    )
+
+    lock = json.loads(lock_path.read_bytes())
+    assert lock["profile"] == "archive-7zip-format-lock/v1"
+    assert lock["signature_observer_profile"] == "archive-signature-observer/v2"
+    assert lock["compatibility_profile"] == (
+        "archive-publication-storage-compatibility/v1"
+    )
+    assert len(lock["capabilities"]) == 40
+    assert sum(item["disposition"] == "MEASURED" for item in lock["capabilities"]) == 14
+    assert all(item["optional_fields"] == [] for item in lock["capabilities"])
+    assert len(lock["outer_stream_observations"]) == 4
+    assert all(
+        item["runtime_authorized"] is False
+        and item["storage_family"] == "UNKNOWN"
+        and item["disposition"] == "OUTER_COMPRESSION_ONLY"
+        for item in lock["outer_stream_observations"]
+    )
+
+    mutated = dict(lock)
+    mutated["measurement_sha256"] = "0" * 64
+    mutated_path = tmp_path / "mutated-lock.json"
+    mutated_path.write_bytes(module._canonical(mutated))
+    with pytest.raises(module.FormatLockError, match="FORMAT_LOCK_CONTENT_MISMATCH"):
+        module.verify_lock(
+            fixture_manifest_path=FIXTURES_V2 / "fixture-manifest.json",
+            measurement_path=FIXTURES_V2 / "expected-measurement.json",
+            lock_path=mutated_path,
+            digest_path=digest_path,
+        )
+
+
+def test_archive_format_lock_rejects_open_or_unconsumed_measurement_material(
+    tmp_path: Path,
+) -> None:
+    module = _load_format_lock_module()
+    fixture_manifest = json.loads((FIXTURES_V2 / "fixture-manifest.json").read_bytes())
+    measurement = json.loads((FIXTURES_V2 / "expected-measurement.json").read_bytes())
+
+    open_manifest = dict(fixture_manifest)
+    open_manifest["unexpected"] = "field"
+    with pytest.raises(module.FormatLockError, match="FIXTURE_MANIFEST_INVALID"):
+        module.expected_lock(open_manifest, measurement)
+
+    unknown_class = json.loads(json.dumps(measurement))
+    unknown_class["records"][0]["fields"][0]["value_class"] = "PRIVATE_RAW_VALUE"
+    with pytest.raises(module.FormatLockError, match="MEASUREMENT_RECORD_INVALID"):
+        module.expected_lock(fixture_manifest, unknown_class)
+
+    extra_manifest = json.loads(json.dumps(fixture_manifest))
+    extra_fixture = dict(extra_manifest["fixtures"][0])
+    extra_fixture.update(id="extra_fixture", case_kind="UNBOUND_CASE")
+    extra_manifest["fixtures"].append(extra_fixture)
+    with pytest.raises(module.FormatLockError, match="FIXTURE_UNIVERSE_INVALID"):
+        module.expected_lock(extra_manifest, measurement)
+
+    count_manifest = json.loads(json.dumps(fixture_manifest))
+    extra_measurement = json.loads(json.dumps(measurement))
+    mixed_fixture = next(
+        item for item in count_manifest["fixtures"] if item["id"] == "zip_mixed"
+    )
+    mixed_fixture["min_records"] = 3
+    appended = dict(extra_measurement["records"][11])
+    appended["record_ordinal"] = 3
+    extra_measurement["records"].append(appended)
+    with pytest.raises(
+        module.FormatLockError, match="MEASUREMENT_RECORD_COUNT_INVALID"
+    ):
+        module.expected_lock(count_manifest, extra_measurement)
+
+    false_exit = json.loads(json.dumps(measurement))
+    false_exit["records"][0]["exit_code"] = False
+    with pytest.raises(module.FormatLockError, match="MEASUREMENT_RECORD_INVALID"):
+        module.expected_lock(fixture_manifest, false_exit)
+
+    provenance_path = FIXTURES_V2 / "deterministic-provenance.json"
+    open_provenance = json.loads(provenance_path.read_bytes())
+    open_provenance["unexpected"] = "field"
+    with pytest.raises(module.FormatLockError, match="PROVENANCE_SCHEMA_INVALID"):
+        module._validate_provenance(
+            "deterministic",
+            module._canonical(open_provenance),
+            module.PROVENANCE_SHA256["deterministic"],
+        )
+
+    changed_path = json.loads(json.dumps(fixture_manifest))
+    changed_path["fixtures"][0]["path"] = "changed.zip"
+    changed_manifest_path = tmp_path / "fixture-manifest.json"
+    changed_manifest_path.write_bytes(module._canonical(changed_path))
+    with pytest.raises(
+        module.FormatLockError, match="FIXTURE_MANIFEST_DIGEST_MISMATCH"
+    ):
+        module.verify_lock(
+            fixture_manifest_path=changed_manifest_path,
+            measurement_path=FIXTURES_V2 / "expected-measurement.json",
+            lock_path=ROOT / "packaging/archive/7zip-26.02/archive-format.lock.json",
+            digest_path=ROOT
+            / "packaging/archive/7zip-26.02/archive-format.lock.sha256",
+        )

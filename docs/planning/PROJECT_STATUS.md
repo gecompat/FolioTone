@@ -4,8 +4,7 @@ Stand: 2026-08-20
 
 ## Aktuelle Welle
 
-**FG-A-STORAGE-FAMILY READY — nächstes Gate nach Annahme:
-FG-A-FORMAT-LOCK**
+**FG-A-FORMAT-LOCK READY — nächstes Paket nach Annahme: S-EBAR-02C**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -92,8 +91,7 @@ als `VT_BOOL`-Felder, und `ArchiveFormatKind` trennte Publication Kind nicht
 von der RAR4-/RAR5-/ZIP-Storage-Familie. ADR-0045 akzeptierte deshalb die neue
 Folge S-EBAR-02B2, FG-A-STORAGE-FAMILY, finaler FG-A-FORMAT-LOCK und danach
 S-EBAR-02C. Measurement SHA-256 `40a6ee...` und Vorabkandidat `fdebe71...`
-bleiben ausschließlich diagnostisch; es existiert noch kein akzeptierter
-`archive-7zip-format-lock/v1`. gzip, bzip2, xz und zstd bleiben bis EBAR-06
+bleiben ausschließlich diagnostisch. gzip, bzip2, xz und zstd bleiben bis EBAR-06
 `OUTER_COMPRESSION_ONLY`.
 
 S-EBAR-02B2 ist auf `main` umgesetzt. Das geschlossene v2-Messmanifest enthält
@@ -110,8 +108,8 @@ beide Resultate mit der eingecheckten Erwartung. PR #154 wurde mit normalem
 Merge-Commit integriert; Quality-, Recipe-, Publish- und Post-Merge-Gates sind
 grün.
 
-FG-A-STORAGE-FAMILY ist durch ADR-0046 entschieden und ohne P0/P1 unabhängig
-geprüft; das einmalige PR-Gate entscheidet die Annahme.
+FG-A-STORAGE-FAMILY ist durch ADR-0046 entschieden, unabhängig geprüft und auf
+`main` integriert.
 `archive-signature-observer/v2` trennt Publication Kind
 `NONE/EPUB/CBZ/CBR`, direkte Storage Family
 `ZIP/RAR4/RAR5/SEVEN_Z/TAR/UNKNOWN` und äußere Kompression
@@ -120,8 +118,15 @@ Suffix-Evidence, aber niemals Storage-Authority; Signaturebytes liefern
 ausschließlich Storage oder äußere Kompression.
 Widersprüche bleiben `SIGNATURE_SUFFIX_MISMATCH`, Wrapper bleiben vor EBAR-06
 Storage `UNKNOWN`. Profil v1 bleibt legacy-read-only und darf keinen neuen
-Runtimelauf autorisieren. Es existiert weiterhin kein akzeptierter
-Formatlock; der nächste Gate-Schritt ist FG-A-FORMAT-LOCK.
+Runtimelauf autorisieren.
+
+FG-A-FORMAT-LOCK ist durch ADR-0047 entschieden. Der kanonische
+`archive-7zip-format-lock/v1` bindet alle 40 Capability-Zellen, 21 geordnete
+Recordprojektionen, Measurement-, Fixture-, Image-, Tool-, Command-,
+Signatur- und Compatibility-Identitäten. Sein SHA-256 ist
+`4270fbf6ba7782c3b2fb1025137581ce07a1bc271664e19692dce388a617e061`.
+Der geschützte Workflow verifiziert Lock und getrennten Digest ausschließlich
+read-only; S-EBAR-02C ist der nächste Schritt.
 
 Die spezialisierte Runtime darf anschließend ausschließlich unverschlüsselte
 Archive über bounded Streaming ohne Raw-Artefakt oder Preview verarbeiten.

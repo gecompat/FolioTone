@@ -156,6 +156,11 @@ jobs:
             tests/fixtures/archive/7zip-26.02/v2/expected-measurement.json
           measurement_v2_digest="$(sha256sum "${RUNNER_TEMP}/archive-7zip-format-measurement-v2-a.json" | cut -d' ' -f1)"
           echo "measurement_v2_sha256=${measurement_v2_digest}"
+          python packaging/archive/7zip-26.02/verify_format_lock.py \
+            --fixtures tests/fixtures/archive/7zip-26.02/v2/fixture-manifest.json \
+            --measurement tests/fixtures/archive/7zip-26.02/v2/expected-measurement.json \
+            --lock packaging/archive/7zip-26.02/archive-format.lock.json \
+            --digest packaging/archive/7zip-26.02/archive-format.lock.sha256
 
   publish-readiness:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'gecompat/FolioTone'
