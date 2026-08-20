@@ -130,7 +130,7 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 | W5C-001 | DONE | Implement typed multidimensional classification assertions with source/taxonomy provenance. |
 | W5C-002 | DONE | Support e-book domain/genre/subgenre/topic/audience/language/form facets. |
 | W5C-003 | PLANNED | Support music domain/style plus classical period/form/instrumentation facets. |
-| W5C-004 | PLANNED | Preserve conflicting provider/tool classifications and derive canonical/local projections separately. |
+| W5C-004 | DONE | Preserve conflicting provider/tool classifications and derive canonical/local projections separately. EB-04 provides immutable profiled assertions, bounded read-only queries, deterministic projections, conflict links and a path-free CLI summary. |
 
 ## W6 — Matching
 
