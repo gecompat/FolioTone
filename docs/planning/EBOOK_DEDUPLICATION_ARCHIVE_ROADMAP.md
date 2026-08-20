@@ -5,8 +5,8 @@
 **Status:** In Ausführung; FG-A, S-EBA-01 bis S-EBA-07, FG-A-RUNTIME,
 S-EBAR-01 bis S-EBAR-03A, FG-A-IMAGE, FG-A-RUNTIME-AVAILABILITY, EBAR-04,
 S-EBAR-02A, S-EBAR-02B und S-EBAR-02B2 abgeschlossen;
-FG-A-STORAGE-FAMILY durch ADR-0046 entschieden und ohne P0/P1 geprüft;
-FG-A-FORMAT-LOCK offen
+FG-A-STORAGE-FAMILY durch ADR-0046 und FG-A-FORMAT-LOCK durch ADR-0047
+entschieden; S-EBAR-02C als nächster Schritt
 
 **Stand:** 2026-08-20
 
@@ -58,8 +58,9 @@ Linux-Messmanifest erzeugt; [ADR-0045](../decisions/ADR-0045-archive-7zip-format
 stuft es als diagnostische Happy-Path-Evidence ein und akzeptiert noch keinen
 Formatlock. S-EBAR-02B2 hat die Fallmatrix und Boolklassifikation geschlossen.
 [ADR-0046](../decisions/ADR-0046-archive-publication-and-storage-family.md)
-entscheidet FG-A-STORAGE-FAMILY; danach folgen der finale FG-A-FORMAT-LOCK
-und erst dann S-EBAR-02C. `BOOTSTRAP_LOCKED` und lokales
+entscheidet FG-A-STORAGE-FAMILY. [ADR-0047](../decisions/ADR-0047-final-archive-7zip-format-lock.md)
+akzeptiert danach den finalen maschinenlesbaren Formatlock; als Nächstes folgt
+S-EBAR-02C. `BOOTSTRAP_LOCKED` und lokales
 Inspect allein bleiben keine Runtime-Authority; Public Visibility und
 Source-Association werden nur beim
 Provisioning beziehungsweise Refresh erneut geprüft.
@@ -288,7 +289,8 @@ terminalen technischen Befund, aber keine Source-Operation. Der Workspace
 wird nach sicherer Evidence-Übernahme bereinigt. S-EBA-01 bis S-EBA-07,
 S-EBAR-01 bis S-EBAR-03A, FG-A-RUNTIME, FG-A-IMAGE,
 FG-A-RUNTIME-AVAILABILITY, EBAR-04, S-EBAR-02A und S-EBAR-02B sind
-abgeschlossen. FG-A-FORMAT-LOCK bleibt offen. Die 7-Zip-CLI darf kein Secret
+abgeschlossen. FG-A-FORMAT-LOCK ist durch ADR-0047 abgeschlossen; S-EBAR-02C
+folgt als nächstes. Die 7-Zip-CLI darf kein Secret
 über `-p` erhalten.
 
 ## FG-A-RUNTIME-Folgepakete und Modellrouting

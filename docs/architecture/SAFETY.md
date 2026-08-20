@@ -59,13 +59,15 @@ weder Prosa noch grobe 7-Zip-Exitcodes sind Ursachen-Authority. Ein nicht
 strukturierter Fehler wird ausschließlich `TOOL_FAILED`. Preview, Raw
 Artifact, Raw Log und eine frei übernommene Host-Environment sind verboten.
 
-ADR-0045 akzeptiert noch keinen Produktionslock. S-EBAR-02B2 bindet die
-Directory-, Encryption- und positiven Linkfälle geschlossen als `MEASURED`,
-`FORMAT_UNSUPPORTED` oder `EVIDENCE_UNAVAILABLE`. ADR-0046 trennt Publication
-Kind, direkte Storage Family und äußere Kompression orthogonal. Suffixe dürfen
-keine Storage-Familie setzen; 7-Zip-Ausgabe darf sie nicht umklassifizieren.
-Routingwidersprüche und nicht belegte Kombinationen bleiben fail-closed;
-private Linkziele dürfen nie Manifest, Digest, Log oder Artefakt erreichen.
+ADR-0045 verlangte vor einem Produktionslock die vollständige Fallmatrix.
+S-EBAR-02B2 bindet Directory-, Encryption- und positive Linkfälle geschlossen
+als `MEASURED`, `FORMAT_UNSUPPORTED` oder `EVIDENCE_UNAVAILABLE`. ADR-0046
+trennt Publication Kind, direkte Storage Family und äußere Kompression
+orthogonal. ADR-0047 akzeptiert ausschließlich darauf den kanonischen
+`archive-7zip-format-lock/v1`; jede Identitäts-, Feldordnungs-, Value-Class-
+oder Capabilityabweichung ist stale und fail-closed. Suffixe dürfen keine
+Storage-Familie setzen; 7-Zip-Ausgabe darf sie nicht umklassifizieren. Private
+Linkziele dürfen nie DTO, Manifest, Digest, Log oder Artefakt erreichen.
 gzip, bzip2, xz und zstd bleiben bis EBAR-06
 `OUTER_COMPRESSION_ONLY` ohne produktiven Listing-/Integrity-Provider oder
 Member-Evidence.

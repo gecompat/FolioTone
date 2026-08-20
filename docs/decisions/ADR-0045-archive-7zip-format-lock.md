@@ -268,9 +268,11 @@ bleibt ADR-0044 bis EBAR-06 maßgeblich.
 
 ## Folgen
 
-- ADR-0045 ist akzeptiert; FG-A-FORMAT-LOCK ist ausdrücklich noch offen.
-- S-EBAR-02B bleibt als diagnostische Happy-Path-Messung erhalten. Der nächste
-  Schritt ist S-EBAR-02B2, nicht S-EBAR-02C.
+- ADR-0045 akzeptierte das Erweiterungsgate; FG-A-FORMAT-LOCK wurde später
+  durch [ADR-0047](ADR-0047-final-archive-7zip-format-lock.md) abgeschlossen.
+- S-EBAR-02B bleibt als diagnostische Happy-Path-Messung erhalten. Zum
+  Entscheidungszeitpunkt war S-EBAR-02B2 der nächste Schritt; dieses Paket ist
+  inzwischen abgeschlossen.
 - Der SHA-256 `fdebe71...` bezeichnet nur den verworfenen Vorabkandidaten und
   ist keine Runtime- oder Acceptance-Authority.
 - Fehlende rechtmäßige oder sichere Evidence verkleinert die spätere
@@ -280,7 +282,8 @@ bleibt ADR-0044 bis EBAR-06 maßgeblich.
   nur als eingecheckte hashgebundene Bytes erneut vermessen und niemals
   regeneriert; ihr öffentliches Fixture-Passwort ist keine Secret- oder
   Runtimefreigabe.
-- S-EBAR-02C und EBAR-05 bleiben bis zur vollständigen Gatefolge blockiert.
+- ADR-0047 schließt die Gatefolge und gibt S-EBAR-02C frei. EBAR-05 bleibt bis
+  zum erfolgreichen Abschluss von S-EBAR-02C blockiert.
 
 ## Nachweise
 

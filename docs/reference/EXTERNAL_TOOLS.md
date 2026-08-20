@@ -308,8 +308,9 @@ strikte Boolklassifikation mit Measurement v2 abgeschlossen. Measurement v1
 autoritativ. [ADR-0046](../decisions/ADR-0046-archive-publication-and-storage-family.md)
 trennt ZIP/RAR4/RAR5/7z/TAR von den Publication-Kinds EPUB/CBZ/CBR und bindet
 äußere Kompression separat. Suffixe setzen keine Storage-Familie; Tooloutput
-klassifiziert sie nicht neu. Erst der nächste FG-A-FORMAT-LOCK darf einen
-maschinenlesbaren finalen Lock mit eigenem Digest akzeptieren. gzip, bzip2,
+klassifiziert sie nicht neu. [ADR-0047](../decisions/ADR-0047-final-archive-7zip-format-lock.md)
+akzeptiert den maschinenlesbaren `archive-7zip-format-lock/v1` mit getrenntem
+SHA-256 und strikt verify-only Workflowprüfung. gzip, bzip2,
 xz und zstd bleiben bis EBAR-06
 ausschließlich
 `OUTER_COMPRESSION_ONLY`: kein produktiver Listing-/Integrity-Lauf, keine
