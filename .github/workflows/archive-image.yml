@@ -1,0 +1,312 @@
+name: Archive 7-Zip image
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "packaging/archive/7zip-26.02/**"
+      - ".github/workflows/archive-image.yml"
+      - "src/foliotone/archive/sevenzip.py"
+      - "src/foliotone/core/enums.py"
+      - "tests/unit/test_archive_sevenzip.py"
+      - "tests/integration/test_archive_image_packaging.py"
+  push:
+    branches: [main]
+    paths:
+      - "packaging/archive/7zip-26.02/**"
+      - ".github/workflows/archive-image.yml"
+      - "src/foliotone/archive/sevenzip.py"
+      - "src/foliotone/core/enums.py"
+      - "tests/unit/test_archive_sevenzip.py"
+      - "tests/integration/test_archive_image_packaging.py"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-recipe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Prepare verified offline rootfs
+        run: |
+          set -euo pipefail
+          python packaging/archive/7zip-26.02/prepare_archive_image.py \
+            --cache "${RUNNER_TEMP}/foliotone-archive-cache" \
+            --output "${RUNNER_TEMP}/foliotone-archive-context/rootfs.tar" \
+            --acquire-buildx
+          cp packaging/archive/7zip-26.02/Dockerfile "${RUNNER_TEMP}/foliotone-archive-context/Dockerfile"
+      - name: Verify exact Dockerfile and bootstrap contracts
+        run: |
+          test "$(cat packaging/archive/7zip-26.02/Dockerfile)" = $'FROM scratch\nADD rootfs.tar /\nLABEL org.opencontainers.image.source="https://github.com/gecompat/FolioTone"\nUSER 65532:65532\nWORKDIR /workspace\nENTRYPOINT ["/usr/local/bin/7zzs"]'
+          python packaging/archive/7zip-26.02/validate_supply_chain.py \
+            --rootfs "${RUNNER_TEMP}/foliotone-archive-context/rootfs.tar"
+          test "$(sha256sum "${RUNNER_TEMP}/foliotone-archive-context/rootfs.tar" | cut -d' ' -f1)" = a817c489a8458dae30df188380b3c0d4e59baad77bfa1a7bd385c4ec016538fc
+          test "$(sha256sum packaging/archive/7zip-26.02/Dockerfile | cut -d' ' -f1)" = 9ab4f5c5895db715366e2d15b7301abef525bc74ab62884424860ff0231bfe9a
+          test "$(sha256sum packaging/archive/7zip-26.02/archive-image.spdx.json | cut -d' ' -f1)" = ce32dada7227c05e147280404b3d0ce0304eba5e6e085c644f7ac4cb0ddf5a9f
+      - name: Acquire exact Buildx plugin
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/foliotone-docker-config
+        run: |
+          set -euo pipefail
+          asset="${RUNNER_TEMP}/foliotone-archive-cache/buildx-v0.36.1.linux-amd64"
+          mkdir -p "${DOCKER_CONFIG}/cli-plugins"
+          test "$(stat --format=%s "$asset")" = 65302690
+          test "$(sha256sum "$asset" | cut -d' ' -f1)" = 48af8a397ebd60178778bf63611dbcebe5f5e7a9be90eb9147b24b9587455778
+          install -m 0555 "$asset" "${DOCKER_CONFIG}/cli-plugins/docker-buildx"
+          docker buildx version | grep -F 'v0.36.1'
+      - name: Bootstrap exact BuildKit and build twice without network
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/foliotone-docker-config
+          SOURCE_DATE_EPOCH: "1782345600"
+        run: |
+          set -euo pipefail
+          builder="foliotone-archive-v1-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          trap 'docker buildx rm --force "$builder" >/dev/null 2>&1 || true' EXIT
+          docker buildx imagetools inspect --raw \
+            moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8 \
+            > "${RUNNER_TEMP}/buildkit-index.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          data = json.loads(Path(os.environ["RUNNER_TEMP"]).joinpath("buildkit-index.json").read_text())
+          matches = [m for m in data.get("manifests", []) if m.get("platform") == {"architecture": "amd64", "os": "linux"}]
+          assert len(matches) == 1
+          assert matches[0]["digest"] == "sha256:040d34121c27906c4ff9ac152a30d52bf2c5d328d3bb748916bb3d2743c02528"
+          PY
+          docker buildx create --name "$builder" --driver docker-container \
+            --driver-opt image=moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+          docker buildx inspect --bootstrap "$builder" | tee "${RUNNER_TEMP}/builder-inspect.txt"
+          grep -F 'v0.32.2' "${RUNNER_TEMP}/builder-inspect.txt"
+          for ordinal in 1 2; do
+            docker buildx build --builder "$builder" \
+              --platform linux/amd64 --network none --no-cache \
+              --provenance=false --sbom=false \
+              --build-arg SOURCE_DATE_EPOCH=1782345600 \
+              --output "type=oci,dest=${RUNNER_TEMP}/archive-${ordinal}.oci.tar,oci-mediatypes=true,compression=gzip,force-compression=true,rewrite-timestamp=true" \
+              "${RUNNER_TEMP}/foliotone-archive-context"
+          done
+          first="$(python packaging/archive/7zip-26.02/inspect_oci_layout.py "${RUNNER_TEMP}/archive-1.oci.tar")"
+          second="$(python packaging/archive/7zip-26.02/inspect_oci_layout.py "${RUNNER_TEMP}/archive-2.oci.tar")"
+          test "$first" = "$second"
+          state="$(python -c 'import json; print(json.load(open("packaging/archive/7zip-26.02/archive-image.lock.json"))["state"])')"
+          if test "$state" = BOOTSTRAP_LOCKED; then
+            IDENTITY="$first" python - <<'PY'
+          import json, os
+          from pathlib import Path
+          identity = json.loads(os.environ["IDENTITY"])
+          lock = json.loads(Path("packaging/archive/7zip-26.02/archive-image.lock.json").read_text())
+          for field, value in identity.items():
+              assert lock[field] == value
+          PY
+          else
+            test "${GITHUB_EVENT_NAME}" = workflow_dispatch
+            test "$state" = BOOTSTRAP_PENDING
+            echo '::notice::Copy the observed identity into the closed BOOTSTRAP_LOCKED lock and update the bound SBOM before opening the PR.'
+          fi
+          echo "bootstrap_identity=$first"
+
+  publish-readiness:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'gecompat/FolioTone'
+    needs: verify-recipe
+    runs-on: ubuntu-24.04
+    outputs:
+      ready: ${{ steps.lock.outputs.ready }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - id: lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$(python -c 'import json; print(json.load(open("packaging/archive/7zip-26.02/archive-image.lock.json"))["state"])')"
+          digest="$(python -c 'import json; print(json.load(open("packaging/archive/7zip-26.02/archive-image.lock.json"))["runtime_platform_manifest_digest"])')"
+          if test "$state" = BOOTSTRAP_LOCKED && [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+          fi
+
+  protected-post-merge-publish:
+    if: needs.publish-readiness.outputs.ready == 'true'
+    needs: publish-readiness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Require locked result identity before protected publication
+        run: |
+          set -euo pipefail
+          test "$(python -c 'import json; print(json.load(open("packaging/archive/7zip-26.02/archive-image.lock.json"))["state"])')" = BOOTSTRAP_LOCKED
+      - name: Prepare exact public context and Buildx
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/foliotone-publish-docker-config
+        run: |
+          set -euo pipefail
+          python packaging/archive/7zip-26.02/prepare_archive_image.py \
+            --cache "${RUNNER_TEMP}/foliotone-archive-publish-cache" \
+            --output "${RUNNER_TEMP}/foliotone-archive-publish-context/rootfs.tar" \
+            --acquire-buildx
+          cp packaging/archive/7zip-26.02/Dockerfile "${RUNNER_TEMP}/foliotone-archive-publish-context/Dockerfile"
+          python packaging/archive/7zip-26.02/validate_supply_chain.py \
+            --rootfs "${RUNNER_TEMP}/foliotone-archive-publish-context/rootfs.tar"
+          asset="${RUNNER_TEMP}/foliotone-archive-publish-cache/buildx-v0.36.1.linux-amd64"
+          mkdir -p "${DOCKER_CONFIG}/cli-plugins"
+          test "$(stat --format=%s "$asset")" = 65302690
+          test "$(sha256sum "$asset" | cut -d' ' -f1)" = 48af8a397ebd60178778bf63611dbcebe5f5e7a9be90eb9147b24b9587455778
+          install -m 0555 "$asset" "${DOCKER_CONFIG}/cli-plugins/docker-buildx"
+          docker buildx version | grep -F 'v0.36.1'
+      - name: Rebuild and compare the locked runtime identity
+        id: identity
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/foliotone-publish-docker-config
+          SOURCE_DATE_EPOCH: "1782345600"
+        run: |
+          set -euo pipefail
+          builder="foliotone-archive-publish-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "builder=$builder" >> "$GITHUB_OUTPUT"
+          docker buildx imagetools inspect --raw \
+            moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8 \
+            > "${RUNNER_TEMP}/publish-buildkit-index.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          data = json.loads(Path(os.environ["RUNNER_TEMP"]).joinpath("publish-buildkit-index.json").read_text())
+          matches = [m for m in data.get("manifests", []) if m.get("platform") == {"architecture": "amd64", "os": "linux"}]
+          assert len(matches) == 1
+          assert matches[0]["digest"] == "sha256:040d34121c27906c4ff9ac152a30d52bf2c5d328d3bb748916bb3d2743c02528"
+          PY
+          docker buildx create --name "$builder" --driver docker-container \
+            --driver-opt image=moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+          docker buildx inspect --bootstrap "$builder" | tee "${RUNNER_TEMP}/publish-builder-inspect.txt"
+          grep -F 'v0.32.2' "${RUNNER_TEMP}/publish-builder-inspect.txt"
+          docker buildx build --builder "$builder" \
+            --platform linux/amd64 --network none --no-cache \
+            --provenance=false --sbom=false \
+            --build-arg SOURCE_DATE_EPOCH=1782345600 \
+            --output "type=oci,dest=${RUNNER_TEMP}/archive-publish-verify.oci.tar,oci-mediatypes=true,compression=gzip,force-compression=true,rewrite-timestamp=true" \
+            "${RUNNER_TEMP}/foliotone-archive-publish-context"
+          observed="$(python packaging/archive/7zip-26.02/inspect_oci_layout.py "${RUNNER_TEMP}/archive-publish-verify.oci.tar")"
+          IDENTITY="$observed" python - <<'PY'
+          import json, os
+          from pathlib import Path
+          observed = json.loads(os.environ["IDENTITY"])
+          lock = json.loads(Path("packaging/archive/7zip-26.02/archive-image.lock.json").read_text())
+          for field, value in observed.items():
+              assert lock[field] == value
+          PY
+          digest="$(IDENTITY="$observed" python -c 'import json,os; print(json.loads(os.environ["IDENTITY"])["runtime_platform_manifest_digest"])')"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Publish the identical unattested runtime manifest
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/foliotone-publish-docker-config
+          SOURCE_DATE_EPOCH: "1782345600"
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "$GHCR_TOKEN" | docker login ghcr.io --username "${GITHUB_ACTOR}" --password-stdin
+          docker buildx build --builder "${{ steps.identity.outputs.builder }}" \
+            --platform linux/amd64 --network none --no-cache \
+            --provenance=false --sbom=false \
+            --build-arg SOURCE_DATE_EPOCH=1782345600 \
+            --output "type=image,name=ghcr.io/gecompat/foliotone-archive-7zip:26.02-foliotone-v1,push=true,oci-mediatypes=true,compression=gzip,force-compression=true,rewrite-timestamp=true" \
+            "${RUNNER_TEMP}/foliotone-archive-publish-context"
+          docker buildx imagetools inspect --raw \
+            "ghcr.io/gecompat/foliotone-archive-7zip:26.02-foliotone-v1" \
+            > "${RUNNER_TEMP}/published-manifest.json"
+          expected="${{ steps.identity.outputs.digest }}"
+          test "$(sha256sum "${RUNNER_TEMP}/published-manifest.json" | cut -d' ' -f1)" = "${expected#sha256:}"
+      - name: Require protected owner package setup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh api /users/gecompat/packages/container/foliotone-archive-7zip > "${RUNNER_TEMP}/package.json"; then
+            echo '::error::Protected owner setup is required after the first push.'
+            exit 1
+          fi
+          if ! python - <<'PY'
+          import json, os
+          from pathlib import Path
+          package = json.loads(Path(os.environ["RUNNER_TEMP"]).joinpath("package.json").read_text())
+          assert package.get("visibility") == "public"
+          assert package.get("repository", {}).get("full_name") == "gecompat/FolioTone"
+          PY
+          then
+            echo '::error::Repository owner must set the GHCR package public and connect it to gecompat/FolioTone, then rerun main.'
+            exit 1
+          fi
+      - name: Generate deterministic archive-image SLSA predicate
+        run: |
+          python packaging/archive/7zip-26.02/supply_chain_evidence.py provenance \
+            --repository-commit "${GITHUB_SHA}" \
+            --output "${RUNNER_TEMP}/archive-image-provenance.json"
+      - name: Attach exact custom SLSA provenance
+        id: custom-provenance
+        uses: actions/attest@daf44fb950173508f38bd2406030372c1d1162b1
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/foliotone-publish-docker-config
+        with:
+          subject-name: ghcr.io/gecompat/foliotone-archive-7zip
+          subject-digest: ${{ steps.identity.outputs.digest }}
+          predicate-type: https://slsa.dev/provenance/v1
+          predicate-path: ${{ runner.temp }}/archive-image-provenance.json
+          push-to-registry: true
+      - name: Attach separate SPDX SBOM
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/foliotone-publish-docker-config
+        with:
+          subject-name: ghcr.io/gecompat/foliotone-archive-7zip
+          subject-digest: ${{ steps.identity.outputs.digest }}
+          sbom-path: packaging/archive/7zip-26.02/archive-image.spdx.json
+          push-to-registry: true
+      - name: Verify exact attestations and credential-free public manifest
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/foliotone-publish-docker-config
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          reference="oci://ghcr.io/gecompat/foliotone-archive-7zip@${{ steps.identity.outputs.digest }}"
+          gh attestation verify "$reference" --repo gecompat/FolioTone \
+            --signer-workflow gecompat/FolioTone/.github/workflows/archive-image.yml \
+            --signer-digest "${GITHUB_SHA}" \
+            --source-digest "${GITHUB_SHA}" \
+            --source-ref refs/heads/main \
+            --predicate-type https://slsa.dev/provenance/v1 \
+            --bundle-from-oci \
+            --format json > "${RUNNER_TEMP}/verified-custom-provenance.json"
+          python packaging/archive/7zip-26.02/supply_chain_evidence.py verify-attestation \
+            --repository-commit "${GITHUB_SHA}" \
+            --predicate "${RUNNER_TEMP}/archive-image-provenance.json" \
+            --result "${RUNNER_TEMP}/verified-custom-provenance.json"
+          gh attestation verify "$reference" --repo gecompat/FolioTone \
+            --signer-workflow gecompat/FolioTone/.github/workflows/archive-image.yml \
+            --signer-digest "${GITHUB_SHA}" \
+            --source-digest "${GITHUB_SHA}" \
+            --source-ref refs/heads/main \
+            --predicate-type https://spdx.dev/Document/v2.3 \
+            --bundle-from-oci \
+            --format json > "${RUNNER_TEMP}/verified-spdx.json"
+          python packaging/archive/7zip-26.02/supply_chain_evidence.py \
+            verify-sbom-attestation --result "${RUNNER_TEMP}/verified-spdx.json"
+          python_path="$(command -v python)"
+          env -i PATH=/usr/bin:/bin "$python_path" \
+            packaging/archive/7zip-26.02/supply_chain_evidence.py verify-registry
+      - name: Remove isolated builder
+        if: always()
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/foliotone-publish-docker-config
+        run: docker buildx rm --force "${{ steps.identity.outputs.builder }}" || true

@@ -3,3 +3,6 @@ tests/fixtures/ebook_comparison/v1/files/*.fixture binary
 tests/fixtures/ebook_comparison/v1/text/*.txt text eol=lf
 tests/fixtures/ebook_comparison/v2/files/*.fixture binary
 tests/fixtures/ebook_comparison/v2/text/*.txt text eol=lf
+
+# Preserve byte-identical upstream archive redistribution notices.
+packaging/archive/7zip-26.02/licenses/* binary

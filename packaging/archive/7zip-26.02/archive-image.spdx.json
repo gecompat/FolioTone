@@ -1,0 +1,83 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "foliotone-archive-7zip-26.02-locked",
+  "documentNamespace": "https://github.com/gecompat/FolioTone/archive-7zip-image/v1/sha256-26c9c2fa32f93210a46fcf6b9651006038f9e766a1d791b463ce9875815a8287",
+  "creationInfo": {
+    "creators": ["Tool: FolioTone archive-7zip-image/v1"],
+    "created": "2026-06-25T00:00:00Z"
+  },
+  "documentDescribes": ["SPDXRef-RuntimeImage"],
+  "packages": [
+    {
+      "name": "ghcr.io/gecompat/foliotone-archive-7zip",
+      "SPDXID": "SPDXRef-RuntimeImage",
+      "versionInfo": "26.02-foliotone-v1",
+      "downloadLocation": "ghcr.io/gecompat/foliotone-archive-7zip@sha256:26c9c2fa32f93210a46fcf6b9651006038f9e766a1d791b463ce9875815a8287",
+      "filesAnalyzed": false,
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "26c9c2fa32f93210a46fcf6b9651006038f9e766a1d791b463ce9875815a8287"}],
+      "licenseConcluded": "LGPL-2.1-or-later AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-unRAR-restriction",
+      "licenseDeclared": "LGPL-2.1-or-later AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-unRAR-restriction",
+      "copyrightText": "NOASSERTION",
+      "comment": "archive-image-lock/v1 state=BOOTSTRAP_LOCKED runtime_platform_manifest_digest=sha256:26c9c2fa32f93210a46fcf6b9651006038f9e766a1d791b463ce9875815a8287"
+    },
+    {
+      "name": "7-Zip",
+      "SPDXID": "SPDXRef-7Zip",
+      "versionInfo": "26.02",
+      "downloadLocation": "https://github.com/ip7z/7zip/releases/download/26.02/7z2602-linux-x64.tar.xz",
+      "filesAnalyzed": false,
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "41aaba7b1235304ab5aa0624530c67ae829496cd29e875925271efdccc28c03e"}],
+      "licenseConcluded": "LGPL-2.1-or-later AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-unRAR-restriction",
+      "licenseDeclared": "LGPL-2.1-or-later AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-unRAR-restriction",
+      "copyrightText": "Copyright (c) 1999-2026 Igor Pavlov and contributors"
+    },
+    {
+      "name": "7-Zip source",
+      "SPDXID": "SPDXRef-7ZipSource",
+      "versionInfo": "26.02",
+      "downloadLocation": "https://github.com/ip7z/7zip/releases/download/26.02/7z2602-src.tar.xz",
+      "filesAnalyzed": false,
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "cf967c98bca02a4b8b16375f441825a8e141362f14be1969bbec8e1ca0bff9dd"}],
+      "licenseConcluded": "LGPL-2.1-or-later AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-unRAR-restriction",
+      "licenseDeclared": "LGPL-2.1-or-later AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-unRAR-restriction",
+      "copyrightText": "NOASSERTION"
+    }
+  ],
+  "files": [
+    {"fileName": "/usr/local/bin/7zzs", "SPDXID": "SPDXRef-7zzs", "checksums": [{"algorithm": "SHA256", "checksumValue": "20df89e993594c1bb7686f125dabe1acc56c109fb1d9b40435ea5fcbc1ca3453"}], "licenseConcluded": "LGPL-2.1-or-later AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-unRAR-restriction", "licenseInfoInFiles": ["LGPL-2.1-or-later", "BSD-2-Clause", "BSD-3-Clause", "LicenseRef-unRAR-restriction"], "copyrightText": "NOASSERTION"},
+    {"fileName": "/usr/share/licenses/7zip/License.txt", "SPDXID": "SPDXRef-License", "checksums": [{"algorithm": "SHA256", "checksumValue": "1790374e5352329cedb46ee3808930a88e9ca2f08b82b10fcf5cf605d2c301b1"}], "licenseConcluded": "NOASSERTION", "licenseInfoInFiles": ["LGPL-2.1-or-later", "BSD-2-Clause", "BSD-3-Clause", "LicenseRef-unRAR-restriction"], "copyrightText": "NOASSERTION"},
+    {"fileName": "/usr/share/licenses/7zip/copying.txt", "SPDXID": "SPDXRef-Copying", "checksums": [{"algorithm": "SHA256", "checksumValue": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"}], "licenseConcluded": "BSD-2-Clause", "licenseInfoInFiles": ["BSD-2-Clause"], "copyrightText": "NOASSERTION"},
+    {"fileName": "/usr/share/licenses/7zip/unRarLicense.txt", "SPDXID": "SPDXRef-UnRarLicense", "checksums": [{"algorithm": "SHA256", "checksumValue": "17bd9fa4399092c777536fff045b41df76ec9d2ac4c9b8e7345d3b8b6ccc7976"}], "licenseConcluded": "LicenseRef-unRAR-restriction", "licenseInfoInFiles": ["LicenseRef-unRAR-restriction"], "copyrightText": "Copyright (c) 1993-2017 Alexander Roshal"},
+    {"fileName": "/usr/share/doc/7zip/readme.txt", "SPDXID": "SPDXRef-Readme", "checksums": [{"algorithm": "SHA256", "checksumValue": "c3ecf1b8f38631d6ef8a35048e80da77b31cf292a42b3e8793afd44bf4f001b0"}], "licenseConcluded": "NOASSERTION", "licenseInfoInFiles": ["LGPL-2.1-or-later", "BSD-2-Clause", "BSD-3-Clause", "LicenseRef-unRAR-restriction"], "copyrightText": "NOASSERTION"},
+    {"fileName": "/usr/share/src/7zip/7z2602-src.tar.xz", "SPDXID": "SPDXRef-SourceTar", "checksums": [{"algorithm": "SHA256", "checksumValue": "cf967c98bca02a4b8b16375f441825a8e141362f14be1969bbec8e1ca0bff9dd"}], "licenseConcluded": "LGPL-2.1-or-later AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-unRAR-restriction", "licenseInfoInFiles": ["LGPL-2.1-or-later", "BSD-2-Clause", "BSD-3-Clause", "LicenseRef-unRAR-restriction"], "copyrightText": "NOASSERTION"},
+    {"fileName": "/oci/blobs/sha256/26c9c2fa32f93210a46fcf6b9651006038f9e766a1d791b463ce9875815a8287", "SPDXID": "SPDXRef-OciManifest", "checksums": [{"algorithm": "SHA256", "checksumValue": "26c9c2fa32f93210a46fcf6b9651006038f9e766a1d791b463ce9875815a8287"}], "licenseConcluded": "NOASSERTION", "licenseInfoInFiles": ["NOASSERTION"], "copyrightText": "NOASSERTION"},
+    {"fileName": "/oci/blobs/sha256/6158a13f41ad2915237fc917abb28a7be373abf060402988898cd85bcd565b9f", "SPDXID": "SPDXRef-OciConfig", "checksums": [{"algorithm": "SHA256", "checksumValue": "6158a13f41ad2915237fc917abb28a7be373abf060402988898cd85bcd565b9f"}], "licenseConcluded": "NOASSERTION", "licenseInfoInFiles": ["NOASSERTION"], "copyrightText": "NOASSERTION"},
+    {"fileName": "/oci/blobs/sha256/ab909aa86586a73ab10913d9662146ae2442e5ce4b74842b54f0984dd18aad4f", "SPDXID": "SPDXRef-OciRootfsLayer", "checksums": [{"algorithm": "SHA256", "checksumValue": "ab909aa86586a73ab10913d9662146ae2442e5ce4b74842b54f0984dd18aad4f"}], "licenseConcluded": "LGPL-2.1-or-later AND BSD-2-Clause AND BSD-3-Clause AND LicenseRef-unRAR-restriction", "licenseInfoInFiles": ["LGPL-2.1-or-later", "BSD-2-Clause", "BSD-3-Clause", "LicenseRef-unRAR-restriction"], "copyrightText": "NOASSERTION"},
+    {"fileName": "/oci/blobs/sha256/4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1", "SPDXID": "SPDXRef-OciWorkdirLayer", "checksums": [{"algorithm": "SHA256", "checksumValue": "4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1"}], "licenseConcluded": "NOASSERTION", "licenseInfoInFiles": ["NOASSERTION"], "copyrightText": "NOASSERTION"}
+  ],
+  "hasExtractedLicensingInfos": [
+    {
+      "licenseId": "LicenseRef-unRAR-restriction",
+      "name": "unRAR source restriction",
+      "extractedText": " ******    *****   ******   unRAR - free utility for RAR archives\n **   **  **   **  **   **  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n ******   *******  ******    License for use and distribution of\n **   **  **   **  **   **   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n **   **  **   **  **   **         FREE portable version\n                                   ~~~~~~~~~~~~~~~~~~~~~\n\n      The source code of unRAR utility is freeware. This means:\n\n   1. All copyrights to RAR and the utility unRAR are exclusively\n      owned by the author - Alexander Roshal.\n\n   2. The unRAR sources may be used in any software to handle RAR\n      archives without limitations free of charge, but cannot be used\n      to re-create the RAR compression algorithm, which is proprietary.\n      Distribution of modified unRAR sources in separate form or as a\n      part of other software is permitted, provided that it is clearly\n      stated in the documentation and source comments that the code may\n      not be used to develop a RAR (WinRAR) compatible archiver.\n\n   3. The unRAR utility may be freely distributed. No person or company \n      may charge a fee for the distribution of unRAR without written\n      permission from the copyright holder.\n\n   4. THE RAR ARCHIVER AND THE UNRAR UTILITY ARE DISTRIBUTED \"AS IS\".\n      NO WARRANTY OF ANY KIND IS EXPRESSED OR IMPLIED.  YOU USE AT \n      YOUR OWN RISK. THE AUTHOR WILL NOT BE LIABLE FOR DATA LOSS, \n      DAMAGES, LOSS OF PROFITS OR ANY OTHER KIND OF LOSS WHILE USING\n      OR MISUSING THIS SOFTWARE.\n\n   5. Installing and using the unRAR utility signifies acceptance of\n      these terms and conditions of the license.\n\n   6. If you don't agree with terms of the license you must remove\n      unRAR files from your storage devices and cease to use the\n      utility.\n\n      Thank you for your interest in RAR and unRAR.\n\n\n                                            Alexander L. Roshal"
+    }
+  ],
+  "relationships": [
+    {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-RuntimeImage"},
+    {"spdxElementId": "SPDXRef-RuntimeImage", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-7Zip"},
+    {"spdxElementId": "SPDXRef-7Zip", "relationshipType": "GENERATED_FROM", "relatedSpdxElement": "SPDXRef-7ZipSource"},
+    {"spdxElementId": "SPDXRef-RuntimeImage", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-7zzs"},
+    {"spdxElementId": "SPDXRef-RuntimeImage", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-License"},
+    {"spdxElementId": "SPDXRef-RuntimeImage", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-Copying"},
+    {"spdxElementId": "SPDXRef-RuntimeImage", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-UnRarLicense"},
+    {"spdxElementId": "SPDXRef-RuntimeImage", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-Readme"},
+    {"spdxElementId": "SPDXRef-RuntimeImage", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-SourceTar"},
+    {"spdxElementId": "SPDXRef-7ZipSource", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-SourceTar"},
+    {"spdxElementId": "SPDXRef-RuntimeImage", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-OciManifest"},
+    {"spdxElementId": "SPDXRef-RuntimeImage", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-OciConfig"},
+    {"spdxElementId": "SPDXRef-RuntimeImage", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-OciRootfsLayer"},
+    {"spdxElementId": "SPDXRef-RuntimeImage", "relationshipType": "CONTAINS", "relatedSpdxElement": "SPDXRef-OciWorkdirLayer"}
+  ]
+}
