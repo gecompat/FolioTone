@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
+import time
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -55,6 +57,8 @@ from foliotone.index import (
     IncrementalScanner,
     RelocationCandidateDetector,
     ScanLeaseError,
+    ScanProgress,
+    ScanProgressPhase,
     ScanRootBinding,
     SQLiteIndexStore,
 )
@@ -129,6 +133,95 @@ _HASH_MODES = {
 }
 
 
+def _scan_hash_worker_value(value: str) -> int | None:
+    normalized = value.strip().lower()
+    if normalized == "auto":
+        return None
+    try:
+        workers = int(normalized)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("expected auto or an integer from 1 to 8") from error
+    if not 1 <= workers <= MAX_SCAN_HASH_WORKERS:
+        raise argparse.ArgumentTypeError(
+            f"hash workers must be between 1 and {MAX_SCAN_HASH_WORKERS}"
+        )
+    return workers
+
+
+def _resolved_scan_hash_workers(requested: int | None, hash_mode: HashMode) -> int:
+    if hash_mode is HashMode.NONE:
+        return 1
+    if requested is not None:
+        return requested
+    available = os.cpu_count() or 1
+    return min(MAX_SCAN_HASH_WORKERS, max(1, available // 2))
+
+
+class _ScanConsoleProgress:
+    """Render one path-free progress line without changing stdout contracts."""
+
+    def __init__(
+        self,
+        enabled: bool,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._enabled = enabled
+        self._stream = sys.stderr
+        self._clock = clock
+        self._started_at = clock()
+        self._active_line = False
+        self._line_width = 0
+
+    def announce(self, message: str) -> None:
+        if not self._enabled:
+            return
+        self.close_line()
+        self._stream.write(f"Scan progress: {message}\n")
+        self._stream.flush()
+
+    def start_scan(self) -> None:
+        self._started_at = self._clock()
+
+    def report(self, progress: ScanProgress) -> None:
+        if not self._enabled:
+            return
+        elapsed = max(self._clock() - self._started_at, 0.001)
+        mib_per_second = progress.processed_bytes / (1024 * 1024) / elapsed
+        phase = {
+            ScanProgressPhase.DISCOVERING: "scanning",
+            ScanProgressPhase.FINALIZING: "finalizing",
+            ScanProgressPhase.COMPLETED: "completed",
+        }[progress.phase]
+        text = (
+            f"Scan progress: {phase}; files={progress.processed_files}; "
+            f"data={progress.processed_bytes / (1024 * 1024):.1f} MiB; "
+            f"throughput={mib_per_second:.1f} MiB/s"
+        )
+        if progress.hash_failures:
+            text += f"; hash-failures={progress.hash_failures}"
+        if self._stream.isatty():
+            padded = text.ljust(self._line_width)
+            self._stream.write(f"\r{padded}")
+            self._line_width = max(self._line_width, len(text))
+            self._active_line = True
+            if progress.phase is ScanProgressPhase.COMPLETED:
+                self.close_line()
+        else:
+            self._stream.write(f"{text}\n")
+        self._stream.flush()
+
+    def close_line(self) -> None:
+        if self._enabled and self._active_line:
+            self._stream.write("\n")
+            self._stream.flush()
+            self._active_line = False
+
+
+def _scan_progress_enabled(requested: bool | None) -> bool:
+    return sys.stderr.isatty() if requested is None else requested
+
+
 def _optional_entity_id(value: str) -> EntityId | None:
     if value.strip().upper() == "NONE":
         return None
@@ -190,13 +283,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     scan.add_argument(
         "--hash-workers",
-        type=int,
-        choices=range(1, MAX_SCAN_HASH_WORKERS + 1),
-        default=1,
-        metavar=f"1..{MAX_SCAN_HASH_WORKERS}",
+        type=_scan_hash_worker_value,
+        default=None,
+        metavar=f"auto|1..{MAX_SCAN_HASH_WORKERS}",
         help=(
-            "Bounded file-hash worker count; defaults to 1. Fingerprints are "
-            "persisted atomically per discovery batch."
+            "Bounded file-hash worker count. Defaults to auto (half the visible CPU count, "
+            "bounded to 1..8). Fingerprints are persisted atomically per discovery batch."
         ),
     )
     scan.add_argument(
@@ -210,6 +302,15 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=256,
         help="Maximum discovery batch size; must be between 1 and 500.",
+    )
+    scan.add_argument(
+        "--progress",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Show a path-free file counter and throughput on stderr. Enabled automatically "
+            "for an interactive console; use --no-progress to disable it."
+        ),
     )
     resume_group = scan.add_mutually_exclusive_group()
     resume_group.add_argument(
@@ -1326,7 +1427,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "scan":
         deletion_policy = _deletion_policy(parser, args)
-        return _run_scan(args, deletion_policy)
+        try:
+            return _run_scan(args, deletion_policy)
+        except KeyboardInterrupt:
+            print("Scan interrupted before a terminal ScanRun status could be reported.")
+            return 130
 
     if args.command == "ebook-collection-maintain":
         return _run_ebook_collection_maintain(args)
@@ -1422,7 +1527,18 @@ def _run_scan(
     deletion_policy: DeletionConfirmationPolicy | None,
 ) -> int:
     database: Path = args.database
-    migrate(database)
+    progress = _ScanConsoleProgress(_scan_progress_enabled(args.progress))
+    progress.announce("preparing database schema")
+    try:
+        migrate(database)
+    except KeyboardInterrupt:
+        progress.close_line()
+        print("Scan interrupted before a ScanRun was started.")
+        return 130
+    except (OperationalError, RuntimeError):
+        progress.close_line()
+        print("Scan failed: database migration could not be completed.")
+        return 2
     engine = create_sqlite_engine(database)
     store = SQLiteIndexStore(engine)
     media_type = _MEDIA_TYPES[args.media_type]
@@ -1446,6 +1562,7 @@ def _run_scan(
         print(f"Scan failed: {error}")
         return 2
     hash_mode = _HASH_MODES[args.hash_mode]
+    hash_workers = _resolved_scan_hash_workers(args.hash_workers, hash_mode)
     fingerprint_writer = None if hash_mode is HashMode.NONE else FingerprintWriter(engine)
     relocation_detector = (
         None if hash_mode is HashMode.NONE else RelocationCandidateDetector(engine)
@@ -1454,17 +1571,28 @@ def _run_scan(
         store,
         batch_size=args.batch_size,
         hash_mode=hash_mode,
-        hash_workers=args.hash_workers,
+        hash_workers=hash_workers,
         fingerprint_writer=fingerprint_writer,
         deletion_policy=deletion_policy,
         relocation_detector=relocation_detector,
+        progress=progress.report,
     )
     suffixes = None if args.suffix is None else frozenset(args.suffix)
-    summary = scanner.scan(
-        root,
-        ScanRootBinding(args.path, include_suffixes=suffixes),
-        resume_from=resume_from,
-    )
+    progress.announce(f"starting scan with {hash_workers} hash worker(s)")
+    progress.start_scan()
+    try:
+        summary = scanner.scan(
+            root,
+            ScanRootBinding(args.path, include_suffixes=suffixes),
+            resume_from=resume_from,
+        )
+    except KeyboardInterrupt:
+        progress.close_line()
+        print("Status: INTERRUPTED")
+        print("Scan interrupted; rerun with --resume-last-interrupted to continue.")
+        return 130
+    finally:
+        progress.close_line()
 
     print(f"ScanRoot: {root.name}")
     if recovered_run is not None:

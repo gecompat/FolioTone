@@ -33,6 +33,7 @@ def run_migrations_online() -> None:
         section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"autocommit": False},
     )
 
     with connectable.connect() as connection:

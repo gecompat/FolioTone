@@ -20,7 +20,13 @@ from foliotone.index.hashing import (
     stream_sha256,
 )
 from foliotone.index.relocation import RelocationCandidateDetector
-from foliotone.index.scanner import MAX_SCAN_HASH_WORKERS, IncrementalScanner, ScanSummary
+from foliotone.index.scanner import (
+    MAX_SCAN_HASH_WORKERS,
+    IncrementalScanner,
+    ScanProgress,
+    ScanProgressPhase,
+    ScanSummary,
+)
 from foliotone.index.store import BatchOutcome, ScanLeaseError, SQLiteIndexStore
 
 __all__ = [
@@ -43,6 +49,8 @@ __all__ = [
     "SQLiteIndexStore",
     "ScanLeaseError",
     "ScanRootBinding",
+    "ScanProgress",
+    "ScanProgressPhase",
     "ScanSummary",
     "calculate_hashes",
     "discover_files",

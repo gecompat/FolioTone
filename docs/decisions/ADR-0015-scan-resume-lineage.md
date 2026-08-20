@@ -37,8 +37,9 @@ in der jüngsten Observation, wird ausschließlich dieses unvollständige Objekt
 nachgehasht.
 
 Berechnung und Persistenz bleiben begrenzt: Die CLI verwendet standardmäßig
-einen Hash-Worker und kann ausdrücklich mit `--hash-workers 1..8` begrenzt
-parallelisiert werden. Alle Fingerprints eines Discovery-Batches werden erst
+`--hash-workers auto`. Diese Heuristik wählt höchstens die Hälfte der sichtbaren
+CPU-Anzahl und bleibt auf 1 bis 8 Worker begrenzt; eine explizite Zahl ersetzt
+die Heuristik. Alle Fingerprints eines Discovery-Batches werden erst
 nach der Berechnungsphase gemeinsam in einer Transaktion gespeichert. Ein
 interner Abbruch hinterlässt deshalb keine neue partielle Fingerprintmenge. Ein
 Discovery-Batch persistiert außerdem seine `FileRecord`-, `FileObservation`-
@@ -52,7 +53,11 @@ Dateien, die vor dem Interrupt noch nicht erreicht wurden, werden beim Resume en
 
 ## Abwesenheit und Unterbrechung
 
-Die `MISSING`-/`DELETED`-Phase läuft weiterhin ausschließlich nach vollständig erfolgreicher Discovery. Ein `KeyboardInterrupt` setzt den aktuellen Run auf `INTERRUPTED` und verlässt den Scan vor `mark_missing`.
+Die `MISSING`-/`DELETED`-Phase läuft weiterhin ausschließlich nach vollständig
+erfolgreicher Discovery. Ein `KeyboardInterrupt` signalisiert aktiven
+In-Process-Hashreads zuerst einen kooperativen Abbruch, setzt den aktuellen Run
+auf `INTERRUPTED` und verlässt den Scan vor `mark_missing`. Die CLI beendet den
+kontrollierten Abbruch ohne Traceback mit Exitcode 130.
 
 Das bedeutet:
 

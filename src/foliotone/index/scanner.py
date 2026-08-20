@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable, Iterator
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from itertools import islice
 from threading import Event, Thread
 
@@ -16,6 +17,7 @@ from foliotone.core import (
     FileObservation,
     FileRelocationCandidate,
     FileScanEvent,
+    Fingerprint,
     ScanRoot,
     ScanRun,
     ScanRunStatus,
@@ -33,6 +35,7 @@ from foliotone.index.store import (
 from foliotone.persistence.scan_root_lease import OwnedScanRootWriteLease
 
 Clock = Callable[[], datetime]
+ProgressReporter = Callable[["ScanProgress"], None]
 MAX_SCAN_HASH_WORKERS = 8
 MAX_SCAN_HEARTBEAT_SECONDS = 60.0
 _HASH_STATES = frozenset(
@@ -42,6 +45,28 @@ _HASH_STATES = frozenset(
         FileChangeState.REAPPEARED,
     }
 )
+
+
+class ScanProgressPhase(StrEnum):
+    """Path-free phases exposed to a console progress renderer."""
+
+    DISCOVERING = "DISCOVERING"
+    FINALIZING = "FINALIZING"
+    COMPLETED = "COMPLETED"
+
+
+@dataclass(frozen=True, slots=True)
+class ScanProgress:
+    """Bounded path-free cumulative progress for one scan invocation."""
+
+    phase: ScanProgressPhase
+    processed_files: int
+    processed_bytes: int
+    hash_failures: int
+
+    def __post_init__(self) -> None:
+        if min(self.processed_files, self.processed_bytes, self.hash_failures) < 0:
+            raise ValueError("scan progress counts must not be negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,6 +159,7 @@ class IncrementalScanner:
         relocation_detector: RelocationCandidateDetector | None = None,
         lease_duration: timedelta = DEFAULT_SCAN_LEASE_DURATION,
         clock: Clock | None = None,
+        progress: ProgressReporter | None = None,
     ) -> None:
         if batch_size <= 0 or batch_size > 500:
             raise ValueError("batch_size must be between 1 and 500")
@@ -152,6 +178,7 @@ class IncrementalScanner:
         self._relocation_detector = relocation_detector
         self._lease_duration = lease_duration
         self._clock = clock or _utc_now
+        self._progress = progress
 
     def scan(
         self,
@@ -161,6 +188,8 @@ class IncrementalScanner:
         resume_from: ScanRun | None = None,
     ) -> ScanSummary:
         """Run or resume one incremental scan with a distinct auditable ScanRun."""
+        if self._fingerprints is not None:
+            self._fingerprints.reset_cancellation()
         started_at = self._clock()
         owned = self._store.start_scan(
             root,
@@ -172,6 +201,8 @@ class IncrementalScanner:
         counts: Counter[FileChangeState] = Counter()
         relocation_candidates: tuple[FileRelocationCandidate, ...] = ()
         hash_failures = 0
+        processed_files = 0
+        processed_bytes = 0
         keeper = _ScanLeaseKeeper(
             self._store,
             owned,
@@ -194,9 +225,23 @@ class IncrementalScanner:
                     outcome.events,
                     owned.write_lease,
                 )
+                processed_files += len(batch)
+                processed_bytes += sum(item.size_bytes for item in batch)
+                self._report_progress(
+                    ScanProgressPhase.DISCOVERING,
+                    processed_files,
+                    processed_bytes,
+                    hash_failures,
+                )
                 keeper.check()
                 owned = self._heartbeat(owned)
 
+            self._report_progress(
+                ScanProgressPhase.FINALIZING,
+                processed_files,
+                processed_bytes,
+                hash_failures,
+            )
             owned = self._heartbeat(owned)
             missing = self._store.mark_missing(
                 root,
@@ -221,6 +266,12 @@ class IncrementalScanner:
                 owned,
                 ScanRunStatus.COMPLETED,
                 self._clock(),
+            )
+            self._report_progress(
+                ScanProgressPhase.COMPLETED,
+                processed_files,
+                processed_bytes,
+                hash_failures,
             )
         except KeyboardInterrupt:
             if not keeper_stopped:
@@ -251,6 +302,24 @@ class IncrementalScanner:
             owned,
             heartbeat_at,
             heartbeat_at + self._lease_duration,
+        )
+
+    def _report_progress(
+        self,
+        phase: ScanProgressPhase,
+        processed_files: int,
+        processed_bytes: int,
+        hash_failures: int,
+    ) -> None:
+        if self._progress is None:
+            return
+        self._progress(
+            ScanProgress(
+                phase=phase,
+                processed_files=processed_files,
+                processed_bytes=processed_bytes,
+                hash_failures=hash_failures,
+            )
         )
 
     def _finish_after_error(
@@ -312,10 +381,13 @@ class IncrementalScanner:
                 else:
                     fingerprints.extend(calculated)
         else:
-            with ThreadPoolExecutor(
+            executor = ThreadPoolExecutor(
                 max_workers=min(self._hash_workers, len(calculate)),
                 thread_name_prefix="foliotone-hash",
-            ) as executor:
+            )
+            futures: tuple[Future[tuple[Fingerprint, ...]], ...] = ()
+            cancel_futures = False
+            try:
                 futures = tuple(
                     executor.submit(
                         self._fingerprints.calculate,
@@ -333,6 +405,14 @@ class IncrementalScanner:
                         hash_failures += 1
                     else:
                         fingerprints.extend(calculated)
+            except KeyboardInterrupt:
+                self._fingerprints.cancel_pending()
+                cancel_futures = True
+                for future in futures:
+                    future.cancel()
+                raise
+            finally:
+                executor.shutdown(wait=True, cancel_futures=cancel_futures)
         self._fingerprints.save_many(
             fingerprints,
             write_lease=write_lease,

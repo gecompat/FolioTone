@@ -62,7 +62,10 @@ from foliotone.persistence.calibre_library_schema import (
     calibre_reconciliation_findings,
 )
 from foliotone.persistence.classification_schema import CLASSIFICATION_PROJECTION_TABLES
-from foliotone.persistence.consolidation_schema import CONSOLIDATION_TABLES
+from foliotone.persistence.consolidation_schema import (
+    CONSOLIDATION_TABLES,
+    consolidation_quality_evidence,
+)
 from foliotone.persistence.relation_candidate_schema import (
     relation_candidate_evidence,
     relation_candidates,
@@ -756,6 +759,25 @@ def test_migration_from_previous_head_adds_provider_cache_entries(
             text("SELECT version_num FROM alembic_version")
         ).scalar_one()
     assert second_revision == "0018_book_classification_projection"
+
+
+def test_migration_repairs_exact_empty_0016_table_left_by_interrupt(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "interrupted-consolidation.db"
+    migrate(path, "0015_calibre_library_reconciliation")
+    legacy = create_sqlite_engine(path)
+    with legacy.begin() as connection:
+        consolidation_quality_evidence.create(connection)
+    legacy.dispose()
+
+    migrate(path)
+
+    upgraded = create_sqlite_engine(path)
+    with upgraded.connect() as connection:
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+    assert revision == "0018_book_classification_projection"
+    assert consolidation_quality_evidence.name in inspect(upgraded).get_table_names()
 
 
 def test_migration_0017_downgrade_guard(tmp_path: Path) -> None:

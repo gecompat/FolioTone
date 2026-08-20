@@ -34,9 +34,15 @@ Datei-Hashes der jüngsten vorherigen Observation auf die aktuelle Observation,
 ohne die Quelldatei erneut zu öffnen. Fehlt der erforderliche Nachweis in dieser
 jüngsten Observation, wird nur dieses Objekt nachgehasht; ein älterer Hash wird
 nicht über eine unvollständige jüngere Observation hinweg verwendet. Die CLI
-begrenzt Hash-Parallelität mit `--hash-workers 1..8` und speichert die höchstens
+begrenzt Hash-Parallelität mit `--hash-workers auto|1..8`; `auto` verwendet
+höchstens die Hälfte der sichtbaren CPU-Anzahl. Sie speichert die höchstens
 500 Dateien eines Discovery-Batches in einer gemeinsamen Fingerprint-
 Transaktion.
+Ein interaktiver Scan projiziert nach jedem abgeschlossenen Batch ausschließlich
+pfadfreie kumulative Datei-, Byte- und Durchsatzzähler auf `stderr`. Ein
+`KeyboardInterrupt` signalisiert aktiven In-Process-Hashreads den kooperativen
+Abbruch, wartet auf deren Beendigung und persistiert den gestarteten `ScanRun`
+als `INTERRUPTED`, bevor die CLI mit Exitcode 130 endet.
 Die zugehörigen `FileRecord`-, `FileObservation`- und `FileEvent`-Änderungen
 werden je Discovery-Batch set-orientiert in einer Store-Transaktion
 persistiert, statt pro Objekt einzelne Schreibtransaktionen auszuführen.

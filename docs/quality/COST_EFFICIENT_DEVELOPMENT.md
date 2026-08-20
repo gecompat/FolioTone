@@ -87,6 +87,11 @@ Alembic-Migrationskette neu. Stattdessen gilt:
 - Parallelisierung erfolgt erst nach dieser Entkopplung und wird mit einer
   begrenzten Workerzahl gemessen, statt pauschal alle Fälle gleichzeitig zu
   starten.
+- Lokale Windows-Läufe setzen `TEMP` und `TMP` oder `pytest --basetemp` auf
+  einen aufgabenspezifischen, neuen Pfad unter `C:\rep\tmp\FolioTone`. Damit
+  liegen auch die kopierten SQLite-Testdatenbanken im kontrollierten
+  Entwicklungsbereich. Ein vorhandener Basistemp-Pfad wird nicht
+  wiederverwendet oder automatisch gelöscht.
 
 Damit bleiben Isolation, Reihenfolgeunabhängigkeit und Parallelfähigkeit erhalten,
 während wiederholter identischer DDL-Aufbau entfällt.
