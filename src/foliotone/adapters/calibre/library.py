@@ -327,6 +327,13 @@ def _read_command(args: tuple[str, ...]) -> LocalCommand:
         },
         version_policy=calibre_version_policy,
         accepted_exit_codes=frozenset({0}),
+        max_stdout_bytes={
+            "--version": 64 * 1024,
+            "list": MAX_CALIBRE_LIST_STDOUT_BYTES,
+            "search": MAX_CALIBRE_SEARCH_STDOUT_BYTES,
+            "show_metadata": MAX_CALIBRE_METADATA_STDOUT_BYTES,
+            "list_categories": MAX_CALIBRE_CATEGORIES_STDOUT_BYTES,
+        }[args[0]],
     )
 
 

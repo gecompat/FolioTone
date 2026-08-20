@@ -113,6 +113,14 @@ def test_every_builder_applies_the_same_closed_read_only_runtime_policy() -> Non
     assert {command.capability for command in commands} == {ToolCapability.LIBRARY_READ}
     assert {command.timeout_seconds for command in commands} == {120.0}
     assert {command.accepted_exit_codes for command in commands} == {frozenset({0})}
+    assert tuple(command.max_stdout_bytes for command in commands) == (
+        64 * 1024,
+        MAX_CALIBRE_LIST_STDOUT_BYTES,
+        MAX_CALIBRE_SEARCH_STDOUT_BYTES,
+        MAX_CALIBRE_METADATA_STDOUT_BYTES,
+        MAX_CALIBRE_CATEGORIES_STDOUT_BYTES,
+    )
+    assert {command.max_stderr_bytes for command in commands} == {1024 * 1024}
     assert {command.version_policy for command in commands} == {calibre_version_policy}
     assert all(
         command.workspace_environment

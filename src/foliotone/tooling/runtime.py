@@ -13,6 +13,7 @@ from concurrent.futures import Future
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import BinaryIO
 
 from sqlalchemy import Engine
 
@@ -29,6 +30,8 @@ from foliotone.tooling.structured import (
 
 Clock = Callable[[], datetime]
 VersionPolicy = Callable[[str], str | None]
+MAX_PROCESS_OUTPUT_BYTES = 1024 * 1024 * 1024
+MAX_VERSION_OUTPUT_BYTES = 64 * 1024
 type LocalProbeCacheKey = tuple[
     str,
     tuple[str, ...],
@@ -79,12 +82,24 @@ class LocalCommand:
     outputs: tuple[WorkspaceOutput, ...] = ()
     version_policy: VersionPolicy | None = None
     accepted_exit_codes: frozenset[int] = frozenset({0})
+    max_stdout_bytes: int = 64 * 1024 * 1024
+    max_stderr_bytes: int = 1024 * 1024
 
     def __post_init__(self) -> None:
         if not self.executable.strip():
             raise ValueError("executable must not be empty")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
+        object.__setattr__(
+            self,
+            "max_stdout_bytes",
+            _validate_process_output_limit(self.max_stdout_bytes),
+        )
+        object.__setattr__(
+            self,
+            "max_stderr_bytes",
+            _validate_process_output_limit(self.max_stderr_bytes),
+        )
         if self.workspace_environment:
             for variable, relative_path in self.workspace_environment.items():
                 if not variable.strip():
@@ -124,12 +139,24 @@ class ContainerCommand:
     network_enabled: bool = False
     outputs: tuple[WorkspaceOutput, ...] = ()
     accepted_exit_codes: frozenset[int] = frozenset({0})
+    max_stdout_bytes: int = 64 * 1024 * 1024
+    max_stderr_bytes: int = 1024 * 1024
 
     def __post_init__(self) -> None:
         if not self.image.strip():
             raise ValueError("image must not be empty")
         if self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
+        object.__setattr__(
+            self,
+            "max_stdout_bytes",
+            _validate_process_output_limit(self.max_stdout_bytes),
+        )
+        object.__setattr__(
+            self,
+            "max_stderr_bytes",
+            _validate_process_output_limit(self.max_stderr_bytes),
+        )
         artifact_types = [output.artifact_type for output in self.outputs]
         if len(artifact_types) != len(set(artifact_types)):
             raise ValueError("workspace output artifact types must be unique")
@@ -325,6 +352,8 @@ class ToolRuntime:
             workspace_environment=command.workspace_environment,
             outputs=command.outputs,
             accepted_exit_codes=command.accepted_exit_codes,
+            max_stdout_bytes=command.max_stdout_bytes,
+            max_stderr_bytes=command.max_stderr_bytes,
         )
 
     def execute_container(
@@ -365,6 +394,8 @@ class ToolRuntime:
                 workspace=workspace,
                 outputs=command.outputs,
                 accepted_exit_codes=command.accepted_exit_codes,
+                max_stdout_bytes=command.max_stdout_bytes,
+                max_stderr_bytes=command.max_stderr_bytes,
             )
         finally:
             shutil.rmtree(workspace, ignore_errors=True)
@@ -492,6 +523,8 @@ class ToolRuntime:
         workspace_environment: Mapping[str, str] | None = None,
         outputs: tuple[WorkspaceOutput, ...] = (),
         accepted_exit_codes: frozenset[int] = frozenset({0}),
+        max_stdout_bytes: int = 64 * 1024 * 1024,
+        max_stderr_bytes: int = 1024 * 1024,
     ) -> ToolRunOutcome:
         execution_id = execution_id or EntityId.new()
         created_workspace = workspace is None
@@ -532,10 +565,59 @@ class ToolRuntime:
                         cwd=workspace,
                         env=process_environment,
                         stdin=subprocess.DEVNULL,
-                        stdout=stdout,
-                        stderr=stderr,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
                         shell=False,
                     )
+                    assert process.stdout is not None
+                    assert process.stderr is not None
+                    capture_failures: list[str] = []
+                    capture_lock = threading.Lock()
+
+                    def capture_stream(
+                        stream: BinaryIO,
+                        target: BinaryIO,
+                        limit: int,
+                        label: str,
+                    ) -> None:
+                        written = 0
+                        try:
+                            while chunk := os.read(stream.fileno(), 64 * 1024):
+                                remaining = limit - written
+                                if len(chunk) > remaining:
+                                    if remaining > 0:
+                                        target.write(chunk[:remaining])
+                                    with capture_lock:
+                                        capture_failures.append(
+                                            f"{label} exceeded its configured size limit"
+                                        )
+                                    try:
+                                        process.kill()
+                                    except OSError:
+                                        pass
+                                    return
+                                target.write(chunk)
+                                written += len(chunk)
+                        except (OSError, ValueError):
+                            with capture_lock:
+                                capture_failures.append(f"{label} capture failed")
+                            try:
+                                process.kill()
+                            except OSError:
+                                pass
+
+                    readers = (
+                        threading.Thread(
+                            target=capture_stream,
+                            args=(process.stdout, stdout, max_stdout_bytes, "stdout"),
+                        ),
+                        threading.Thread(
+                            target=capture_stream,
+                            args=(process.stderr, stderr, max_stderr_bytes, "stderr"),
+                        ),
+                    )
+                    for reader in readers:
+                        reader.start()
                     try:
                         exit_code = process.wait(timeout=timeout_seconds)
                     except subprocess.TimeoutExpired:
@@ -550,6 +632,10 @@ class ToolRuntime:
                     except KeyboardInterrupt:
                         process.kill()
                         process.wait()
+                        for reader in readers:
+                            reader.join()
+                        stdout.flush()
+                        stderr.flush()
                         cancelled = replace(
                             running,
                             finished_at=self._clock(),
@@ -574,6 +660,16 @@ class ToolRuntime:
                                 if exit_code in accepted_exit_codes
                                 else f"exit code {exit_code}"
                             ),
+                        )
+                    finally:
+                        for reader in readers:
+                            reader.join()
+                    if capture_failures:
+                        terminal = replace(
+                            running,
+                            finished_at=self._clock(),
+                            status=ToolExecutionStatus.FAILED,
+                            error_summary=sorted(set(capture_failures))[0],
                         )
             except OSError as exc:
                 terminal = replace(
@@ -768,20 +864,59 @@ def _detect_version(
     environment: Mapping[str, str],
 ) -> str | None:
     try:
-        result = subprocess.run(
+        process = subprocess.Popen(
             (executable, *args),
             stdin=subprocess.DEVNULL,
-            capture_output=True,
-            check=False,
-            timeout=10,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             shell=False,
             env=dict(environment),
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except OSError:
         return None
-    if result.returncode != 0:
+    assert process.stdout is not None
+    assert process.stderr is not None
+    stdout = bytearray()
+    stderr = bytearray()
+    rejected = threading.Event()
+
+    def capture(stream: BinaryIO, target: bytearray) -> None:
+        try:
+            while chunk := os.read(stream.fileno(), 64 * 1024):
+                if len(target) + len(chunk) > MAX_VERSION_OUTPUT_BYTES:
+                    rejected.set()
+                    try:
+                        process.kill()
+                    except OSError:
+                        pass
+                    return
+                target.extend(chunk)
+        except (OSError, ValueError):
+            rejected.set()
+            try:
+                process.kill()
+            except OSError:
+                pass
+
+    readers = (
+        threading.Thread(target=capture, args=(process.stdout, stdout)),
+        threading.Thread(target=capture, args=(process.stderr, stderr)),
+    )
+    for reader in readers:
+        reader.start()
+    return_code: int | None = None
+    try:
+        return_code = process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+        rejected.set()
+    finally:
+        for reader in readers:
+            reader.join()
+    if rejected.is_set() or return_code != 0:
         return None
-    text = (result.stdout or result.stderr).decode(errors="replace").strip()
+    text = bytes(stdout or stderr).decode(errors="replace").strip()
     return text.splitlines()[0][:256] if text else None
 
 
@@ -804,6 +939,14 @@ def _sha256_file(path: Path) -> str:
 
 def _looks_like_absolute_path(value: str) -> bool:
     return Path(value).is_absolute() or PureWindowsPath(value).is_absolute()
+
+
+def _validate_process_output_limit(value: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError("process output limit must be an integer")
+    if not 1 <= value <= MAX_PROCESS_OUTPUT_BYTES:
+        raise ValueError("process output limit is outside the supported range")
+    return value
 
 
 def _validate_accepted_exit_codes(codes: frozenset[int]) -> frozenset[int]:

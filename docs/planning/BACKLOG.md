@@ -166,10 +166,12 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 | S-EB07-07 | DONE | Reconciliation Mapper für Fälle A bis D. |
 | S-EB07-08 | DONE | Reconciliation Mapper für Fälle E bis G als Evidence und Review Candidates. |
 | S-EB07-09 | DONE | Read-only CLI `calibre-reconciliation-report` und pfadfreier Report `calibre-reconciliation-report/v1`. Die Calibre-Capture-Orchestrierung bleibt offen. |
+| S-EB07-10 | DONE | Generische ToolRuntime begrenzt stdout/stderr bereits während der Ausführung; die festen `calibredb`-Shapes binden ihre ADR-0033-Grenzen und brechen bei Überlauf fail-closed ab. |
+| S-EB07-11 | PLANNED | Read-only Capture-Orchestrierung mit keyset-paginiertem Vorher-/Nachher-Inventar, OPF-/Kategorieprojektion, Lease-Keeper und atomarer Snapshot-Persistenz. |
 
 EB-07 ist damit für die persistierte read-only Reconciliation abgeschlossen.
 Die eigentliche Capture-Orchestrierung gegen eine konfigurierte Calibre-
-Bibliothek bleibt ein offener Folgebaustein. EB-08, Archiv-Evidence und die
+Bibliothek bleibt `S-EB07-11`. EB-08, Archiv-Evidence und die
 W10-Sperre werden durch diesen Abschluss nicht vorgezogen.
 
 ## EB-08 — nicht ausführbarer ConsolidationPlan
