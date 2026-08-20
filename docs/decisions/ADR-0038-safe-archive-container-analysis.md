@@ -82,6 +82,12 @@ UNSUPPORTED_FORMAT
 UNKNOWN_SIGNATURE
 ```
 
+Diese gemeinsame `ArchiveFormatKind`-Achse bleibt der v1-Vertrag. Für neue
+Produktionspfade supersediert
+[ADR-0046](ADR-0046-archive-publication-and-storage-family.md) sie durch
+orthogonale Publication-, Storage-, Outer-Compression- und normalisierte
+Suffix-Evidence. V1 wird nicht zur Auswahl eines neuen Formatprofils verwendet.
+
 Die Klasse ist technische Evidence. Sie ist weder File-Identity noch eine
 `Relation`, Keep Preference oder Löschentscheidung.
 
