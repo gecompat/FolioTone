@@ -165,7 +165,7 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 | S-EB07-06 | DONE | Insert-only Persistenz für Snapshot-Lineage und Ownership Evidence. |
 | S-EB07-07 | DONE | Reconciliation Mapper für Fälle A bis D. |
 | S-EB07-08 | DONE | Reconciliation Mapper für Fälle E bis G als Evidence und Review Candidates. |
-| S-EB07-09 | DONE | Read-only CLI `calibre-reconciliation-report` und pfadfreier Report `calibre-reconciliation-report/v1`. Die Calibre-Capture-Orchestrierung bleibt offen. |
+| S-EB07-09 | DONE | Read-only CLI `calibre-reconciliation-report` und pfadfreier Report `calibre-reconciliation-report/v1`. |
 | S-EB07-10 | DONE | Generische ToolRuntime begrenzt stdout/stderr bereits während der Ausführung; die festen `calibredb`-Shapes binden ihre ADR-0033-Grenzen und brechen bei Überlauf fail-closed ab. |
 | S-EB07-11A | DONE | Bounded Capture-Parser für verpflichtendes `last_modified`, Exact-ID-Suche und Kategorie-CSV sowie kanonischer ADR-0033-Inventory-Digest. |
 | S-EB07-11B1 | DONE | Bounded OPF-Validierung und exakter Metadatenfingerprint sowie reine, lineage-gebundene Projektion des Capture-Ergebnisses in den atomaren Record-/Format-Snapshotgraphen. |
