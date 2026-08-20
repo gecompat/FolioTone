@@ -17,6 +17,7 @@ from foliotone.archive.safety_policy import (
 )
 
 ARCHIVE_7ZIP_SLT_PARSER_PROFILE: Final = "archive-7zip-slt-parser/v1"
+ARCHIVE_7ZIP_SLT_MEMBER_PARSER_PROFILE: Final = "archive-7zip-slt-parser/v2"
 MAX_CHUNK_BYTES: Final = 262_144
 MAX_CHUNKS: Final = 65_536
 MAX_LINE_UTF8_BYTES: Final = 8_192
@@ -32,6 +33,85 @@ class ArchiveSevenZipSltParseStatus(StrEnum):
     LIMIT_EXCEEDED = "LIMIT_EXCEEDED"
     ENCODING_REJECTED = "ENCODING_REJECTED"
     GRAMMAR_REJECTED = "GRAMMAR_REJECTED"
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveSevenZipSltMemberParseResult:
+    profile: str
+    status: ArchiveSevenZipSltParseStatus
+    members: tuple[ArchiveSevenZipSltMember, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.profile != ARCHIVE_7ZIP_SLT_MEMBER_PARSER_PROFILE:
+            raise ValueError("unsupported archive member parser profile")
+        if not isinstance(self.status, ArchiveSevenZipSltParseStatus):
+            raise ValueError("status must be ArchiveSevenZipSltParseStatus")
+        if not isinstance(self.members, tuple) or len(self.members) > MAX_MEMBER_COUNT:
+            raise ValueError("members violate archive member parser bounds")
+        if any(not isinstance(member, ArchiveSevenZipSltMember) for member in self.members):
+            raise ValueError("members must contain archive parser members")
+        if self.status is not ArchiveSevenZipSltParseStatus.PARSED:
+            if self.members != ():
+                raise ValueError("failed member parse cannot retain members")
+            return
+        canonical: dict[str, bool] = {}
+        for member in self.members:
+            key = _canonical_locator(member.locator)
+            if key in canonical or _parent_child_conflict(key, member.is_directory, canonical):
+                raise ValueError("member locators must be distinct and safe")
+            canonical[key] = member.is_directory
+
+
+def parse_archive_7zip_slt_members(chunks: Iterable[bytes]) -> ArchiveSevenZipSltMemberParseResult:
+    """Parse the exact headerless member-only v2 grammar without raw retention."""
+
+    parser = _MemberOnlyParser()
+    decoder = codecs.getincrementaldecoder("utf-8")("strict")
+    total_bytes = 0
+    chunk_count = 0
+    started = False
+    try:
+        for chunk in chunks:
+            chunk_count += 1
+            if not isinstance(chunk, bytes):
+                return _failed_members(ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED)
+            if chunk_count > MAX_CHUNKS or len(chunk) > MAX_CHUNK_BYTES:
+                return _failed_members(ArchiveSevenZipSltParseStatus.LIMIT_EXCEEDED)
+            total_bytes += len(chunk)
+            if total_bytes > MAX_STDOUT_BYTES:
+                return _failed_members(ArchiveSevenZipSltParseStatus.LIMIT_EXCEEDED)
+            decoded = decoder.decode(chunk, final=False)
+            if decoded:
+                if not started and decoded.startswith("\ufeff"):
+                    decoded = decoded[1:]
+                started = True
+                if "\ufeff" in decoded:
+                    return _failed_members(ArchiveSevenZipSltParseStatus.ENCODING_REJECTED)
+                if not parser.feed(decoded):
+                    return _failed_members(parser.failure)
+        decoded = decoder.decode(b"", final=True)
+    except UnicodeDecodeError:
+        return _failed_members(ArchiveSevenZipSltParseStatus.ENCODING_REJECTED)
+    except Exception:
+        return _failed_members(ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED)
+    if decoded:
+        if not started and decoded.startswith("\ufeff"):
+            decoded = decoded[1:]
+        started = True
+        if "\ufeff" in decoded:
+            return _failed_members(ArchiveSevenZipSltParseStatus.ENCODING_REJECTED)
+        if not parser.feed(decoded):
+            return _failed_members(parser.failure)
+    if not parser.finish():
+        return _failed_members(parser.failure)
+    try:
+        return parser.member_result()
+    except Exception:
+        return _failed_members(ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED)
+
+
+def _failed_members(status: ArchiveSevenZipSltParseStatus) -> ArchiveSevenZipSltMemberParseResult:
+    return ArchiveSevenZipSltMemberParseResult(ARCHIVE_7ZIP_SLT_MEMBER_PARSER_PROFILE, status)
 
 
 @dataclass(frozen=True, slots=True)
@@ -452,6 +532,39 @@ class _Parser:
     def _reject(self) -> bool:
         self.failure = ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED
         return False
+
+
+class _MemberOnlyParser(_Parser):
+    """State machine for ``EOF | (FIELD+ BLANK)+ EOF``."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._stage = "members"
+        self._record_closed = False
+
+    def finish(self) -> bool:
+        if self._pending_cr or self._line or self._member:
+            return self._reject()
+        return not self._members or self._record_closed
+
+    def member_result(self) -> ArchiveSevenZipSltMemberParseResult:
+        return ArchiveSevenZipSltMemberParseResult(
+            ARCHIVE_7ZIP_SLT_MEMBER_PARSER_PROFILE,
+            ArchiveSevenZipSltParseStatus.PARSED,
+            tuple(self._members),
+        )
+
+    def _accept_line(self, line: str) -> bool:
+        if line == "":
+            if not self._member or self._record_closed:
+                return self._reject()
+            if not self._close_member():
+                return False
+            self._record_closed = True
+            return True
+        if self._record_closed:
+            self._record_closed = False
+        return self._add_field(self._member, line, _MEMBER_FIELDS)
 
 
 def _is_canonical_number(value: str) -> bool:
