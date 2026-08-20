@@ -450,7 +450,9 @@ def _utc_now() -> datetime:
 def _is_transient_sqlite_lock(error: Exception) -> bool:
     """Return whether SQLAlchemy wrapped SQLite's retryable writer-lock errors."""
 
-    if not isinstance(error, OperationalError) or not isinstance(error.orig, sqlite3.OperationalError):
+    if not isinstance(error, OperationalError) or not isinstance(
+        error.orig, sqlite3.OperationalError
+    ):
         return False
     message = str(error.orig).lower()
     return "locked" in message or "busy" in message
