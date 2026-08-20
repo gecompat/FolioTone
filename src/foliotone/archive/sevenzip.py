@@ -1,8 +1,8 @@
 """Fixed, read-only 7-Zip command and runtime-identity contracts.
 
-This module deliberately does not start a process.  The later container runner
-may use only these command shapes after its separate staging and sandbox
-preflight has succeeded.
+This module never executes archive operations.  Its bounded helper processes
+only verify the reviewed runtime identity before the later container runner may
+use these command shapes after a separate staging and sandbox preflight.
 """
 
 from __future__ import annotations
@@ -1494,7 +1494,9 @@ def _run_bounded_process(
         shell=False,
         start_new_session=os.name != "nt",
         creationflags=(
-            subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+            getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            if os.name == "nt"
+            else 0
         ),
     )
     if process.stdout is None:
@@ -1690,7 +1692,8 @@ def _atomic_replace(source: Path, destination: Path) -> None:
     if os.name != "nt":
         os.replace(source, destination)
         return
-    move_file = ctypes.windll.kernel32.MoveFileExW
+    windows_ctypes: Any = ctypes
+    move_file = windows_ctypes.windll.kernel32.MoveFileExW
     move_file.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_ulong]
     move_file.restype = ctypes.c_int
     movefile_replace_existing = 0x1
@@ -1730,7 +1733,7 @@ def _state_lock(root: Path, private_parent: Path) -> Iterator[None]:
             raise
         with os.fdopen(descriptor, "a+b") as handle:
             if os.name == "nt":
-                import msvcrt
+                msvcrt = importlib.import_module("msvcrt")
 
                 if handle.seek(0, os.SEEK_END) == 0:
                     handle.write(b"\0")
