@@ -4,9 +4,9 @@
 
 **Status:** In Ausführung; FG-A, S-EBA-01 bis S-EBA-07, FG-A-RUNTIME,
 S-EBAR-01 bis S-EBAR-03A, FG-A-IMAGE, FG-A-RUNTIME-AVAILABILITY, EBAR-04,
-S-EBAR-02A, S-EBAR-02B und S-EBAR-02B2 abgeschlossen;
-FG-A-STORAGE-FAMILY durch ADR-0046 und FG-A-FORMAT-LOCK durch ADR-0047
-entschieden; S-EBAR-02C als nächster Schritt
+S-EBAR-02A bis S-EBAR-02C und EBAR-05 abgeschlossen;
+FG-A-STORAGE-FAMILY, FG-A-FORMAT-LOCK und
+FG-A-EXTRACTION-LIFECYCLE entschieden; S-EBAR-05A als nächster Schritt
 
 **Stand:** 2026-08-20
 
@@ -59,8 +59,11 @@ stuft es als diagnostische Happy-Path-Evidence ein und akzeptiert noch keinen
 Formatlock. S-EBAR-02B2 hat die Fallmatrix und Boolklassifikation geschlossen.
 [ADR-0046](../decisions/ADR-0046-archive-publication-and-storage-family.md)
 entscheidet FG-A-STORAGE-FAMILY. [ADR-0047](../decisions/ADR-0047-final-archive-7zip-format-lock.md)
-akzeptiert danach den finalen maschinenlesbaren Formatlock; als Nächstes folgt
-S-EBAR-02C. `BOOTSTRAP_LOCKED` und lokales
+akzeptiert danach den finalen maschinenlesbaren Formatlock. S-EBAR-02C und
+EBAR-05 sind umgesetzt. [ADR-0048](../decisions/ADR-0048-private-archive-extraction-lifecycle.md)
+entscheidet vor EBAR-06 den privaten Listing-/CRC-Handoff, den Runner-owned
+Workspace-Consumer-Lifecycle und die getrennte Wrappergrenze. Als Nächstes
+folgt S-EBAR-05A. `BOOTSTRAP_LOCKED` und lokales
 Inspect allein bleiben keine Runtime-Authority; Public Visibility und
 Source-Association werden nur beim
 Provisioning beziehungsweise Refresh erneut geprüft.
@@ -275,23 +278,33 @@ ersten Runtime jede automatische Nested-Verarbeitung.
 
 ### EA5 — Private Testextraktion
 
-**Status:** Der Sicherheitsvertrag ist durch ADR-0039 akzeptiert; EBAR-06 ist
-noch nicht implementiert. Passwortgeschützte Extraktion bleibt unabhängig
-davon blockiert.
+**Status:** Der Grundvertrag ist durch ADR-0039 akzeptiert. ADR-0048 hat die
+auf HEAD sichtbaren Handoff-, Quota- und Runner-Lifecycle-Lücken geordnet und
+legt
+vor EBAR-06 S-EBAR-05A, S-EBAR-06A, FG-A-EXTRACTION-QUOTA, S-EBAR-04Q sowie
+S-EBAR-04A fest. Passwortgeschützte Extraktion
+bleibt unabhängig davon blockiert.
 
 **Ziel:** Ein technisch zulässiges Archiv kann in einem ephemeren privaten
 Workspace vollständig geprüft werden.
 
 Die Source bleibt read-only. Jedes Mitglied wird gestreamt gehasht; erwartete
 und extrahierte Mitglieder, Größen und CRC-/Toolbefunde müssen konsistent
-sein. Fehler, Passwortbedarf, fehlende Volumes oder Limits erzeugen einen
-terminalen technischen Befund, aber keine Source-Operation. Der Workspace
-wird nach sicherer Evidence-Übernahme bereinigt. S-EBA-01 bis S-EBA-07,
-S-EBAR-01 bis S-EBAR-03A, FG-A-RUNTIME, FG-A-IMAGE,
-FG-A-RUNTIME-AVAILABILITY, EBAR-04, S-EBAR-02A und S-EBAR-02B sind
-abgeschlossen. FG-A-FORMAT-LOCK ist durch ADR-0047 abgeschlossen; S-EBAR-02C
-folgt als nächstes. Die 7-Zip-CLI darf kein Secret
-über `-p` erhalten.
+sein. Der Runner beweist die Container-Abwesenheit vor der synchronen
+Workspace-Revalidierung und bleibt alleinige Cleanup-Authority. Vorläufige
+Member-Evidence wird erst nach erfolgreichem Cleanup, leerer Slot-
+Revalidierung und Return freigegeben; unsichere Slots werden quarantänisiert.
+Fehler,
+Passwortbedarf, fehlende Volumes oder Limits erzeugen einen terminalen
+technischen Befund, aber keine Source-Operation. S-EBAR-05A bewahrt die
+privaten Locator-/CRC-Werte desselben EBAR-05-Laufs; S-EBAR-06A stellt den
+reinen internen Validator bereit. FG-A-EXTRACTION-QUOTA entscheidet einen
+harten Linux-Workspace-Cap, weil Polling allein keine atomare
+Budgetdurchsetzung beweist. S-EBAR-04Q implementiert danach die
+unprivilegierte Quota-Slot-Capability; S-EBAR-04A stellt anschließend den
+bounded Consumer-Lifecycle bereit. Erst danach beginnt EBAR-06 für direkte
+unverschlüsselte `MEASURED`-Fälle. Die 7-Zip-CLI darf kein Secret über `-p`
+erhalten.
 
 ## FG-A-RUNTIME-Folgepakete und Modellrouting
 
@@ -314,7 +327,14 @@ S-EBAR-01 Execution-DTOs
     -> FG-A-FORMAT-LOCK finaler maschinenlesbarer Lock
     -> S-EBAR-02C formatgebundene Produktionsparser
     -> EBAR-05 unverschlüsseltes Listing und Integrity
-    -> EBAR-06 private Extraction-Sandbox
+    -> FG-A-EXTRACTION-LIFECYCLE privater Handoff und Runner-Lifecycle
+    -> S-EBAR-05A privater Listing-/CRC-Handoff
+    -> S-EBAR-06A reiner interner Extraction-Validator
+    -> FG-A-EXTRACTION-QUOTA harter Linux-Workspace-Cap
+    -> S-EBAR-04Q mechanische Quota-Slot-Capability
+    -> S-EBAR-04A privater Workspace-Consumer-Lifecycle
+    -> EBAR-06 direkte private Extraction-Sandbox
+    -> FG-A-WRAPPER-PIPELINE separates späteres Wrapper-Gate
     -> FG-A-PERSISTENCE Schema-, Reuse- und Writer-Gate
     -> S-EBAR-07 Persistenz
     -> EBAR-08 Collection-Orchestrierung

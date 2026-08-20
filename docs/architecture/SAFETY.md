@@ -68,9 +68,9 @@ orthogonal. ADR-0047 akzeptiert ausschließlich darauf den kanonischen
 oder Capabilityabweichung ist stale und fail-closed. Suffixe dürfen keine
 Storage-Familie setzen; 7-Zip-Ausgabe darf sie nicht umklassifizieren. Private
 Linkziele dürfen nie DTO, Manifest, Digest, Log oder Artefakt erreichen.
-gzip, bzip2, xz und zstd bleiben bis EBAR-06
-`OUTER_COMPRESSION_ONLY` ohne produktiven Listing-/Integrity-Provider oder
-Member-Evidence.
+gzip, bzip2, xz und zstd bleiben gemäß ADR-0048 bis zu einem separaten
+FG-A-WRAPPER-PIPELINE `OUTER_COMPRESSION_ONLY` ohne produktiven
+Listing-/Integrity-/Extraction-Provider oder Member-Evidence.
 
 Die unverschlüsselte Runtime setzt die ADR-0038-Limits während der Ausführung
 durch und beendet bei Timeout oder Grenzverletzung den vollständigen
@@ -143,9 +143,38 @@ Workspace mit Owner `65532:65532` und Modus `0700` ist der einzige read-write
 Mount. Zusätzliche ACL-Rechte oder eine nicht beweisbare Bind-Projektion
 beenden den Auftrag vor Toolstart mit `TOOL_UNAVAILABLE`. Listing,
 Integritätstest und private Extraktion besitzen getrennte `ToolExecution`-
-Provenance. Nach der Extraktion wird der private Workspace erneut no-follow auf
-Pfade, Links, Reparse Points, Devices, Kollisionen, Größen und Vollständigkeit
-geprüft, bevor Member gehasht und beide privaten Workspaces bereinigt werden.
+Provenance.
+
+ADR-0048 ergänzt vor EBAR-06 fünf verpflichtende Schritte. S-EBAR-05A erhält
+private Memberlocator und CRC-Werte ausschließlich als redigierten
+In-Memory-Handoff desselben Listing-/Integrity-Laufs. S-EBAR-06A implementiert
+den exakten underscore-internen, reinen Extraction-Validator ohne Tool- oder
+Filesystemzugriff. FG-A-EXTRACTION-QUOTA muss danach einen harten, atomar
+durchgesetzten Linux-Workspace-Cap für Gesamtbytes, Member und Reserve
+akzeptieren; Polling allein ist dafür kein Sicherheitsbeweis. S-EBAR-04Q
+implementiert danach die exakt entschiedene unprivilegierte Quota-Slot-
+Capability. Erst S-EBAR-04A erweitert den Runner um einen nicht öffentlichen
+Workspace-Consumer-Lifecycle.
+Der Runner
+beweist zuerst die Container-Abwesenheit, leiht danach eine opaque no-follow-
+Workspace-Capability synchron an den exakten internen Consumer und invalidiert
+sie unmittelbar nach dem Callback. Der Consumer revalidiert Member, Pfade,
+Typen, Größen, CRC und TOCTOU und hasht reguläre Dateien bounded. Nur der
+Runner bereinigt Input und Output. Danach muss S-EBAR-04Q den leeren Slot
+erneut beweisen und erfolgreich zurücknehmen; erst dann wird die vorläufige
+Evidence freigegeben. Cleanup-, Container-Absence-, Slot-Revalidation- oder
+Returnfehler werden `TOOL_FAILED`, verwerfen alle Teilwerte und
+quarantänisieren den Slot statt ihn wiederzuverwenden.
+
+Während Extraction darf Polling Memberzahl, Einzel- und Gesamtgröße,
+Workspacegröße und freien Reserveplatz nur als zusätzlichen Frühabbruch
+überwachen. Ein gelatchter Limitbefund beendet den Prozessbaum über die
+bestehende Cancellation-/Kill-Grenze und wird danach `LIMIT_EXCEEDED`;
+`RLIMIT_FSIZE` begrenzt zusätzlich jedes einzelne Output-Member. Der harte
+Gesamtbudgetnachweis muss aus dem akzeptierten FG-A-EXTRACTION-QUOTA-Vertrag
+stammen und Überschreitungen zwischen zwei Scans verhindern. Kann das
+Linux-Backend harten Cap, Live-Abbruch, no-follow-Revalidierung oder Cleanup
+nicht belegen, bleibt Extraction `TOOL_UNAVAILABLE`.
 
 Native Windows-Ausführung bleibt `TOOL_UNAVAILABLE`, bis
 `FG-A-WINDOWS-SANDBOX` Netzwerk- und Filesystemisolation belegt. Job Objects

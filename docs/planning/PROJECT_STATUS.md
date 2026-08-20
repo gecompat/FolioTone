@@ -4,7 +4,7 @@ Stand: 2026-08-20
 
 ## Aktuelle Welle
 
-**FG-A-FORMAT-LOCK READY — nächstes Paket nach Annahme: S-EBAR-02C**
+**FG-A-EXTRACTION-LIFECYCLE entschieden — nächstes Paket: S-EBAR-05A**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -91,8 +91,8 @@ als `VT_BOOL`-Felder, und `ArchiveFormatKind` trennte Publication Kind nicht
 von der RAR4-/RAR5-/ZIP-Storage-Familie. ADR-0045 akzeptierte deshalb die neue
 Folge S-EBAR-02B2, FG-A-STORAGE-FAMILY, finaler FG-A-FORMAT-LOCK und danach
 S-EBAR-02C. Measurement SHA-256 `40a6ee...` und Vorabkandidat `fdebe71...`
-bleiben ausschließlich diagnostisch. gzip, bzip2, xz und zstd bleiben bis EBAR-06
-`OUTER_COMPRESSION_ONLY`.
+bleiben ausschließlich diagnostisch. gzip, bzip2, xz und zstd bleiben bis zu
+einem separaten FG-A-WRAPPER-PIPELINE `OUTER_COMPRESSION_ONLY`.
 
 S-EBAR-02B2 ist auf `main` umgesetzt. Das geschlossene v2-Messmanifest enthält
 die vollständige 5×8-Matrix aus `MEASURED`, `FORMAT_UNSUPPORTED` und
@@ -116,8 +116,8 @@ FG-A-STORAGE-FAMILY ist durch ADR-0046 entschieden, unabhängig geprüft und auf
 `NONE/GZIP/BZIP2/XZ/ZSTD`. Suffixe liefern Publication- und normalisierte
 Suffix-Evidence, aber niemals Storage-Authority; Signaturebytes liefern
 ausschließlich Storage oder äußere Kompression.
-Widersprüche bleiben `SIGNATURE_SUFFIX_MISMATCH`, Wrapper bleiben vor EBAR-06
-Storage `UNKNOWN`. Profil v1 bleibt legacy-read-only und darf keinen neuen
+Widersprüche bleiben `SIGNATURE_SUFFIX_MISMATCH`, Wrapper bleiben bis
+FG-A-WRAPPER-PIPELINE Storage `UNKNOWN`. Profil v1 bleibt legacy-read-only und darf keinen neuen
 Runtimelauf autorisieren.
 
 FG-A-FORMAT-LOCK ist durch ADR-0047 entschieden. Der kanonische
@@ -126,7 +126,32 @@ Recordprojektionen, Measurement-, Fixture-, Image-, Tool-, Command-,
 Signatur- und Compatibility-Identitäten. Sein SHA-256 ist
 `4270fbf6ba7782c3b2fb1025137581ce07a1bc271664e19692dce388a617e061`.
 Der geschützte Workflow verifiziert Lock und getrennten Digest ausschließlich
-read-only; S-EBAR-02C ist der nächste Schritt.
+read-only.
+
+S-EBAR-02C und EBAR-05 sind auf `main` umgesetzt. Der Produktionsparser bindet
+die direkten `MEASURED`-Zellen exakt an den finalen Lock; der Provider führt
+unverschlüsseltes Listing und Integrity mit getrennten Executions aus,
+verwirft Rawstreams und startet für Wrapper oder nicht autorisierte Zellen
+keinen Lauf. Der öffentliche Provider-Outcome bleibt locatorfrei.
+
+FG-A-EXTRACTION-LIFECYCLE ist durch ADR-0048 entschieden. Die Prüfung des
+aktuellen Runners hat gezeigt, dass er Output vor einer Extraction-
+Revalidierung bereinigt und sein bisheriges `verify_after_run` einen leeren
+Output verlangt. Außerdem verwirft die öffentliche EBAR-05-Projektion die für
+listed/extracted- und CRC-Prüfung notwendigen privaten Werte. Deshalb folgen
+vor EBAR-06 zuerst S-EBAR-05A mit einem underscore-internen Handoff desselben
+Listing-/Integrity-Laufs, S-EBAR-06A mit dem reinen internen
+Extraction-Validator, FG-A-EXTRACTION-QUOTA für einen atomar durchgesetzten
+Linux-Workspace-Cap, S-EBAR-04Q für dessen unprivilegierte Quota-Slot-
+Capability und erst danach S-EBAR-04A mit einem privaten synchronen
+Workspace-Consumer zwischen bewiesener Container-Abwesenheit und Runner-owned
+Cleanup. Polling beendet früh den Prozessbaum, ist aber kein Ersatz für den
+harten Cap; vorläufige Hashes werden erst nach Cleanup, leerer
+Slot-Revalidierung und erfolgreichem Return freigegeben. Unsichere Slots werden
+quarantänisiert. EBAR-06 bleibt auf direkte
+unverschlüsselte ZIP-/RAR4-/RAR5-/7z-/TAR-Fälle beschränkt. gzip, bzip2, xz
+und zstd erhalten bis FG-A-WRAPPER-PIPELINE keinen Provider- oder
+Extraction-Lauf.
 
 Die spezialisierte Runtime darf anschließend ausschließlich unverschlüsselte
 Archive über bounded Streaming ohne Raw-Artefakt oder Preview verarbeiten.
