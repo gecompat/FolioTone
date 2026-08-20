@@ -88,6 +88,9 @@ def test_archive_format_measurement_fixtures_are_raw_hash_bound_and_value_free()
     assert "--cap-drop" in argv and "no-new-privileges" in argv
     assert argv[-2:] == ["--", "/fixtures/direct/zip.zip"]
     assert "@sha256:" not in argv
+    mount = argv[argv.index("--mount") + 1]
+    assert mount.startswith(f"type=bind,src={FIXTURES.resolve()},")
+    assert mount.endswith(",dst=/fixtures,readonly")
     expected = FIXTURES / "expected-measurement.json"
     assert hashlib.sha256(expected.read_bytes()).hexdigest() == (
         "40a6ee8843390cee75712461495c0173d47247696800976c21cc7134ffd3b89e"

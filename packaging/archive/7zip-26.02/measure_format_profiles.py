@@ -7,6 +7,7 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -274,6 +275,12 @@ def project_stream(stream: Any, fixture: dict[str, Any]) -> list[dict[str, objec
 def measure(image: str, fixture_root: Path) -> dict[str, object]:
     lock = _lock()
     _verify_image(image, lock)
+    try:
+        fixture_root = fixture_root.resolve(strict=True)
+    except OSError as error:
+        raise MeasurementError("FIXTURE_ROOT_REJECTED") from error
+    if not fixture_root.is_dir() or fixture_root.is_symlink():
+        raise MeasurementError("FIXTURE_ROOT_REJECTED")
     records: list[dict[str, object]] = []
     for fixture in load_fixture_manifest(fixture_root):
         process = subprocess.Popen(
@@ -310,7 +317,11 @@ def main() -> int:
     args = parser.parse_args()
     try:
         args.output.write_bytes(_canonical(measure(args.image, args.fixtures)))
+    except MeasurementError as error:
+        print(f"measurement_error={error}", file=sys.stderr)
+        return 2
     except Exception:
+        print("measurement_error=INTERNAL_ERROR", file=sys.stderr)
         return 2
     return 0
 
