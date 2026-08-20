@@ -21,6 +21,15 @@ from foliotone.archive.secret_candidates import (
     ArchiveSecretCandidateStatus,
     extract_archive_secret_candidates,
 )
+from foliotone.archive.secret_handle import (
+    ARCHIVE_PASSWORD_ATTEMPT_PROFILE,
+    MAX_CANDIDATE_RANK,
+    MAX_OPAQUE_ID_CODEPOINTS,
+    MAX_OPAQUE_ID_UTF8_BYTES,
+    ArchivePasswordAttemptMetadata,
+    ArchivePasswordAttemptStatus,
+    SecretHandle,
+)
 from foliotone.archive.sidecars import (
     ARCHIVE_SIDECAR_PROFILE,
     MAX_ARCHIVE_SIDECAR_FILES,
@@ -80,4 +89,11 @@ __all__ = [
     "ArchiveSecretCandidateSource",
     "ArchiveSecretCandidateStatus",
     "extract_archive_secret_candidates",
+    "ARCHIVE_PASSWORD_ATTEMPT_PROFILE",
+    "MAX_CANDIDATE_RANK",
+    "MAX_OPAQUE_ID_CODEPOINTS",
+    "MAX_OPAQUE_ID_UTF8_BYTES",
+    "ArchivePasswordAttemptMetadata",
+    "ArchivePasswordAttemptStatus",
+    "SecretHandle",
 ]
