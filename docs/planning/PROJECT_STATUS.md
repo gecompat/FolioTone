@@ -4,7 +4,7 @@ Stand: 2026-08-20
 
 ## Aktuelle Welle
 
-**FG-A-EXTRACTION-LIFECYCLE entschieden — nächstes Paket: S-EBAR-05A**
+**FG-A-EXTRACTION-QUOTA entschieden — nächstes Paket: neutrales S-EBAR-04Q**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -155,8 +155,8 @@ listed/extracted- und CRC-Prüfung notwendigen privaten Werte. Deshalb folgen
 vor EBAR-06 zuerst S-EBAR-05A mit einem underscore-internen Handoff desselben
 Listing-/Integrity-Laufs, S-EBAR-06A mit dem reinen internen
 Extraction-Validator, FG-A-EXTRACTION-QUOTA für einen atomar durchgesetzten
-Linux-Workspace-Cap, S-EBAR-04Q für dessen unprivilegierte Quota-Slot-
-Capability und erst danach S-EBAR-04A mit einem privaten synchronen
+neutralen Workspace-Cap, S-EBAR-04Q für dessen Provider-/Capability-Vertrag,
+ein reales Plattformadapter-Gate und erst danach S-EBAR-04A mit einem privaten synchronen
 Workspace-Consumer zwischen bewiesener Container-Abwesenheit und Runner-owned
 Cleanup. Polling beendet früh den Prozessbaum, ist aber kein Ersatz für den
 harten Cap; vorläufige Hashes werden erst nach Cleanup, leerer
@@ -165,6 +165,21 @@ quarantänisiert. EBAR-06 bleibt auf direkte
 unverschlüsselte ZIP-/RAR4-/RAR5-/7z-/TAR-Fälle beschränkt. gzip, bzip2, xz
 und zstd erhalten bis FG-A-WRAPPER-PIPELINE keinen Provider- oder
 Extraction-Lauf.
+
+S-EBAR-05A und S-EBAR-06A sind auf `main` umgesetzt. Der private Handoff
+bindet Locator, CRC und Memberidentität an denselben EBAR-05-Lauf; der reine
+Extraction-Validator prüft Workspaceprojektion, Größen, CRC, SHA-256,
+Deadline und Keine-Partial-Evidence ohne Tool- oder Filesystemauthority.
+
+FG-A-EXTRACTION-QUOTA ist durch ADR-0049 entschieden. Der Kernvertrag ist eine
+dateisystemneutrale, atomar begrenzte Workspace-Capability. S-EBAR-04Q
+implementiert als Nächstes ausschließlich den neutralen Provider-, Lease-,
+Capability-, Empty-Revalidation-, Return- und Quarantänevertrag mit
+begrenzten Fakes. Ein konkretes Dateisystem, Volume- oder Quota-Backend folgt
+als eigenes Plattformpaket mit nicht überspringbarem Konformitätsgate.
+FolioTone erhält weder `root` noch `CAP_SYS_ADMIN`, Device- oder Mountzugriff.
+S-EBAR-04A und EBAR-06 bleiben bis zur Annahme eines realen Adapters
+`TOOL_UNAVAILABLE`.
 
 Die spezialisierte Runtime darf anschließend ausschließlich unverschlüsselte
 Archive über bounded Streaming ohne Raw-Artefakt oder Preview verarbeiten.

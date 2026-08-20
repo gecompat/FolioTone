@@ -279,10 +279,11 @@ ersten Runtime jede automatische Nested-Verarbeitung.
 ### EA5 — Private Testextraktion
 
 **Status:** Der Grundvertrag ist durch ADR-0039 akzeptiert. ADR-0048 hat die
-auf HEAD sichtbaren Handoff-, Quota- und Runner-Lifecycle-Lücken geordnet und
-legt
-vor EBAR-06 S-EBAR-05A, S-EBAR-06A, FG-A-EXTRACTION-QUOTA, S-EBAR-04Q sowie
-S-EBAR-04A fest. Passwortgeschützte Extraktion
+Handoff-, Quota- und Runner-Lifecycle-Lücken geordnet. S-EBAR-05A und
+S-EBAR-06A sind abgeschlossen. ADR-0049 entscheidet FG-A-EXTRACTION-QUOTA als
+dateisystemneutrale Workspace-Capability. Vor EBAR-06 folgen S-EBAR-04Q, ein
+reales Plattformadapter-Gate und
+S-EBAR-04A. Passwortgeschützte Extraktion
 bleibt unabhängig davon blockiert.
 
 **Ziel:** Ein technisch zulässiges Archiv kann in einem ephemeren privaten
@@ -298,10 +299,11 @@ Fehler,
 Passwortbedarf, fehlende Volumes oder Limits erzeugen einen terminalen
 technischen Befund, aber keine Source-Operation. S-EBAR-05A bewahrt die
 privaten Locator-/CRC-Werte desselben EBAR-05-Laufs; S-EBAR-06A stellt den
-reinen internen Validator bereit. FG-A-EXTRACTION-QUOTA entscheidet einen
-harten Linux-Workspace-Cap, weil Polling allein keine atomare
-Budgetdurchsetzung beweist. S-EBAR-04Q implementiert danach die
-unprivilegierte Quota-Slot-Capability; S-EBAR-04A stellt anschließend den
+reinen internen Validator bereit. ADR-0049 akzeptiert als harten
+Workspace-Cap eine dateisystemneutrale Capability. S-EBAR-04Q implementiert
+danach den neutralen Provider-, Lease-, Capability-, Return- und
+Quarantänevertrag; ein reales Backend folgt getrennt je Plattform; S-EBAR-04A
+stellt anschließend den
 bounded Consumer-Lifecycle bereit. Erst danach beginnt EBAR-06 für direkte
 unverschlüsselte `MEASURED`-Fälle. Die 7-Zip-CLI darf kein Secret über `-p`
 erhalten.
@@ -330,8 +332,9 @@ S-EBAR-01 Execution-DTOs
     -> FG-A-EXTRACTION-LIFECYCLE privater Handoff und Runner-Lifecycle
     -> S-EBAR-05A privater Listing-/CRC-Handoff
     -> S-EBAR-06A reiner interner Extraction-Validator
-    -> FG-A-EXTRACTION-QUOTA harter Linux-Workspace-Cap
-    -> S-EBAR-04Q mechanische Quota-Slot-Capability
+    -> FG-A-EXTRACTION-QUOTA neutrale harte Workspace-Capability
+    -> S-EBAR-04Q neutraler Provider-/Lease-Vertrag
+    -> S-EBAR-04Q-<PLATFORM> reales Backend-Konformitätsgate
     -> S-EBAR-04A privater Workspace-Consumer-Lifecycle
     -> EBAR-06 direkte private Extraction-Sandbox
     -> FG-A-WRAPPER-PIPELINE separates späteres Wrapper-Gate

@@ -219,6 +219,13 @@ Hostwerkzeuge und keine Ausweitung auf `root` oder `CAP_SYS_ADMIN`. Falls ein
 harter Cap ausschließlich damit oder ohne atomaren Reservebeweis erreichbar
 ist, bleibt die Runtime `TOOL_UNAVAILABLE`.
 
+[ADR-0049](ADR-0049-bounded-archive-workspace-capability.md) entscheidet diese
+offene Authority als dateisystemneutrale, atomar begrenzte
+Workspace-Capability. S-EBAR-04Q implementiert ausschließlich den neutralen
+Provider-, Lease-, Capability-, Return- und Quarantänevertrag. Reale
+Extraction bleibt bis zu einem separat akzeptierten Plattformadapter
+`TOOL_UNAVAILABLE`.
+
 Nach einem akzeptierten Quota-Gate beobachtet der Live-Monitor während des
 Toollaufs mindestens:
 
