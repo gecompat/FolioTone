@@ -280,6 +280,12 @@ def _safe_locator(locator: str) -> bool:
     return True
 
 
+def is_safe_archive_member_locator(locator: str) -> bool:
+    """Return whether an untrusted member locator satisfies the v1 policy."""
+
+    return _safe_locator(locator)
+
+
 def _canonical_locator(locator: str) -> str:
     return "/".join(
         unicodedata.normalize("NFC", unicodedata.normalize("NFC", part).casefold())
