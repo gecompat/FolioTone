@@ -673,9 +673,12 @@ Kategorie-CSV werden strikt und begrenzt geparst, und der kanonische
 Formattyp und relativen Locator. `S-EB07-11B1` validiert außerdem jedes
 begrenzte OPF-Dokument, bindet dessen exakte Bytes als Metadatenfingerprint und
 projiziert Capture-Evidence rein und fail-closed in den bestehenden atomaren
-Record-/Format-Snapshotgraphen. Offen bleibt `S-EB07-11B2`, die eigentliche
-Capture-Orchestrierung mit paginiertem Vorher-/Nachher-Inventar, Exact-ID-,
-Kategorie- und OPF-Läufen, Lease-Keeper und atomarer Snapshot-Persistenz.
+Record-/Format-Snapshotgraphen. `S-EB07-11B2A` führt nun die vollständige,
+global begrenzte Read-Sequenz mit Keyset-Pagination, Exact-ID-, Kategorie- und
+OPF-Läufen aus, bindet alle Ausführungen an dieselbe opake Capture-Identität
+und fencet jeden Tool-Write unter einer bestehenden `EBOOK_ANALYSIS`-Lease.
+Offen bleibt `S-EB07-11B2B`: Lease-Erwerb und -Keeper, Latest-Scan-Bindung und
+atomare Persistenz des terminalen Snapshotgraphen.
 
 ### calibre EPUB/MOBI/AZW/AZW3-Text und normalisierter Fingerprint
 

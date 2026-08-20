@@ -169,11 +169,12 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 | S-EB07-10 | DONE | Generische ToolRuntime begrenzt stdout/stderr bereits während der Ausführung; die festen `calibredb`-Shapes binden ihre ADR-0033-Grenzen und brechen bei Überlauf fail-closed ab. |
 | S-EB07-11A | DONE | Bounded Capture-Parser für verpflichtendes `last_modified`, Exact-ID-Suche und Kategorie-CSV sowie kanonischer ADR-0033-Inventory-Digest. |
 | S-EB07-11B1 | DONE | Bounded OPF-Validierung und exakter Metadatenfingerprint sowie reine, lineage-gebundene Projektion des Capture-Ergebnisses in den atomaren Record-/Format-Snapshotgraphen. |
-| S-EB07-11B2 | PLANNED | Read-only Capture-Orchestrierung mit keyset-paginiertem Vorher-/Nachher-Inventar, Exact-ID-/Kategorie-/OPF-Läufen, Lease-Keeper und atomarer Snapshot-Persistenz. |
+| S-EB07-11B2A | DONE | Vollständige bounded Read-Sequenz mit global begrenzter Keyset-Pagination, Exact-ID-/OPF-/Kategorie-Läufen, Vorher-/Nachher-Digest und pro Tool-Write gefenceter bestehender EBOOK_ANALYSIS-Lease. |
+| S-EB07-11B2B | PLANNED | Lease-Erwerb und -Keeper, Latest-Scan-Bindung sowie atomare Persistenz des terminalen Snapshotgraphen. |
 
 EB-07 ist damit für die persistierte read-only Reconciliation abgeschlossen.
 Die eigentliche Capture-Orchestrierung gegen eine konfigurierte Calibre-
-Bibliothek bleibt `S-EB07-11B2`. EB-08, Archiv-Evidence und die
+Bibliothek bleibt `S-EB07-11B2B`. EB-08, Archiv-Evidence und die
 W10-Sperre werden durch diesen Abschluss nicht vorgezogen.
 
 ## EB-08 — nicht ausführbarer ConsolidationPlan
