@@ -23,7 +23,6 @@ from foliotone.core import EntityId, EntityKind, Work
 from foliotone.persistence import (
     classification_schema,
     create_sqlite_engine,
-    migrate,
     repository,
     schema,
 )
@@ -33,9 +32,7 @@ from foliotone.persistence.classification import ClassificationStoreError, SQLit
 NOW = datetime(2026, 8, 20, 12, tzinfo=UTC)
 
 
-def _store(tmp_path: Path) -> tuple[SQLiteClassificationStore, Engine, Work]:
-    database = tmp_path / "classification-store.db"
-    migrate(database)
+def _store(database: Path) -> tuple[SQLiteClassificationStore, Engine, Work]:
     engine = create_sqlite_engine(database)
     work = Work(id=EntityId.new())
     repository(engine, Work).save(work)
@@ -178,8 +175,10 @@ def test_contract_rejects_invalid_lineage_and_path_like_labels() -> None:
         )
 
 
-def test_exact_retry_is_noop_and_provider_evidence_remains_separate(tmp_path: Path) -> None:
-    store, engine, work = _store(tmp_path)
+def test_exact_retry_is_noop_and_provider_evidence_remains_separate(
+    head_database: Path,
+) -> None:
+    store, engine, work = _store(head_database)
     first = _assertion(work, value="Databases", source_reference="a" * 64)
     provider_one = _assertion(
         work,
@@ -213,8 +212,8 @@ def test_exact_retry_is_noop_and_provider_evidence_remains_separate(tmp_path: Pa
     engine.dispose()
 
 
-def test_different_content_under_existing_identity_fails_closed(tmp_path: Path) -> None:
-    store, engine, work = _store(tmp_path)
+def test_different_content_under_existing_identity_fails_closed(head_database: Path) -> None:
+    store, engine, work = _store(head_database)
     assertion = _assertion(work)
     store.create_or_get(assertion)
     with engine.begin() as connection:
@@ -229,9 +228,9 @@ def test_different_content_under_existing_identity_fails_closed(tmp_path: Path) 
 
 
 def test_target_and_local_source_references_are_validated_in_the_same_transaction(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    store, engine, work = _store(tmp_path)
+    store, engine, work = _store(head_database)
     missing_target = BookClassificationAssertion.create(
         target_kind=EntityKind.WORK,
         target_id=EntityId.new(),
@@ -260,8 +259,10 @@ def test_target_and_local_source_references_are_validated_in_the_same_transactio
     engine.dispose()
 
 
-def test_tool_result_and_review_decision_must_bind_to_the_same_target(tmp_path: Path) -> None:
-    store, engine, work = _store(tmp_path)
+def test_tool_result_and_review_decision_must_bind_to_the_same_target(
+    head_database: Path,
+) -> None:
+    store, engine, work = _store(head_database)
     other = Work(id=EntityId.new())
     repository(engine, Work).save(other)
     reviewed_evidence = store.create_or_get(_assertion(work, source_reference="f" * 64))
