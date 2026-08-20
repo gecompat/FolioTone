@@ -93,6 +93,10 @@ def build_provenance_predicate(repository_commit: str) -> dict[str, Any]:
     if sbom_digest != lock.get("sbom_sha256"):
         raise EvidenceVerificationError("SBOM identity mismatch")
     dependencies = [
+        {
+            "uri": "git+https://github.com/gecompat/FolioTone@refs/heads/main",
+            "digest": {"gitCommit": repository_commit},
+        },
         {"uri": lock["upstream_url"], "digest": {"sha256": lock["upstream_sha256"]}},
         {"uri": lock["source_tar_url"], "digest": {"sha256": lock["source_tar_sha256"]}},
         {
@@ -112,10 +116,6 @@ def build_provenance_predicate(repository_commit: str) -> dict[str, Any]:
             "digest": {
                 "sha256": lock["buildkit_image_index_digest"].removeprefix("sha256:")
             },
-        },
-        {
-            "uri": "git+https://github.com/gecompat/FolioTone",
-            "digest": {"gitCommit": repository_commit},
         },
     ]
     action_dependencies = [
