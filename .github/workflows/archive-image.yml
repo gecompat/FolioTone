@@ -49,6 +49,8 @@ jobs:
           test "$(sha256sum "${RUNNER_TEMP}/foliotone-archive-context/rootfs.tar" | cut -d' ' -f1)" = a817c489a8458dae30df188380b3c0d4e59baad77bfa1a7bd385c4ec016538fc
           test "$(sha256sum packaging/archive/7zip-26.02/Dockerfile | cut -d' ' -f1)" = 9ab4f5c5895db715366e2d15b7301abef525bc74ab62884424860ff0231bfe9a
           test "$(sha256sum packaging/archive/7zip-26.02/archive-image.spdx.json | cut -d' ' -f1)" = ce32dada7227c05e147280404b3d0ce0304eba5e6e085c644f7ac4cb0ddf5a9f
+          python packaging/archive/7zip-26.02/supply_chain_evidence.py \
+            verify-release --cryptographic
       - name: Acquire exact Buildx plugin
         env:
           DOCKER_CONFIG: ${{ runner.temp }}/foliotone-docker-config
@@ -312,6 +314,9 @@ jobs:
             --format json > "${RUNNER_TEMP}/verified-spdx.json"
           python packaging/archive/7zip-26.02/supply_chain_evidence.py \
             verify-sbom-attestation --result "${RUNNER_TEMP}/verified-spdx.json"
+          python packaging/archive/7zip-26.02/supply_chain_evidence.py verify-release
+          python packaging/archive/7zip-26.02/supply_chain_evidence.py \
+            verify-offline-release --artifact "${RUNNER_TEMP}/published-manifest.json"
           python_path="$(command -v python)"
           env -i PATH=/usr/bin:/bin "$python_path" \
             packaging/archive/7zip-26.02/supply_chain_evidence.py verify-registry
