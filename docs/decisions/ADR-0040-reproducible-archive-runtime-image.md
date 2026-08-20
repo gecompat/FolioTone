@@ -412,11 +412,12 @@ wenn ihr Buildkontext und ihre Parameter nachweislich ausschließlich
 
 Die beiden gepinnten GitHub-Attestation-Actions lesen Registry-Credentials aus
 dem Standard-Dockerpfad und nicht aus dem isolierten Build-`DOCKER_CONFIG`.
-Der geschützte Workflow kopiert deshalb die bereits auf exakt `ghcr.io`
-begrenzte kurzlebige Login-Konfiguration unmittelbar vor diesen beiden Actions
-mit Modus `0600` an diesen Pfad und entfernt sie in einem `always()`-Schritt
-unmittelbar danach. Der Image-Build behält sein separates Docker-Verzeichnis;
-kein Credential wird ausgegeben, persistiert oder für eine variable
+Der geschützte Workflow führt deshalb unmittelbar vor diesen beiden Actions
+eine zweite, auf exakt `ghcr.io` begrenzte Anmeldung mit dem kurzlebigen
+GitHub-Token im Standard-Dockerpfad aus und meldet `ghcr.io` in einem
+`always()`-Schritt unmittelbar danach wieder ab. Vorhandene Runner-Konfiguration
+wird nicht ersetzt. Der Image-Build behält sein separates Docker-Verzeichnis;
+kein Credential wird ausgegeben, dauerhaft persistiert oder für eine variable
 Registryreferenz verwendet.
 
 Das SLSA-Feld `buildDefinition.buildType` verwendet den von GitHub für

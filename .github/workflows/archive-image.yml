@@ -256,13 +256,11 @@ jobs:
             --output "${RUNNER_TEMP}/archive-image-provenance.json"
       - name: Prepare minimal GHCR credentials for attestation actions
         env:
-          DOCKER_CONFIG: ${{ runner.temp }}/foliotone-publish-docker-config
+          GHCR_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test -s "${DOCKER_CONFIG}/config.json"
-          install -d -m 0700 "$HOME/.docker"
-          test ! -e "$HOME/.docker/config.json"
-          install -m 0600 "${DOCKER_CONFIG}/config.json" "$HOME/.docker/config.json"
+          echo "$GHCR_TOKEN" | docker --config "$HOME/.docker" login ghcr.io \
+            --username "${GITHUB_ACTOR}" --password-stdin
       - name: Attach exact custom SLSA provenance
         id: custom-provenance
         uses: actions/attest@daf44fb950173508f38bd2406030372c1d1162b1
@@ -283,10 +281,7 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
-          if test -f "$HOME/.docker/config.json"; then
-            rm -- "$HOME/.docker/config.json"
-          fi
-          rmdir "$HOME/.docker" 2>/dev/null || true
+          docker --config "$HOME/.docker" logout ghcr.io || true
       - name: Verify exact attestations and credential-free public manifest
         env:
           DOCKER_CONFIG: ${{ runner.temp }}/foliotone-publish-docker-config

@@ -77,9 +77,9 @@ def test_checked_in_archive_image_recipe_has_exact_public_supply_chain_contracts
     assert workflow.count("--bundle-from-oci") == 2
     assert workflow.count("Prepare minimal GHCR credentials for attestation actions") == 1
     assert workflow.count(
-        'install -m 0600 "${DOCKER_CONFIG}/config.json" "$HOME/.docker/config.json"'
+        'docker --config "$HOME/.docker" login ghcr.io'
     ) == 1
-    assert workflow.count('rm -- "$HOME/.docker/config.json"') == 1
+    assert workflow.count('docker --config "$HOME/.docker" logout ghcr.io') == 1
     assert "env -i PATH=/usr/bin:/bin" in workflow
     assert "curl " not in workflow
     assert "/users/gecompat/packages/container/foliotone-archive-7zip" in workflow
