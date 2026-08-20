@@ -99,6 +99,23 @@ def test_scan_progress_renderer_reports_discovery_and_reconciliation(
             average_bytes_per_second=1 * 1024 * 1024,
         )
     )
+    progress.report(
+        ReconciliationProgress(
+            processed_files=8,
+            processed_bytes=3 * 1024 * 1024,
+            batch_files=2,
+            batch_bytes=1 * 1024 * 1024,
+            reconciled_files=1,
+            reconciled_bytes=512 * 1024,
+        )
+    )
+
+    assert stream.getvalue() == (
+        "Scan progress: discovering; files=10; data=4.0 MiB; "
+        "current-throughput=2.0 MiB/s; average-throughput=1.0 MiB/s\n"
+        "Scan progress: reconciling; completed-files=8; completed-data=3.0 MiB; "
+        "batch=1/2; batch-data=0.5/1.0 MiB\n"
+    )
 
 
 def test_tty_progress_closes_a_phase_before_rendering_the_next(
@@ -131,7 +148,7 @@ def test_tty_progress_closes_a_phase_before_rendering_the_next(
     assert "\n\rScan progress: reconciling;" in stream.getvalue()
 
 
-def test_explicit_overwrite_does_not_depend_on_stderr_tty(
+def test_explicit_progress_renders_a_fixed_dashboard(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     stream = io.StringIO()
@@ -154,9 +171,6 @@ def test_explicit_overwrite_does_not_depend_on_stderr_tty(
             average_bytes_per_second=1 * 1024 * 1024,
         )
     )
-
-    assert stream.getvalue().count("\r") == 2
-    assert "\n" not in stream.getvalue()
     progress.report(
         ReconciliationProgress(
             processed_files=8,
@@ -168,12 +182,9 @@ def test_explicit_overwrite_does_not_depend_on_stderr_tty(
         )
     )
 
-    assert stream.getvalue() == (
-        "Scan progress: discovering; files=10; data=4.0 MiB; "
-        "current-throughput=2.0 MiB/s; average-throughput=1.0 MiB/s\n"
-        "Scan progress: reconciling; completed-files=8; completed-data=3.0 MiB; "
-        "batch=1/2; batch-data=0.5/1.0 MiB\n"
-    )
+    assert stream.getvalue().count("\x1b[4A") == 2
+    assert stream.getvalue().count("Scan progress: discovering;") == 3
+    assert stream.getvalue().count("Scan progress: reconciling;") == 3
 
 
 def test_scan_cli_interrupts_cleanly_before_migration_starts_a_run(

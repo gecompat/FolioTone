@@ -161,7 +161,9 @@ def _resolved_scan_hash_workers(requested: int | None, hash_mode: HashMode) -> i
 
 
 class _ScanConsoleProgress:
-    """Render one path-free progress line without changing stdout contracts."""
+    """Render path-free progress without changing stdout contracts."""
+
+    _DASHBOARD_PHASES = ("discovering", "reconciling", "hashing", "scanning")
 
     def __init__(
         self,
@@ -172,12 +174,17 @@ class _ScanConsoleProgress:
     ) -> None:
         self._enabled = enabled
         self._stream = sys.stderr
-        self._overwrite = overwrite or self._stream.isatty()
+        self._dashboard = overwrite
+        self._overwrite = not self._dashboard and self._stream.isatty()
         self._clock = clock
         self._started_at = clock()
         self._active_line = False
         self._active_phase: str | None = None
         self._line_width = 0
+        self._dashboard_active = False
+        self._dashboard_rows = {
+            phase: f"Scan progress: {phase}; waiting" for phase in self._DASHBOARD_PHASES
+        }
 
     def announce(self, message: str) -> None:
         if not self._enabled:
@@ -246,11 +253,17 @@ class _ScanConsoleProgress:
             text += f"; hash-failures={progress.hash_failures}"
         self._write_progress_line(
             text,
-            phase=phase,
+            phase="scanning",
             completed=progress.phase is ScanProgressPhase.COMPLETED,
         )
 
     def _write_progress_line(self, text: str, *, phase: str, completed: bool) -> None:
+        if self._dashboard:
+            self._dashboard_rows[phase] = text
+            self._render_dashboard()
+            if completed:
+                self.close_line()
+            return
         if self._overwrite:
             if self._active_line and self._active_phase != phase:
                 self.close_line()
@@ -265,7 +278,18 @@ class _ScanConsoleProgress:
             self._stream.write(f"{text}\n")
         self._stream.flush()
 
+    def _render_dashboard(self) -> None:
+        if self._dashboard_active:
+            self._stream.write(f"\x1b[{len(self._DASHBOARD_PHASES)}A")
+        for phase in self._DASHBOARD_PHASES:
+            self._stream.write(f"\r\x1b[2K{self._dashboard_rows[phase]}\n")
+        self._dashboard_active = True
+        self._stream.flush()
+
     def close_line(self) -> None:
+        if self._dashboard:
+            self._dashboard_active = False
+            return
         if self._enabled and self._active_line:
             self._stream.write("\n")
             self._stream.flush()
