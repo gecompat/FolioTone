@@ -3270,4 +3270,3 @@ def _run_epub_validate(args: argparse.Namespace) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
