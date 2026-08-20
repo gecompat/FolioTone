@@ -114,8 +114,18 @@ def test_custom_provenance_is_deterministic_and_verified_exactly(tmp_path: Path)
         "repositoryCommit": commit,
         "sourceDateEpoch": 1782345600,
     }
+    assert predicate["buildDefinition"]["internalParameters"]["github"] == {
+        "event_name": "push",
+        "repository_id": "1328118830",
+        "repository_owner_id": "48807214",
+        "runner_environment": "github-hosted",
+    }
     assert predicate["buildDefinition"]["internalParameters"]["actionIdentities"] == (
         module.ACTION_IDENTITIES
+    )
+    assert predicate["runDetails"]["builder"]["id"] == (
+        "https://github.com/gecompat/FolioTone/.github/workflows/"
+        "archive-image.yml@refs/heads/main"
     )
     result = tmp_path / "verified.json"
     entry = {

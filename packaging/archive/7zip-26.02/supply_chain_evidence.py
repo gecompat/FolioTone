@@ -17,6 +17,12 @@ from typing import Any
 PACKAGE_DIR = Path(__file__).resolve().parent
 PREDICATE_TYPE = "https://slsa.dev/provenance/v1"
 GITHUB_WORKFLOW_BUILD_TYPE = "https://actions.github.io/buildtypes/workflow/v1"
+GITHUB_WORKFLOW_BUILDER_ID = (
+    "https://github.com/gecompat/FolioTone/.github/workflows/"
+    "archive-image.yml@refs/heads/main"
+)
+GITHUB_REPOSITORY_ID = "1328118830"
+GITHUB_REPOSITORY_OWNER_ID = "48807214"
 IMAGE_NAME = "ghcr.io/gecompat/foliotone-archive-7zip"
 MANIFEST_DIGEST = "sha256:26c9c2fa32f93210a46fcf6b9651006038f9e766a1d791b463ce9875815a8287"
 MANIFEST_SIZE = 838
@@ -173,6 +179,12 @@ def build_provenance_predicate(repository_commit: str) -> dict[str, Any]:
                 },
             },
             "internalParameters": {
+                "github": {
+                    "event_name": "push",
+                    "repository_id": GITHUB_REPOSITORY_ID,
+                    "repository_owner_id": GITHUB_REPOSITORY_OWNER_ID,
+                    "runner_environment": "github-hosted",
+                },
                 "actionIdentities": ACTION_IDENTITIES,
                 "archiveImage": {
                     "platform": lock["platform"],
@@ -217,7 +229,7 @@ def build_provenance_predicate(repository_commit: str) -> dict[str, Any]:
         },
         "runDetails": {
             "builder": {
-                "id": "https://github.com/actions/runner/github-hosted",
+                "id": GITHUB_WORKFLOW_BUILDER_ID,
                 "builderDependencies": action_dependencies,
                 "version": {
                     "buildkit": lock["buildkit_version"],
