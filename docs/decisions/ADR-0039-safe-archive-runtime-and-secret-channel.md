@@ -76,6 +76,84 @@ geprüften privaten Workspacevertrag entgegen. `ToolCapability` erhält
 getrennte read-only Capabilities für Archive Listing, Archive Integrity und
 Archive Extraction; keine davon autorisiert Source-Media-Mutation.
 
+## Execution-Snapshots und Status-Sum-Types
+
+Listing, Integrity und Extraction verwenden drei getrennte immutable
+Execution-Snapshots. Ein Snapshot enthält ausschließlich den fachlichen
+Schrittstatus und eine optionale opaque `execution_id`; er enthält weder
+Command Line, Pfad, Membernamen, Raw-Ausgabe noch Fehlerfreitext. Die drei
+Execution-IDs bezeichnen verschiedene `ToolExecution`-Datensätze und dürfen
+innerhalb eines Resultats nicht gleich sein.
+
+```text
+ArchiveListingExecution
+    status: ArchiveListingStatus
+    execution_id: opaque ID | NONE
+
+ArchiveIntegrityExecution
+    status: ArchiveIntegrityStatus
+    execution_id: opaque ID | NONE
+
+ArchiveExtractionExecution
+    status: ArchiveExtractionStatus
+    execution_id: opaque ID | NONE
+```
+
+Die bisherigen `ArchiveListingStatus`- und `ArchiveIntegrityStatus`-Literale
+aus ADR-0038 bleiben unverändert. Für Extraction gelten exakt:
+
+```text
+ArchiveExtractionStatus
+-----------------------
+NOT_ATTEMPTED
+EXTRACTED
+LIMIT_EXCEEDED
+TIMED_OUT
+TOOL_UNAVAILABLE
+TOOL_FAILED
+POLICY_REJECTED
+VALIDATION_FAILED
+```
+
+`NOT_ATTEMPTED` beziehungsweise `NOT_TESTED` verlangt `execution_id = NONE`.
+Jeder andere Schrittstatus verlangt genau eine opaque `execution_id`. Eine
+solche ID dokumentiert den auditierten Schrittversuch; sie behauptet nicht,
+dass ein Betriebssystemprozess gestartet wurde. Preflight-Ergebnisse wie
+`POLICY_REJECTED` oder `TOOL_UNAVAILABLE` bleiben dadurch nachvollziehbar,
+ohne einen Prozessstart zu erfinden.
+
+Die Reihenfolge ist fail-closed:
+
+- ein Integrity-Snapshot ungleich `NOT_TESTED` verlangt Listingstatus
+  `LISTED`;
+- ein Extraction-Snapshot ungleich `NOT_ATTEMPTED` verlangt Listingstatus
+  `LISTED`, Integritystatus `PASSED`, Encryptionstatus `NONE` und eine
+  akzeptierte Extraction Policy;
+- `EXTRACTED` verlangt für jedes reguläre Member vollständige Größen-, CRC-,
+  Hash- und Extraction-Provenance mit genau der `execution_id` des
+  Extraction-Snapshots;
+- jeder andere Extraction-Status verbietet erfolgreiche Extraction-Felder an
+  Members; teilweise Ergebnisse bilden keine erfolgreiche Evidence;
+- `VALIDATION_FAILED` umfasst Abweichungen bei Workspace-, Member-, Größen-,
+  CRC- oder Hash-Revalidierung;
+- ein fehlgeschlagenes Cleanup wird als `TOOL_FAILED` behandelt und verhindert
+  erfolgreiche Member-Evidence. Ein detaillierter interner Fehlercode darf
+  nur aus einer festen secretfreien Allowlist stammen.
+
+Cancellation erzeugt keinen terminalen Archive-Snapshot. Die zugehörige
+`ToolExecution` endet `CANCELLED`; ein Wiederanlauf erzeugt neue
+Execution-Snapshots. So müssen ADR-0038-Literale nicht um einen unklaren
+teilweisen Archivezustand erweitert werden.
+
+S-EBAR-01 ersetzt im Fake-Vertrag die einzelnen Felder `execution_id` und
+`integrity_status` durch diese drei Snapshots. Die bisherigen Informationen
+bleiben vollständig ableitbar, aber neue Konstruktoren und DTO-Ausgaben
+verwenden ausschließlich die getrennten Snapshots. Eine temporäre
+read-only-Kompatibilitätseigenschaft darf den bisherigen Listing-Identifier
+liefern; neue Signaturen akzeptieren den alten Feldnamen nicht. Der
+`archive-listing-reuse/v1`- und `archive-member-reuse/v1`-Schlüssel bleibt
+unverändert.
+
 ## Streaming- und Redaktionsvertrag
 
 `ArchiveProcessRunner` schreibt stdout und stderr nicht in `ToolArtifact`,
