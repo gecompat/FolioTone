@@ -6,6 +6,7 @@ import hashlib
 import inspect
 import io
 import json
+import os
 import shutil
 import socket
 import sys
@@ -994,12 +995,18 @@ def test_private_state_boundary_rejects_empty_scan_roots_bad_acl_and_symlink(
     with pytest.raises(RuntimeError):
         _provision(inside_scan, datetime(2026, 8, 20, 8, 0, tzinfo=UTC))
     _provision(paths, datetime(2026, 8, 20, 8, 0, tzinfo=UTC))
-    outputs["acl_trusted"] = False
+    if os.name == "nt":
+        outputs["acl_trusted"] = False
+    else:
+        paths["private_state_parent"].chmod(0o755)
     acl_result = _availability(
         paths, datetime(2026, 8, 20, 8, 0, 1, tzinfo=UTC)
     )
     assert acl_result.diagnostic_code is ArchiveRuntimeDiagnosticCode.LOCAL_STATE_INVALID
-    outputs["acl_trusted"] = True
+    if os.name == "nt":
+        outputs["acl_trusted"] = True
+    else:
+        paths["private_state_parent"].chmod(0o700)
     state_path = paths["local_state_root"] / "state.json"
     real_state = tmp_path / "real-state.json"
     state_path.replace(real_state)
