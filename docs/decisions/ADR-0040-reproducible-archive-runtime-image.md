@@ -410,6 +410,15 @@ geschützten Publishjobs. Maximal detaillierte Provenance ist nur zulässig,
 wenn ihr Buildkontext und ihre Parameter nachweislich ausschließlich
 öffentliche, nicht geheime Werte enthalten.
 
+Die beiden gepinnten GitHub-Attestation-Actions lesen Registry-Credentials aus
+dem Standard-Dockerpfad und nicht aus dem isolierten Build-`DOCKER_CONFIG`.
+Der geschützte Workflow kopiert deshalb die bereits auf exakt `ghcr.io`
+begrenzte kurzlebige Login-Konfiguration unmittelbar vor diesen beiden Actions
+mit Modus `0600` an diesen Pfad und entfernt sie in einem `always()`-Schritt
+unmittelbar danach. Der Image-Build behält sein separates Docker-Verzeichnis;
+kein Credential wird ausgegeben, persistiert oder für eine variable
+Registryreferenz verwendet.
+
 Das SLSA-Feld `buildDefinition.buildType` verwendet den von GitHub für
 GitHub-Actions-Attestations unterstützten Typ
 `https://actions.github.io/buildtypes/workflow/v1`. Dessen
