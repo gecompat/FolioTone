@@ -179,11 +179,19 @@ Ausführung als begrenzter Bytestream unmittelbar an
 - gibt private Memberlocator nur an die interne Path- und Safety-Prüfung
   weiter.
 
-stderr wird gleichzeitig bis zur 1-MiB-Grenze verarbeitet und ausschließlich
-in feste technische Status- beziehungsweise Fehlerliterale klassifiziert.
-Rohtext und unbekannte Fehlermeldungen werden nicht persistiert. Exceptions,
+stderr wird gleichzeitig bis zur 1-MiB-Grenze verarbeitet und vollständig
+verworfen. 7-Zip-26.02-Prosa und grobe Exitcodes werden nicht als fachliche
+Ursachenklassifikation verwendet. Rohtext und unbekannte Fehlermeldungen
+werden nicht persistiert. Exceptions,
 `repr`, CLI-Ausgabe und Telemetrie dürfen weder Raw-Ausgabe noch Membernamen,
 Containerkommentare, Source-Pfade oder Secretmaterial enthalten.
+
+Die stderr-Discard- und Statusregeln, die Abgrenzung von Volume-/Format-
+Preflight und die Korrektur des mit `-ba` unvereinbaren Headerparsers werden
+additiv durch
+[ADR-0043](ADR-0043-archive-machine-output-and-status-classification.md)
+festgelegt. Freie Textsuche oder Exitcode-Raten bleibt verboten; nicht
+strukturierte Ursachen bleiben `TOOL_FAILED`.
 
 ### Exakter `archive-7zip-slt-parser/v1`-Vertrag
 
