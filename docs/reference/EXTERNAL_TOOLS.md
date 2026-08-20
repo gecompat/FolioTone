@@ -318,9 +318,11 @@ verwendet das in ADR-0040 vollständig gepinnte Buildx-/BuildKit-Profil und
 erzeugt das Runtime-Manifest ohne Inline-Attestations; SBOM und Provenance
 werden anschließend an den gelockten Digest angehängt. Das GHCR-Package muss
 durch geschützten Owner-Setup öffentlich und mit `gecompat/FolioTone` source-
-associated sein. Ein neuer Prozess ohne Token, Cookies oder Docker-Config muss
-die Digestreferenz anonym abrufen und exakt bestätigen; jede Abweichung bleibt
-`TOOL_UNAVAILABLE`. Ein Tag ist niemals eine Runtime-Identität. Der
+associated sein. Ein neuer Prozess ohne Benutzer- oder Registry-Credentials,
+Cookies oder Docker-Config muss die Digestreferenz anonym über den in ADR-0040
+begrenzt erlaubten credentialfreien Registry-v2-Bearer-Flow abrufen und exakt
+bestätigen; jede Abweichung bleibt `TOOL_UNAVAILABLE`. Ein Tag ist niemals eine
+Runtime-Identität. Der
 Container läuft non-root mit
 `network=none`, read-only
 Root-Filesystem, `cap-drop=ALL`, no-new-privileges, Default-oder-strengerem

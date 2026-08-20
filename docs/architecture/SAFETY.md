@@ -80,13 +80,17 @@ S-EBAR-03 muss das Image zweimal offline mit identischen Inputs bauen und den
 beobachteten identischen `linux/amd64`-Plattform-Manifest-Digest mit dem fest
 gepinnten Buildx-/BuildKit-Profil in `archive-image-lock/v1` fixieren. Die
 Runtime-Builds enthalten keine Inline-Attestations; erst nach dem geschützten
-Post-Merge-Publish werden SBOM und Provenance an den gelockten Digest
-angehängt. Das GHCR-Package muss explizit öffentlich und mit
-`gecompat/FolioTone` source-associated sein, und ein vollständig anonymer
-Manifest-by-Digest-Abruf muss den gelockten Digest bestätigen. Ein fehlender
-oder abweichender Digest, ein dynamisch abhängiges ELF, unvollständige
-Lizenzhinweise, eine fehlende Attestation oder eine fehlgeschlagene anonyme
-Verifikation ergeben fail-closed `TOOL_UNAVAILABLE`.
+Post-Merge-Publish werden SBOM und das in ADR-0040 festgelegte SLSA-v1-
+Custom-Predicate an den gelockten Digest angehängt. Das GHCR-Package muss
+explizit öffentlich und mit `gecompat/FolioTone` source-associated sein, und
+ein vollständig anonymer Manifest-by-Digest-Abruf muss den gelockten Digest
+bestätigen. Der Abruf hat keine Benutzer- oder Registry-Credentials und
+verwendet ausschließlich den in ADR-0040 begrenzten, credentialfreien
+Registry-v2-Bearer-Flow; ein Bearer ist weder Credential-Fallback noch
+persistier- oder logbar. Ein fehlender oder abweichender Digest, ein dynamisch
+abhängiges ELF, unvollständige Lizenzhinweise, eine fehlende Attestation oder
+eine fehlgeschlagene anonyme Verifikation ergeben fail-closed
+`TOOL_UNAVAILABLE`.
 
 Die tatsächliche Source und jeder ScanRoot werden niemals gemountet. Eine
 bereits vollständig validierte Volumegruppe wird in ein opaque privates

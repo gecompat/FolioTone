@@ -396,11 +396,14 @@ Der noch nicht gebaute Result-Digest wird nicht erfunden. S-EBAR-03 baut das
 reine Offline-Rezept zweimal, verlangt identische `linux/amd64`-Manifest-
 Plattform-Manifest-Digests und übernimmt erst den beobachteten Wert in
 `archive-image-lock/v1`. Ein geschützter Post-Merge-Build muss denselben Digest
-ohne Inline-Attestations nach GHCR publizieren und SBOM sowie Provenance danach
-an diesen Digest anhängen. Das Package muss durch geschützten Owner-Setup
-öffentlich und mit `gecompat/FolioTone` source-associated sein; ein Abruf der
-Digestreferenz aus einem vollständig anonymen Prozess muss denselben Digest
-liefern. Bis Lock, öffentliche Publikation, Source-Association, anonyme
+ohne Inline-Attestations nach GHCR publizieren und SBOM sowie das in ADR-0040
+definierte SLSA-v1-Custom-Predicate danach an diesen Digest anhängen. Das
+Package muss durch geschützten Owner-Setup öffentlich und mit
+`gecompat/FolioTone` source-associated sein; ein Abruf der Digestreferenz aus
+einem vollständig anonymen Prozess muss denselben Digest liefern. Dieser
+Prozess hat keine Benutzer- oder Registry-Credentials, darf aber ausschließlich
+den in ADR-0040 festgelegten fail-closed Registry-v2-Bearer-Flow verwenden.
+Bis Lock, öffentliche Publikation, Source-Association, anonyme
 Digestverifikation und Attestations vollständig und konsistent sind, bleibt
 der Runtime-Status `TOOL_UNAVAILABLE`. S-EBAR-03 darf keine Quelle, Lizenz,
 Build-, Plattform- oder Redistributionsregel selbst auswählen.

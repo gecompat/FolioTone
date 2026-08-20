@@ -393,11 +393,19 @@ mitgelieferten Lizenz-/Hinweisdateien sowie den vollständigen Source-Tarball.
 Ein Scannerfund darf ergänzt werden, ersetzt diese explizite
 Komponentenbeschreibung im `scratch`-Image aber nicht.
 
-Die Provenance bindet mindestens Repository und finalen Commit, Workflow und
-vollständig gepinnte Action-Identitäten, Recipe-/Lock-Digests,
-`SOURCE_DATE_EPOCH`, Plattform, Upstream-URLs und -Hashes, Builderidentität,
-Runtime-Manifest-Digest und SBOM-Digest. Public Buildjobs erhalten keine
-Secrets außer dem kurzlebigen, minimal berechtigten GitHub-Token des
+Die Provenance ist ein deterministisches SLSA-v1-Custom-Predicate für dieses
+Profil. Es bindet mindestens Repository und finalen Commit, Workflow und
+vollständig commit-gepinnte Action-Identitäten, Recipe-/Lock-/SBOM-Digests,
+`SOURCE_DATE_EPOCH`, Plattform, Upstream-URLs und -Hashes, die
+Executable- und Lizenzidentitäten, Buildx-/BuildKit-Identitäten sowie
+Plattform-Manifest-, Config- und geordnete Layer-Identitäten. Der geschützte
+Workflow erzeugt und publiziert dieses Predicate mit einer vollständig
+commit-gepinnten `actions/attest`-Action. Er prüft nach der Attestation exakt
+den Predicate-Inhalt gegen Lock, SBOM und publiziertes Ergebnis. Die generische
+GitHub-Build-Provenance darf zusätzlich existieren, ersetzt das Custom-
+Predicate aber nicht: `actions/attest-build-provenance` allein enthält nicht
+alle für dieses Profil verpflichtenden Bindungen. Public Buildjobs erhalten
+keine Secrets außer dem kurzlebigen, minimal berechtigten GitHub-Token des
 geschützten Publishjobs. Maximal detaillierte Provenance ist nur zulässig,
 wenn ihr Buildkontext und ihre Parameter nachweislich ausschließlich
 öffentliche, nicht geheime Werte enthalten.
@@ -414,14 +422,30 @@ Manifest-Digests gepinnt.
 Nur ein geschützter Post-Merge-Workflow auf `main` erhält `packages:write`,
 `id-token:write` und `attestations:write`. Er publiziert nur bei exakter
 Lockübereinstimmung. Ein Publish aus Forks, Pull Requests, Tags ohne
-geschützten Workflow oder manuell veränderten Buildinputs ist verboten.
-Nach Publish und dem geschützten Owner-Setup erfolgt aus einem neuen Prozess
-ohne Authorization-Header, Cookies, Registry-Credentials oder Docker-Config
-ein anonymer Registry-Manifestabruf der Referenz
+geschützten Workflow oder manuell veränderten Buildinputs ist verboten. Der
+Workflow publiziert das Custom-Predicate ausschließlich mit einer vollständig
+commit-gepinnten `actions/attest`-Action und verifiziert anschließend dessen
+vollständigen Inhalt gegen die in diesem ADR genannten Pflichtwerte; eine
+Standard-`actions/attest-build-provenance`-Attestation genügt nicht.
+
+Nach Publish und dem geschützten Owner-Setup erfolgt aus einem neuen minimalen
+Prozess ohne Benutzer- oder Registry-Credentials, Cookies oder Docker-Config
+ein anonymer Registry-v2-Manifestabruf der Referenz
 `ghcr.io/gecompat/foliotone-archive-7zip@sha256:<locked-platform-digest>`.
-HTTP-Erfolg, zurückgemeldeter Digest, öffentliche Sichtbarkeit und Source-
-Association mit `gecompat/FolioTone` müssen übereinstimmen; andernfalls bleibt
-der Status `TOOL_UNAVAILABLE`.
+Anonym bedeutet hierbei nicht das Verbot des standardkonformen Bearer-Flows:
+Der Prozess darf genau eine begrenzte erste `401`-Challenge akzeptieren, deren
+`realm` exakt `https://ghcr.io/token`, deren `service` exakt `ghcr.io` und
+deren `scope` exakt
+`repository:gecompat/foliotone-archive-7zip:pull` ist. Er ruft den Token
+credentialfrei und begrenzt über diese Challenge ab und verwendet den
+ephemeren Bearer ausschließlich in diesem frischen Prozess für den exakten
+Manifest-by-Digest-`GET`. Token, Authorization-Header und Antworten werden
+weder geloggt noch persistiert; GitHub-Token-, Credential- oder anderer
+Fallback ist verboten. Der Erfolg verlangt außerdem exakten
+`Docker-Content-Digest`, `Content-Length=838`, Descriptorgröße `838` und den
+erlaubten Manifest-Medientyp. HTTP-Erfolg, zurückgemeldeter Digest, öffentliche
+Sichtbarkeit und Source-Association mit `gecompat/FolioTone` müssen
+übereinstimmen; andernfalls bleibt der Status `TOOL_UNAVAILABLE`.
 
 Adversarial Archive-Ausführungen, private Extraction-Fixtures und lokale
 Collection-Canaries gehören nicht in den Image-Publishjob. Sie laufen in den
