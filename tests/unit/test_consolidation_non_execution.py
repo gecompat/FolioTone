@@ -96,6 +96,7 @@ CALIBRE_DESCRIPTOR_KEYWORDS = frozenset(
         "capability",
         "environment",
         "executable",
+        "max_stdout_bytes",
         "timeout_seconds",
         "version_policy",
         "workspace_environment",
@@ -2115,6 +2116,7 @@ def _read_command(args):
         workspace_environment={},
         version_policy=POLICY,
         accepted_exit_codes=frozenset({0}),
+        max_stdout_bytes=1024,
     )
 
 def build():

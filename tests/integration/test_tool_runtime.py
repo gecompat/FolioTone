@@ -219,6 +219,65 @@ def test_nonzero_exit_is_persisted_as_failed(tmp_path: Path) -> None:
     assert "bad" in outcome.stderr_preview
 
 
+def test_process_output_limits_stop_capture_and_fail_closed(
+    tmp_path: Path,
+) -> None:
+    tool_runtime = runtime(tmp_path)
+    rejected_probe = tool_runtime.execute_local(
+        descriptor(),
+        LocalCommand(
+            executable=Path(sys.executable).name,
+            args=("-c", "raise SystemExit('analysis must not run')"),
+            version_args=("-c", "import sys; sys.stdout.write('v' * 100000)"),
+            capability=ToolCapability.STATUS_REPORT,
+        ),
+        input_identity="synthetic:bounded-version",
+    )
+    assert rejected_probe.execution.status is ToolExecutionStatus.FAILED
+    assert rejected_probe.execution.error_summary == (
+        f"could not determine tool version: {Path(sys.executable).name}"
+    )
+    assert rejected_probe.artifacts == ()
+
+    for stream, limit in (("stdout", 7), ("stderr", 5)):
+        script = (
+            "import sys; "
+            f"sys.{stream}.buffer.write(b'x' * 100000); "
+            f"sys.{stream}.flush()"
+        )
+        outcome = tool_runtime.execute_local(
+            descriptor(),
+            LocalCommand(
+                executable=sys.executable,
+                args=("-c", script),
+                capability=ToolCapability.STATUS_REPORT,
+                max_stdout_bytes=limit if stream == "stdout" else 1024,
+                max_stderr_bytes=limit if stream == "stderr" else 1024,
+            ),
+            input_identity=f"synthetic:bounded-{stream}",
+        )
+
+        assert outcome.execution.status is ToolExecutionStatus.FAILED
+        assert outcome.execution.error_summary == (
+            f"{stream} exceeded its configured size limit"
+        )
+        artifact = next(
+            item for item in outcome.artifacts if item.artifact_type == stream.upper()
+        )
+        assert artifact.size_bytes == limit
+
+
+@pytest.mark.parametrize("value", (False, 0, 1.5, 1024 * 1024 * 1024 + 1))
+def test_process_output_limits_reject_invalid_values(value: object) -> None:
+    with pytest.raises((TypeError, ValueError), match="process output limit"):
+        LocalCommand(
+            executable=sys.executable,
+            args=(),
+            capability=ToolCapability.STATUS_REPORT,
+            max_stdout_bytes=value,  # type: ignore[arg-type]
+        )
+
+
 def test_adapter_can_accept_a_nonzero_domain_verdict(tmp_path: Path) -> None:
     outcome = runtime(tmp_path).execute_local(
         descriptor(),

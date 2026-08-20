@@ -661,10 +661,13 @@ geratene normalisierte Rolle. Jeder Kandidat verweist auf die exakte
 `ToolExecution` und `FileObservation`; der Adapter legt keine `Agent`-,
 `Work`-, `Edition`- oder `Series`-Entität an.
 
-`calibredb` ist bewusst zurückgestellt. Die dokumentierten read-oriented
-Subcommands `list --for-machine` und `show_metadata --as-opf` stehen neben
-zahlreichen mutierenden Befehlen. Eine spätere Integration benötigt daher eine
-enge Read-Command-Allowlist und einen konkreten Library-Reconciliation-Vertrag.
+Die read-only `calibredb`-Allowlist und der Library-Reconciliation-Vertrag sind
+mit ADR-0033 umgesetzt. `S-EB07-10` schließt zusätzlich die zuvor nur deklarierte
+Outputgrenze: Die generische ToolRuntime begrenzt stdout/stderr schon während
+des Prozesses, beendet Überläufe fail-closed und die vier fachlichen
+`calibredb`-Shapes binden exakt 64 MiB, 1 MiB, 4 MiB beziehungsweise 16 MiB.
+Offen bleibt `S-EB07-11`, die Capture-Orchestrierung mit paginiertem
+Vorher-/Nachher-Inventar, Lease-Keeper und atomarer Snapshot-Persistenz.
 
 ### calibre EPUB/MOBI/AZW/AZW3-Text und normalisierter Fingerprint
 
