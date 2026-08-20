@@ -268,11 +268,7 @@ def reduce_book_classification_assertions(
     target_id: EntityId,
     assertions: Iterable[BookClassificationAssertion],
 ) -> BookClassificationProjection:
-    """Reduce conflict-free v1 assertions without I/O or confidence ranking.
-
-    Conflicting inputs fail closed.  S-EB04-05 will retain conflict outputs as
-    ``REVIEW_REQUIRED`` projections rather than selecting an invented winner.
-    """
+    """Reduce v1 assertions without I/O, confidence ranking, or mutation."""
 
     checked = _checked_assertions(
         target_kind=target_kind, target_id=target_id, assertions=assertions
@@ -282,12 +278,12 @@ def reduce_book_classification_assertions(
     links: list[BookClassificationProjectionAssertionLink] = []
     for dimension in _DIMENSIONS:
         dimension_assertions = tuple(item for item in checked if item.dimension is dimension)
-        facet, dimension_links = _reduce_conflict_free_facet(dimension, dimension_assertions)
+        facet, dimension_links = _reduce_facet(dimension, dimension_assertions)
         facets.append(facet)
         links.extend(dimension_links)
-    status = (
-        ClassificationProjectionStatus.EMPTY
-        if not checked
+    status = ClassificationProjectionStatus.EMPTY if not checked else (
+        ClassificationProjectionStatus.REVIEW_REQUIRED
+        if any(facet.status is ClassificationFacetStatus.CONFLICT for facet in facets)
         else ClassificationProjectionStatus.PROJECTED
     )
     return BookClassificationProjection(
@@ -308,7 +304,7 @@ def reduce_book_classification_assertions(
     )
 
 
-def _reduce_conflict_free_facet(
+def _reduce_facet(
     dimension: ClassificationDimension,
     assertions: tuple[BookClassificationAssertion, ...],
 ) -> tuple[
@@ -325,13 +321,35 @@ def _reduce_conflict_free_facet(
     selected = tuple(item for item in assertions if item.lineage.priority_tier is highest)
     considered = tuple(item for item in assertions if item.lineage.priority_tier is not highest)
     distinct_values = tuple(sorted({(item.taxonomy, item.normalized_value) for item in selected}))
-    if dimension is ClassificationDimension.DOMAIN and len(distinct_values) > 1:
-        raise ClassificationProjectionConflictError("classification projection requires review")
-    if (
-        dimension is not ClassificationDimension.DOMAIN
-        and len(distinct_values) > _SET_VALUE_LIMITS[dimension]
-    ):
-        raise ClassificationProjectionConflictError("classification projection requires review")
+    conflict_code = _conflict_code(
+        dimension=dimension, highest=highest, distinct_values=distinct_values
+    )
+    if conflict_code is not None:
+        domain_conflict = dimension is ClassificationDimension.DOMAIN
+        return (
+            BookClassificationProjectionFacet(
+                dimension=dimension,
+                status=ClassificationFacetStatus.CONFLICT,
+                conflict_code=conflict_code,
+            ),
+            tuple(
+                BookClassificationProjectionAssertionLink(
+                    assertion_id=item.id,
+                    assertion_key=item.lineage.assertion_key,
+                    role=(
+                        ClassificationProjectionLinkRole.CONFLICTING
+                        if not domain_conflict or item.lineage.priority_tier is highest
+                        else ClassificationProjectionLinkRole.CONSIDERED
+                    ),
+                    conflict_code=(
+                        conflict_code
+                        if not domain_conflict or item.lineage.priority_tier is highest
+                        else None
+                    ),
+                )
+                for item in assertions
+            ),
+        )
     values = tuple(
         BookClassificationProjectionValue(
             ordinal=ordinal, taxonomy=taxonomy, normalized_value=normalized_value
@@ -358,6 +376,26 @@ def _reduce_conflict_free_facet(
         ),
         links,
     )
+
+
+def _conflict_code(
+    *,
+    dimension: ClassificationDimension,
+    highest: ClassificationPriorityTier,
+    distinct_values: tuple[tuple[str, str], ...],
+) -> ClassificationProjectionConflictCode | None:
+    if dimension is ClassificationDimension.DOMAIN and len(distinct_values) > 1:
+        return (
+            ClassificationProjectionConflictCode.CONFIRMED_CONTRADICTION
+            if highest is ClassificationPriorityTier.USER_CONFIRMED
+            else ClassificationProjectionConflictCode.MULTIPLE_EXCLUSIVE_VALUES
+        )
+    if (
+        dimension is not ClassificationDimension.DOMAIN
+        and len(distinct_values) > _SET_VALUE_LIMITS[dimension]
+    ):
+        return ClassificationProjectionConflictCode.CARDINALITY_EXCEEDED
+    return None
 
 
 def _checked_assertions(

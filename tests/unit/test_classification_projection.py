@@ -19,7 +19,6 @@ from foliotone.classification import (
     ClassificationFacetStatus,
     ClassificationPriorityTier,
     ClassificationProjectionConflictCode,
-    ClassificationProjectionConflictError,
     ClassificationProjectionLinkRole,
     ClassificationProjectionStatus,
     ClassificationSourceKind,
@@ -181,28 +180,156 @@ def test_reducer_keeps_user_confirmed_value_and_marks_lower_tier_considered() ->
     assert roles[automated.lineage.assertion_key] is ClassificationProjectionLinkRole.CONSIDERED
 
 
-def test_reducer_fails_closed_for_domain_conflict() -> None:
+def test_reducer_retains_automated_domain_conflict_for_review() -> None:
     target_id = EntityId.new()
-    with pytest.raises(ClassificationProjectionConflictError, match="requires review"):
-        reduce_book_classification_assertions(
-            target_kind=EntityKind.WORK,
-            target_id=target_id,
-            assertions=(
-                _assertion(
-                    target_id,
-                    ClassificationDimension.DOMAIN,
-                    "fiction",
-                    confidence=0.01,
-                ),
-                _assertion(
-                    target_id,
-                    ClassificationDimension.DOMAIN,
-                    "nonfiction",
-                    reference=_REFERENCE_B,
-                    confidence=1.0,
-                ),
-            ),
+    first = _assertion(
+        target_id, ClassificationDimension.DOMAIN, "fiction", confidence=0.01
+    )
+    second = _assertion(
+        target_id,
+        ClassificationDimension.DOMAIN,
+        "nonfiction",
+        reference=_REFERENCE_B,
+        confidence=1.0,
+    )
+
+    projection = reduce_book_classification_assertions(
+        target_kind=EntityKind.WORK, target_id=target_id, assertions=(first, second)
+    )
+
+    domain = next(
+        facet for facet in projection.facets if facet.dimension is ClassificationDimension.DOMAIN
+    )
+    assert projection.status is ClassificationProjectionStatus.REVIEW_REQUIRED
+    assert domain.status is ClassificationFacetStatus.CONFLICT
+    assert domain.conflict_code is ClassificationProjectionConflictCode.MULTIPLE_EXCLUSIVE_VALUES
+    assert not domain.values
+    assert {
+        (link.assertion_key, link.role, link.conflict_code) for link in projection.assertion_links
+    } == {
+        (
+            first.lineage.assertion_key,
+            ClassificationProjectionLinkRole.CONFLICTING,
+            ClassificationProjectionConflictCode.MULTIPLE_EXCLUSIVE_VALUES,
+        ),
+        (
+            second.lineage.assertion_key,
+            ClassificationProjectionLinkRole.CONFLICTING,
+            ClassificationProjectionConflictCode.MULTIPLE_EXCLUSIVE_VALUES,
+        ),
+    }
+
+
+def test_reducer_marks_conflicting_confirmed_domains_as_confirmed_contradiction() -> None:
+    target_id = EntityId.new()
+    fiction = _assertion(
+        target_id,
+        ClassificationDimension.DOMAIN,
+        "fiction",
+        source_kind=ClassificationSourceKind.USER_CONFIRMED,
+        reference="11111111-1111-1111-1111-111111111111",
+    )
+    nonfiction = _assertion(
+        target_id,
+        ClassificationDimension.DOMAIN,
+        "nonfiction",
+        source_kind=ClassificationSourceKind.USER_CONFIRMED,
+        reference="22222222-2222-2222-2222-222222222222",
+    )
+    lower_tier = _assertion(
+        target_id,
+        ClassificationDimension.DOMAIN,
+        "fiction",
+        reference=_REFERENCE_A,
+    )
+
+    projection = reduce_book_classification_assertions(
+        target_kind=EntityKind.WORK,
+        target_id=target_id,
+        assertions=(fiction, nonfiction, lower_tier),
+    )
+
+    domain = next(
+        facet for facet in projection.facets if facet.dimension is ClassificationDimension.DOMAIN
+    )
+    assert domain.conflict_code is ClassificationProjectionConflictCode.CONFIRMED_CONTRADICTION
+    roles = {
+        link.assertion_key: (link.role, link.conflict_code)
+        for link in projection.assertion_links
+    }
+    assert roles[fiction.lineage.assertion_key] == (
+        ClassificationProjectionLinkRole.CONFLICTING,
+        ClassificationProjectionConflictCode.CONFIRMED_CONTRADICTION,
+    )
+    assert roles[nonfiction.lineage.assertion_key] == (
+        ClassificationProjectionLinkRole.CONFLICTING,
+        ClassificationProjectionConflictCode.CONFIRMED_CONTRADICTION,
+    )
+    assert roles[lower_tier.lineage.assertion_key] == (
+        ClassificationProjectionLinkRole.CONSIDERED,
+        None,
+    )
+
+
+def test_reducer_retains_all_inputs_when_set_cardinality_overflows() -> None:
+    target_id = EntityId.new()
+    assertions = tuple(
+        _assertion(
+            target_id,
+            ClassificationDimension.GENRE,
+            f"genre {index}",
+            reference=f"{index:064x}",
         )
+        for index in range(9)
+    )
+
+    projection = reduce_book_classification_assertions(
+        target_kind=EntityKind.WORK, target_id=target_id, assertions=assertions
+    )
+
+    genre = next(
+        facet for facet in projection.facets if facet.dimension is ClassificationDimension.GENRE
+    )
+    assert projection.status is ClassificationProjectionStatus.REVIEW_REQUIRED
+    assert genre.status is ClassificationFacetStatus.CONFLICT
+    assert genre.conflict_code is ClassificationProjectionConflictCode.CARDINALITY_EXCEEDED
+    assert not genre.values
+    assert {link.assertion_key for link in projection.assertion_links} == {
+        item.lineage.assertion_key for item in assertions
+    }
+    assert all(
+        link.role is ClassificationProjectionLinkRole.CONFLICTING
+        and link.conflict_code is ClassificationProjectionConflictCode.CARDINALITY_EXCEEDED
+        for link in projection.assertion_links
+    )
+
+
+def test_reducer_does_not_invent_cross_dimension_conflicts() -> None:
+    target_id = EntityId.new()
+    assertions = (
+        _assertion(target_id, ClassificationDimension.DOMAIN, "fiction"),
+        _assertion(
+            target_id,
+            ClassificationDimension.TOPIC,
+            "computer science",
+            reference=_REFERENCE_B,
+        ),
+        _assertion(
+            target_id,
+            ClassificationDimension.FORM,
+            "technical reference",
+            reference="c" * 64,
+        ),
+    )
+
+    projection = reduce_book_classification_assertions(
+        target_kind=EntityKind.WORK, target_id=target_id, assertions=assertions
+    )
+
+    assert projection.status is ClassificationProjectionStatus.PROJECTED
+    assert all(
+        facet.status is not ClassificationFacetStatus.CONFLICT for facet in projection.facets
+    )
 
 
 def test_facet_constructor_enforces_sum_type_and_unique_values() -> None:
