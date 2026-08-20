@@ -30,6 +30,16 @@ def test_scan_worker_auto_policy_is_bounded_and_explicit_override_wins(
     assert cli_module._scan_hash_worker_value("8") == 8
 
 
+@pytest.mark.parametrize(
+    ("requested", "expected"),
+    ((None, False), (False, False), (True, True)),
+)
+def test_scan_progress_requires_explicit_opt_in(
+    requested: bool | None, expected: bool
+) -> None:
+    assert cli_module._scan_progress_enabled(requested) is expected
+
+
 @pytest.mark.parametrize("value", ["0", "9", "invalid"])
 def test_scan_worker_parser_rejects_unbounded_values(value: str) -> None:
     with pytest.raises(cli_module.argparse.ArgumentTypeError):
@@ -214,3 +224,4 @@ def test_scan_cli_interrupts_cleanly_before_migration_starts_a_run(
 
     assert exit_code == 130
     assert capsys.readouterr().out == "Scan interrupted before a ScanRun was started.\n"
+
