@@ -16,6 +16,7 @@ from typing import Any
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 PREDICATE_TYPE = "https://slsa.dev/provenance/v1"
+GITHUB_WORKFLOW_BUILD_TYPE = "https://actions.github.io/buildtypes/workflow/v1"
 IMAGE_NAME = "ghcr.io/gecompat/foliotone-archive-7zip"
 MANIFEST_DIGEST = "sha256:26c9c2fa32f93210a46fcf6b9651006038f9e766a1d791b463ce9875815a8287"
 MANIFEST_SIZE = 838
@@ -163,16 +164,22 @@ def build_provenance_predicate(repository_commit: str) -> dict[str, Any]:
     ]
     return {
         "buildDefinition": {
-            "buildType": "https://github.com/gecompat/FolioTone/archive-image-build/v1",
+            "buildType": GITHUB_WORKFLOW_BUILD_TYPE,
             "externalParameters": {
-                "platform": lock["platform"],
-                "repository": "https://github.com/gecompat/FolioTone",
-                "repositoryCommit": repository_commit,
-                "sourceDateEpoch": lock["source_date_epoch"],
-                "workflow": ".github/workflows/archive-image.yml",
+                "workflow": {
+                    "ref": "refs/heads/main",
+                    "repository": "https://github.com/gecompat/FolioTone",
+                    "path": ".github/workflows/archive-image.yml",
+                },
             },
             "internalParameters": {
                 "actionIdentities": ACTION_IDENTITIES,
+                "archiveImage": {
+                    "platform": lock["platform"],
+                    "recipeProfile": lock["recipe_profile"],
+                    "repositoryCommit": repository_commit,
+                    "sourceDateEpoch": lock["source_date_epoch"],
+                },
                 "base": {
                     "kind": lock["base_kind"],
                     "reference": lock["base_reference"],
@@ -210,10 +217,7 @@ def build_provenance_predicate(repository_commit: str) -> dict[str, Any]:
         },
         "runDetails": {
             "builder": {
-                "id": (
-                    "https://github.com/gecompat/FolioTone/"
-                    f".github/workflows/archive-image.yml@{repository_commit}"
-                ),
+                "id": "https://github.com/actions/runner/github-hosted",
                 "builderDependencies": action_dependencies,
                 "version": {
                     "buildkit": lock["buildkit_version"],

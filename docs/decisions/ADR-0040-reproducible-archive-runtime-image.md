@@ -410,6 +410,16 @@ geschützten Publishjobs. Maximal detaillierte Provenance ist nur zulässig,
 wenn ihr Buildkontext und ihre Parameter nachweislich ausschließlich
 öffentliche, nicht geheime Werte enthalten.
 
+Das SLSA-Feld `buildDefinition.buildType` verwendet den von GitHub für
+GitHub-Actions-Attestations unterstützten Typ
+`https://actions.github.io/buildtypes/workflow/v1`. Dessen
+`externalParameters.workflow` bindet exakt `refs/heads/main`, das Repository
+und `.github/workflows/archive-image.yml`. `archive-image-build/v1`, Plattform,
+`SOURCE_DATE_EPOCH` und die übrigen profilspezifischen Werte bleiben zusätzlich
+im geschlossenen `internalParameters.archiveImage`-Objekt gebunden. Ein eigener
+SLSA-`buildType` ist nicht zulässig, weil GitHubs Attestation-API ihn bei der
+Persistierung ablehnt; das ändert weder Predicate-Typ noch Evidence-Inhalt.
+
 ## CI- und Betriebsgrenzen
 
 Public PR CI darf das offizielle, fest gehashte Artefakt laden, den sicheren

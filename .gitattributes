@@ -6,3 +6,6 @@ tests/fixtures/ebook_comparison/v2/text/*.txt text eol=lf
 
 # Preserve byte-identical upstream archive redistribution notices.
 packaging/archive/7zip-26.02/licenses/* binary
+packaging/archive/7zip-26.02/Dockerfile text eol=lf
+packaging/archive/7zip-26.02/*.json text eol=lf
+packaging/archive/7zip-26.02/*.py text eol=lf

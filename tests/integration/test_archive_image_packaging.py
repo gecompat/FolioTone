@@ -98,6 +98,22 @@ def test_custom_provenance_is_deterministic_and_verified_exactly(tmp_path: Path)
     predicate = json.loads(first.read_text(encoding="utf-8"))
     assert predicate == module.build_provenance_predicate(commit)
     assert predicate["runDetails"]["metadata"] == {}
+    assert predicate["buildDefinition"]["buildType"] == (
+        "https://actions.github.io/buildtypes/workflow/v1"
+    )
+    assert predicate["buildDefinition"]["externalParameters"] == {
+        "workflow": {
+            "ref": "refs/heads/main",
+            "repository": "https://github.com/gecompat/FolioTone",
+            "path": ".github/workflows/archive-image.yml",
+        }
+    }
+    assert predicate["buildDefinition"]["internalParameters"]["archiveImage"] == {
+        "platform": "linux/amd64",
+        "recipeProfile": "archive-7zip-image/v1",
+        "repositoryCommit": commit,
+        "sourceDateEpoch": 1782345600,
+    }
     assert predicate["buildDefinition"]["internalParameters"]["actionIdentities"] == (
         module.ACTION_IDENTITIES
     )
