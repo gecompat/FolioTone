@@ -106,6 +106,16 @@ def provenance() -> Provenance:
     )
 
 
+def test_sqlite_write_engine_enables_wal_and_busy_timeout(tmp_path: Path) -> None:
+    engine = create_sqlite_engine(tmp_path / "wal.db")
+    try:
+        with engine.connect() as connection:
+            assert connection.execute(text("PRAGMA journal_mode")).scalar_one().lower() == "wal"
+            assert connection.execute(text("PRAGMA busy_timeout")).scalar_one() == 30_000
+    finally:
+        engine.dispose()
+
+
 @pytest.fixture
 def database(head_database: Path) -> Path:
     return head_database

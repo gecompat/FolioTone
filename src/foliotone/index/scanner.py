@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from collections import Counter
 from collections.abc import Callable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -10,6 +11,8 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from itertools import islice
 from threading import Event, Thread
+
+from sqlalchemy.exc import OperationalError
 
 from foliotone.core import (
     EntityId,
@@ -38,6 +41,7 @@ Clock = Callable[[], datetime]
 ProgressReporter = Callable[["ScanProgress"], None]
 MAX_SCAN_HASH_WORKERS = 8
 MAX_SCAN_HEARTBEAT_SECONDS = 60.0
+SCAN_HEARTBEAT_LOCK_RETRY_DELAYS_SECONDS = (0.25, 0.5, 1.0, 2.0)
 _HASH_STATES = frozenset(
     {
         FileChangeState.NEW,
@@ -132,6 +136,13 @@ class _ScanLeaseKeeper:
 
     def _renew_until_stopped(self) -> None:
         while not self._stop.wait(self._interval):
+            if not self._renew():
+                return
+
+    def _renew(self) -> bool:
+        """Renew ownership, tolerating a bounded transient SQLite writer conflict."""
+
+        for delay in (*SCAN_HEARTBEAT_LOCK_RETRY_DELAYS_SECONDS, None):
             heartbeat_at = self._clock()
             try:
                 self._owned = self._store.heartbeat_scan(
@@ -139,9 +150,15 @@ class _ScanLeaseKeeper:
                     heartbeat_at,
                     heartbeat_at + self._lease_duration,
                 )
+                return True
             except Exception as error:
+                if delay is not None and _is_transient_sqlite_lock(error):
+                    if self._stop.wait(delay):
+                        return False
+                    continue
                 self._error = error
-                return
+                return False
+        raise AssertionError("heartbeat retry loop must return")
 
 
 class IncrementalScanner:
@@ -428,3 +445,12 @@ def _batches(iterator: Iterator[DiscoveredFile], size: int) -> Iterator[tuple[Di
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def _is_transient_sqlite_lock(error: Exception) -> bool:
+    """Return whether SQLAlchemy wrapped SQLite's retryable writer-lock errors."""
+
+    if not isinstance(error, OperationalError) or not isinstance(error.orig, sqlite3.OperationalError):
+        return False
+    message = str(error.orig).lower()
+    return "locked" in message or "busy" in message

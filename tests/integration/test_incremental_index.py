@@ -1,3 +1,4 @@
+import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -6,8 +7,10 @@ from threading import Barrier
 
 import pytest
 from sqlalchemy import Engine, delete, event
+from sqlalchemy.exc import OperationalError
 
 import foliotone.index.hashing as hashing_module
+import foliotone.index.scanner as scanner_module
 from foliotone.core import (
     FileChangeState,
     FileObservation,
@@ -37,6 +40,51 @@ from foliotone.persistence import create_sqlite_engine, repository, schema
 from foliotone.persistence.scan_root_lease import OwnedScanRootWriteLease
 
 NOW = datetime(2026, 8, 8, 20, 0, tzinfo=UTC)
+
+
+def test_scan_lease_keeper_retries_a_transient_sqlite_lock(
+    monkeypatch: pytest.MonkeyPatch, head_database: Path
+) -> None:
+    database = head_database
+    engine = create_sqlite_engine(database)
+    store = SQLiteIndexStore(engine)
+    root = store.get_or_create_root("heartbeat-lock", MediaType.EBOOK)
+    owned = store.start_scan(
+        root,
+        NOW,
+        lease_token="test-lease-token",
+        lease_expires_at=NOW + timedelta(minutes=30),
+    )
+    original_heartbeat = store.heartbeat_scan
+    attempts = 0
+
+    def lock_once(
+        current: OwnedScanRun,
+        heartbeat_at: datetime,
+        lease_expires_at: datetime,
+    ) -> OwnedScanRun:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise OperationalError(
+                "UPDATE scan_root_write_leases",
+                {},
+                sqlite3.OperationalError("database is locked"),
+            )
+        return original_heartbeat(current, heartbeat_at, lease_expires_at)
+
+    monkeypatch.setattr(store, "heartbeat_scan", lock_once)
+    monkeypatch.setattr(scanner_module, "SCAN_HEARTBEAT_LOCK_RETRY_DELAYS_SECONDS", (0.0,))
+    keeper = scanner_module._ScanLeaseKeeper(
+        store,
+        owned,
+        clock=lambda: NOW + timedelta(seconds=1),
+        lease_duration=timedelta(minutes=30),
+    )
+
+    assert keeper._renew()
+    keeper.check()
+    assert attempts == 2
 
 
 @dataclass(frozen=True, slots=True)
