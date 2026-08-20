@@ -1855,8 +1855,12 @@ entscheidet vor EBAR-06 den privaten Listing-/CRC-Handoff, den reinen internen
 Extraction-Validator, ein separates Gate für einen harten Workspace-Cap
 und den Runner-owned Workspace-Consumer-Lifecycle. S-EBAR-05A und S-EBAR-06A
 sind umgesetzt. ADR-0049 akzeptiert die dateisystemneutrale
-Workspace-Capability; als Nächstes folgt das neutrale S-EBAR-04Q. Ein reales
-Plattformbackend benötigt danach ein eigenes Konformitätsgate.
+Workspace-Capability; das neutrale S-EBAR-04Q ist umgesetzt.
+[ADR-0050](../decisions/ADR-0050-linux-docker-workspace-backend-unavailable.md)
+schließt FG-A-WORKSPACE-BACKEND negativ und hält die Adapter-Allowlist leer.
+S-EBAR-04A und EBAR-06 bleiben bis zu einem erfolgreichen Revalidation-Gate
+mit konkretem Backend und echtem Linux-/Docker-Conformancehost
+`TOOL_UNAVAILABLE`.
 Die vier äußeren Kompressionsstreams bleiben bis zu einem
 separaten FG-A-WRAPPER-PIPELINE bei `OUTER_COMPRESSION_ONLY` und erhalten in
 EBAR-06 keinen Lauf.
@@ -2117,8 +2121,11 @@ reinen Extraction-Consumer ohne Tool- oder Filesystemzugriff.
 FG-A-EXTRACTION-QUOTA ist durch ADR-0049 als dateisystemneutrale, atomar
 begrenzte Workspace-Capability entschieden. S-EBAR-04Q implementiert deren
 neutralen Provider-, Lease-, Capability-, Return- und Quarantänevertrag.
-Konkrete Backends folgen getrennt je Plattform. Periodisches Scannen ist lediglich
-Frühabbruch. S-EBAR-04A lässt
+ADR-0050 akzeptiert keinen der aktuell untersuchten Linux-/Docker-Kandidaten:
+Byte-, Objekt-, Reserve- und Consumer-Lifecycle sind nicht gemeinsam belegt.
+Die Allowlist bleibt leer; ein konkretes Backend folgt frühestens nach einem
+erfolgreichen docs-only Revalidation-Gate. Periodisches Scannen ist lediglich
+Frühabbruch. Erst danach lässt S-EBAR-04A
 nur diesen privaten Extraction-Consumer zwischen bewiesener
 Container-Abwesenheit und
 Runner-owned Cleanup auf eine borrowed no-follow-Workspace-Capability

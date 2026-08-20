@@ -417,6 +417,16 @@ erfolgreichem Return freigegeben. Ein Consumer-, Container-Absence-, Cleanup-,
 Slot-Revalidation- oder Returnfehler liefert keine Partial-Evidence und
 quarantänisiert den Slot.
 
+[ADR-0050](../decisions/ADR-0050-linux-docker-workspace-backend-unavailable.md)
+schließt FG-A-WORKSPACE-BACKEND negativ. Weder der bestehende Bind-Mount,
+Docker-`overlay2.size`, `tmpfs` noch eine nicht konkret live attestierte
+Linux-Quota belegen den vollständigen Byte-/Objekt-/Reserve- und
+Consumer-Lifecycle. Die Backend-Allowlist bleibt leer; S-EBAR-04A und EBAR-06
+bleiben `TOOL_UNAVAILABLE`. Ein späteres Revalidation-Gate benötigt einen
+konkreten administrativ vorprovisionierten Kandidaten und einen echten
+Linux-/Docker-Conformancehost. Kein Dateisystem und FIEMAP werden zum
+FolioTone-Kernvertrag.
+
 libarchive/bsdtar 3.8.9 bleibt zurückgestellt. libarchive besitzt einen
 Passphrase-Callback und breite Leseunterstützung, deckt verschlüsselte RAR-/7z-
 Payloads jedoch nicht als gemeinsame Baseline ab. `bsdtar --passphrase`
