@@ -11,6 +11,10 @@ from pathlib import PurePath
 from typing import Final
 
 ARCHIVE_SIGNATURE_PROFILE: Final = "archive-signature-observer/v1"
+ARCHIVE_SIGNATURE_PROFILE_V2: Final = "archive-signature-observer/v2"
+ARCHIVE_PUBLICATION_STORAGE_COMPATIBILITY: Final = (
+    "archive-publication-storage-compatibility/v1"
+)
 MAX_ARCHIVE_HEADER_BYTES: Final = 512
 MAX_ARCHIVE_VOLUMES: Final = 256
 
@@ -36,6 +40,46 @@ class ArchiveFormatKind(StrEnum):
     TAR_XZ = "TAR_XZ"
     TAR_ZSTD = "TAR_ZSTD"
     UNKNOWN = "UNKNOWN"
+
+
+class ArchivePublicationKind(StrEnum):
+    NONE = "NONE"
+    EPUB = "EPUB"
+    CBZ = "CBZ"
+    CBR = "CBR"
+
+
+class ArchiveStorageFamily(StrEnum):
+    ZIP = "ZIP"
+    RAR4 = "RAR4"
+    RAR5 = "RAR5"
+    SEVEN_Z = "SEVEN_Z"
+    TAR = "TAR"
+    UNKNOWN = "UNKNOWN"
+
+
+class ArchiveOuterCompressionKind(StrEnum):
+    NONE = "NONE"
+    GZIP = "GZIP"
+    BZIP2 = "BZIP2"
+    XZ = "XZ"
+    ZSTD = "ZSTD"
+
+
+class ArchiveSuffixKind(StrEnum):
+    EPUB = "EPUB"
+    CBZ = "CBZ"
+    CBR = "CBR"
+    ZIP = "ZIP"
+    RAR = "RAR"
+    SEVEN_Z = "SEVEN_Z"
+    TAR = "TAR"
+    TAR_GZIP = "TAR_GZIP"
+    TAR_BZIP2 = "TAR_BZIP2"
+    TAR_XZ = "TAR_XZ"
+    TAR_ZSTD = "TAR_ZSTD"
+    UNSUPPORTED = "UNSUPPORTED"
+    OTHER = "OTHER"
 
 
 class ArchiveRecognitionStatus(StrEnum):
@@ -85,6 +129,70 @@ class ArchiveSignatureObservation:
             raise ValueError("inspected_bytes exceeds the signature bound")
         if not isinstance(self.structural_confirmation_required, bool):
             raise ValueError("structural_confirmation_required must be bool")
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveSignatureObservationV2:
+    profile: str
+    container_class: ArchiveContainerClass
+    suffix_kind: ArchiveSuffixKind
+    publication_kind: ArchivePublicationKind
+    storage_family: ArchiveStorageFamily
+    outer_compression_kind: ArchiveOuterCompressionKind
+    recognition_status: ArchiveRecognitionStatus
+    inspected_bytes: int
+    structural_confirmation_required: bool
+    compatibility: str = ARCHIVE_PUBLICATION_STORAGE_COMPATIBILITY
+
+    def __post_init__(self) -> None:
+        if self.profile != ARCHIVE_SIGNATURE_PROFILE_V2:
+            raise ValueError("unsupported archive signature profile")
+        if self.compatibility != ARCHIVE_PUBLICATION_STORAGE_COMPATIBILITY:
+            raise ValueError("unsupported publication storage compatibility")
+        for value, expected, name in (
+            (self.container_class, ArchiveContainerClass, "container_class"),
+            (self.suffix_kind, ArchiveSuffixKind, "suffix_kind"),
+            (self.publication_kind, ArchivePublicationKind, "publication_kind"),
+            (self.storage_family, ArchiveStorageFamily, "storage_family"),
+            (
+                self.outer_compression_kind,
+                ArchiveOuterCompressionKind,
+                "outer_compression_kind",
+            ),
+            (self.recognition_status, ArchiveRecognitionStatus, "recognition_status"),
+        ):
+            if not isinstance(value, expected):
+                raise ValueError(f"{name} has an invalid type")
+        if isinstance(self.inspected_bytes, bool) or not isinstance(self.inspected_bytes, int):
+            raise ValueError("inspected_bytes must be an integer")
+        if not 0 <= self.inspected_bytes <= MAX_ARCHIVE_HEADER_BYTES:
+            raise ValueError("inspected_bytes exceeds the signature bound")
+        if not isinstance(self.structural_confirmation_required, bool):
+            raise ValueError("structural_confirmation_required must be bool")
+        expected_publication = _publication_for_suffix(self.suffix_kind)
+        if self.publication_kind is not expected_publication:
+            raise ValueError("publication_kind does not match suffix_kind")
+        expected_status = _recognition_for_axes(
+            self.suffix_kind,
+            self.storage_family,
+            self.outer_compression_kind,
+        )
+        if self.recognition_status is not expected_status:
+            raise ValueError("recognition_status does not match signature axes")
+        expected_container = _container_for_axes(
+            self.publication_kind,
+            self.storage_family,
+            self.outer_compression_kind,
+            self.recognition_status,
+        )
+        if self.container_class is not expected_container:
+            raise ValueError("container_class does not match signature axes")
+        expected_structural = (
+            self.publication_kind is not ArchivePublicationKind.NONE
+            or self.outer_compression_kind is not ArchiveOuterCompressionKind.NONE
+        )
+        if self.structural_confirmation_required is not expected_structural:
+            raise ValueError("structural confirmation does not match signature axes")
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +246,74 @@ _NEW_RAR = re.compile(r"^(?P<stem>.+)\.part(?P<number>[0-9]{1,6})\.rar$", re.IGN
 _OLD_RAR_PART = re.compile(r"^(?P<stem>.+)\.r(?P<number>[0-9]{2})$", re.IGNORECASE)
 _SEVEN_Z_PART = re.compile(r"^(?P<stem>.+)\.7z\.(?P<number>[0-9]{3,6})$", re.IGNORECASE)
 _SPLIT_ZIP_PART = re.compile(r"^(?P<stem>.+)\.z(?P<number>[0-9]{2})$", re.IGNORECASE)
+
+_DIRECT_SUFFIX_COMPATIBILITY: Final = {
+    ArchiveStorageFamily.ZIP: frozenset(
+        {ArchiveSuffixKind.EPUB, ArchiveSuffixKind.CBZ, ArchiveSuffixKind.ZIP}
+    ),
+    ArchiveStorageFamily.RAR4: frozenset({ArchiveSuffixKind.CBR, ArchiveSuffixKind.RAR}),
+    ArchiveStorageFamily.RAR5: frozenset({ArchiveSuffixKind.CBR, ArchiveSuffixKind.RAR}),
+    ArchiveStorageFamily.SEVEN_Z: frozenset({ArchiveSuffixKind.SEVEN_Z}),
+    ArchiveStorageFamily.TAR: frozenset({ArchiveSuffixKind.TAR}),
+}
+_OUTER_SUFFIX_COMPATIBILITY: Final = {
+    ArchiveOuterCompressionKind.GZIP: ArchiveSuffixKind.TAR_GZIP,
+    ArchiveOuterCompressionKind.BZIP2: ArchiveSuffixKind.TAR_BZIP2,
+    ArchiveOuterCompressionKind.XZ: ArchiveSuffixKind.TAR_XZ,
+    ArchiveOuterCompressionKind.ZSTD: ArchiveSuffixKind.TAR_ZSTD,
+}
+
+
+def observe_archive_signature_v2(
+    basename: str, header: bytes
+) -> ArchiveSignatureObservationV2:
+    """Observe independent publication, storage, and outer-compression axes."""
+
+    name = _require_basename(basename)
+    if not isinstance(header, bytes) or len(header) > MAX_ARCHIVE_HEADER_BYTES:
+        raise ValueError("archive header must be bytes bounded to 512")
+    suffix_kind = _suffix_kind(name.lower())
+    storage_family = ArchiveStorageFamily.UNKNOWN
+    outer_kind = ArchiveOuterCompressionKind.NONE
+    if any(header.startswith(signature) for signature in _ZIP_SIGNATURES):
+        storage_family = ArchiveStorageFamily.ZIP
+    elif header.startswith(_RAR5):
+        storage_family = ArchiveStorageFamily.RAR5
+    elif header.startswith(_RAR4):
+        storage_family = ArchiveStorageFamily.RAR4
+    elif header.startswith(_SEVEN_Z):
+        storage_family = ArchiveStorageFamily.SEVEN_Z
+    elif _valid_tar_header(header):
+        storage_family = ArchiveStorageFamily.TAR
+    else:
+        for signature, candidate in (
+            (b"\x1f\x8b", ArchiveOuterCompressionKind.GZIP),
+            (b"BZh", ArchiveOuterCompressionKind.BZIP2),
+            (b"\xfd7zXZ\x00", ArchiveOuterCompressionKind.XZ),
+            (b"(\xb5/\xfd", ArchiveOuterCompressionKind.ZSTD),
+        ):
+            if header.startswith(signature):
+                outer_kind = candidate
+                break
+    publication_kind = _publication_for_suffix(suffix_kind)
+    recognition = _recognition_for_axes(suffix_kind, storage_family, outer_kind)
+    container = _container_for_axes(
+        publication_kind, storage_family, outer_kind, recognition
+    )
+    return ArchiveSignatureObservationV2(
+        profile=ARCHIVE_SIGNATURE_PROFILE_V2,
+        container_class=container,
+        suffix_kind=suffix_kind,
+        publication_kind=publication_kind,
+        storage_family=storage_family,
+        outer_compression_kind=outer_kind,
+        recognition_status=recognition,
+        inspected_bytes=len(header),
+        structural_confirmation_required=(
+            publication_kind is not ArchivePublicationKind.NONE
+            or outer_kind is not ArchiveOuterCompressionKind.NONE
+        ),
+    )
 
 
 def observe_archive_signature(basename: str, header: bytes) -> ArchiveSignatureObservation:
@@ -309,6 +485,88 @@ def _zip_suffix_kind(lower: str) -> ArchiveFormatKind | None:
     if lower.endswith(".zip"):
         return ArchiveFormatKind.ZIP
     return None
+
+
+def _suffix_kind(lower: str) -> ArchiveSuffixKind:
+    if lower.endswith(".epub"):
+        return ArchiveSuffixKind.EPUB
+    if lower.endswith(".cbz"):
+        return ArchiveSuffixKind.CBZ
+    if lower.endswith(".cbr"):
+        return ArchiveSuffixKind.CBR
+    if lower.endswith(".zip"):
+        return ArchiveSuffixKind.ZIP
+    if _is_rar_suffix(lower):
+        return ArchiveSuffixKind.RAR
+    if _is_seven_z_suffix(lower):
+        return ArchiveSuffixKind.SEVEN_Z
+    if lower.endswith(".tar"):
+        return ArchiveSuffixKind.TAR
+    for suffixes, kind in (
+        ((".tar.gz", ".tgz"), ArchiveSuffixKind.TAR_GZIP),
+        ((".tar.bz2", ".tbz2"), ArchiveSuffixKind.TAR_BZIP2),
+        ((".tar.xz", ".txz"), ArchiveSuffixKind.TAR_XZ),
+        ((".tar.zst", ".tzst"), ArchiveSuffixKind.TAR_ZSTD),
+    ):
+        if lower.endswith(suffixes):
+            return kind
+    if lower.endswith((*_UNSUPPORTED_SUFFIXES, ".z01", ".z02")):
+        return ArchiveSuffixKind.UNSUPPORTED
+    return ArchiveSuffixKind.OTHER
+
+
+def _publication_for_suffix(suffix_kind: ArchiveSuffixKind) -> ArchivePublicationKind:
+    return {
+        ArchiveSuffixKind.EPUB: ArchivePublicationKind.EPUB,
+        ArchiveSuffixKind.CBZ: ArchivePublicationKind.CBZ,
+        ArchiveSuffixKind.CBR: ArchivePublicationKind.CBR,
+    }.get(suffix_kind, ArchivePublicationKind.NONE)
+
+
+def _recognition_for_axes(
+    suffix_kind: ArchiveSuffixKind,
+    storage_family: ArchiveStorageFamily,
+    outer_kind: ArchiveOuterCompressionKind,
+) -> ArchiveRecognitionStatus:
+    direct = storage_family is not ArchiveStorageFamily.UNKNOWN
+    outer = outer_kind is not ArchiveOuterCompressionKind.NONE
+    if direct and outer:
+        raise ValueError("direct storage and outer compression are mutually exclusive")
+    if direct:
+        compatible = _DIRECT_SUFFIX_COMPATIBILITY[storage_family]
+        return (
+            ArchiveRecognitionStatus.MATCHED
+            if suffix_kind in compatible
+            else ArchiveRecognitionStatus.SIGNATURE_SUFFIX_MISMATCH
+        )
+    if outer:
+        if suffix_kind is ArchiveSuffixKind.UNSUPPORTED:
+            return ArchiveRecognitionStatus.UNSUPPORTED_FORMAT
+        if suffix_kind is _OUTER_SUFFIX_COMPATIBILITY[outer_kind]:
+            return ArchiveRecognitionStatus.OUTER_COMPRESSION_ONLY
+        return ArchiveRecognitionStatus.SIGNATURE_SUFFIX_MISMATCH
+    if suffix_kind is ArchiveSuffixKind.UNSUPPORTED:
+        return ArchiveRecognitionStatus.UNSUPPORTED_FORMAT
+    return ArchiveRecognitionStatus.UNKNOWN_SIGNATURE
+
+
+def _container_for_axes(
+    publication_kind: ArchivePublicationKind,
+    storage_family: ArchiveStorageFamily,
+    outer_kind: ArchiveOuterCompressionKind,
+    recognition: ArchiveRecognitionStatus,
+) -> ArchiveContainerClass:
+    if publication_kind is not ArchivePublicationKind.NONE:
+        return ArchiveContainerClass.PUBLICATION_CONTAINER
+    if recognition is ArchiveRecognitionStatus.UNSUPPORTED_FORMAT:
+        return ArchiveContainerClass.UNSUPPORTED_CONTAINER
+    if (
+        storage_family is not ArchiveStorageFamily.UNKNOWN
+        or outer_kind is not ArchiveOuterCompressionKind.NONE
+        or recognition is ArchiveRecognitionStatus.SIGNATURE_SUFFIX_MISMATCH
+    ):
+        return ArchiveContainerClass.GENERIC_ARCHIVE
+    return ArchiveContainerClass.UNKNOWN_CONTAINER
 
 
 def _is_rar_suffix(lower: str) -> bool:
