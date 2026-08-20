@@ -4,8 +4,8 @@ Stand: 2026-08-20
 
 ## Aktuelle Welle
 
-**S-EBAR-02A DONE — nächstes Paket: S-EBAR-02B
-(Format-Fixturekorpus und geschütztes Linux-Messmanifest)**
+**S-EBAR-02B DONE — nächstes Paket: S-EBAR-02B2
+(Measurement-Erweiterung und Klassifikationskorrektur)**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -81,6 +81,20 @@ Produktionsprofil. Legacy-RAR/RAR5 werden über zwei kleine, ausdrücklich
 redistribuierbare, CC0-freigegebene und hashgebundene
 `ssokolow/rar-test-files`-Fixtures vermessen; alle übrigen Testdaten bleiben
 synthetisch. Ein ausschließlich übersprungener PR-Gate-Lauf ist unzulässig.
+
+S-EBAR-02B ist auf `main` umgesetzt. Das geschützte Linux-Gate hat die
+wertfreie Beobachtung `archive-7zip-format-measurement/v1` für ZIP, RAR4,
+RAR5, 7z, TAR sowie die vier äußeren komprimierten Streams bestätigt.
+Das Review hat diese Messung jedoch als Happy-Path-only und noch nicht
+lockfähig eingeordnet. Außerdem klassifiziert der Messhelper `Commented`,
+`Split Before` und `Split After` derzeit fälschlich als technische statt als
+`VT_BOOL`-Felder, und `ArchiveFormatKind` trennt Publication Kind nicht von
+der RAR4-/RAR5-/ZIP-Storage-Familie. ADR-0045 akzeptiert deshalb nur die neue
+Folge S-EBAR-02B2, FG-A-STORAGE-FAMILY, finaler FG-A-FORMAT-LOCK und danach
+S-EBAR-02C. Measurement SHA-256 `40a6ee...` und Vorabkandidat `fdebe71...`
+bleiben ausschließlich diagnostisch; es existiert noch kein akzeptierter
+`archive-7zip-format-lock/v1`. gzip, bzip2, xz und zstd bleiben bis EBAR-06
+`OUTER_COMPRESSION_ONLY`. Der nächste Schritt ist S-EBAR-02B2.
 
 Die spezialisierte Runtime darf anschließend ausschließlich unverschlüsselte
 Archive über bounded Streaming ohne Raw-Artefakt oder Preview verarbeiten.
@@ -1295,11 +1309,13 @@ Orchestrierung bleibt offen. EB-08 liefert den nicht ausführbaren,
 content-addressed ConsolidationPlan einschließlich read-only Report und
 statischem Non-Execution-Gate. FG-03A/EB-03A und EB-03B sind abgeschlossen.
 In der getrennten Archivstrecke sind FG-A, S-EBA-01 bis S-EBA-07,
-FG-A-RUNTIME, S-EBAR-01, S-EBAR-02, FG-A-IMAGE und S-EBAR-03 abgeschlossen;
-FG-A-RUNTIME-AVAILABILITY ist durch ADR-0041 akzeptiert. Der nächste
-maßgebliche Implementierungsschritt ist S-EBAR-03A vor EBAR-04. Reale Passwortversuche
-bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert gesperrt. Music W4 bleibt
-bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
+FG-A-RUNTIME, S-EBAR-01 bis S-EBAR-03A, FG-A-IMAGE,
+FG-A-RUNTIME-AVAILABILITY, EBAR-04, S-EBAR-02A und S-EBAR-02B abgeschlossen.
+FG-A-FORMAT-LOCK bleibt nach ADR-0045 offen. Der nächste maßgebliche
+Implementierungsschritt ist S-EBAR-02B2 vor FG-A-STORAGE-FAMILY und dem
+finalen Formatlock. Reale Passwortversuche
+bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert gesperrt. Music W4
+bleibt bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
 ausschließlich die CLI.
 
 ## Nicht implementiert
