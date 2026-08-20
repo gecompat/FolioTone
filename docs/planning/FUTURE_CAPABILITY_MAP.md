@@ -1,7 +1,7 @@
 # Future Capability Map
 
 **Status:** Entwurf
-**Stand:** 2026-08-18
+**Stand:** 2026-08-20
 **Scope:** langfristige Produktfähigkeiten und Medienlinien
 
 ## Zweck und Autorität
@@ -54,10 +54,11 @@ Statusachse und keine öffentlichen Runtime-Literale.
 
 ## Bezug zur aktuellen Ausgangsposition
 
-Beim Erstellen dieser Map ist das E-Book-Endgame aktiv und EB-07 begonnen.
-Der genaue Paketstatus und der jeweils nächste atomare Schritt werden hier
-nicht dupliziert; dafür sind `PROJECT_STATUS.md`, `HANDOVER.md` und der
-Spark-Arbeitspaketkatalog maßgeblich.
+Beim Aktualisieren dieser Map sind EB-07 und EB-08 abgeschlossen; die aktive
+Arbeit liegt in der getrennten Archive-Strecke. Der genaue Paketstatus und der
+jeweils nächste atomare Schritt werden hier nicht dupliziert; dafür sind
+`PROJECT_STATUS.md`, `HANDOVER.md` und der Spark-Arbeitspaketkatalog
+maßgeblich.
 
 ## Empfohlene Entwicklungsfolge
 
@@ -69,9 +70,10 @@ weder Paketstatus noch Ausführungsreihenfolge.
 
 **Einordnung:** bestehender Plan, aktuell
 
-Alle noch offenen EB-03A/EB-03B-, EB-04-, EB-07-, FG-08- und EB-08-Pakete
-werden ausschließlich nach der Abhängigkeits- und Statusfolge der
-maßgeblichen Pläne fortgesetzt. Diese Map ordnet sie nicht neu.
+Alle noch offenen E-Book- und Archive-Pakete werden ausschließlich nach der
+Abhängigkeits- und Statusfolge der maßgeblichen Pläne fortgesetzt. Diese Map
+öffnet abgeschlossene EB-Pakete nicht erneut und ordnet die aktive Archive-
+Strecke nicht neu.
 
 Die Archive-Strecke folgt ihrer eigenen EA-/EB-A-Zuordnung. W3-018 bis
 W3-022 decken nur Discovery, Inventory, Listing und Member-Evidence ab;
@@ -79,6 +81,37 @@ EB-A2 und EB-A3 umfassen zusätzlich die in W5B, W6 und W9 zugeordneten
 Secret-, Matching- und Planungsaufgaben. W10 bleibt unverändert blockiert.
 
 Diese Phase wird nicht zugunsten einer neuen Medienlinie abgebrochen.
+
+### Querschnittsgate: Portable Identität und föderierter Austausch
+
+**Einordnung:** strategischer Vorschlag, danach; Kennzeichnungs-Writes
+W10-blockiert
+
+Vor einem portablen Export-/Importvertrag, einer Bibliotheks-Synchronisation
+oder der Fusion mehrerer FolioTone-Systeme muss
+[ADR-0042](../decisions/ADR-0042-federated-object-identity-and-exchange.md)
+entschieden werden. Das Gate führt keinen universellen `Asset`-Typ ein und
+ordnet die laufende E-Book-/Archive-Strecke nicht neu.
+
+Empfohlene Reihenfolge:
+
+1. Grenze zwischen lokaler `EntityId`, portabler Datensatz-Lineage,
+   physischer Datei-/Repräsentationsidentität und Domain-Identität festlegen;
+2. dauerhafte Knotenidentität sowie Clone-, Backup-, Restore- und
+   Neuanlage-Semantik definieren;
+3. versioniertes, bounded und idempotentes Offline-Austauschpaket mit
+   Content-Digests, Provenance und Privacy-Grenzen festlegen;
+4. Merge-, Conflict-, Trust- und Decision-Compatibility-Regeln ohne
+   pauschales Last-write-wins definieren;
+5. read-only Kennzeichnungsträger für OPF, XMP, Audio-Metadaten, externe
+   Library-Felder und Sidecars bewerten;
+6. jedes Schreiben einer Kennzeichnung oder externen Library-Änderung in ein
+   getrenntes W10-Gate verweisen.
+
+Dieses Querschnittsgate ist Voraussetzung für portablen Datenaustausch und
+Multi-Instanz-Fusion. Es blockiert nicht die lokale book-only
+`CollectionState`-Projektion oder den vorhandenen read-only
+Calibre-Reconciliation-Vertrag.
 
 ### Phase 1: Produktprojektionen über der E-Book-Evidence
 
@@ -195,6 +228,7 @@ abgeleitet werden.
 | Provider Cache/Book Provider | externe Evidence kontrolliert und offline wiederverwendbar machen | bestehender Plan, abhängigkeitsgebunden | EB-03A/B, W5B | vorhandene Provider-Gates |
 | Classification Projection | widersprüchliche Facets getrennt und rebuildbar projizieren | bestehender Plan, abhängigkeitsgebunden | EB-04, W5C | FG-04 und Spark-Pakete |
 | `CollectionState` | physische Beobachtungen, bestätigte Identitäten und offene Candidates getrennt verstehen | strategischer Vorschlag, danach | neu; Reports und Scan-Lineage sind Vorarbeit | Frontier-ADR und book-only v1 |
+| Portable Identität und föderierter Austausch | Datensatz-Lineage über externe Kopien sowie zwischen FolioTone-Systemen nachvollziehen und konfliktbewusst fusionieren | strategischer Vorschlag, danach; Writes W10-blockiert | FUT-010, ADR-0011, ADR-0014 und ADR-0042 Proposed | FG-FED-IDENTITY, FG-FED-BUNDLE, FG-FED-MERGE und FG-FED-CARRIER |
 | Snapshot Diff | Veränderungen zwischen zwei konsistenten Zuständen erklären | strategischer Vorschlag, danach | W2-Lineage ist Vorarbeit; keine direkte Backlogaufgabe | CollectionState-Vertrag |
 | Sichere freie Suche | Metadaten und später Content lokal durchsuchen | strategischer Vorschlag, danach | neu | Query-AST, FTS und Privacy-ADR |
 | Preference Policy | Empfehlungen anhand expliziter Nutzerpräferenzen erzeugen | strategischer Vorschlag, danach | EB-08 teilweise | Profil-, Versionierungs- und Explanation-Vertrag |
@@ -254,6 +288,8 @@ Jede neue Medienlinie muss vor Implementierung mindestens festlegen:
 10. Review-, Reuse-, Staleness- und Explanation-Regeln;
 11. synthetischen Korpus und adversarial Negativfälle;
 12. ausdrücklichen Nachweis unveränderter Source Media.
+13. bei portablen Daten die ausstellende Knoten-/Objekt-Lineage,
+    Exchange-Provenance, Idempotenz, Conflict- und Trust-Grenzen.
 
 ## Erforderliche Frontier-Entscheidungen
 
@@ -264,6 +300,8 @@ Die folgenden Fragen werden nicht in Spark-Paketen vorentschieden:
   Retention, Backup, Purge und Query-History;
 - Preference Profile, Policy und Best-Representation-Erklärung;
 - additive `Expression`-/`Representation`-/`Derivation`-Semantik;
+- portable Knoten-/Objektreferenzen, Austauschpaket, Clone-/Restore-Vertrag,
+  Trust, Replay-Schutz und deterministische Konfliktbehandlung;
 - Root-/Replica-/Backup-/Restore-Modell;
 - Hörbuch- und Comic-Identitätsebenen;
 - Image-Sensitivität und Derivative Matching;

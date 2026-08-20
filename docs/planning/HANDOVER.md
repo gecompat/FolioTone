@@ -890,6 +890,16 @@ ADRs. Die unveränderte Roh-Ideensammlung liegt im ausdrücklich
 nichtkanonischen öffentlichen Bereich
 `docs/ideas/owner-notes/raw/Gedanken_für_die_Zukunft.md`.
 
+ADR-0042 und FUT-010 integrieren als vorgeschlagene Querschnittsfortsetzung die
+portable Objekt-Lineage sowie bounded, idempotenten Austausch und
+konfliktbewusste Fusion mehrerer FolioTone-Systeme. Vor Code sind getrennte
+Gates für Knoten-/Objektreferenzen, Clone-/Restore-Semantik,
+Austauschpaket, Merge/Trust/Decision Compatibility und read-only
+Kennzeichnungsträger erforderlich. Ein Tag, Pfad oder Hash ist dabei keine
+alleinige Identitätsautorität. ADR-0042 ist `Proposed`; es existiert weder ein
+Export-/Import-/Sync-Workflow noch ein Kennzeichnungs- oder External-Library-
+Write. Die aktive Archive-Welle und W10 bleiben unverändert.
+
 Music W4 bleibt geplant, wird aber erst nach der E-Book-Vertiefung und den
 book-spezifischen Teilen von Authority Resolution, Matching, Review und
 Calibre-Library-Reconciliation fortgesetzt.

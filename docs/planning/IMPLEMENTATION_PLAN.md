@@ -426,6 +426,10 @@ These do not block the first end-to-end pipeline but should remain architectural
 - audio quality/corruption assessment using ffmpeg/ffprobe or specialist tools where suitable;
 - fixity/bit-rot monitoring;
 - reproducible transformation/normalization recipes with dry-run/replay semantics;
+- portable node/object lineage plus bounded, idempotent exchange and
+  conflict-aware fusion between FolioTone systems, subject to the proposed
+  ADR-0042 gates; embedded/source/external-library identifier writes remain
+  separate W10-blocked operations;
 - more external authority/catalog providers;
 - local bulk authority indexes and incremental provider dataset refresh;
 - rule learning from review history before considering more complex ML;
