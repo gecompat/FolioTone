@@ -4,8 +4,8 @@ Stand: 2026-08-20
 
 ## Aktuelle Welle
 
-**EBAR-04 DONE — nächstes Paket: S-EBAR-02A
-(Member-only-Parser v2 vor realem EBAR-05-Listing)**
+**S-EBAR-02A DONE — nächstes Paket: S-EBAR-02B
+(Format-Fixturekorpus und geschütztes Linux-Messmanifest)**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -69,6 +69,18 @@ leeres Archiv erfolgreich 0 stdout-Bytes erzeugt. ADR-0043 akzeptiert deshalb
 vor EBAR-05 das kleine Paket S-EBAR-02A mit einem additiven Member-only-Parser
 v2. stderr-Prosa und grobe 7-Zip-Exitcodes bleiben ausdrücklich keine
 Ursachen-Authority; nicht strukturierte Fehler werden `TOOL_FAILED`.
+
+S-EBAR-02A ist auf `main` umgesetzt. Die anschließend vorgeschriebene reale
+Golden-Prüfung hat den vorgesehenen Stop ausgelöst: Parser v2 lehnt bei
+7-Zip 26.02 alle neun Formatfamilien geschlossen ab. Direkte Container liefern
+formatabhängig zusätzliche, fehlende oder leere technische Felder; gzip,
+bzip2, xz und zstd zeigen zunächst nur den äußeren komprimierten Stream.
+ADR-0044 legt deshalb vor EBAR-05 S-EBAR-02B, FG-A-FORMAT-LOCK und
+S-EBAR-02C fest. Parser v2 bleibt lesbar, ist aber kein reales
+Produktionsprofil. Legacy-RAR/RAR5 werden über zwei kleine, ausdrücklich
+redistribuierbare, CC0-freigegebene und hashgebundene
+`ssokolow/rar-test-files`-Fixtures vermessen; alle übrigen Testdaten bleiben
+synthetisch. Ein ausschließlich übersprungener PR-Gate-Lauf ist unzulässig.
 
 Die spezialisierte Runtime darf anschließend ausschließlich unverschlüsselte
 Archive über bounded Streaming ohne Raw-Artefakt oder Preview verarbeiten.

@@ -248,8 +248,9 @@ Umfang:
 
 **Status:** FG-A-RUNTIME, FG-A-IMAGE und FG-A-RUNTIME-AVAILABILITY sind durch
 ADR-0039, ADR-0040 beziehungsweise ADR-0041 akzeptiert. S-EBAR-01 bis
-S-EBAR-03A und EBAR-04 sind umgesetzt. ADR-0043 legt vor EBAR-05 das kleine
-Paket S-EBAR-02A für den tatsächlichen Member-only-`-ba -slt`-Stream fest.
+S-EBAR-03A, EBAR-04 und S-EBAR-02A sind umgesetzt. Die reale Golden-Prüfung
+von Parser v2 löste den vorgesehenen Stop aus. ADR-0044 schiebt deshalb
+S-EBAR-02B, FG-A-FORMAT-LOCK und S-EBAR-02C vor EBAR-05.
 
 **Ziel:** Archive werden ohne dauerhafte Extraktion technisch bewertet.
 
@@ -294,6 +295,9 @@ S-EBAR-01 Execution-DTOs
     -> S-EBAR-03A Acceptance, Provisioning und Offline-Availability
     -> EBAR-04 isolierter Docker/Linux-Streaming-Runner
     -> S-EBAR-02A Member-only-Parser v2 für den festen -ba-SLT-Stream
+    -> S-EBAR-02B hashgebundener Formatkorpus und Linux-Messmanifest
+    -> FG-A-FORMAT-LOCK exakte Review der beobachteten Formatprofile
+    -> S-EBAR-02C formatgebundene Produktionsparser
     -> EBAR-05 unverschlüsseltes Listing und Integrity
     -> EBAR-06 private Extraction-Sandbox
     -> FG-A-PERSISTENCE Schema-, Reuse- und Writer-Gate
