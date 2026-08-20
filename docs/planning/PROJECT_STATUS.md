@@ -4,8 +4,8 @@ Stand: 2026-08-20
 
 ## Aktuelle Welle
 
-**FG-A-RUNTIME-AVAILABILITY ACCEPTED — nächste Welle: S-EBAR-03A
-(Release-Acceptance, Provisioning und Offline-Availability)**
+**EBAR-04 DONE — nächstes Paket: S-EBAR-02A
+(Member-only-Parser v2 vor realem EBAR-05-Listing)**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -47,16 +47,28 @@ Custom-SLSA-Provenance, Toolmanifest und feste Command Builder umgesetzt. Der
 gemessene Plattform-Manifest-Digest lautet
 `sha256:26c9c2fa32f93210a46fcf6b9651006038f9e766a1d791b463ce9875815a8287`.
 
-FG-A-RUNTIME-AVAILABILITY ist durch ADR-0041 akzeptiert. `BOOTSTRAP_LOCKED`
-und lokales Image Inspect sind keine Runtime-Authority. S-EBAR-03A muss vor
-EBAR-04 einen reviewten `archive-runtime-release/v1`-Record, die exakt
-gehashten Custom-SLSA-/SPDX-Evidence, eine kontrollierte Erstprovisionierung,
-einen monotonen lokalen State sowie die vollständige Offline-Revalidierung von
-OCI-Layout, Docker Config und RootFS implementieren. Public Visibility und
+FG-A-RUNTIME-AVAILABILITY ist durch ADR-0041 akzeptiert und S-EBAR-03A ist auf
+`main` umgesetzt. `BOOTSTRAP_LOCKED` und lokales Image Inspect sind keine
+Runtime-Authority. Der reviewte `archive-runtime-release/v1`-Record, exakt
+gehashte Custom-SLSA-/SPDX-Evidence, kontrollierte Erstprovisionierung,
+monotoner lokaler State und vollständige Offline-Revalidierung von OCI-Layout,
+Docker Config und RootFS sind implementiert. Public Visibility und
 Source-Association werden beim Provisioning und Refresh geprüft, nicht bei
 jedem Lauf. Fehlende oder beschädigte Evidence, Generation-/Clock-Rollback,
 Revocation oder Ablauf nach höchstens 90 Tagen ergeben fail-closed
 `TOOL_UNAVAILABLE`.
+
+EBAR-04 ist auf `main` umgesetzt. Der Linux-Container-Runner verwendet den
+festen akzeptierten Image-Digest, kein Netzwerk, genau zwei kontrollierte
+Mounts, `--log-driver=none`, bounded Streaming sowie vollständiges
+Kill-/Remove-/no-follow-Cleanup. Native Windows bleibt `TOOL_UNAVAILABLE`.
+
+Das EBAR-05-Preflight hat im gepinnten 7-Zip-26.02-Quellcode nachgewiesen,
+dass `-ba` den vom Parser v1 verlangten Archive-Header unterdrückt und ein
+leeres Archiv erfolgreich 0 stdout-Bytes erzeugt. ADR-0043 akzeptiert deshalb
+vor EBAR-05 das kleine Paket S-EBAR-02A mit einem additiven Member-only-Parser
+v2. stderr-Prosa und grobe 7-Zip-Exitcodes bleiben ausdrücklich keine
+Ursachen-Authority; nicht strukturierte Fehler werden `TOOL_FAILED`.
 
 Die spezialisierte Runtime darf anschließend ausschließlich unverschlüsselte
 Archive über bounded Streaming ohne Raw-Artefakt oder Preview verarbeiten.
