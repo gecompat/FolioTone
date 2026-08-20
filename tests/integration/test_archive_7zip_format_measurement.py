@@ -100,6 +100,9 @@ def test_archive_format_measurement_fixtures_are_raw_hash_bound_and_value_free()
         "name": "Alternate Stream",
         "value_class": "EMPTY",
     }
+    assert module._classify("Commented", "+", strict_bool=False) == (
+        "TECHNICAL_NONEMPTY_DISCARDED"
+    )
     argv = module.docker_argv("sha256:" + "a" * 64, FIXTURES, "direct/zip.zip")
     assert "--pull=never" in argv and "--network=none" in argv and "--read-only" in argv
     assert "--cap-drop" in argv and "no-new-privileges" in argv

@@ -82,13 +82,11 @@ CURATION_PROVENANCE_SHA256 = "da3db4f15acd1530ae3649906d621633ffb541f56a5b9c2236
 PRIVATE_FIELDS = frozenset(
     {"Path", "Comment", "Symbolic Link", "Hard Link", "Copy Link", "User", "Group"}
 )
-BOOL_FIELDS = frozenset(
+LEGACY_BOOL_FIELDS = frozenset(
+    {"Folder", "Encrypted", "Solid", "Alternate Stream", "Anti"}
+)
+BOOL_FIELDS = LEGACY_BOOL_FIELDS | frozenset(
     {
-        "Folder",
-        "Encrypted",
-        "Solid",
-        "Alternate Stream",
-        "Anti",
         "Commented",
         "Split Before",
         "Split After",
@@ -455,7 +453,8 @@ def docker_argv(image: str, fixture_root: Path, relative_path: str) -> list[str]
 
 
 def _classify(field: str, value: str, *, strict_bool: bool = True) -> str:
-    if field in BOOL_FIELDS:
+    bool_fields = BOOL_FIELDS if strict_bool else LEGACY_BOOL_FIELDS
+    if field in bool_fields:
         if value == "+":
             return "BOOL_PLUS"
         if value == "-":
