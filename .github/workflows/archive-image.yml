@@ -11,6 +11,8 @@ on:
       - "src/foliotone/core/enums.py"
       - "tests/unit/test_archive_sevenzip.py"
       - "tests/integration/test_archive_image_packaging.py"
+      - "tests/integration/test_archive_7zip_format_measurement.py"
+      - "tests/fixtures/archive/7zip-26.02/v1/**"
   push:
     branches: [main]
     paths:
@@ -20,6 +22,8 @@ on:
       - "src/foliotone/core/enums.py"
       - "tests/unit/test_archive_sevenzip.py"
       - "tests/integration/test_archive_image_packaging.py"
+      - "tests/integration/test_archive_7zip_format_measurement.py"
+      - "tests/fixtures/archive/7zip-26.02/v1/**"
 
 permissions:
   contents: read
@@ -112,6 +116,26 @@ jobs:
             echo '::notice::Copy the observed identity into the closed BOOTSTRAP_LOCKED lock and update the bound SBOM before opening the PR.'
           fi
           echo "bootstrap_identity=$first"
+      - name: Measure all format fixtures with the locked Linux image
+        env:
+          DOCKER_CONFIG: ${{ runner.temp }}/foliotone-docker-config
+        run: |
+          set -euo pipefail
+          identity="$(python packaging/archive/7zip-26.02/inspect_oci_layout.py "${RUNNER_TEMP}/archive-1.oci.tar")"
+          expected="$(python -c 'import json; print(json.load(open("packaging/archive/7zip-26.02/archive-image.lock.json"))["runtime_platform_manifest_digest"])')"
+          observed="$(IDENTITY="$identity" python -c 'import json,os; print(json.loads(os.environ["IDENTITY"])["runtime_platform_manifest_digest"])')"
+          test "$observed" = "$expected"
+          docker load --input "${RUNNER_TEMP}/archive-1.oci.tar"
+          image="$(python -c 'import json; print(json.load(open("packaging/archive/7zip-26.02/archive-image.lock.json"))["runtime_config_digest"])')"
+          docker image inspect "$image" >/dev/null
+          python packaging/archive/7zip-26.02/measure_format_profiles.py \
+            --image "$image" \
+            --fixtures tests/fixtures/archive/7zip-26.02/v1 \
+            --output "${RUNNER_TEMP}/archive-7zip-format-measurement.json"
+          cmp --silent "${RUNNER_TEMP}/archive-7zip-format-measurement.json" \
+            tests/fixtures/archive/7zip-26.02/v1/expected-measurement.json
+          measurement_digest="$(sha256sum "${RUNNER_TEMP}/archive-7zip-format-measurement.json" | cut -d' ' -f1)"
+          echo "measurement_sha256=${measurement_digest}"
 
   publish-readiness:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'gecompat/FolioTone'
