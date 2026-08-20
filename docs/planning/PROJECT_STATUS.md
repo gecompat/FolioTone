@@ -4,7 +4,25 @@ Stand: 2026-08-20
 
 ## Aktuelle Welle
 
-**EB-03B DONE — nächster Schritt: FG-04 gemäß Endgame-Plan**
+**EB-04 DONE — Classification Assertions/Projection abgeschlossen; EB-03B DONE**
+
+EB-04 ist mit S-EB04-01 bis S-EB04-07 abgeschlossen. Die additive Migration
+0018, der immutable profiled Assertion-/Lineage-Store, bounded Target-/Profile-
+Queries, der deterministische Projection-Reducer, immutable Reprojection-
+Snapshots und die pfadfreie read-only CLI-Zusammenfassung sind umgesetzt.
+Die CLI gibt ausschließlich feste Labels, opaque interne IDs, Counts, Profile,
+Status sowie Conflict-/Truncation-Marker aus; Values, Taxonomien, Quellen,
+References, Pfade und Rohdaten bleiben ausgeschlossen. Alle CLI-Berichtsreads
+verwenden eine echte SQLite-Read-only-Verbindung und scheitern bei fehlender
+oder inkonsistenter Projektion geschlossen. Classification bestätigt
+keine Identity Relation und autorisiert keine W10-Operation.
+
+Die gezielten CLI-/Static-Tests sowie die betroffenen Regressionen, Ruff,
+Mypy, Dokumentationsprüfungen und `git diff --check` sind vor dem PR-Gate
+auszuführen; ein vollständiger Gate bleibt dem koordinierenden PR vorbehalten.
+
+Der nächste geplante Schritt ist `FG-A`, das getrennte Archive-Vertragsgate.
+W10 bleibt davon unabhängig ausdrücklich gesperrt.
 
 ADR-0036 akzeptiert Open Library als ersten realen, optionalen und begrenzten
 Book Provider. Der Vertrag erlaubt nur feste JSON-Endpoints für `Work`,
@@ -1212,12 +1230,14 @@ Noch nicht vorhanden sind unter anderem:
 - Calibre Library Reconciliation über den synthetischen Fixture- und
   ADR-Vertrag hinaus;
 - vollständiger Offline-Orchestrator und Review-CLI für Entity Resolution;
-- Classification Engine;
+- eine weitergehende Classification Engine über den abgeschlossenen EB-04-
+  Assertion-/Projection-Vertrag hinaus;
 - Music- und medienübergreifende Matching-Profile; das book-only Offline-
   Matching für `EXACT_DUPLICATE`, `SAME_EDITION` und `SAME_WORK` ist
   implementiert;
 - vollständiger realer Sammlungslauf und zusätzliche qpdf-Struktur-Evidence;
-- Classification- und kanonische Relation-Projektion über den generischen Core;
+- medienübergreifende Classification- und kanonische Relation-Projektion über
+  den book-only EB-04-Vertrag hinaus;
 - externe Knowledge Provider und Provider Cache über den synthetischen Vertrag
   hinaus;
 - jede W10-Ausführung einschließlich Quarantäne, Purge und

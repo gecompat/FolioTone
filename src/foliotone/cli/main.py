@@ -28,6 +28,7 @@ from foliotone.core import (
     MAX_EBOOK_COLLECTION_WORKERS,
     EbookCollectionRunStatus,
     EntityId,
+    EntityKind,
     FileChangeState,
     FileObservation,
     FileRecord,
@@ -110,6 +111,10 @@ from foliotone.workflows import (
     PostscanCompletionVerifier,
     candidate_hash_status_payload,
     ebook_analysis_format,
+)
+from foliotone.workflows.classification import (
+    ClassificationReportError,
+    read_book_classification_report,
 )
 
 _MEDIA_TYPES = {
@@ -929,6 +934,36 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_COLLECTION_REPORT_GROUP_LIMIT,
         help="Maximum exact-duplicate groups emitted; totals remain complete.",
     )
+
+    ebook_classification_report = subparsers.add_parser(
+        "ebook-classification-report",
+        help="Show one bounded, read-only classification projection summary.",
+    )
+    ebook_classification_report.add_argument(
+        "--target-kind", required=True, choices=("WORK", "EDITION"),
+        help="Classification target kind.",
+    )
+    ebook_classification_report.add_argument(
+        "--target-id", required=True, type=EntityId.parse,
+        help="Opaque internal target ID.",
+    )
+    ebook_classification_report.add_argument(
+        "--projection-id", type=EntityId.parse, default=None,
+        help="Optional opaque projection ID; otherwise the latest bounded snapshot is read.",
+    )
+    ebook_classification_report.add_argument(
+        "--profile", dest="projection_profile", default="book-classification-projection/v1",
+        help="Projection profile literal.",
+    )
+    ebook_classification_report.add_argument(
+        "--database", type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="SQLite database path; opened read-only.",
+    )
+    ebook_classification_report.add_argument(
+        "--output", choices=("text", "json"), default="text",
+        help="Output format.",
+    )
     ebook_inventory_report.add_argument(
         "--group-member-limit",
         type=int,
@@ -1322,6 +1357,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-inventory-report":
         return _run_ebook_inventory_report(args)
+
+    if args.command == "ebook-classification-report":
+        return _run_ebook_classification_report(args)
 
     if args.command == "ebook-postscan-verify":
         return _run_ebook_postscan_verify(args)
@@ -2081,6 +2119,73 @@ def _run_ebook_collection_report(args: argparse.Namespace) -> int:
     print("Identity verdict: NOT_PRODUCED")
     print("Relation records written: 0")
     return 0
+
+
+def _run_ebook_classification_report(args: argparse.Namespace) -> int:
+    """Render one classification projection without opening source media."""
+
+    database: Path = args.database
+    if not database.is_file():
+        return _ebook_classification_report_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            report = read_book_classification_report(
+                engine,
+                EntityKind(args.target_kind),
+                args.target_id,
+                projection_id=args.projection_id,
+                projection_profile_version=args.projection_profile,
+            )
+        finally:
+            engine.dispose()
+    except ClassificationReportError:
+        return _ebook_classification_report_error(args, "CLASSIFICATION_UNAVAILABLE")
+    except OperationalError:
+        return _ebook_classification_report_error(args, "SCHEMA_UNAVAILABLE")
+    except (OSError, ValueError):
+        return _ebook_classification_report_error(args, "DATABASE_UNAVAILABLE")
+    except Exception:
+        return _ebook_classification_report_error(args, "INTERNAL_READ_ERROR")
+
+    if args.output == "json":
+        _emit_json(report.payload())
+    else:
+        print(f"Target kind: {report.target_kind}")
+        print(f"Target ID: {report.target_id}")
+        print(f"Projection ID: {report.projection_id}")
+        print(f"Assertion profile: {report.assertion_profile_version}")
+        print(f"Projection profile: {report.projection_profile_version}")
+        print(f"Status: {report.status}")
+        print(f"Truncated: {'yes' if report.truncated else 'no'}")
+        for facet in report.facets:
+            conflict = facet.conflict or "NONE"
+            print(
+                f"Facet {facet.dimension}: {facet.status} "
+                f"values={facet.value_count} conflict={conflict}"
+            )
+        print(f"Count facets: {report.counts.facets}")
+        print(f"Count projected_values: {report.counts.projected_values}")
+        print(f"Count assertion_links: {report.counts.assertion_links}")
+        print(f"Count selected_links: {report.counts.selected_links}")
+        print(f"Count considered_links: {report.counts.considered_links}")
+        print(f"Count conflicting_links: {report.counts.conflicting_links}")
+    return 0
+
+
+def _ebook_classification_report_error(args: argparse.Namespace, code: str) -> int:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": "ebook-classification-report",
+                "ok": False,
+                "error": {"code": code},
+            }
+        )
+    else:
+        print("Classification report failed: read-only state is unavailable.")
+    return 2
 
 
 def _run_ebook_inventory_report(args: argparse.Namespace) -> int:
