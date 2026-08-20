@@ -51,11 +51,14 @@ from foliotone.index import (
     MAX_SCAN_HASH_WORKERS,
     DeletionConfirmationPolicy,
     DuplicateHashCandidateError,
+    DiscoveryProgress,
     DuplicateHashCandidateService,
     FingerprintWriter,
+    HashProgress,
     HashMode,
     IncrementalScanner,
     RelocationCandidateDetector,
+    ReconciliationProgress,
     ScanLeaseError,
     ScanProgress,
     ScanProgressPhase,
@@ -183,8 +186,43 @@ class _ScanConsoleProgress:
     def start_scan(self) -> None:
         self._started_at = self._clock()
 
-    def report(self, progress: ScanProgress) -> None:
+    def report(
+        self,
+        progress: (
+            ScanProgress | HashProgress | DiscoveryProgress | ReconciliationProgress
+        ),
+    ) -> None:
         if not self._enabled:
+            return
+        if isinstance(progress, HashProgress):
+            text = (
+                "Scan progress: hashing; "
+                f"batch={progress.completed_files}/{progress.batch_files}; "
+                f"read={progress.bytes_read / (1024 * 1024):.1f} MiB; "
+                f"current-throughput={progress.current_bytes_per_second / (1024 * 1024):.1f} MiB/s; "
+                f"average-throughput={progress.average_bytes_per_second / (1024 * 1024):.1f} MiB/s"
+            )
+            self._write_progress_line(text, completed=False)
+            return
+        if isinstance(progress, DiscoveryProgress):
+            text = (
+                "Scan progress: discovering; "
+                f"files={progress.discovered_files}; "
+                f"data={progress.discovered_bytes / (1024 * 1024):.1f} MiB; "
+                f"current-throughput={progress.current_bytes_per_second / (1024 * 1024):.1f} MiB/s; "
+                f"average-throughput={progress.average_bytes_per_second / (1024 * 1024):.1f} MiB/s"
+            )
+            self._write_progress_line(text, completed=False)
+            return
+        if isinstance(progress, ReconciliationProgress):
+            text = (
+                "Scan progress: reconciling; "
+                f"completed-files={progress.processed_files}; "
+                f"completed-data={progress.processed_bytes / (1024 * 1024):.1f} MiB; "
+                f"batch-files={progress.batch_files}; "
+                f"batch-data={progress.batch_bytes / (1024 * 1024):.1f} MiB"
+            )
+            self._write_progress_line(text, completed=False)
             return
         elapsed = max(self._clock() - self._started_at, 0.001)
         mib_per_second = progress.processed_bytes / (1024 * 1024) / elapsed
@@ -200,12 +238,15 @@ class _ScanConsoleProgress:
         )
         if progress.hash_failures:
             text += f"; hash-failures={progress.hash_failures}"
+        self._write_progress_line(text, completed=progress.phase is ScanProgressPhase.COMPLETED)
+
+    def _write_progress_line(self, text: str, *, completed: bool) -> None:
         if self._stream.isatty():
             padded = text.ljust(self._line_width)
             self._stream.write(f"\r{padded}")
             self._line_width = max(self._line_width, len(text))
             self._active_line = True
-            if progress.phase is ScanProgressPhase.COMPLETED:
+            if completed:
                 self.close_line()
         else:
             self._stream.write(f"{text}\n")

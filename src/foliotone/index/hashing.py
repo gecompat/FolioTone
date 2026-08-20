@@ -22,6 +22,7 @@ from foliotone.persistence.scan_root_lease import (
 
 DEFAULT_CHUNK_BYTES = 4 * 1024 * 1024
 QUICK_SAMPLE_BYTES = 64 * 1024
+HashReadObserver = Callable[[int], None]
 
 
 class _HashingCancelled(RuntimeError):
@@ -52,6 +53,7 @@ def quick_file_fingerprint(
     sample_bytes: int = QUICK_SAMPLE_BYTES,
     *,
     cancelled: Callable[[], bool] | None = None,
+    on_bytes_read: HashReadObserver | None = None,
 ) -> str:
     """Hash size plus bounded head/tail samples; small files are hashed completely."""
     if sample_bytes <= 0:
@@ -66,12 +68,17 @@ def quick_file_fingerprint(
             while chunk := stream.read(sample_bytes):
                 _raise_if_cancelled(cancelled)
                 digest.update(chunk)
+                _report_bytes_read(on_bytes_read, len(chunk))
         else:
             _raise_if_cancelled(cancelled)
-            digest.update(stream.read(sample_bytes))
+            head = stream.read(sample_bytes)
+            digest.update(head)
+            _report_bytes_read(on_bytes_read, len(head))
             stream.seek(size - sample_bytes)
             _raise_if_cancelled(cancelled)
-            digest.update(stream.read(sample_bytes))
+            tail = stream.read(sample_bytes)
+            digest.update(tail)
+            _report_bytes_read(on_bytes_read, len(tail))
     return digest.hexdigest()
 
 
@@ -80,6 +87,7 @@ def stream_sha256(
     chunk_bytes: int = DEFAULT_CHUNK_BYTES,
     *,
     cancelled: Callable[[], bool] | None = None,
+    on_bytes_read: HashReadObserver | None = None,
 ) -> str:
     """Calculate full SHA-256 without loading the file into memory."""
     if chunk_bytes <= 0:
@@ -89,6 +97,7 @@ def stream_sha256(
         while chunk := stream.read(chunk_bytes):
             _raise_if_cancelled(cancelled)
             digest.update(chunk)
+            _report_bytes_read(on_bytes_read, len(chunk))
     return digest.hexdigest()
 
 
@@ -97,19 +106,28 @@ def calculate_hashes(
     mode: HashMode,
     *,
     cancelled: Callable[[], bool] | None = None,
+    on_bytes_read: HashReadObserver | None = None,
 ) -> HashValues:
     """Apply the configured staged hashing policy."""
     if mode is HashMode.NONE:
         return HashValues()
-    quick = quick_file_fingerprint(path, cancelled=cancelled)
+    quick = quick_file_fingerprint(path, cancelled=cancelled, on_bytes_read=on_bytes_read)
     if mode is HashMode.QUICK:
         return HashValues(quick=quick)
-    return HashValues(quick=quick, sha256=stream_sha256(path, cancelled=cancelled))
+    return HashValues(
+        quick=quick,
+        sha256=stream_sha256(path, cancelled=cancelled, on_bytes_read=on_bytes_read),
+    )
 
 
 def _raise_if_cancelled(cancelled: Callable[[], bool] | None) -> None:
     if cancelled is not None and cancelled():
         raise _HashingCancelled("file hashing was cancelled")
+
+
+def _report_bytes_read(observer: HashReadObserver | None, byte_count: int) -> None:
+    if observer is not None and byte_count:
+        observer(byte_count)
 
 
 class FingerprintWriter:
@@ -120,6 +138,7 @@ class FingerprintWriter:
         self._codec = codec_for(Fingerprint)
         self._write_leases = SQLiteScanRootWriteLeaseStore(engine)
         self._cancelled = Event()
+        self._read_observer: HashReadObserver | None = None
 
     def cancel_pending(self) -> None:
         """Request cooperative termination of active in-process hash reads."""
@@ -130,6 +149,11 @@ class FingerprintWriter:
         """Prepare this writer for a new scan after all prior workers stopped."""
 
         self._cancelled.clear()
+
+    def set_read_observer(self, observer: HashReadObserver | None) -> None:
+        """Set the optional callback used to count bytes read by scan hash workers."""
+
+        self._read_observer = observer
 
     def calculate(
         self,
@@ -144,6 +168,7 @@ class FingerprintWriter:
             physical_path,
             mode,
             cancelled=self._cancelled.is_set,
+            on_bytes_read=self._read_observer,
         )
         fingerprints: list[Fingerprint] = []
         if values.quick is not None:
