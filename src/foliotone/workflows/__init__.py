@@ -16,6 +16,13 @@ from foliotone.workflows.calibre_reconciliation_report import (
     CalibreReconciliationReportSnapshot,
 )
 from foliotone.workflows.candidate_hash_status import candidate_hash_status_payload
+from foliotone.workflows.classification import (
+    CLASSIFICATION_REPROJECTION_LIMIT,
+    BookClassificationProjectionWorkflow,
+    ClassificationReprojectionOutcome,
+    ClassificationWorkflowError,
+    reproject_book_classification,
+)
 from foliotone.workflows.collection import (
     EBOOK_COLLECTION_CLAIM_FACTOR,
     EBOOK_COLLECTION_LEASE_DURATION,
@@ -102,6 +109,7 @@ from foliotone.workflows.reuse import EbookAnalysisReuseService
 
 __all__ = [
     "EBOOK_COMPARISON_PROFILE",
+    "CLASSIFICATION_REPROJECTION_LIMIT",
     "EBOOK_COLLECTION_CLAIM_FACTOR",
     "EBOOK_COLLECTION_LEASE_DURATION",
     "EBOOK_COLLECTION_PROFILE",
@@ -162,12 +170,16 @@ __all__ = [
     "EbookQualityFinding",
     "EbookQualityFindingSeverity",
     "EbookQualityStatus",
+    "BookClassificationProjectionWorkflow",
+    "ClassificationReprojectionOutcome",
+    "ClassificationWorkflowError",
     "PostscanCompletionVerifier",
     "PostscanVerificationCheck",
     "PostscanVerificationReport",
     "PostscanVerificationState",
     "ebook_analysis_format",
     "candidate_hash_status_payload",
+    "reproject_book_classification",
     "evaluate_ebook_quality",
     "render_inventory_report_files",
     "verify_inventory_report_files",
