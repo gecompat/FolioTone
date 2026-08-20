@@ -2,22 +2,35 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from itertools import islice
+from typing import Any
 
 from sqlalchemy import Engine, exists, insert, select
 from sqlalchemy.engine import Connection
 
 from foliotone.classification.contracts import (
+    BOOK_CLASSIFICATION_ASSERTION_PROFILE,
     BookClassificationAssertion,
+    BookClassificationAssertionLineage,
+    ClassificationDimension,
+    ClassificationPriorityTier,
+    ClassificationSourceKind,
     ClassificationSourceReferenceKind,
 )
-from foliotone.core import EntityKind, ReviewCandidateKind, ReviewDecisionValue, ReviewType
+from foliotone.core import (
+    EntityId,
+    EntityKind,
+    ReviewCandidateKind,
+    ReviewDecisionValue,
+    ReviewType,
+)
 from foliotone.persistence import classification_schema, resolution_review_schema, schema
-from foliotone.persistence._mapping import datetime_to_db
+from foliotone.persistence._mapping import datetime_to_db, required_datetime_from_db
 
 MAX_CLASSIFICATION_ASSERTION_BATCH = 256
 CLASSIFICATION_DECISION_COMPATIBILITY = "book-classification-decision-compatibility/v1"
+MAX_CLASSIFICATION_ASSERTION_PAGE = 500
 
 
 class ClassificationStoreError(RuntimeError):
@@ -73,6 +86,70 @@ class SQLiteClassificationStore:
                     )
                 )
         return materialized
+
+    def list_profiled_for_target(
+        self,
+        target_kind: EntityKind,
+        target_id: EntityId,
+        *,
+        assertion_profile_version: str = BOOK_CLASSIFICATION_ASSERTION_PROFILE,
+        limit: int = 100,
+    ) -> tuple[BookClassificationAssertion, ...]:
+        """Return a complete bounded, canonical v1 assertion set for one target."""
+
+        if target_kind not in {EntityKind.WORK, EntityKind.EDITION}:
+            raise ValueError("classification queries require WORK or EDITION target kind")
+        if assertion_profile_version != BOOK_CLASSIFICATION_ASSERTION_PROFILE:
+            raise ValueError("unsupported assertion profile version")
+        _validate_page_limit(limit)
+
+        assertions = schema.classification_assertions
+        lineage = classification_schema.book_classification_assertion_lineage
+        statement = (
+            select(
+                assertions.c.id,
+                assertions.c.target_kind,
+                assertions.c.target_id,
+                assertions.c.dimension,
+                assertions.c.value,
+                assertions.c.taxonomy,
+                assertions.c.confidence,
+                assertions.c.source_kind,
+                assertions.c.source_name,
+                assertions.c.source_version,
+                assertions.c.observed_at,
+                lineage.c.assertion_key,
+                lineage.c.assertion_profile_version,
+                lineage.c.source_kind.label("lineage_source_kind"),
+                lineage.c.source_reference_kind,
+                lineage.c.source_reference,
+                lineage.c.priority_tier,
+                lineage.c.created_at,
+            )
+            .join(lineage, lineage.c.assertion_id == assertions.c.id)
+            .where(
+                assertions.c.target_kind == target_kind.value,
+                assertions.c.target_id == str(target_id),
+                lineage.c.assertion_profile_version == assertion_profile_version,
+            )
+        )
+        order = (
+            assertions.c.dimension,
+            assertions.c.taxonomy,
+            assertions.c.value,
+            lineage.c.assertion_key,
+        )
+        with self._engine.connect() as connection:
+            rows = (
+                connection.execute(statement.order_by(*order).limit(limit + 1))
+                .mappings()
+                .all()
+        )
+        if len(rows) > limit:
+            raise ClassificationStoreError(
+                "classification assertion query exceeds the requested bound"
+            )
+        return tuple(_assertion_from_row(dict(row)) for row in rows)
 
     @staticmethod
     def _validate_target(connection: Connection, kind: EntityKind, target_id: object) -> None:
@@ -210,3 +287,38 @@ def _lineage_row(assertion: BookClassificationAssertion) -> dict[str, object]:
         "priority_tier": lineage.priority_tier.value,
         "created_at": datetime_to_db(lineage.created_at),
     }
+
+
+def _validate_page_limit(limit: int) -> None:
+    if isinstance(limit, bool) or not isinstance(limit, int):
+        raise ValueError("limit must be an integer between 1 and 500")
+    if not 1 <= limit <= MAX_CLASSIFICATION_ASSERTION_PAGE:
+        raise ValueError("limit must be between 1 and 500")
+
+
+def _assertion_from_row(row: Mapping[str, Any]) -> BookClassificationAssertion:
+    if row["source_kind"] != row["lineage_source_kind"]:
+        raise ClassificationStoreError("profiled assertion source lineage is inconsistent")
+    return BookClassificationAssertion(
+        id=EntityId.parse(str(row["id"])),
+        target_kind=EntityKind(str(row["target_kind"])),
+        target_id=EntityId.parse(str(row["target_id"])),
+        dimension=ClassificationDimension(str(row["dimension"])),
+        normalized_value=str(row["value"]),
+        taxonomy=str(row["taxonomy"]),
+        confidence=None if row["confidence"] is None else float(row["confidence"]),
+        source_name=str(row["source_name"]),
+        source_version=str(row["source_version"]),
+        observed_at=required_datetime_from_db(str(row["observed_at"])),
+        lineage=BookClassificationAssertionLineage(
+            assertion_key=str(row["assertion_key"]),
+            assertion_profile_version=str(row["assertion_profile_version"]),
+            source_kind=ClassificationSourceKind(str(row["lineage_source_kind"])),
+            source_reference_kind=ClassificationSourceReferenceKind(
+                str(row["source_reference_kind"])
+            ),
+            source_reference=str(row["source_reference"]),
+            priority_tier=ClassificationPriorityTier(str(row["priority_tier"])),
+            created_at=required_datetime_from_db(str(row["created_at"])),
+        ),
+    )

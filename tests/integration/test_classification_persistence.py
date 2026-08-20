@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from sqlalchemy import Engine, event, func, select
+from sqlalchemy import Engine, event, func, select, text
 
 from foliotone.classification.contracts import (
     BOOK_CLASSIFICATION_ASSERTION_PROFILE,
@@ -45,13 +45,15 @@ def _assertion(
     value: str = "Synthetic Topic",
     source_reference: str = "a" * 64,
     source_kind: ClassificationSourceKind = ClassificationSourceKind.LOCAL_DERIVED,
+    dimension: ClassificationDimension = ClassificationDimension.TOPIC,
+    taxonomy: str = "synthetic.taxonomy",
 ) -> BookClassificationAssertion:
     return BookClassificationAssertion.create(
         target_kind=EntityKind.WORK,
         target_id=work.id,
-        dimension=ClassificationDimension.TOPIC,
+        dimension=dimension,
         value=value,
-        taxonomy="synthetic.taxonomy",
+        taxonomy=taxonomy,
         confidence=0.7,
         source_name="synthetic-classifier",
         source_version="v1",
@@ -224,6 +226,119 @@ def test_different_content_under_existing_identity_fails_closed(head_database: P
         )
     with pytest.raises(ClassificationStoreError, match="different immutable content"):
         store.create_or_get(assertion)
+    engine.dispose()
+
+
+def test_profiled_target_query_is_bounded_sorted_and_indexed(
+    head_database: Path,
+) -> None:
+    store, engine, work = _store(head_database)
+    inserted = (
+        _assertion(
+            work,
+            value="zeta",
+            taxonomy="zeta",
+            dimension=ClassificationDimension.TOPIC,
+            source_reference="a" * 64,
+        ),
+        _assertion(
+            work,
+            value="beta",
+            taxonomy="alpha",
+            dimension=ClassificationDimension.GENRE,
+            source_reference="b" * 64,
+        ),
+        _assertion(
+            work,
+            value="alpha",
+            taxonomy="alpha",
+            dimension=ClassificationDimension.GENRE,
+            source_reference="c" * 64,
+        ),
+        _assertion(
+            work,
+            value="alpha",
+            taxonomy="alpha",
+            dimension=ClassificationDimension.GENRE,
+            source_reference="d" * 64,
+        ),
+    )
+    assert store.create_or_get_many(inserted) == inserted
+
+    expected = tuple(
+        sorted(
+            inserted,
+            key=lambda item: (
+                item.dimension.value,
+                item.taxonomy,
+                item.normalized_value,
+                item.lineage.assertion_key,
+            ),
+        )
+    )
+    assert store.list_profiled_for_target(EntityKind.WORK, work.id, limit=4) == expected
+    with pytest.raises(ClassificationStoreError, match="exceeds the requested bound"):
+        store.list_profiled_for_target(EntityKind.WORK, work.id, limit=3)
+
+    with engine.connect() as connection:
+        query_plan = connection.execute(
+            text(
+                "EXPLAIN QUERY PLAN SELECT assertions.id "
+                "FROM classification_assertions AS assertions "
+                "JOIN book_classification_assertion_lineage AS lineage "
+                "ON lineage.assertion_id = assertions.id "
+                "WHERE assertions.target_kind = :target_kind "
+                "AND assertions.target_id = :target_id "
+                "AND lineage.assertion_profile_version = :profile "
+                "ORDER BY assertions.dimension, assertions.taxonomy, assertions.value, "
+                "lineage.assertion_key LIMIT 3"
+            ),
+            {
+                "target_kind": EntityKind.WORK.value,
+                "target_id": str(work.id),
+                "profile": BOOK_CLASSIFICATION_ASSERTION_PROFILE,
+            },
+        ).all()
+    assert any("ix_classification_assertions_target_id" in str(row[-1]) for row in query_plan)
+    engine.dispose()
+
+
+def test_profiled_target_query_excludes_legacy_rows_and_validates_bounds(
+    head_database: Path,
+) -> None:
+    store, engine, work = _store(head_database)
+    profiled = _assertion(work)
+    store.create_or_get(profiled)
+    with engine.begin() as connection:
+        connection.execute(
+            schema.classification_assertions.insert().values(
+                id=str(EntityId.new()),
+                target_kind=EntityKind.WORK.value,
+                target_id=str(work.id),
+                dimension=ClassificationDimension.TOPIC.value,
+                value="legacy synthetic topic",
+                taxonomy="legacy",
+                confidence=0.5,
+                source_kind="classification",
+                source_name="synthetic-legacy",
+                source_version="v1",
+                observed_at=NOW.isoformat(),
+            )
+        )
+    assert store.list_profiled_for_target(EntityKind.WORK, work.id, limit=1) == (profiled,)
+    for invalid_limit in (False, 0, 501, "1"):
+        with pytest.raises(ValueError, match="limit"):
+            store.list_profiled_for_target(  # type: ignore[arg-type]
+                EntityKind.WORK,
+                work.id,
+                limit=invalid_limit,
+            )
+    with pytest.raises(ValueError, match="profile"):
+        store.list_profiled_for_target(
+            EntityKind.WORK,
+            work.id,
+            assertion_profile_version="legacy-profile/v1",
+        )
     engine.dispose()
 
 
