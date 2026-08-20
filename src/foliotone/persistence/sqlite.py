@@ -19,7 +19,7 @@ from foliotone.persistence.scan_root_lease import fence_scoped_write
 
 
 def create_sqlite_engine(database: Path | str) -> Engine:
-    """Create a SQLite engine with foreign-key enforcement enabled."""
+    """Create a SQLite engine with foreign keys, WAL, and bounded lock waiting."""
     path = Path(database)
     path.parent.mkdir(parents=True, exist_ok=True)
     engine = create_engine(f"sqlite:///{path}")
@@ -30,6 +30,7 @@ def create_sqlite_engine(database: Path | str) -> Engine:
         try:
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.execute("PRAGMA busy_timeout=30000")
+            cursor.execute("PRAGMA journal_mode=WAL")
         finally:
             cursor.close()
 
