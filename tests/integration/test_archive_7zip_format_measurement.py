@@ -12,8 +12,11 @@ from pathlib import Path
 from types import ModuleType
 from unittest.mock import patch
 
+import pytest
+
 ROOT = Path(__file__).parents[2]
 FIXTURES = ROOT / "tests" / "fixtures" / "archive" / "7zip-26.02" / "v1"
+FIXTURES_V2 = ROOT / "tests" / "fixtures" / "archive" / "7zip-26.02" / "v2"
 
 
 def _load_measurement_module() -> ModuleType:
@@ -83,6 +86,23 @@ def test_archive_format_measurement_fixtures_are_raw_hash_bound_and_value_free()
         }
     ]
     assert b"private-name" not in module._canonical({"records": projected})
+    legacy_empty_bool = module.project_stream(
+        io.BytesIO(b"Path = private-name\nAlternate Stream = \n\n"),
+        {
+            "id": "zip",
+            "sha256": "a" * 64,
+            "format_kind": "ZIP",
+            "record_role": "DIRECT_MEMBER",
+            "min_records": 1,
+        },
+    )
+    assert legacy_empty_bool[0]["fields"][1] == {
+        "name": "Alternate Stream",
+        "value_class": "EMPTY",
+    }
+    assert module._classify("Commented", "+", strict_bool=False) == (
+        "TECHNICAL_NONEMPTY_DISCARDED"
+    )
     argv = module.docker_argv("sha256:" + "a" * 64, FIXTURES, "direct/zip.zip")
     assert "--pull=never" in argv and "--network=none" in argv and "--read-only" in argv
     assert "--cap-drop" in argv and "no-new-privileges" in argv
@@ -129,3 +149,68 @@ def test_archive_format_measurement_uses_the_loaded_config_digest() -> None:
             assert str(error) == "IMAGE_REFERENCE_REJECTED"
         else:
             raise AssertionError("platform manifest digest must not be used as a local image ID")
+
+
+def test_archive_format_measurement_v2_is_closed_and_value_free() -> None:
+    module = _load_measurement_module()
+    fixtures = module.load_fixture_manifest(FIXTURES_V2)
+    assert len(fixtures) == 18
+
+    manifest = json.loads((FIXTURES_V2 / "fixture-manifest.json").read_bytes())
+    assert len(manifest["matrix"]) == 40
+    assert {
+        (item["format_kind"], item["case_kind"])
+        for item in manifest["matrix"]
+    } == {
+        (format_kind, case_kind)
+        for format_kind in module.DIRECT_FORMATS
+        for case_kind in module.CASE_KINDS
+    }
+    expected = (FIXTURES_V2 / "expected-measurement.json").read_bytes()
+    assert hashlib.sha256(expected).hexdigest() == (
+        "da01ed9108a5ea63097cd1894aa4fbb264f658d65a833e8db3cb526180f2d266"
+    )
+    measurement = json.loads(expected)
+    assert measurement["profile"] == module.PROFILE_V2
+    assert len(measurement["records"]) == 21
+    assert measurement["fixture_manifest_sha256"] == module.FIXTURE_MANIFEST_V2_SHA256
+    assert measurement["deterministic_provenance_sha256"] == (
+        module.DETERMINISTIC_PROVENANCE_SHA256
+    )
+    assert measurement["curation_provenance_sha256"] == (
+        module.CURATION_PROVENANCE_SHA256
+    )
+    assert measurement["matrix_sha256"] == (
+        "c2f3e8e3ff7c5244d71e9a7b2f97a6fea3bc120e6f179a080820024a6c8c6f99"
+    )
+    for forbidden in (
+        b"PUBLIC-FIXTURE-NOT-A-SECRET-v2",
+        b"clear.txt",
+        b"encrypted.txt",
+        b"/work/",
+        b"/tmp/",
+    ):
+        assert forbidden not in expected
+
+
+def test_archive_format_measurement_v2_classifies_material_fields_strictly() -> None:
+    module = _load_measurement_module()
+    for field in ("Commented", "Split Before", "Split After"):
+        assert module._classify(field, "+") == "BOOL_PLUS"
+        assert module._classify(field, "-") == "BOOL_MINUS"
+        with pytest.raises(module.MeasurementError, match="BOOL_VALUE_REJECTED"):
+            module._classify(field, "")
+    assert module._classify("Copy Link", "private-target") == (
+        "PRIVATE_NONEMPTY_DISCARDED"
+    )
+
+
+def test_archive_format_measurement_v2_workflow_is_verify_only() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "archive-image.yml").read_text(
+        encoding="utf-8"
+    )
+    assert workflow.count("--fixtures tests/fixtures/archive/7zip-26.02/v2") == 2
+    assert "archive-7zip-format-measurement-v2-a.json" in workflow
+    assert "archive-7zip-format-measurement-v2-b.json" in workflow
+    assert "tests/fixtures/archive/7zip-26.02/v2/expected-measurement.json" in workflow
+    assert "PUBLIC-FIXTURE-NOT-A-SECRET-v2" not in workflow

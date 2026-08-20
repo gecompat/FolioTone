@@ -142,6 +142,20 @@ jobs:
             tests/fixtures/archive/7zip-26.02/v1/expected-measurement.json
           measurement_digest="$(sha256sum "${RUNNER_TEMP}/archive-7zip-format-measurement.json" | cut -d' ' -f1)"
           echo "measurement_sha256=${measurement_digest}"
+          python packaging/archive/7zip-26.02/measure_format_profiles.py \
+            --image "$image" \
+            --fixtures tests/fixtures/archive/7zip-26.02/v2 \
+            --output "${RUNNER_TEMP}/archive-7zip-format-measurement-v2-a.json"
+          python packaging/archive/7zip-26.02/measure_format_profiles.py \
+            --image "$image" \
+            --fixtures tests/fixtures/archive/7zip-26.02/v2 \
+            --output "${RUNNER_TEMP}/archive-7zip-format-measurement-v2-b.json"
+          cmp --silent "${RUNNER_TEMP}/archive-7zip-format-measurement-v2-a.json" \
+            "${RUNNER_TEMP}/archive-7zip-format-measurement-v2-b.json"
+          cmp --silent "${RUNNER_TEMP}/archive-7zip-format-measurement-v2-a.json" \
+            tests/fixtures/archive/7zip-26.02/v2/expected-measurement.json
+          measurement_v2_digest="$(sha256sum "${RUNNER_TEMP}/archive-7zip-format-measurement-v2-a.json" | cut -d' ' -f1)"
+          echo "measurement_v2_sha256=${measurement_v2_digest}"
 
   publish-readiness:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'gecompat/FolioTone'

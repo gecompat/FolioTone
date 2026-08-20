@@ -1,0 +1,11 @@
+*.json text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.zip binary
+*.rar binary
+*.7z binary
+*.tar binary
+*.gz binary
+*.bz2 binary
+*.xz binary
+*.zst binary
