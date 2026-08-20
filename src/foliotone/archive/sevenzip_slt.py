@@ -174,6 +174,29 @@ class ArchiveSevenZipLockedParseResult:
             raise ValueError("failed locked result cannot retain parsed values")
 
 
+@dataclass(frozen=True, slots=True)
+class _ArchiveSevenZipLockedPrivateParseResult:
+    """Internal handoff retaining locators only for path and safety processing."""
+
+    public: ArchiveSevenZipLockedParseResult
+    members: tuple[ArchiveSevenZipSltMember, ...] = field(default=(), repr=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.public, ArchiveSevenZipLockedParseResult):
+            raise ValueError("public must be ArchiveSevenZipLockedParseResult")
+        if not isinstance(self.members, tuple) or any(
+            not isinstance(member, ArchiveSevenZipSltMember) for member in self.members
+        ):
+            raise ValueError("private members must contain archive parser members")
+        if self.public.status is not ArchiveSevenZipSltParseStatus.PARSED:
+            if self.members:
+                raise ValueError("failed private parse cannot retain members")
+            return
+        projected = tuple(_locked_member_projection(member) for member in self.members)
+        if projected != self.public.members:
+            raise ValueError("private members do not match the public projection")
+
+
 def parse_archive_7zip_slt_members(chunks: Iterable[bytes]) -> ArchiveSevenZipSltMemberParseResult:
     """Parse the exact headerless member-only v2 grammar without raw retention."""
 
@@ -228,8 +251,17 @@ def parse_archive_7zip_slt_members_locked(
 ) -> ArchiveSevenZipLockedParseResult:
     """Parse only a matched direct v2 observation against the accepted format lock."""
 
+    return _parse_archive_7zip_slt_members_locked_private(observation, chunks).public
+
+
+def _parse_archive_7zip_slt_members_locked_private(
+    observation: ArchiveSignatureObservationV2,
+    chunks: Iterable[bytes],
+) -> _ArchiveSevenZipLockedPrivateParseResult:
+    """Internal locator-bearing parse for the provider's path and safety boundary."""
+
     if not isinstance(observation, ArchiveSignatureObservationV2):
-        return _failed_locked(
+        return _failed_locked_private(
             ArchiveStorageFamily.UNKNOWN,
             ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED,
         )
@@ -242,7 +274,7 @@ def parse_archive_7zip_slt_members_locked(
         or observation.outer_compression_kind is not ArchiveOuterCompressionKind.NONE
         or storage_family not in _LOCKED_RECORD_HASHES
     ):
-        return _failed_locked(
+        return _failed_locked_private(
             storage_family,
             ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED,
         )
@@ -256,16 +288,16 @@ def parse_archive_7zip_slt_members_locked(
         for chunk in chunks:
             chunk_count += 1
             if not isinstance(chunk, bytes):
-                return _failed_locked(
+                return _failed_locked_private(
                     storage_family, ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED
                 )
             if chunk_count > MAX_CHUNKS or len(chunk) > MAX_CHUNK_BYTES:
-                return _failed_locked(
+                return _failed_locked_private(
                     storage_family, ArchiveSevenZipSltParseStatus.LIMIT_EXCEEDED
                 )
             total_bytes += len(chunk)
             if total_bytes > MAX_STDOUT_BYTES:
-                return _failed_locked(
+                return _failed_locked_private(
                     storage_family, ArchiveSevenZipSltParseStatus.LIMIT_EXCEEDED
                 )
             decoded = decoder.decode(chunk, final=False)
@@ -274,18 +306,18 @@ def parse_archive_7zip_slt_members_locked(
                     decoded = decoded[1:]
                 started = True
                 if "\ufeff" in decoded:
-                    return _failed_locked(
+                    return _failed_locked_private(
                         storage_family, ArchiveSevenZipSltParseStatus.ENCODING_REJECTED
                     )
                 if not parser.feed(decoded):
-                    return _failed_locked(storage_family, parser.failure)
+                    return _failed_locked_private(storage_family, parser.failure)
         decoded = decoder.decode(b"", final=True)
     except UnicodeDecodeError:
-        return _failed_locked(
+        return _failed_locked_private(
             storage_family, ArchiveSevenZipSltParseStatus.ENCODING_REJECTED
         )
     except Exception:
-        return _failed_locked(
+        return _failed_locked_private(
             storage_family, ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED
         )
     if decoded:
@@ -293,17 +325,17 @@ def parse_archive_7zip_slt_members_locked(
             decoded = decoded[1:]
         started = True
         if "\ufeff" in decoded:
-            return _failed_locked(
+            return _failed_locked_private(
                 storage_family, ArchiveSevenZipSltParseStatus.ENCODING_REJECTED
             )
         if not parser.feed(decoded):
-            return _failed_locked(storage_family, parser.failure)
+            return _failed_locked_private(storage_family, parser.failure)
     if not parser.finish():
-        return _failed_locked(storage_family, parser.failure)
+        return _failed_locked_private(storage_family, parser.failure)
     try:
-        return parser.locked_result()
+        return parser.locked_private_result()
     except Exception:
-        return _failed_locked(
+        return _failed_locked_private(
             storage_family, ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED
         )
 
@@ -324,6 +356,12 @@ def _failed_locked(
         storage_family=storage_family,
         status=status,
     )
+
+
+def _failed_locked_private(
+    storage_family: ArchiveStorageFamily, status: ArchiveSevenZipSltParseStatus
+) -> _ArchiveSevenZipLockedPrivateParseResult:
+    return _ArchiveSevenZipLockedPrivateParseResult(_failed_locked(storage_family, status))
 
 
 @dataclass(frozen=True, slots=True)
@@ -917,9 +955,9 @@ class _LockedMemberOnlyParser(_Parser):
         self._candidate_cases = complete
         return True
 
-    def locked_result(self) -> ArchiveSevenZipLockedParseResult:
+    def locked_private_result(self) -> _ArchiveSevenZipLockedPrivateParseResult:
         case_kind = next(iter(self._candidate_cases))
-        return ArchiveSevenZipLockedParseResult(
+        public = ArchiveSevenZipLockedParseResult(
             profile=ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE,
             lock_profile=ARCHIVE_7ZIP_FORMAT_LOCK_PROFILE,
             lock_sha256=ARCHIVE_7ZIP_FORMAT_LOCK_SHA256,
@@ -930,6 +968,7 @@ class _LockedMemberOnlyParser(_Parser):
             case_kind=case_kind,
             members=tuple(_locked_member_projection(member) for member in self._members),
         )
+        return _ArchiveSevenZipLockedPrivateParseResult(public, tuple(self._members))
 
     def _accept_line(self, line: str) -> bool:
         if line == "":

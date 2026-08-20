@@ -318,6 +318,27 @@ def test_locked_parser_accepts_every_measured_direct_profile() -> None:
         assert "private-target" not in repr(result)
 
 
+def test_private_locked_handoff_retains_locator_only_behind_internal_boundary() -> None:
+    lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
+    capability = next(
+        item
+        for item in lock["capabilities"]
+        if item["storage_family"] == "ZIP" and item["case_kind"] == "PLAINTEXT_REGULAR"
+    )
+    observation = _locked_observation("ZIP")
+    source = _locked_stream(capability)
+    private = slt._parse_archive_7zip_slt_members_locked_private(  # noqa: SLF001
+        observation, [source]  # type: ignore[arg-type]
+    )
+    public = parse_archive_7zip_slt_members_locked(  # type: ignore[arg-type]
+        observation, [source]
+    )
+    assert private.public == public
+    assert private.members[0].locator == "member-1.bin"
+    assert not hasattr(public.members[0], "locator")
+    assert "member-1.bin" not in repr(private)
+
+
 def test_locked_parser_rejects_field_drift_and_unmeasured_shapes() -> None:
     lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
     capability = next(
