@@ -10,7 +10,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from itertools import islice
-from threading import Event, Thread
+from threading import Event, Lock, Thread
+from time import monotonic
 
 from sqlalchemy.exc import OperationalError
 
@@ -38,10 +39,10 @@ from foliotone.index.store import (
 from foliotone.persistence.scan_root_lease import OwnedScanRootWriteLease
 
 Clock = Callable[[], datetime]
-ProgressReporter = Callable[["ScanProgress"], None]
 MAX_SCAN_HASH_WORKERS = 8
 MAX_SCAN_HEARTBEAT_SECONDS = 60.0
 SCAN_HEARTBEAT_LOCK_RETRY_DELAYS_SECONDS = (0.25, 0.5, 1.0, 2.0)
+HASH_PROGRESS_REPORT_INTERVAL_SECONDS = 2.0
 _HASH_STATES = frozenset(
     {
         FileChangeState.NEW,
@@ -71,6 +72,114 @@ class ScanProgress:
     def __post_init__(self) -> None:
         if min(self.processed_files, self.processed_bytes, self.hash_failures) < 0:
             raise ValueError("scan progress counts must not be negative")
+
+
+@dataclass(frozen=True, slots=True)
+class HashProgress:
+    """Path-free live progress for the currently hashing discovery batch."""
+
+    batch_files: int
+    completed_files: int
+    bytes_read: int
+    current_bytes_per_second: float
+    average_bytes_per_second: float
+
+    def __post_init__(self) -> None:
+        if self.batch_files <= 0:
+            raise ValueError("batch_files must be positive")
+        if not 0 <= self.completed_files <= self.batch_files:
+            raise ValueError("completed_files must be within the current batch")
+        if self.bytes_read < 0:
+            raise ValueError("bytes_read must not be negative")
+        if min(self.current_bytes_per_second, self.average_bytes_per_second) < 0:
+            raise ValueError("hash throughput must not be negative")
+
+
+ProgressReporter = Callable[[ScanProgress | HashProgress], None]
+
+
+class _HashReadMeter:
+    """Accumulate worker read counts without exposing paths or fingerprint values."""
+
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self._bytes_read = 0
+        self._completed_files = 0
+
+    def add_bytes(self, byte_count: int) -> None:
+        if byte_count <= 0:
+            return
+        with self._lock:
+            self._bytes_read += byte_count
+
+    def complete_file(self) -> None:
+        with self._lock:
+            self._completed_files += 1
+
+    def snapshot(self) -> tuple[int, int]:
+        with self._lock:
+            return self._bytes_read, self._completed_files
+
+
+class _HashProgressKeeper:
+    """Publish a bounded live read-rate snapshot while one hash batch runs."""
+
+    def __init__(
+        self,
+        meter: _HashReadMeter,
+        batch_files: int,
+        report: ProgressReporter,
+        *,
+        clock: Callable[[], float] = monotonic,
+        interval_seconds: float = HASH_PROGRESS_REPORT_INTERVAL_SECONDS,
+    ) -> None:
+        if batch_files <= 0:
+            raise ValueError("batch_files must be positive")
+        if interval_seconds <= 0:
+            raise ValueError("interval_seconds must be positive")
+        self._meter = meter
+        self._batch_files = batch_files
+        self._report = report
+        self._clock = clock
+        self._interval_seconds = interval_seconds
+        self._started_at = clock()
+        self._last_reported_at = self._started_at
+        self._last_reported_bytes = 0
+        self._stop = Event()
+        self._thread = Thread(
+            target=self._report_until_stopped,
+            name="foliotone-hash-progress",
+            daemon=True,
+        )
+
+    def __enter__(self) -> _HashProgressKeeper:
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_exception: object) -> None:
+        self._stop.set()
+        self._thread.join()
+
+    def _report_until_stopped(self) -> None:
+        while not self._stop.wait(self._interval_seconds):
+            self._report_once()
+
+    def _report_once(self) -> None:
+        now = self._clock()
+        bytes_read, completed_files = self._meter.snapshot()
+        current_elapsed = max(now - self._last_reported_at, 0.001)
+        average_elapsed = max(now - self._started_at, 0.001)
+        self._report(
+            HashProgress(
+                batch_files=self._batch_files,
+                completed_files=completed_files,
+                bytes_read=bytes_read,
+                current_bytes_per_second=(bytes_read - self._last_reported_bytes) / current_elapsed,
+                average_bytes_per_second=bytes_read / average_elapsed,
+            )
+        )
+        self._last_reported_at = now
+        self._last_reported_bytes = bytes_read
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,6 +305,7 @@ class IncrementalScanner:
         self._lease_duration = lease_duration
         self._clock = clock or _utc_now
         self._progress = progress
+        self._progress_lock = Lock()
 
     def scan(
         self,
@@ -328,9 +438,7 @@ class IncrementalScanner:
         processed_bytes: int,
         hash_failures: int,
     ) -> None:
-        if self._progress is None:
-            return
-        self._progress(
+        self._emit_progress(
             ScanProgress(
                 phase=phase,
                 processed_files=processed_files,
@@ -338,6 +446,12 @@ class IncrementalScanner:
                 hash_failures=hash_failures,
             )
         )
+
+    def _emit_progress(self, progress: ScanProgress | HashProgress) -> None:
+        if self._progress is None:
+            return
+        with self._progress_lock:
+            self._progress(progress)
 
     def _finish_after_error(
         self,
@@ -384,52 +498,77 @@ class IncrementalScanner:
             if event.change_state in _HASH_STATES
             or (event.change_state is FileChangeState.UNCHANGED and observation.id not in reused)
         )
-        if self._hash_workers == 1 or len(calculate) <= 1:
-            for item, observation in calculate:
-                try:
-                    calculated = self._fingerprints.calculate(
-                        observation,
-                        item.physical_path,
-                        self._hash_mode,
-                        batch_time,
-                    )
-                except OSError:
-                    hash_failures += 1
-                else:
-                    fingerprints.extend(calculated)
-        else:
-            executor = ThreadPoolExecutor(
-                max_workers=min(self._hash_workers, len(calculate)),
-                thread_name_prefix="foliotone-hash",
+        meter = _HashReadMeter() if self._progress is not None and calculate else None
+        progress_keeper = (
+            _HashProgressKeeper(
+                meter,
+                len(calculate),
+                self._emit_progress,
+                interval_seconds=HASH_PROGRESS_REPORT_INTERVAL_SECONDS,
             )
-            futures: tuple[Future[tuple[Fingerprint, ...]], ...] = ()
-            cancel_futures = False
+            if meter is not None
+            else None
+        )
+
+        def calculate_one(
+            item: DiscoveredFile, observation: FileObservation
+        ) -> tuple[Fingerprint, ...]:
             try:
-                futures = tuple(
-                    executor.submit(
-                        self._fingerprints.calculate,
-                        observation,
-                        item.physical_path,
-                        self._hash_mode,
-                        batch_time,
-                    )
-                    for item, observation in calculate
+                return self._fingerprints.calculate(
+                    observation,
+                    item.physical_path,
+                    self._hash_mode,
+                    batch_time,
                 )
-                for future in futures:
+            finally:
+                if meter is not None:
+                    meter.complete_file()
+
+        if meter is not None:
+            self._fingerprints.set_read_observer(meter.add_bytes)
+        try:
+            if progress_keeper is not None:
+                progress_keeper.__enter__()
+            if self._hash_workers == 1 or len(calculate) <= 1:
+                for item, observation in calculate:
                     try:
-                        calculated = future.result()
+                        calculated = calculate_one(item, observation)
                     except OSError:
                         hash_failures += 1
                     else:
                         fingerprints.extend(calculated)
-            except KeyboardInterrupt:
-                self._fingerprints.cancel_pending()
-                cancel_futures = True
-                for future in futures:
-                    future.cancel()
-                raise
-            finally:
-                executor.shutdown(wait=True, cancel_futures=cancel_futures)
+            else:
+                executor = ThreadPoolExecutor(
+                    max_workers=min(self._hash_workers, len(calculate)),
+                    thread_name_prefix="foliotone-hash",
+                )
+                futures: tuple[Future[tuple[Fingerprint, ...]], ...] = ()
+                cancel_futures = False
+                try:
+                    futures = tuple(
+                        executor.submit(calculate_one, item, observation)
+                        for item, observation in calculate
+                    )
+                    for future in futures:
+                        try:
+                            calculated = future.result()
+                        except OSError:
+                            hash_failures += 1
+                        else:
+                            fingerprints.extend(calculated)
+                except KeyboardInterrupt:
+                    self._fingerprints.cancel_pending()
+                    cancel_futures = True
+                    for future in futures:
+                        future.cancel()
+                    raise
+                finally:
+                    executor.shutdown(wait=True, cancel_futures=cancel_futures)
+        finally:
+            if progress_keeper is not None:
+                progress_keeper.__exit__(None, None, None)
+            if meter is not None:
+                self._fingerprints.set_read_observer(None)
         self._fingerprints.save_many(
             fingerprints,
             write_lease=write_lease,

@@ -18,6 +18,20 @@ def test_stream_sha256_matches_hashlib_with_small_chunks(tmp_path: Path) -> None
     assert stream_sha256(path, chunk_bytes=7) == hashlib.sha256(payload).hexdigest()
 
 
+def test_hashes_report_actual_read_bytes(tmp_path: Path) -> None:
+    path = tmp_path / "sample.bin"
+    payload = b"x" * 200_000
+    path.write_bytes(payload)
+
+    quick_reads: list[int] = []
+    assert quick_file_fingerprint(path, on_bytes_read=quick_reads.append)
+    assert sum(quick_reads) == 128 * 1024
+
+    full_reads: list[int] = []
+    assert stream_sha256(path, chunk_bytes=7, on_bytes_read=full_reads.append)
+    assert sum(full_reads) == len(payload)
+
+
 def test_quick_fingerprint_changes_when_head_or_tail_changes(tmp_path: Path) -> None:
     path = tmp_path / "sample.bin"
     payload = bytearray(b"x" * 200_000)

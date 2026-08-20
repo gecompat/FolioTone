@@ -22,6 +22,7 @@ from foliotone.index.hashing import (
 from foliotone.index.relocation import RelocationCandidateDetector
 from foliotone.index.scanner import (
     MAX_SCAN_HASH_WORKERS,
+    HashProgress,
     IncrementalScanner,
     ScanProgress,
     ScanProgressPhase,
@@ -40,6 +41,7 @@ __all__ = [
     "DuplicateHashCandidateSummary",
     "FingerprintWriter",
     "HashMode",
+    "HashProgress",
     "HashValues",
     "IncrementalScanner",
     "MAX_SCAN_HASH_WORKERS",

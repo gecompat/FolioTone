@@ -3,7 +3,7 @@ import io
 import pytest
 
 import foliotone.cli.main as cli_module
-from foliotone.index import HashMode, ScanProgress, ScanProgressPhase
+from foliotone.index import HashMode, HashProgress, ScanProgress, ScanProgressPhase
 
 
 def test_scan_worker_auto_policy_is_bounded_and_explicit_override_wins(
@@ -47,6 +47,29 @@ def test_scan_progress_renderer_is_path_free_and_reports_rate(
     )
     assert "private" not in stream.getvalue()
     assert "archive.epub" not in stream.getvalue()
+
+
+def test_scan_progress_renderer_reports_live_hash_read_rate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stream = io.StringIO()
+    monkeypatch.setattr(cli_module.sys, "stderr", stream)
+    progress = cli_module._ScanConsoleProgress(True)
+
+    progress.report(
+        HashProgress(
+            batch_files=8,
+            completed_files=3,
+            bytes_read=2 * 1024 * 1024,
+            current_bytes_per_second=1.5 * 1024 * 1024,
+            average_bytes_per_second=1.0 * 1024 * 1024,
+        )
+    )
+
+    assert stream.getvalue() == (
+        "Scan progress: hashing; batch=3/8; read=2.0 MiB; "
+        "current-throughput=1.5 MiB/s; average-throughput=1.0 MiB/s\n"
+    )
 
 
 def test_scan_cli_interrupts_cleanly_before_migration_starts_a_run(
