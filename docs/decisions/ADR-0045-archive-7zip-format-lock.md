@@ -65,6 +65,71 @@ Fixture-/Measurement-Unterbaum
 seine fokussierten Tests und die bestehende geschützte Archive-Image-
 Workflowdatei. Das Paket implementiert keinen Produktionsparser oder Provider.
 
+#### Erzeugungs- und Provenienzvertrag
+
+Die synthetischen unverschlüsselten v2-Fixtures müssen aus festen öffentlichen
+Sourcebytes mit gebundener SHA-256 zweimal unabhängig byteidentisch entstehen.
+Ihr Generatorprofil bindet den relativen Namen, einen festen Arbeitsordner,
+die vollständige Eingabereihenfolge, Dateimodus und Attribute, `TZ=UTC`,
+`-mmt=1` sowie Format, Methode, Kompressions- und Zeitoptionen explizit. Ein
+fester `SOURCE_DATE_EPOCH` ist nur Eingabe für das Staging: Nach der letzten
+Dateisystemmutation setzt der Generator daraus den Änderungszeitpunkt; er
+verlässt sich nicht darauf, dass 7-Zip die Environment Variable auswertet.
+Creation- und Access-Zeit werden mit `-mtc=off` und `-mta=off` ausgeschlossen.
+Das Profil muss entweder den festen Änderungszeitpunkt mit `-mtm=on` schreiben
+oder ihn mit `-mtm=off` vollständig ausschließen. Ein rekursiv vom
+Dateisystem gelieferter, ungeordneter Input ist keine Generator-Authority.
+
+Dieser Zweilaufvertrag gilt nicht für die Datenverschlüsselungsfälle von ZIP
+und `SEVEN_Z`. Der gepinnte 7-Zip-26.02-Quellstand erzeugt bei ZIP entweder
+einen zufälligen traditionellen Crypto-Header oder bei AES ein zufälliges
+Salt. Der 7z-AES-Encoder erzeugt einen zufälligen Initialisierungsvektor. Die
+Ausgabe ist deshalb auch bei identischen Sourcebytes, Metadaten, Optionen und
+Reihenfolge absichtlich nicht byteidentisch reproduzierbar. Der 7z-Startheader
+enthält keine eigene Uhrzeit oder Zufallsquelle; abweichende Offsets und CRCs
+sind nur Folge der randomisierten verschlüsselten Daten und Coder Properties.
+
+Eine ZIP-/7z-Zelle `ALL_ENCRYPTED` oder `MIXED` darf dennoch `MEASURED`
+erhalten, aber nur mit einmalig kuratierten, eingecheckten öffentlichen
+synthetischen Fixturebytes. Gebunden werden mindestens:
+
+- Fixture-SHA-256 und eine ausdrückliche Redistributionserklärung;
+- exakter Image-Manifest-Digest, 7-Zip-Version und Generatorprofil;
+- kanonisches schreibendes Generator-Command-Profil mit eigener SHA-256 über
+  alle festen, nicht geheimen Argumentbytes;
+- feste öffentliche Sourcebytes und deren SHA-256;
+- Arbeitsordner-, Namens-, Reihenfolge-, Modus-, Attribut-, Zeit-, Methoden-,
+  Kompressions- und Threadingvertrag;
+- vollständige feste Generation Shape einschließlich Verschlüsselungsmethode;
+- ein reviewtes, festes, ausdrücklich nicht geheimes öffentliches
+  Fixture-Passwort, das ausschließlich bei der einmaligen Erzeugung verwendet
+  wird.
+
+Das öffentliche Fixture-Passwort ist weder `SecretHandle` noch Nachweis eines
+sicheren Secret-Kanals. Es darf nur im isolierten Kuratorenlauf zur
+Fixture-Erzeugung an das schreibende 7-Zip-Kommando übergeben werden. Runtime,
+Messhelper und geschützter Measurement-Workflow übergeben kein Passwort über
+argv, Environment, stdin oder einen anderen Kanal. Sie führen ausschließlich
+das bereits gebundene passwortlose `l -slt` aus, regenerieren die
+verschlüsselten Fixtures nicht und vergleichen zwei Messungen derselben Bytes.
+Ein Produktions-Passwortversuch, Integrity-Lauf oder Secretgebrauch wird
+daraus nicht freigegeben.
+
+`MIXED` verwendet für ZIP und 7z genau eine gebundene zweistufige Shape: Ein
+neues Archiv erhält zuerst das Klartext-Datenmember und danach in einem
+separaten Update das verschlüsselte Datenmember. Namen, Stufenreihenfolge und
+Optionen sind fest. 7z-Datenverschlüsselung setzt in beiden
+Verschlüsselungsfällen explizit `-mhe=off`; Header-Verschlüsselung gehört nicht
+zu dieser Matrix. Ein gepatchter oder anderweitig gesetzter Zufallsgenerator,
+ein fester Crypto-Seed und eine Abweichung vom gepinnten 7-Zip-Binary sind als
+Reproduzierbarkeitsabkürzung verboten.
+
+Fehlt für eine verschlüsselte Zelle auch nur ein Bestandteil dieser
+Erzeugungs-, Sicherheits-, Hash-, Image-, Tool-, Shape- oder
+Redistributionsprovenienz, lautet ihre Disposition `EVIDENCE_UNAVAILABLE`.
+Eine zufällige Zweiterzeugung darf weder den eingecheckten Hash aktualisieren
+noch als Drift des gebundenen Fixtures umgedeutet werden.
+
 Die Boolklassifikation muss mindestens `Commented`, `Split Before` und
 `Split After` in die feste `VT_BOOL`-Menge aufnehmen. Nur `+` und `-` sind
 zulässig und werden als `BOOL_PLUS` beziehungsweise `BOOL_MINUS` gemessen;
@@ -187,6 +252,14 @@ Measurement v1 unmittelbar für FG-A-FORMAT-LOCK genügt. Sie supersediert auch
 alle im aktuellen Branch formulierten Aussagen, FG-A-FORMAT-LOCK sei bereits
 abgeschlossen oder S-EBAR-02C sei startklar.
 
+Sie supersediert außerdem ADR-0044s allgemeine Pflicht zur byteidentischen
+synthetischen Neuerzeugung ausschließlich für die verschlüsselten ZIP-/7z-
+Zellen `ALL_ENCRYPTED` und `MIXED` des v2-Korpus. Der gesamte v1-Korpus und
+alle übrigen synthetisch erzeugten v2-Fixtures behalten die deterministische
+Zweilaufpflicht. Die Ausnahme erlaubt nur die oben definierten einmalig
+kuratierten und hashgebundenen Bytes; sie lockert weder Mess-, Privacy-,
+Redistributions- noch Runtimegrenzen.
+
 ADR-0043-Statusvorrang, stderr-/Exitcode-Grenzen, Raw-Discard und byteleere
 Archive bleiben unverändert. ADR-0038/ADR-0039 behalten Format-Allowlist,
 Secret-Sperre, Sandbox, Reuse, Persistenz und W10-Grenzen. Die neue Storage-
@@ -203,6 +276,10 @@ bleibt ADR-0044 bis EBAR-06 maßgeblich.
 - Fehlende rechtmäßige oder sichere Evidence verkleinert die spätere
   EBAR-05-Unterstützung; sie wird niemals durch erfundene Fixtures oder
   Feldprofile ersetzt.
+- Kryptographisch randomisierte ZIP-/7z-Fixtures werden im geschützten Gate
+  nur als eingecheckte hashgebundene Bytes erneut vermessen und niemals
+  regeneriert; ihr öffentliches Fixture-Passwort ist keine Secret- oder
+  Runtimefreigabe.
 - S-EBAR-02C und EBAR-05 bleiben bis zur vollständigen Gatefolge blockiert.
 
 ## Nachweise
@@ -213,3 +290,6 @@ bleibt ADR-0044 bis EBAR-06 maßgeblich.
 - `tests/fixtures/archive/7zip-26.02/v1/expected-measurement.json`
 - `tests/fixtures/archive/7zip-26.02/v1/README.md`
 - `packaging/archive/7zip-26.02/measure_format_profiles.py`
+- gepinnte 7-Zip-26.02-Quellen: `CPP/7zip/Crypto/ZipCrypto.cpp`,
+  `CPP/7zip/Crypto/WzAes.cpp`, `CPP/7zip/Crypto/7zAes.cpp`,
+  `CPP/7zip/Crypto/RandGen.cpp`, `CPP/7zip/Archive/7z/7zOut.cpp`

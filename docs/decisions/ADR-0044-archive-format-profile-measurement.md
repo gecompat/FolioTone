@@ -68,12 +68,14 @@ und `README.md` mit SHA-256
 `9dd19d40540bbcfce35ca76001e44eeaf003ed66bebe02006841096929e9dd89`.
 Jede Abweichung oder fehlende Redistribution-Aussage stoppt das Paket.
 
-Alle weiteren Fixtures enthalten entweder ausschließlich einen fest definierten
-synthetischen Payload und werden deterministisch erzeugt oder stammen aus einer
-separat hash- und lizenzgebundenen redistribuierbaren Quelle. Dies gilt
-insbesondere, falls das gelockte Binary einen Wrapper wie zstd nicht erzeugen
-kann. Kein Fixture stammt aus einer privaten Sammlung; eine neue externe
-Fixturequelle ist ohne dokumentierte Redistribution und Sol-Review unzulässig.
+Alle weiteren Fixtures des v1-Korpus enthalten entweder ausschließlich einen
+fest definierten synthetischen Payload und werden deterministisch erzeugt oder
+stammen aus einer separat hash- und lizenzgebundenen redistribuierbaren Quelle.
+Dies gilt insbesondere, falls das gelockte Binary einen Wrapper wie zstd nicht
+erzeugen kann. Kein Fixture stammt aus einer privaten Sammlung; eine neue
+externe Fixturequelle ist ohne dokumentierte Redistribution und Sol-Review
+unzulässig. Für die intrinsisch randomisierten verschlüsselten ZIP-/7z-Zellen
+des additiven v2-Korpus gilt ausschließlich die enge Ausnahme aus ADR-0045.
 
 ## Entscheidung
 
@@ -170,9 +172,10 @@ Messmanifest bestätigt hat. Ein ausschließlich übersprungener PR ist rot.
 
 Der Messjob hat kein Netzwerk, keinen Pull-Fallback und keinen Zugriff auf
 private ScanRoots. RAR-Fixtures und Lizenztext liegen eingecheckt und
-hashgebunden vor; alle anderen Archive werden aus dem eingecheckten
-synthetischen Payload oder aus ebenfalls hashgebundenen, redistribuierbaren
-Fixtures erzeugt.
+hashgebunden vor. Im v1-Korpus werden alle anderen Archive aus dem
+eingecheckten synthetischen Payload oder aus ebenfalls hashgebundenen,
+redistribuierbaren Fixtures erzeugt. Der v2-Messjob regeneriert die in
+ADR-0045 eng begrenzten verschlüsselten ZIP-/7z-Fixtures ausdrücklich nicht.
 
 ## Folgen
 
