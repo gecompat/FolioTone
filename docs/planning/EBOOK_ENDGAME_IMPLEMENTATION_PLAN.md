@@ -44,7 +44,7 @@ autorisiert Source-Media-Mutationen, Quarantäne, Löschung oder Verzeichnis-
 bereinigung.
 
 Die für Codex Spark geeigneten Teile dieser Lieferpakete sind im
-[`Spark-Arbeitspaketkatalog`](EBOOK_SPARK_WORK_PACKAGES.md) in 53 atomare
+[`Spark-Arbeitspaketkatalog`](EBOOK_SPARK_WORK_PACKAGES.md) in 58 atomare
 Pakete zerlegt. Der Katalog enthält verbindliche Frontier-Gates und delegiert
 EB-01, EB-02, EB-05, EB-06, die reale Archive-Extraction sowie W10 nicht
 autonom an Spark.
@@ -1836,8 +1836,8 @@ read-only Command Shapes, Statuswerte, Profile, Budgets, Memberpfade,
 `SecretHandle`-Grenze und Reuse-Identität fest. Die produktive Listing- und
 Extraction-Orchestrierung ist durch das separate
 [FG-A-RUNTIME](../decisions/ADR-0039-safe-archive-runtime-and-secret-channel.md)
-für unverschlüsselte Archive vertraglich freigegeben, aber noch nicht als
-Provider umgesetzt. Reale Passwortversuche bleiben bis FG-A-SECRET blockiert.
+für unverschlüsselte Archive vertraglich freigegeben. Reale Passwortversuche
+bleiben bis FG-A-SECRET blockiert.
 S-EBAR-01 bis S-EBAR-03A und EBAR-04 sind umgesetzt. FG-A-IMAGE ist durch
 [ADR-0040](../decisions/ADR-0040-reproducible-archive-runtime-image.md)
 akzeptiert. FG-A-RUNTIME-AVAILABILITY ist durch
@@ -1848,10 +1848,16 @@ Offline-Revalidierung von Custom SLSA, SPDX, Manifest, OCI-Config und RootFS.
 S-EBAR-02B ist abgeschlossen;
 [ADR-0045](../decisions/ADR-0045-archive-7zip-format-lock.md) stuft dessen
 Happy-Path-Messung als diagnostisch ein. S-EBAR-02B2 ist umgesetzt, ADR-0046
-entscheidet FG-A-STORAGE-FAMILY und ADR-0047 den finalen Formatlock. Als
-Nächstes folgt S-EBAR-02C. Die vier
-äußeren Kompressionsstreams bleiben bis EBAR-06
-bei `OUTER_COMPRESSION_ONLY`.
+entscheidet FG-A-STORAGE-FAMILY und ADR-0047 den finalen Formatlock.
+S-EBAR-02C und EBAR-05 sind umgesetzt.
+[ADR-0048](../decisions/ADR-0048-private-archive-extraction-lifecycle.md)
+entscheidet vor EBAR-06 den privaten Listing-/CRC-Handoff, den reinen internen
+Extraction-Validator, ein separates Gate für einen harten Linux-Workspace-Cap
+und den Runner-owned Workspace-Consumer-Lifecycle. Als Nächstes folgen
+S-EBAR-05A, S-EBAR-06A, FG-A-EXTRACTION-QUOTA, S-EBAR-04Q und S-EBAR-04A.
+Die vier äußeren Kompressionsstreams bleiben bis zu einem
+separaten FG-A-WRAPPER-PIPELINE bei `OUTER_COMPRESSION_ONLY` und erhalten in
+EBAR-06 keinen Lauf.
 Der erste freigegebene Backendvertrag ist
 `archive-linux-container-runner/v1` für die primäre Docker/Linux-Runtime. Er
 verwendet ein digest-gepinntes Image mit exakt verifizierter eingebetteter
@@ -2100,6 +2106,22 @@ extracted members
 ```
 
 unter Berücksichtigung des Tool-/Formatvertrags.
+
+ADR-0048 teilt die fehlende Lifecycle-Brücke in mechanische Vorpakete und ein
+separates Frontier-Gate.
+S-EBAR-05A reicht Locator und CRC ausschließlich underscore-intern aus
+demselben EBAR-05-Lauf weiter. S-EBAR-06A implementiert daraus den exakten
+reinen Extraction-Consumer ohne Tool- oder Filesystemzugriff.
+FG-A-EXTRACTION-QUOTA muss einen atomar durchgesetzten Linux-Workspace-Cap
+festlegen; S-EBAR-04Q implementiert dessen unprivilegierte Quota-Slot-
+Capability. Periodisches Scannen ist lediglich Frühabbruch. S-EBAR-04A lässt
+nur diesen privaten Extraction-Consumer zwischen bewiesener
+Container-Abwesenheit und
+Runner-owned Cleanup auf eine borrowed no-follow-Workspace-Capability
+zugreifen. Polling-Limits beenden früh den Prozessbaum; erst erfolgreiches
+Cleanup, leere Slot-Revalidierung und Return geben vollständige Member-Hashes
+frei. Unsichere Slots werden quarantänisiert. EBAR-06 bleibt auf direkte
+unverschlüsselte ZIP-/RAR4-/RAR5-/7z-/TAR-Fälle beschränkt.
 
 ---
 

@@ -311,12 +311,12 @@ trennt ZIP/RAR4/RAR5/7z/TAR von den Publication-Kinds EPUB/CBZ/CBR und bindet
 klassifiziert sie nicht neu. [ADR-0047](../decisions/ADR-0047-final-archive-7zip-format-lock.md)
 akzeptiert den maschinenlesbaren `archive-7zip-format-lock/v1` mit getrenntem
 SHA-256 und strikt verify-only Workflowprüfung. gzip, bzip2,
-xz und zstd bleiben bis EBAR-06
-ausschließlich
-`OUTER_COMPRESSION_ONLY`: kein produktiver Listing-/Integrity-Lauf, keine
-Member-Evidence, Encryption `UNKNOWN` und keine Extraction-Freigabe. Erst eine
-private begrenzte Dekompression mit erneuter Signaturprüfung darf den inneren
-TAR-Container auswerten.
+xz und zstd bleiben gemäß ADR-0048 bis zu einem separaten
+FG-A-WRAPPER-PIPELINE ausschließlich `OUTER_COMPRESSION_ONLY`: kein
+produktiver Listing-/Integrity-/Extraction-Lauf, keine Member-Evidence,
+Encryption `UNKNOWN` und keine Extraction-Freigabe. Erst ein akzeptierter
+Vertrag für private begrenzte Dekompression, Byte-/Hash-Lineage und erneute
+Signaturprüfung darf einen inneren TAR-Container auswerten.
 
 Der erste freigegebene Backendvertrag heißt
 `archive-linux-container-runner/v1` für die primäre Docker/Linux-Runtime. Er
@@ -383,8 +383,7 @@ container-sichtbar Owner `65532:65532`, Verzeichnisse `0500`, reguläre Dateien
 read-only gemountet; ein neu erzeugtes leeres privates Output-Verzeichnis mit
 Owner `65532:65532` und Modus `0700` ist der einzige read-write Mount.
 Zusätzliche ACL-Rechte oder nicht beweisbare Mountsemantik schließen das
-Backend fail-closed. Beide Workspaces werden nach dem Lauf erneut no-follow
-geprüft und bereinigt. Native Windows-Ausführung bleibt `TOOL_UNAVAILABLE`, bis
+Backend fail-closed. Native Windows-Ausführung bleibt `TOOL_UNAVAILABLE`, bis
 `FG-A-WINDOWS-SANDBOX` Netzwerk- und Filesystemisolation nachweist. Job
 Objects und Handle-Allowlisten allein sind dafür unzureichend.
 
@@ -393,6 +392,25 @@ vollständiger Policy-Prüfung zulässige private Testextraktion. Listing,
 Integrity und Extraction erhalten getrennte `ToolExecution`-Provenance. Die
 Extraction wird erst nach einer erneuten Workspace-Prüfung und vollständigem
 Member-/Größen-/CRC-Abgleich als erfolgreich behandelt.
+
+[ADR-0048](../decisions/ADR-0048-private-archive-extraction-lifecycle.md)
+schließt dafür vor EBAR-06 die privaten Handoff-, Validator- und
+Runner-Lifecycle-Lücken. S-EBAR-05A bewahrt
+Locator und CRC ausschließlich in einem underscore-internen Handoff desselben
+EBAR-05-Laufs. S-EBAR-06A stellt daraus den exakten reinen internen
+Extraction-Validator bereit. FG-A-EXTRACTION-QUOTA entscheidet anschließend
+den harten Linux-Workspace-Cap; S-EBAR-04Q implementiert dessen
+unprivilegierte Quota-Slot-Capability. Periodisches Scannen ist nur Frühabbruch
+und keine Budget-Authority. S-EBAR-04A sperrt Extraction auf der öffentlichen
+Runnergrenze und führt einen privaten synchronen Workspace-Consumer ein. Der
+Runner hält den Output während des Toollaufs unter dem akzeptierten harten Cap
+und zusätzlicher Live-Budgetbeobachtung, beendet und
+entfernt zuerst den Container, leiht dann eine opaque no-follow-Capability an
+den exakten internen Consumer und bereinigt danach immer selbst. Vorläufige
+Hashes werden erst nach erfolgreichem Cleanup, leerer Slot-Revalidierung und
+erfolgreichem Return freigegeben. Ein Consumer-, Container-Absence-, Cleanup-,
+Slot-Revalidation- oder Returnfehler liefert keine Partial-Evidence und
+quarantänisiert den Slot.
 
 libarchive/bsdtar 3.8.9 bleibt zurückgestellt. libarchive besitzt einen
 Passphrase-Callback und breite Leseunterstützung, deckt verschlüsselte RAR-/7z-
