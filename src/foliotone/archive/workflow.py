@@ -30,6 +30,7 @@ ARCHIVE_LISTING_REUSE_PROFILE: Final = "archive-listing-reuse/v1"
 ARCHIVE_MEMBER_REUSE_PROFILE: Final = "archive-member-reuse/v1"
 NONE_SECRET_VERSION: Final = "NONE"
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_VERSION = re.compile(r"[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)?\Z")
 
 
 class ArchiveEncryptionStatus(StrEnum):
@@ -141,11 +142,15 @@ class ArchiveReuseKey:
         for name, value in (
             ("tool_provider_id", self.tool_provider_id),
             ("tool_version", self.tool_version),
-            ("adapter_version", self.adapter_version),
-            ("parser_version", self.parser_version),
             ("secret_version", self.secret_version),
         ):
             _require_opaque(name, value)
+        for name, value in (
+            ("adapter_version", self.adapter_version),
+            ("parser_version", self.parser_version),
+        ):
+            if not isinstance(value, str) or _VERSION.fullmatch(value) is None:
+                raise ValueError(f"{name} must be a bounded version literal")
         if self.listing_profile != ARCHIVE_LISTING_PROFILE:
             raise ValueError("unsupported archive listing profile")
         if self.extraction_profile != ARCHIVE_EXTRACTION_PROFILE:
@@ -394,20 +399,25 @@ class ArchiveListingResult:
             for member in self.members
         ):
             raise ValueError("archive member identity does not match material lineage")
-        if self.encryption_status is ArchiveEncryptionStatus.NONE and any(
-            member.encryption_status is not ArchiveEncryptionStatus.NONE for member in self.members
-        ):
-            raise ValueError("member encryption must match the listing")
-        if self.encryption_status is ArchiveEncryptionStatus.DATA_ENCRYPTED and any(
-            member.encryption_status is not ArchiveEncryptionStatus.DATA_ENCRYPTED
-            for member in self.members
-        ):
-            raise ValueError("member encryption must match the listing")
         regular_members = tuple(
             member
             for member in self.members
             if member.member_kind is ArchiveMemberKind.REGULAR_FILE
         )
+        encrypted_values = {member.encryption_status for member in regular_members}
+        expected_encryption = (
+            ArchiveEncryptionStatus.NONE
+            if not encrypted_values or encrypted_values == {ArchiveEncryptionStatus.NONE}
+            else ArchiveEncryptionStatus.DATA_ENCRYPTED
+            if encrypted_values == {ArchiveEncryptionStatus.DATA_ENCRYPTED}
+            else ArchiveEncryptionStatus.MIXED
+            if encrypted_values
+            == {ArchiveEncryptionStatus.NONE, ArchiveEncryptionStatus.DATA_ENCRYPTED}
+            else ArchiveEncryptionStatus.UNKNOWN
+        )
+        if self.listing_execution.status is ArchiveListingStatus.LISTED:
+            if self.encryption_status is not expected_encryption:
+                raise ValueError("member encryption must match the listing")
         extracted = tuple(member.extraction_execution_id is not None for member in regular_members)
         if any(extracted) and not all(extracted):
             raise ValueError("partial extraction cannot form member evidence")

@@ -1,0 +1,420 @@
+from __future__ import annotations
+
+import json
+import threading
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from foliotone.archive.container_sandbox import (
+    ARCHIVE_LINUX_CONTAINER_RUNNER_PROFILE,
+    ArchiveContainerRequest,
+    ArchiveContainerRunResult,
+    ArchiveContainerRunStatus,
+    ArchiveVolumeSource,
+)
+from foliotone.archive.provider import (
+    ARCHIVE_PROVIDER_PROFILE,
+    ArchiveProviderOutcome,
+    ArchiveProviderResult,
+    ArchiveSevenZipProvider,
+    _inspect,
+    _listing_status,
+    build_archive_provider_input_identity,
+    build_archive_volume_group_fingerprint,
+)
+from foliotone.archive.safety_policy import ArchiveSafetyStatus
+from foliotone.archive.sevenzip import build_7zzs_listing_command
+from foliotone.archive.sevenzip_slt import ArchiveSevenZipSltParseStatus
+from foliotone.archive.signatures import observe_archive_signature_v2
+from foliotone.archive.workflow import (
+    ArchiveEncryptionStatus,
+    ArchiveIntegrityStatus,
+)
+from foliotone.core import ToolExecutionStatus
+
+FORMAT_LOCK = (
+    Path(__file__).parents[2] / "packaging" / "archive" / "7zip-26.02" / "archive-format.lock.json"
+)
+INSTANT = datetime(2026, 8, 20, 12, 0, tzinfo=UTC)
+
+
+def _run(status: ArchiveContainerRunStatus) -> ArchiveContainerRunResult:
+    return ArchiveContainerRunResult(
+        ARCHIVE_LINUX_CONTAINER_RUNNER_PROFILE,
+        status,
+        0 if status is ArchiveContainerRunStatus.COMPLETED else 2,
+    )
+
+
+class _FakeRunner:
+    def __init__(
+        self,
+        steps: list[tuple[ArchiveContainerRunStatus, tuple[bytes, ...]]],
+    ) -> None:
+        self.steps = steps
+        self.requests: list[ArchiveContainerRequest] = []
+
+    def run(self, request: ArchiveContainerRequest, **kwargs: Any) -> ArchiveContainerRunResult:
+        self.requests.append(request)
+        status, chunks = self.steps.pop(0)
+        consumer = kwargs["stdout_consumer"]
+        stderr = kwargs["stderr_classifier"]
+        assert stderr(b"private foreign-language prose") is True
+        for chunk in chunks:
+            if not consumer(chunk):
+                return _run(ArchiveContainerRunStatus.POLICY_REJECTED)
+        return _run(status)
+
+
+def _request() -> ArchiveContainerRequest:
+    synthetic_root = Path.cwd().resolve()
+    source = ArchiveVolumeSource(
+        synthetic_root / ".synthetic-ebar05-source.bin",
+        1,
+        "a" * 64,
+        "archive",
+    )
+    return ArchiveContainerRequest(
+        (source,),
+        build_7zzs_listing_command(),
+        (synthetic_root,),
+    )
+
+
+def _tar_header() -> bytes:
+    header = bytearray(512)
+    header[:8] = b"file.txt"
+    header[148:156] = b"        "
+    header[148:156] = f"{sum(header):06o}\0 ".encode()
+    return bytes(header)
+
+
+def _signature(storage: str) -> object:
+    names = {
+        "ZIP": ("book.zip", b"PK\x03\x04"),
+        "RAR4": ("book.rar", b"Rar!\x1a\x07\x00"),
+        "RAR5": ("book.rar", b"Rar!\x1a\x07\x01\x00"),
+        "SEVEN_Z": ("book.7z", b"7z\xbc\xaf'\x1c"),
+        "TAR": ("book.tar", _tar_header()),
+    }
+    name, header = names[storage]
+    return observe_archive_signature_v2(name, header)
+
+
+def _value(value_class: str, ordinal: int) -> str:
+    return {
+        "EMPTY": "",
+        "BOOL_PLUS": "+",
+        "BOOL_MINUS": "-",
+        "CANONICAL_UINT": "1",
+        "CRC32": "ABCDEF12",
+        "TIMESTAMP": "2026-08-20 00:00:00",
+        "PRIVATE_LOCATOR_DISCARDED": f"member-{ordinal}.bin",
+        "PRIVATE_NONEMPTY_DISCARDED": "private-target",
+        "TECHNICAL_NONEMPTY_DISCARDED": "technical",
+    }[value_class]
+
+
+def _stream(capability: dict[str, Any]) -> bytes:
+    records = []
+    for ordinal, profile in enumerate(capability["record_profiles"], start=1):
+        records.append(
+            "".join(
+                f"{field['name']} = {_value(field['value_class'], ordinal)}\n"
+                for field in profile["fields"]
+            )
+            + "\n"
+        )
+    return "".join(records).encode()
+
+
+def _clock() -> Any:
+    values = iter(INSTANT + timedelta(seconds=index) for index in range(8))
+    return lambda: next(values)
+
+
+def _inspect_capability(capability: dict[str, Any]) -> tuple[ArchiveProviderOutcome, _FakeRunner]:
+    encrypted = capability["case_kind"] in {"ALL_ENCRYPTED", "MIXED"}
+    steps = [(ArchiveContainerRunStatus.COMPLETED, (_stream(capability),))]
+    if not encrypted:
+        steps.append((ArchiveContainerRunStatus.COMPLETED, (b"discarded integrity",)))
+    runner = _FakeRunner(steps)
+    outcome = _inspect(
+        runner,
+        _request(),
+        signature=_signature(capability["storage_family"]),  # type: ignore[arg-type]
+        archive_observation_id="archive-observation-1",
+        archive_full_sha256="a" * 64,
+        volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+        cancellation=None,
+        now=_clock(),
+    )
+    return outcome, runner
+
+
+def test_every_measured_cell_uses_locked_parser_and_exact_provenance() -> None:
+    lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
+    measured = [item for item in lock["capabilities"] if item["disposition"] == "MEASURED"]
+    assert len(measured) == 14
+    for capability in measured:
+        outcome, runner = _inspect_capability(capability)
+        assert outcome.profile == ARCHIVE_PROVIDER_PROFILE
+        assert outcome.result is not None
+        assert outcome.result.listing_status.value == "LISTED"
+        assert outcome.executions[0].status is ToolExecutionStatus.SUCCEEDED
+        assert outcome.result.member_count == len(capability["record_profiles"])
+        assert not hasattr(outcome.result, "members")
+        assert len(runner.requests) == (
+            1 if capability["case_kind"] in {"ALL_ENCRYPTED", "MIXED"} else 2
+        )
+        assert "member-" not in repr(outcome)
+
+
+def test_wrapper_is_rejected_without_runner_or_execution() -> None:
+    runner = _FakeRunner([])
+    outcome = _inspect(
+        runner,
+        _request(),
+        signature=observe_archive_signature_v2("book.tar.gz", b"\x1f\x8b"),
+        archive_observation_id="archive-observation-1",
+        archive_full_sha256="a" * 64,
+        volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+        cancellation=None,
+        now=_clock(),
+    )
+    assert runner.requests == []
+    assert outcome.executions == ()
+    assert outcome.result is not None
+    assert outcome.result.listing_status.value == "NOT_ATTEMPTED"
+    with pytest.raises(ValueError, match="bound"):
+        replace(outcome.result, member_count=999_999)
+    with pytest.raises(ValueError, match="inconsistent"):
+        ArchiveProviderResult(
+            outcome.result.profile,
+            outcome.result.listing_execution,
+            outcome.result.encryption_status,
+            outcome.result.reuse_key,
+            outcome.result.integrity_execution,
+            outcome.result.password_attempt_status,
+            ArchiveSafetyStatus.ACCEPTED,
+            0,
+        )
+
+
+def test_parser_failure_is_failed_execution_not_false_success() -> None:
+    runner = _FakeRunner([(ArchiveContainerRunStatus.COMPLETED, (b"Unknown = private\n\n",))])
+    outcome = _inspect(
+        runner,
+        _request(),
+        signature=_signature("ZIP"),  # type: ignore[arg-type]
+        archive_observation_id="archive-observation-1",
+        archive_full_sha256="a" * 64,
+        volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+        cancellation=None,
+        now=_clock(),
+    )
+    assert outcome.result is not None
+    assert outcome.result.listing_status.value == "TOOL_FAILED"
+    assert outcome.executions[0].status is ToolExecutionStatus.FAILED
+    assert not any(thread.name == "archive-locked-parser" for thread in threading.enumerate())
+    with pytest.raises(ValueError, match="statuses"):
+        ArchiveProviderOutcome(
+            ARCHIVE_PROVIDER_PROFILE,
+            outcome.result,
+            (replace(outcome.executions[0], status=ToolExecutionStatus.SUCCEEDED),),
+        )
+    with pytest.raises(ValueError, match="material identity"):
+        ArchiveProviderOutcome(
+            ARCHIVE_PROVIDER_PROFILE,
+            outcome.result,
+            (
+                replace(
+                    outcome.executions[0],
+                    input_identity="archive-7zip-provider-input/v1:" + "f" * 64,
+                ),
+            ),
+        )
+
+
+def test_runner_exception_is_path_free_failed_provenance() -> None:
+    class _ExplodingRunner:
+        def run(self, request: ArchiveContainerRequest, **kwargs: Any) -> ArchiveContainerRunResult:
+            del request, kwargs
+            raise RuntimeError("C:/private/never-render-this")
+
+    outcome = _inspect(
+        _ExplodingRunner(),
+        _request(),
+        signature=_signature("ZIP"),  # type: ignore[arg-type]
+        archive_observation_id="archive-observation-1",
+        archive_full_sha256="a" * 64,
+        volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+        cancellation=None,
+        now=_clock(),
+    )
+    assert outcome.result is not None
+    assert outcome.result.listing_status.value == "TOOL_FAILED"
+    assert outcome.executions[0].status is ToolExecutionStatus.FAILED
+    assert "private" not in repr(outcome)
+
+
+@pytest.mark.parametrize("cancel_step", [0, 1])
+def test_cancellation_has_provenance_but_no_terminal_snapshot(cancel_step: int) -> None:
+    lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
+    capability = next(
+        item
+        for item in lock["capabilities"]
+        if item["storage_family"] == "ZIP" and item["case_kind"] == "PLAINTEXT_REGULAR"
+    )
+    steps = [(ArchiveContainerRunStatus.COMPLETED, (_stream(capability),))]
+    if cancel_step == 0:
+        steps[0] = (ArchiveContainerRunStatus.CANCELLED, ())
+    else:
+        steps.append((ArchiveContainerRunStatus.CANCELLED, ()))
+    runner = _FakeRunner(steps)
+    outcome = _inspect(
+        runner,
+        _request(),
+        signature=_signature("ZIP"),  # type: ignore[arg-type]
+        archive_observation_id="archive-observation-1",
+        archive_full_sha256="a" * 64,
+        volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+        cancellation=None,
+        now=_clock(),
+    )
+    assert outcome.result is None
+    assert outcome.executions[-1].status is ToolExecutionStatus.CANCELLED
+    assert len(outcome.executions) == cancel_step + 1
+    with pytest.raises(ValueError, match="provider identity"):
+        ArchiveProviderOutcome(
+            ARCHIVE_PROVIDER_PROFILE,
+            executions=tuple(
+                replace(item, input_identity="C:/private/archive") for item in outcome.executions
+            ),
+        )
+
+
+def test_encryption_skips_integrity_and_mixed_is_valid() -> None:
+    lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
+    for case_kind, expected in (
+        ("ALL_ENCRYPTED", ArchiveEncryptionStatus.DATA_ENCRYPTED),
+        ("MIXED", ArchiveEncryptionStatus.MIXED),
+    ):
+        capability = next(
+            item
+            for item in lock["capabilities"]
+            if item["storage_family"] == "ZIP" and item["case_kind"] == case_kind
+        )
+        outcome, runner = _inspect_capability(capability)
+        assert outcome.result is not None
+        assert outcome.result.encryption_status is expected
+        assert outcome.result.integrity_status is ArchiveIntegrityStatus.NOT_TESTED
+        assert len(runner.requests) == 1
+        with pytest.raises(ValueError, match="encrypted"):
+            replace(
+                outcome.result,
+                member_count=0 if case_kind == "ALL_ENCRYPTED" else 1,
+            )
+
+
+def test_public_result_rejects_unstructured_integrity_cause() -> None:
+    lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
+    capability = next(
+        item
+        for item in lock["capabilities"]
+        if item["storage_family"] == "ZIP" and item["case_kind"] == "PLAINTEXT_REGULAR"
+    )
+    outcome, _runner = _inspect_capability(capability)
+    assert outcome.result is not None
+    with pytest.raises(ValueError, match="not authorized"):
+        replace(
+            outcome.result,
+            integrity_execution=replace(
+                outcome.result.integrity_execution,
+                status=ArchiveIntegrityStatus.CORRUPT,
+            ),
+        )
+
+
+def test_public_authority_and_input_identity_are_closed() -> None:
+    with pytest.raises(ValueError):
+        ArchiveSevenZipProvider(object())  # type: ignore[arg-type]
+    identity = build_archive_provider_input_identity(
+        archive_full_sha256="a" * 64,
+        volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+    )
+    assert identity.startswith("archive-7zip-provider-input/v1:")
+    assert "a" * 64 not in identity
+
+
+@pytest.mark.parametrize(
+    ("runner_status", "parser_status", "expected"),
+    [
+        (
+            ArchiveContainerRunStatus.TIMED_OUT,
+            ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED,
+            "TIMED_OUT",
+        ),
+        (
+            ArchiveContainerRunStatus.LIMIT_EXCEEDED,
+            ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED,
+            "LIMIT_EXCEEDED",
+        ),
+        (
+            ArchiveContainerRunStatus.TIMED_OUT,
+            ArchiveSevenZipSltParseStatus.LIMIT_EXCEEDED,
+            "TIMED_OUT",
+        ),
+        (
+            ArchiveContainerRunStatus.POLICY_REJECTED,
+            ArchiveSevenZipSltParseStatus.LIMIT_EXCEEDED,
+            "LIMIT_EXCEEDED",
+        ),
+        (
+            ArchiveContainerRunStatus.POLICY_REJECTED,
+            ArchiveSevenZipSltParseStatus.GRAMMAR_REJECTED,
+            "TOOL_FAILED",
+        ),
+    ],
+)
+def test_runner_status_precedes_parser_except_consumer_rejection(
+    runner_status: ArchiveContainerRunStatus,
+    parser_status: ArchiveSevenZipSltParseStatus,
+    expected: str,
+) -> None:
+    assert _listing_status(_run(runner_status), parser_status, True).value == expected
+
+
+@pytest.mark.parametrize(
+    ("observation_id", "archive_sha256", "group_fingerprint"),
+    [
+        ("C:/private/observation", "a" * 64, None),
+        ("archive-observation-1", "c" * 64, None),
+        ("archive-observation-1", "a" * 64, "d" * 64),
+    ],
+)
+def test_material_and_observation_preflight_fail_before_runner(
+    observation_id: str,
+    archive_sha256: str,
+    group_fingerprint: str | None,
+) -> None:
+    runner = _FakeRunner([])
+    request = _request()
+    with pytest.raises(ValueError):
+        _inspect(
+            runner,
+            request,
+            signature=_signature("ZIP"),  # type: ignore[arg-type]
+            archive_observation_id=observation_id,
+            archive_full_sha256=archive_sha256,
+            volume_group_fingerprint=(
+                group_fingerprint or build_archive_volume_group_fingerprint(request)
+            ),
+            cancellation=None,
+            now=_clock(),
+        )
+    assert runner.requests == []
