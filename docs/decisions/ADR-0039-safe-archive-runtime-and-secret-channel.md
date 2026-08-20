@@ -127,11 +127,17 @@ Die Reihenfolge ist fail-closed:
 - ein Integrity-Snapshot ungleich `NOT_TESTED` verlangt Listingstatus
   `LISTED`;
 - ein Extraction-Snapshot ungleich `NOT_ATTEMPTED` verlangt Listingstatus
-  `LISTED`, Integritystatus `PASSED`, Encryptionstatus `NONE` und eine
-  akzeptierte Extraction Policy;
+  `LISTED`, Integritystatus `PASSED` und Encryptionstatus `NONE`;
+- `POLICY_REJECTED` verlangt den Policy-Status `POLICY_REJECTED`;
+  `LIMIT_EXCEEDED` darf entweder einen bereits im Preflight festgestellten
+  Policy-Status `LIMIT_EXCEEDED` oder eine erst während der Ausführung
+  überschrittene Grenze bei zuvor akzeptierter Policy abbilden; alle anderen
+  ausgeführten Extraction-Statuswerte verlangen eine akzeptierte Policy;
 - `EXTRACTED` verlangt für jedes reguläre Member vollständige Größen-, CRC-,
   Hash- und Extraction-Provenance mit genau der `execution_id` des
   Extraction-Snapshots;
+- Nicht-Datei-Member dürfen niemals Extraction-ID, beobachtete Dateigröße oder
+  Member-Hash tragen;
 - jeder andere Extraction-Status verbietet erfolgreiche Extraction-Felder an
   Members; teilweise Ergebnisse bilden keine erfolgreiche Evidence;
 - `VALIDATION_FAILED` umfasst Abweichungen bei Workspace-, Member-, Größen-,
