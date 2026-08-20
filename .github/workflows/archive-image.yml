@@ -248,10 +248,11 @@ jobs:
             echo '::error::Repository owner must set the GHCR package public and connect it to gecompat/FolioTone, then rerun main.'
             exit 1
           fi
-      - name: Generate deterministic archive-image SLSA predicate
+      - name: Generate exact archive-image SLSA predicate
         run: |
           python packaging/archive/7zip-26.02/supply_chain_evidence.py provenance \
             --repository-commit "${GITHUB_SHA}" \
+            --invocation-id "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}" \
             --output "${RUNNER_TEMP}/archive-image-provenance.json"
       - name: Attach exact custom SLSA provenance
         id: custom-provenance
@@ -290,6 +291,7 @@ jobs:
             --format json > "${RUNNER_TEMP}/verified-custom-provenance.json"
           python packaging/archive/7zip-26.02/supply_chain_evidence.py verify-attestation \
             --repository-commit "${GITHUB_SHA}" \
+            --invocation-id "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}" \
             --predicate "${RUNNER_TEMP}/archive-image-provenance.json" \
             --result "${RUNNER_TEMP}/verified-custom-provenance.json"
           gh attestation verify "$reference" --repo gecompat/FolioTone \
