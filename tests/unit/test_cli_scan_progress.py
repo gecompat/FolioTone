@@ -100,6 +100,8 @@ def test_scan_progress_renderer_reports_discovery_and_reconciliation(
             processed_bytes=3 * 1024 * 1024,
             batch_files=2,
             batch_bytes=1 * 1024 * 1024,
+            reconciled_files=1,
+            reconciled_bytes=512 * 1024,
         )
     )
 
@@ -107,7 +109,7 @@ def test_scan_progress_renderer_reports_discovery_and_reconciliation(
         "Scan progress: discovering; files=10; data=4.0 MiB; "
         "current-throughput=2.0 MiB/s; average-throughput=1.0 MiB/s\n"
         "Scan progress: reconciling; completed-files=8; completed-data=3.0 MiB; "
-        "batch-files=2; batch-data=1.0 MiB\n"
+        "batch=1/2; batch-data=0.5/1.0 MiB\n"
     )
 
 

@@ -219,8 +219,9 @@ class _ScanConsoleProgress:
                 "Scan progress: reconciling; "
                 f"completed-files={progress.processed_files}; "
                 f"completed-data={progress.processed_bytes / (1024 * 1024):.1f} MiB; "
-                f"batch-files={progress.batch_files}; "
-                f"batch-data={progress.batch_bytes / (1024 * 1024):.1f} MiB"
+                f"batch={progress.reconciled_files}/{progress.batch_files}; "
+                f"batch-data={progress.reconciled_bytes / (1024 * 1024):.1f}/"
+                f"{progress.batch_bytes / (1024 * 1024):.1f} MiB"
             )
             self._write_progress_line(text, completed=False)
             return
