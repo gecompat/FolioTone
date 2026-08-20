@@ -2,11 +2,17 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from alembic import command
 from sqlalchemy import func, inspect, select
 
+from foliotone.adapters.calibre.library import (
+    ParsedCalibreLibraryFormat,
+    ParsedCalibreLibraryRecord,
+)
+from foliotone.adapters.calibre.library_capture import ParsedCalibreCaptureRecord
 from foliotone.core import (
     EntityId,
     FileObservation,
@@ -28,6 +34,14 @@ from foliotone.persistence import (
 )
 from foliotone.persistence import calibre_library_schema as cs
 from foliotone.persistence.scan_root_lease import ScanRootWriteOwnerKind
+from foliotone.tooling.runtime import ToolRuntime
+from foliotone.workflows.calibre_library_capture import (
+    CalibreCapturedRecord,
+    CalibreLibraryCaptureError,
+    CalibreLibraryCaptureReader,
+    CalibreLibraryCaptureService,
+    CalibreLibraryReadCapture,
+)
 from foliotone.workflows.calibre_reconciliation import (
     CALIBRE_LIBRARY_SNAPSHOT_PROFILE,
     CalibreLibraryFormatSnapshot,
@@ -43,6 +57,36 @@ from foliotone.workflows.calibre_reconciliation import (
 
 NOW = datetime(2026, 8, 19, 10, 0, tzinfo=UTC)
 DIGEST = "a" * 64
+
+
+class _SyntheticCaptureReader:
+    def read(
+        self,
+        _library_path: Path,
+        *,
+        capture_id: EntityId,
+        library_identity_digest: str,
+        lease: object,
+    ) -> CalibreLibraryReadCapture:
+        del library_identity_digest, lease
+        record = ParsedCalibreLibraryRecord(
+            1,
+            "Synthetic",
+            "synthetic-uuid",
+            ("Ada Alpha",),
+            (("isbn", "9780000000001"),),
+            (ParsedCalibreLibraryFormat("EPUB", "Ada/Book.epub"),),
+        )
+        captured = CalibreCapturedRecord(ParsedCalibreCaptureRecord(record, NOW), "c" * 64)
+        return CalibreLibraryReadCapture(
+            capture_id,
+            (captured,),
+            "d" * 64,
+            "d" * 64,
+            "9.13.0",
+            (EntityId.new(),),
+            1,
+        )
 
 
 def _graph(path: Path):
@@ -93,6 +137,66 @@ def _graph(path: Path):
         DIGEST,
     )
     return engine, lease, snapshot, record, finding, ref
+
+
+def test_capture_service_owns_lease_binds_latest_scan_and_persists_terminal_graph(
+    head_database: Path,
+) -> None:
+    engine = create_sqlite_engine(head_database)
+    root = ScanRoot(EntityId.new(), "synthetic-capture", MediaType.EBOOK)
+    scan = ScanRun(EntityId.new(), root.id, NOW, ScanRunStatus.COMPLETED, completed_at=NOW)
+    repository(engine, ScanRoot).save(root)
+    repository(engine, ScanRun).save(scan)
+    service = CalibreLibraryCaptureService(
+        engine,
+        cast(ToolRuntime, cast(Any, object())),
+        clock=lambda: NOW,
+        lease_duration=timedelta(minutes=5),
+    )
+    service._reader = cast(  # type: ignore[attr-defined]
+        CalibreLibraryCaptureReader,
+        _SyntheticCaptureReader(),
+    )
+
+    outcome = service.capture(
+        Path.cwd() / "synthetic-calibre-library",
+        scan_root_id=root.id,
+        library_config_id="synthetic-library",
+    )
+
+    assert outcome.snapshot.source_scan_run_id == scan.id
+    assert outcome.snapshot.status is CalibreLibrarySnapshotStatus.COMPLETED
+    assert (outcome.record_count, outcome.format_count, outcome.execution_count) == (1, 1, 1)
+    assert SQLiteScanRootWriteLeaseStore(engine).current(root.id) is None
+    with engine.connect() as connection:
+        assert (
+            connection.execute(
+                select(func.count()).select_from(cs.calibre_library_snapshots)
+            ).scalar_one()
+            == 1
+        )
+        assert (
+            connection.execute(
+                select(func.count()).select_from(cs.calibre_library_records)
+            ).scalar_one()
+            == 1
+        )
+        assert (
+            connection.execute(
+                select(func.count()).select_from(cs.calibre_library_formats)
+            ).scalar_one()
+            == 1
+        )
+
+    root_without_scan = ScanRoot(EntityId.new(), "synthetic-empty", MediaType.EBOOK)
+    repository(engine, ScanRoot).save(root_without_scan)
+    with pytest.raises(CalibreLibraryCaptureError, match="completed source scan"):
+        service.capture(
+            Path.cwd() / "synthetic-calibre-library",
+            scan_root_id=root_without_scan.id,
+            library_config_id="synthetic-empty-library",
+        )
+    assert SQLiteScanRootWriteLeaseStore(engine).current(root_without_scan.id) is None
 
 
 def test_calibre_snapshot_graph_is_insert_only_idempotent_and_fenced(
@@ -200,9 +304,7 @@ def test_snapshot_requires_latest_completed_scan_and_exact_observation_locator(
     )
     repository(engine, ScanRun).save(newer)
     with pytest.raises(CalibreLibraryStoreError, match="latest completed"):
-        store.create_or_get(
-            snapshot, (record,), (), (), (finding,), (ref,), lease=lease, now=NOW
-        )
+        store.create_or_get(snapshot, (record,), (), (), (finding,), (ref,), lease=lease, now=NOW)
 
 
 def test_invalid_ref_or_lease_loss_rolls_back_entire_graph(head_database: Path) -> None:

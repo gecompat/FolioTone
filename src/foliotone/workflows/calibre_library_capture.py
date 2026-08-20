@@ -6,8 +6,11 @@ import hashlib
 import xml.etree.ElementTree as ElementTree
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
+from threading import Event, Thread
+
+from sqlalchemy import Engine, desc, select
 
 from foliotone.adapters.calibre.library import (
     CALIBRE_LIBRARY_MAX_PAGE_SIZE,
@@ -25,10 +28,13 @@ from foliotone.adapters.calibre.library_capture import (
     parse_calibredb_categories,
     parse_calibredb_exact_ids,
 )
-from foliotone.core import EntityId, ToolExecutionStatus
+from foliotone.core import EntityId, MediaType, ScanRunStatus, ToolExecutionStatus
+from foliotone.persistence import schema
+from foliotone.persistence.calibre_library import SQLiteCalibreLibraryStore
 from foliotone.persistence.scan_root_lease import (
     OwnedScanRootWriteLease,
     ScanRootWriteOwnerKind,
+    SQLiteScanRootWriteLeaseStore,
     scan_root_write_scope,
 )
 from foliotone.tooling.runtime import LocalCommand, ToolRunOutcome, ToolRuntime
@@ -50,6 +56,8 @@ class CalibreLibraryCaptureError(ValueError):
 CALIBRE_CAPTURE_CONFIG_PROFILE = "calibre-library-capture/v1"
 MAX_CALIBRE_CAPTURE_RECORDS = 1_000_000
 MAX_CALIBRE_CAPTURE_PAGES = MAX_CALIBRE_CAPTURE_RECORDS // CALIBRE_LIBRARY_MAX_PAGE_SIZE + 1
+CALIBRE_CAPTURE_LEASE_DURATION = timedelta(minutes=30)
+MAX_CALIBRE_CAPTURE_HEARTBEAT_SECONDS = 60.0
 
 type Clock = Callable[[], datetime]
 
@@ -300,6 +308,196 @@ class CalibreLibraryCaptureReader:
             raise CalibreLibraryCaptureError("Calibre command stdout is invalid") from error
 
 
+@dataclass(frozen=True, slots=True)
+class CalibreLibraryCaptureOutcome:
+    """Path-free summary of one persisted terminal Calibre snapshot."""
+
+    snapshot: CalibreLibrarySnapshot
+    record_count: int
+    format_count: int
+    execution_count: int
+    category_count: int
+
+    def __post_init__(self) -> None:
+        if self.snapshot.status not in {
+            CalibreLibrarySnapshotStatus.COMPLETED,
+            CalibreLibrarySnapshotStatus.INVALIDATED,
+        }:
+            raise CalibreLibraryCaptureError("Calibre capture outcome must be terminal")
+        counts = (self.record_count, self.format_count, self.execution_count, self.category_count)
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in counts
+        ):
+            raise CalibreLibraryCaptureError("Calibre capture count is invalid")
+        if self.execution_count == 0:
+            raise CalibreLibraryCaptureError("Calibre capture requires executions")
+
+
+class _CalibreLeaseKeeper:
+    def __init__(
+        self,
+        store: SQLiteScanRootWriteLeaseStore,
+        lease: OwnedScanRootWriteLease,
+        *,
+        clock: Clock,
+        lease_duration: timedelta,
+    ) -> None:
+        self._store = store
+        self._lease = lease
+        self._clock = clock
+        self._lease_duration = lease_duration
+        self._interval = min(
+            MAX_CALIBRE_CAPTURE_HEARTBEAT_SECONDS,
+            lease_duration.total_seconds() / 3,
+        )
+        self._stop = Event()
+        self._error: Exception | None = None
+        self._thread = Thread(
+            target=self._renew_until_stopped,
+            name="foliotone-calibre-capture-heartbeat",
+            daemon=True,
+        )
+
+    def __enter__(self) -> _CalibreLeaseKeeper:
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_exception: object) -> None:
+        self._stop.set()
+        self._thread.join()
+
+    def check(self) -> None:
+        if self._error is not None:
+            raise CalibreLibraryCaptureError("Calibre capture heartbeat failed") from self._error
+
+    def _renew_until_stopped(self) -> None:
+        while not self._stop.wait(self._interval):
+            now = self._clock()
+            try:
+                self._store.heartbeat(
+                    self._lease,
+                    heartbeat_at=now,
+                    lease_expires_at=now + self._lease_duration,
+                )
+            except Exception as error:
+                self._error = error
+                return
+
+
+class CalibreLibraryCaptureService:
+    """Own the root lease, execute one capture, and atomically persist its graph."""
+
+    def __init__(
+        self,
+        engine: Engine,
+        runtime: ToolRuntime,
+        *,
+        clock: Clock,
+        lease_duration: timedelta = CALIBRE_CAPTURE_LEASE_DURATION,
+    ) -> None:
+        if lease_duration <= timedelta(0):
+            raise ValueError("lease_duration must be positive")
+        self._engine = engine
+        self._clock = clock
+        self._lease_duration = lease_duration
+        self._leases = SQLiteScanRootWriteLeaseStore(engine)
+        self._snapshots = SQLiteCalibreLibraryStore(engine)
+        self._reader = CalibreLibraryCaptureReader(runtime, clock=clock)
+
+    def capture(
+        self,
+        library_path: Path,
+        *,
+        scan_root_id: EntityId,
+        library_config_id: str,
+    ) -> CalibreLibraryCaptureOutcome:
+        identity_digest = _library_identity_digest(library_config_id)
+        self._require_ebook_root(scan_root_id)
+        snapshot_id = EntityId.new()
+        acquired_at = self._clock()
+        lease = self._leases.acquire(
+            scan_root_id,
+            ScanRootWriteOwnerKind.EBOOK_ANALYSIS,
+            snapshot_id,
+            lease_token=str(EntityId.new()),
+            acquired_at=acquired_at,
+            lease_expires_at=acquired_at + self._lease_duration,
+        )
+        try:
+            source_scan_run_id = self._latest_completed_scan(scan_root_id)
+            with _CalibreLeaseKeeper(
+                self._leases,
+                lease,
+                clock=self._clock,
+                lease_duration=self._lease_duration,
+            ) as keeper:
+                read = self._reader.read(
+                    library_path,
+                    capture_id=snapshot_id,
+                    library_identity_digest=identity_digest,
+                    lease=lease,
+                )
+                keeper.check()
+                completed_at = self._clock()
+                graph = build_calibre_snapshot_graph(
+                    snapshot_id=snapshot_id,
+                    scan_root_id=scan_root_id,
+                    source_scan_run_id=source_scan_run_id,
+                    tool_version=read.tool_version,
+                    library_identity_digest=identity_digest,
+                    initial_inventory_digest=read.initial_inventory_digest,
+                    final_inventory_digest=read.final_inventory_digest,
+                    started_at=acquired_at,
+                    completed_at=completed_at,
+                    captured_records=read.captured_records,
+                )
+                keeper.check()
+                self._snapshots.create_or_get(
+                    graph.snapshot,
+                    graph.records,
+                    graph.formats,
+                    (),
+                    (),
+                    (),
+                    lease=lease,
+                    now=completed_at,
+                )
+            return CalibreLibraryCaptureOutcome(
+                graph.snapshot,
+                len(graph.records),
+                len(graph.formats),
+                len(read.execution_ids),
+                read.category_count,
+            )
+        finally:
+            self._leases.release(lease, released_at=self._clock())
+
+    def _latest_completed_scan(self, scan_root_id: EntityId) -> EntityId:
+        with self._engine.connect() as connection:
+            scan_id = connection.execute(
+                select(schema.scan_runs.c.id)
+                .where(
+                    schema.scan_runs.c.scan_root_id == str(scan_root_id),
+                    schema.scan_runs.c.status == ScanRunStatus.COMPLETED.value,
+                )
+                .order_by(desc(schema.scan_runs.c.started_at), desc(schema.scan_runs.c.id))
+                .limit(1)
+            ).scalar_one_or_none()
+        if scan_id is None:
+            raise CalibreLibraryCaptureError("Calibre capture requires a completed source scan")
+        return EntityId.parse(str(scan_id))
+
+    def _require_ebook_root(self, scan_root_id: EntityId) -> None:
+        with self._engine.connect() as connection:
+            root = connection.execute(
+                select(schema.scan_roots.c.media_type).where(
+                    schema.scan_roots.c.id == str(scan_root_id)
+                )
+            ).one_or_none()
+        if root is None or str(root.media_type) != MediaType.EBOOK.value:
+            raise CalibreLibraryCaptureError("Calibre capture requires an EBOOK ScanRoot")
+
+
 def calibre_opf_fingerprint(data: bytes) -> str:
     """Validate one bounded OPF document and hash its exact captured bytes."""
     if not isinstance(data, bytes) or len(data) > MAX_CALIBRE_METADATA_STDOUT_BYTES:
@@ -394,6 +592,20 @@ def build_calibre_snapshot_graph(
 
 def _local_name(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
+
+
+def _library_identity_digest(config_id: str) -> str:
+    if (
+        not isinstance(config_id, str)
+        or not 1 <= len(config_id) <= 128
+        or any(
+            character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+            for character in config_id
+        )
+    ):
+        raise CalibreLibraryCaptureError("Calibre library configuration ID is invalid")
+    material = f"{CALIBRE_CAPTURE_CONFIG_PROFILE}\0{config_id}".encode("ascii")
+    return hashlib.sha256(material).hexdigest()
 
 
 def _require_sha256(value: str, field_name: str) -> str:
