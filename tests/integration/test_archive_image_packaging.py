@@ -108,6 +108,10 @@ def test_custom_provenance_is_deterministic_and_verified_exactly(tmp_path: Path)
             "path": ".github/workflows/archive-image.yml",
         }
     }
+    assert predicate["buildDefinition"]["resolvedDependencies"][0] == {
+        "uri": "git+https://github.com/gecompat/FolioTone@refs/heads/main",
+        "digest": {"gitCommit": commit},
+    }
     assert predicate["buildDefinition"]["internalParameters"]["archiveImage"] == {
         "platform": "linux/amd64",
         "recipeProfile": "archive-7zip-image/v1",

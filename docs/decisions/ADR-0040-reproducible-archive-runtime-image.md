@@ -418,7 +418,11 @@ und `.github/workflows/archive-image.yml`. Das für diesen Build-Type
 verpflichtende `internalParameters.github` bindet zusätzlich den
 `push`-Event, die stabilen numerischen Repository-/Owner-IDs und die
 `github-hosted`-Runnerklasse; `runDetails.builder.id` referenziert exakt diesen
-Workflow auf `refs/heads/main`. `archive-image-build/v1`, Plattform,
+Workflow auf `refs/heads/main`. Der erste `resolvedDependencies`-Eintrag bindet
+entsprechend dem Build-Type die URI
+`git+https://github.com/gecompat/FolioTone@refs/heads/main` an den finalen
+Commit; weitere fest gehashte Buildabhängigkeiten folgen danach.
+`archive-image-build/v1`, Plattform,
 `SOURCE_DATE_EPOCH` und die übrigen profilspezifischen Werte bleiben zusätzlich
 im geschlossenen `internalParameters.archiveImage`-Objekt gebunden. Ein eigener
 SLSA-`buildType` ist nicht zulässig, weil GitHubs Attestation-API ihn bei der
