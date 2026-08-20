@@ -275,13 +275,13 @@ wird vorher separat geprüft. `W` ist ein neu erzeugter leerer privater
 Workspace außerhalb jedes `ScanRoot`.
 
 ```text
-7zz i
+7zzs i
 
-7zz l -slt -ba -bd -bb0 -bso1 -bse2 -bsp0 -sccUTF-8 -- A
+7zzs l -slt -ba -bd -bb0 -bso1 -bse2 -bsp0 -sccUTF-8 -- A
 
-7zz t -bd -bb0 -bso1 -bse2 -bsp0 -sccUTF-8 -mmt=1 -- A
+7zzs t -bd -bb0 -bso1 -bse2 -bsp0 -sccUTF-8 -mmt=1 -- A
 
-7zz x -y -bd -bb0 -bso1 -bse2 -bsp0 -sccUTF-8 -mmt=1 -oW -- A
+7zzs x -y -bd -bb0 -bso1 -bse2 -bsp0 -sccUTF-8 -mmt=1 -oW -- A
 ```
 
 Das Extraction Shape ist erst für die spätere Frontier-Runtime reserviert.
@@ -594,7 +594,7 @@ S-EBA-01 bis S-EBA-07 dürfen ausschließlich synthetische Fixtures, reine
 Observer/Parser/Validatoren, `SecretHandle`-Redaction und einen Fake-
 `ToolProvider` implementieren. Sie dürfen insbesondere nicht:
 
-- `7zz`, `bsdtar`, libarchive oder ein anderes reales Archivtool starten;
+- `7zzs`, `bsdtar`, libarchive oder ein anderes reales Archivtool starten;
 - Archive real extrahieren oder ein Secret an einen Prozess übergeben;
 - eine Persistenzmigration hinzufügen;
 - einen Online-Passwortprovider anbinden;

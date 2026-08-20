@@ -301,14 +301,15 @@ Der erste freigegebene Backendvertrag heißt
 verwendet nur ein lokal vorhandenes, per Digest gepinntes Image. FG-A-IMAGE
 ist durch [ADR-0040](../decisions/ADR-0040-reproducible-archive-runtime-image.md)
 akzeptiert: FolioTone pflegt für genau `linux/amd64` ein projekt-eigenes
-`FROM scratch`-Rezept mit dem unveränderten offiziellen
+`FROM scratch`-Rezept mit dem unveränderten offiziellen statischen
+`7zzs`-Tar-Member aus dem
 `7z2602-linux-x64.tar.xz`, dessen SHA-256
 `41aaba7b1235304ab5aa0624530c67ae829496cd29e875925271efdccc28c03e`
 beträgt, vollständigen Lizenzhinweisen und `USER 65532:65532`. Das offizielle
 Release besitzt keinen separaten Signaturnachweis; dieser Sachverhalt bleibt
 als `UNSIGNED_UPSTREAM_RELEASE` Teil der Supply-Chain-Evidence.
 
-S-EBAR-03 setzt die festen Werte mechanisch um, prüft ein statisches
+S-EBAR-03 setzt die festen Werte mechanisch um, prüft den statischen Tar-Member `7zzs` als
 Linux-x86-64-ELF und baut das Offline-Rezept zweimal. Erst ein identischer,
 in `archive-image-lock/v1` gespeicherter `linux/amd64`-Plattform-Manifest-
 Digest hebt zusammen mit seiner geschützten Post-Merge-Publikation nach

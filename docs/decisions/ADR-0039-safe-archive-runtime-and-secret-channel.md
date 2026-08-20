@@ -188,7 +188,7 @@ Containerkommentare, Source-Pfade oder Secretmaterial enthalten.
 ### Exakter `archive-7zip-slt-parser/v1`-Vertrag
 
 S-EBAR-02 implementiert ausschließlich einen inkrementellen Parser für den
-stdout-Bytestream des fest gepinnten 7zz 26.02. Der Parser startet kein Tool,
+stdout-Bytestream des fest gepinnten `7zzs` 26.02. Der Parser startet kein Tool,
 öffnet keine Datei und besitzt keine Persistenz-, Logging-, Preview- oder
 Artefaktschnittstelle. Seine öffentlichen Ergebnisse sind ein Sum-Type mit
 exakt `PARSED`, `LIMIT_EXCEEDED`, `ENCODING_REJECTED` und
@@ -290,7 +290,7 @@ oder führende Null außer dem Einzelwert `0`; sie dürfen `2^63 - 1` nicht
 Hexadezimalzeichen. Unbekannte Felder, unbekannte boolesche Werte oder
 abweichende numerische Formen ergeben `GRAMMAR_REJECTED`; sie werden niemals
 ignoriert. Die spätere EBAR-05-Fixturematrix muss für jedes freigegebene
-Archivformat belegen, dass 7zz 26.02 innerhalb dieser v1-Allowlist bleibt.
+Archivformat belegen, dass `7zzs` 26.02 innerhalb dieser v1-Allowlist bleibt.
 Eine notwendige Erweiterung verlangt ein neues Parserprofil oder eine
 explizite ADR-Änderung und darf nicht still in v1 aufgenommen werden.
 
@@ -387,7 +387,7 @@ Digest-Referenz `repository@sha256:<digest>` mit `--pull=never`.
 FG-A-IMAGE ist durch
 [ADR-0040](ADR-0040-reproducible-archive-runtime-image.md) akzeptiert. Das
 projekt-eigene `linux/amd64`-Image verwendet `FROM scratch`, das unveränderte
-offizielle 7zz-26.02-Linux-x64-Artefakt mit festem Upstream-SHA-256,
+offizielle statische `7zzs`-26.02-Tar-Member mit festem Upstream-SHA-256,
 vollständige Lizenzhinweise und den numerischen User `65532:65532`. Der
 Upstream veröffentlicht keinen unabhängigen Signaturnachweis; dieser Umstand
 bleibt als `UNSIGNED_UPSTREAM_RELEASE` sichtbar.
@@ -408,13 +408,13 @@ Build-, Plattform- oder Redistributionsregel selbst auswählen.
 Jeder Containerstart erzwingt mindestens:
 
 - einen festen numerischen non-root User, read-only Root-Filesystem und eine
-  feste 7zz-Entrypoint-/argv-Allowlist ohne Shell;
+  feste `7zzs`-Entrypoint-/argv-Allowlist ohne Shell;
 - `network=none`, keine Devices, keinen Docker-Socket, keine privilegierte
   Ausführung, `cap-drop=ALL` und `no-new-privileges`;
 - das Docker-Default-Seccomp-Profil oder ein nachweislich strengeres Profil,
   niemals `unconfined`;
 - `--pids-limit=16`, `--memory=1g`, `--memory-swap=1g`, `--cpus=1.0` und
-  7zz Single-Threading sowie die ADR-0038-Laufzeit-, Ausgabe- und
+  `7zzs` Single-Threading sowie die ADR-0038-Laufzeit-, Ausgabe- und
   Parallelitätsgrenzen;
 - ausschließlich das read-only Input-Staging und den getrennten read-write
   Output-Workspace; keine weiteren Bind Mounts, Volumes oder Tmpfs-Mounts;
@@ -537,7 +537,7 @@ läuft genau ein vollständiger PR-CI-Gate.
 | S-EBAR-01 | Characterization-Tests, getrennte Archive-Execution-DTOs und vollständige Listing-/Integrity-/Extraction-Provenance | 5.3 Codex Spark `high`; Fallback 5.4 Mini, danach 5.6 Terra |
 | S-EBAR-02 | Reiner bounded `archive-7zip-slt-parser/v1` mit der exakten v1-Feld-/Record-Allowlist, Chunk-, Encoding-, Limit- und Redaktionsfällen sowie ausschließlich ephemerem Header-Kommentar ohne Sidecar-Umetikettierung | 5.3 Codex Spark `high`; Fallback 5.4 Mini, danach 5.6 Terra |
 | FG-A-IMAGE | Durch ADR-0040 akzeptiert: projekt-eigenes `scratch`-Rezept, feste Upstream-/Lizenzidentitäten, gepinntes Buildx-/BuildKit-Profil, zweistufiger Plattform-Manifest-Digest-Lock, nachträgliche SBOM/Provenance, UID/GID, öffentliche/source-associated GHCR-Freigabe, Updates und CI-Grenzen | 5.6 Sol `high`; kein Spark-Fallback |
-| S-EBAR-03 | Die durch ADR-0040 exakt festgelegten Image-/7zz-/Builderidentitäten und Packagingdateien mechanisch umsetzen, zweimal als einzelnes OCI-Layout ohne Inline-Attestations reproduzierbar bauen, Plattform-Manifest-Digest locken und danach Toolmanifest, Startprüfung sowie feste Command Builder ohne freie Argumente liefern; Publish erst geschützt, öffentlich/source-associated und anonym per Digest verifiziert | 5.3 Codex Spark `high`; Fallback 5.4 Mini, danach 5.6 Terra; bei Builder-, Digest-, ELF-, Lizenz-, Public-/Source-Association-, anonymer Verifikations- oder Attestationsabweichung blockiert |
+| S-EBAR-03 | Die durch ADR-0040 exakt festgelegten Image-/`7zzs`-/Builderidentitäten und Packagingdateien mechanisch umsetzen, zweimal als einzelnes OCI-Layout ohne Inline-Attestations reproduzierbar bauen, Plattform-Manifest-Digest locken und danach Toolmanifest, Startprüfung sowie feste Command Builder ohne freie Argumente liefern; Publish erst geschützt, öffentlich/source-associated und anonym per Digest verifiziert | 5.3 Codex Spark `high`; Fallback 5.4 Mini, danach 5.6 Terra; bei Builder-, Digest-, ELF-, Lizenz-, Public-/Source-Association-, anonymer Verifikations- oder Attestationsabweichung blockiert |
 | EBAR-04 | Docker-Backend `archive-linux-container-runner/v1` mit opaque Input-Staging `65532:65532` (`0500`/`0400`), leerem Output `65532:65532`/`0700`, no-follow Link-/Junction-/Reparse-Preflight, festen Mount-/Netzwerk-/Capability-/Seccomp-/Ressourcengrenzen und vollständigem Kill/Remove | 5.6 Sol `high`; Fallback 5.5 nur, wenn keine Secret- oder neue Sandboxentscheidung offen ist |
 | EBAR-05 | Reales unverschlüsseltes Listing und Integrity über den akzeptierten Runner | 5.6 Terra `medium`, `high` nur bei schichtübergreifender Diagnose; Fallback 5.4 |
 | EBAR-06 | Private Extraction-Sandbox, Live-Budgets, Workspace-Revalidierung und Member-Hashing | 5.6 Sol `high`; keine Delegation an Spark oder Terra |

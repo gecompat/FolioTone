@@ -63,7 +63,7 @@ Die unverschlüsselte Runtime setzt die ADR-0038-Limits während der Ausführung
 durch und beendet bei Timeout oder Grenzverletzung den vollständigen
 Prozessbaum. `archive-linux-container-runner/v1` ist der erste freigegebene
 Backendvertrag. Er startet in der primären Docker/Linux-Runtime ausschließlich
-ein digest-gepinntes Image mit verifizierter eingebetteter 7zz-26.02-Identität:
+ein digest-gepinntes Image mit verifizierter eingebetteter `7zzs`-26.02-Identität:
 non-root, `network=none`, read-only Root-Filesystem, alle Capabilities entfernt,
 no-new-privileges, Default-oder-strengeres Seccomp, ohne Devices und mit festen
 PID-, RAM-, CPU- und Laufzeitgrenzen. Timeout und Cancellation erzwingen Kill
@@ -71,7 +71,7 @@ und Entfernung des gesamten Containers.
 
 FG-A-IMAGE ist durch ADR-0040 akzeptiert. Das projekt-eigene Runtime-Image
 verwendet für genau `linux/amd64` den leeren, nicht pullbaren
-`FROM scratch`-Ausgangspunkt, das unveränderte offizielle 7zz-26.02-Artefakt
+`FROM scratch`-Ausgangspunkt, den unveränderten offiziellen statischen `7zzs`-26.02-Tar-Member
 mit festem SHA-256, vollständige Lizenzhinweise und den numerischen User
 `65532:65532`. Der Upstream-Release ist nicht unabhängig signiert; die
 FolioTone-Attestation ersetzt diesen fehlenden Nachweis nicht.
