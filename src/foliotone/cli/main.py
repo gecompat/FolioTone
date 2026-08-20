@@ -298,7 +298,7 @@ class _ScanConsoleProgress:
 
 
 def _scan_progress_enabled(requested: bool | None) -> bool:
-    return sys.stderr.isatty() if requested is None else requested
+    return requested is True
 
 
 def _optional_entity_id(value: str) -> EntityId | None:
@@ -387,8 +387,8 @@ def build_parser() -> argparse.ArgumentParser:
         action=argparse.BooleanOptionalAction,
         default=None,
         help=(
-            "Show a path-free file counter and throughput on stderr. Enabled automatically "
-            "for an interactive console; use --no-progress to disable it."
+            "Show a path-free file counter and throughput on stderr. Disabled by default; "
+            "use --progress to enable it."
         ),
     )
     resume_group = scan.add_mutually_exclusive_group()
@@ -3270,3 +3270,4 @@ def _run_epub_validate(args: argparse.Namespace) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
