@@ -22,8 +22,10 @@ from foliotone.index.hashing import (
 from foliotone.index.relocation import RelocationCandidateDetector
 from foliotone.index.scanner import (
     MAX_SCAN_HASH_WORKERS,
+    DiscoveryProgress,
     HashProgress,
     IncrementalScanner,
+    ReconciliationProgress,
     ScanProgress,
     ScanProgressPhase,
     ScanSummary,
@@ -33,6 +35,7 @@ from foliotone.index.store import BatchOutcome, ScanLeaseError, SQLiteIndexStore
 __all__ = [
     "BatchOutcome",
     "DeletionConfirmationPolicy",
+    "DiscoveryProgress",
     "DiscoveredFile",
     "DUPLICATE_HASH_PROFILE",
     "DEFAULT_DUPLICATE_HASH_LEASE_DURATION",
@@ -48,6 +51,7 @@ __all__ = [
     "MAX_DUPLICATE_HASH_BATCH_SIZE",
     "MAX_DUPLICATE_HASH_WORKERS",
     "RelocationCandidateDetector",
+    "ReconciliationProgress",
     "SQLiteIndexStore",
     "ScanLeaseError",
     "ScanRootBinding",

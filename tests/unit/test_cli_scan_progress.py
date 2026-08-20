@@ -3,7 +3,14 @@ import io
 import pytest
 
 import foliotone.cli.main as cli_module
-from foliotone.index import HashMode, HashProgress, ScanProgress, ScanProgressPhase
+from foliotone.index import (
+    DiscoveryProgress,
+    HashMode,
+    HashProgress,
+    ReconciliationProgress,
+    ScanProgress,
+    ScanProgressPhase,
+)
 
 
 def test_scan_worker_auto_policy_is_bounded_and_explicit_override_wins(
@@ -69,6 +76,38 @@ def test_scan_progress_renderer_reports_live_hash_read_rate(
     assert stream.getvalue() == (
         "Scan progress: hashing; batch=3/8; read=2.0 MiB; "
         "current-throughput=1.5 MiB/s; average-throughput=1.0 MiB/s\n"
+    )
+
+
+def test_scan_progress_renderer_reports_discovery_and_reconciliation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stream = io.StringIO()
+    monkeypatch.setattr(cli_module.sys, "stderr", stream)
+    progress = cli_module._ScanConsoleProgress(True)
+
+    progress.report(
+        DiscoveryProgress(
+            discovered_files=10,
+            discovered_bytes=4 * 1024 * 1024,
+            current_bytes_per_second=2 * 1024 * 1024,
+            average_bytes_per_second=1 * 1024 * 1024,
+        )
+    )
+    progress.report(
+        ReconciliationProgress(
+            processed_files=8,
+            processed_bytes=3 * 1024 * 1024,
+            batch_files=2,
+            batch_bytes=1 * 1024 * 1024,
+        )
+    )
+
+    assert stream.getvalue() == (
+        "Scan progress: discovering; files=10; data=4.0 MiB; "
+        "current-throughput=2.0 MiB/s; average-throughput=1.0 MiB/s\n"
+        "Scan progress: reconciling; completed-files=8; completed-data=3.0 MiB; "
+        "batch-files=2; batch-data=1.0 MiB\n"
     )
 
 

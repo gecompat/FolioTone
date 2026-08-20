@@ -43,6 +43,7 @@ MAX_SCAN_HASH_WORKERS = 8
 MAX_SCAN_HEARTBEAT_SECONDS = 60.0
 SCAN_HEARTBEAT_LOCK_RETRY_DELAYS_SECONDS = (0.25, 0.5, 1.0, 2.0)
 HASH_PROGRESS_REPORT_INTERVAL_SECONDS = 2.0
+DISCOVERY_PROGRESS_REPORT_INTERVAL_SECONDS = 2.0
 _HASH_STATES = frozenset(
     {
         FileChangeState.NEW,
@@ -95,7 +96,103 @@ class HashProgress:
             raise ValueError("hash throughput must not be negative")
 
 
-ProgressReporter = Callable[[ScanProgress | HashProgress], None]
+@dataclass(frozen=True, slots=True)
+class DiscoveryProgress:
+    """Path-free live progress while the filesystem is being enumerated."""
+
+    discovered_files: int
+    discovered_bytes: int
+    current_bytes_per_second: float
+    average_bytes_per_second: float
+
+    def __post_init__(self) -> None:
+        if min(self.discovered_files, self.discovered_bytes) < 0:
+            raise ValueError("discovery progress counts must not be negative")
+        if min(self.current_bytes_per_second, self.average_bytes_per_second) < 0:
+            raise ValueError("discovery throughput must not be negative")
+
+
+@dataclass(frozen=True, slots=True)
+class ReconciliationProgress:
+    """Path-free indication that one discovered batch is being compared to the index."""
+
+    processed_files: int
+    processed_bytes: int
+    batch_files: int
+    batch_bytes: int
+
+    def __post_init__(self) -> None:
+        if min(self.processed_files, self.processed_bytes, self.batch_files, self.batch_bytes) < 0:
+            raise ValueError("reconciliation progress counts must not be negative")
+        if self.batch_files <= 0:
+            raise ValueError("batch_files must be positive")
+
+
+ProgressReporter = Callable[
+    [ScanProgress | HashProgress | DiscoveryProgress | ReconciliationProgress], None
+]
+
+
+class _DiscoveryMeter:
+    """Accumulate discovered files without retaining their paths."""
+
+    def __init__(self) -> None:
+        self._files = 0
+        self._bytes = 0
+
+    def add_file(self, discovered: DiscoveredFile) -> None:
+        self._files += 1
+        self._bytes += discovered.size_bytes
+
+    def snapshot(self) -> tuple[int, int]:
+        return self._files, self._bytes
+
+
+class _DiscoveryProgressReporter:
+    """Rate-limit live discovery progress on the discovery thread."""
+
+    def __init__(
+        self,
+        meter: _DiscoveryMeter,
+        report: ProgressReporter,
+        *,
+        clock: Callable[[], float] = monotonic,
+        interval_seconds: float = DISCOVERY_PROGRESS_REPORT_INTERVAL_SECONDS,
+    ) -> None:
+        if interval_seconds <= 0:
+            raise ValueError("interval_seconds must be positive")
+        self._meter = meter
+        self._report = report
+        self._clock = clock
+        self._interval_seconds = interval_seconds
+        self._started_at = clock()
+        self._last_reported_at = self._started_at
+        self._last_reported_bytes = 0
+
+    def start(self) -> None:
+        self.report_now()
+
+    def record_file(self, discovered: DiscoveredFile) -> None:
+        self._meter.add_file(discovered)
+        if self._clock() - self._last_reported_at >= self._interval_seconds:
+            self.report_now()
+
+    def report_now(self) -> None:
+        now = self._clock()
+        discovered_files, discovered_bytes = self._meter.snapshot()
+        current_elapsed = max(now - self._last_reported_at, 0.001)
+        average_elapsed = max(now - self._started_at, 0.001)
+        self._report(
+            DiscoveryProgress(
+                discovered_files=discovered_files,
+                discovered_bytes=discovered_bytes,
+                current_bytes_per_second=(discovered_bytes - self._last_reported_bytes)
+                / current_elapsed,
+                average_bytes_per_second=discovered_bytes / average_elapsed,
+            )
+        )
+        self._last_reported_at = now
+        self._last_reported_bytes = discovered_bytes
 
 
 class _HashReadMeter:
@@ -340,10 +437,28 @@ class IncrementalScanner:
         keeper_stopped = False
 
         try:
-            iterator = discover_files(binding)
+            discovery_meter = _DiscoveryMeter()
+            discovery_progress = (
+                _DiscoveryProgressReporter(discovery_meter, self._emit_progress)
+                if self._progress is not None
+                else None
+            )
+            if discovery_progress is not None:
+                discovery_progress.start()
+            iterator = _record_discovery(discover_files(binding), discovery_progress)
             for batch in _batches(iterator, self._batch_size):
                 keeper.check()
                 owned = self._heartbeat(owned)
+                if discovery_progress is not None:
+                    discovery_progress.report_now()
+                self._emit_progress(
+                    ReconciliationProgress(
+                        processed_files=processed_files,
+                        processed_bytes=processed_bytes,
+                        batch_files=len(batch),
+                        batch_bytes=sum(item.size_bytes for item in batch),
+                    )
+                )
                 outcome = self._store.process_batch(root, owned, batch, self._clock())
                 counts.update(event.change_state for event in outcome.events)
                 hash_failures += self._hash_changed(
@@ -447,7 +562,10 @@ class IncrementalScanner:
             )
         )
 
-    def _emit_progress(self, progress: ScanProgress | HashProgress) -> None:
+    def _emit_progress(
+        self,
+        progress: ScanProgress | HashProgress | DiscoveryProgress | ReconciliationProgress,
+    ) -> None:
         if self._progress is None:
             return
         with self._progress_lock:
@@ -580,6 +698,16 @@ class IncrementalScanner:
 def _batches(iterator: Iterator[DiscoveredFile], size: int) -> Iterator[tuple[DiscoveredFile, ...]]:
     while batch := tuple(islice(iterator, size)):
         yield batch
+
+
+def _record_discovery(
+    iterator: Iterator[DiscoveredFile],
+    progress: _DiscoveryProgressReporter | None,
+) -> Iterator[DiscoveredFile]:
+    for discovered in iterator:
+        if progress is not None:
+            progress.record_file(discovered)
+        yield discovered
 
 
 def _utc_now() -> datetime:
