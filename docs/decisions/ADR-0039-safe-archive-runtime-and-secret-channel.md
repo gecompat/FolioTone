@@ -209,7 +209,7 @@ max_member_records           = 10_000
 max_member_path_utf8_bytes   = 4_096
 max_member_path_codepoints   = 1_024
 max_comment_utf8_bytes       = 4_096
-max_comment_codepoints       = 4_096
+max_comment_codepoints       = 4_086
 ```
 
 Chunks müssen `bytes` sein und dürfen die Chunkgrenze nicht überschreiten;
@@ -220,6 +220,10 @@ Zeilenenden; einzelnes `CR`, NUL und andere C0-/C1-Steuerzeichen außer dem
 jeweiligen Zeilenende werden abgewiesen. Ein Stream muss mit einem
 Zeilenende abschließen. Die Bytegrenze wird vor dem Dekodieren, die
 Codepointgrenze vor jeder Feldübernahme geprüft.
+
+Die Kommentar-Codepointgrenze berücksichtigt den zehn Zeichen langen festen
+Feldpräfix `Comment = `; ein maximaler Kommentar bleibt dadurch innerhalb der
+allgemeinen Zeilengrenze von 4.096 Codepoints.
 
 Die v1-Grammatik besteht aus einem Archive-Header, der exakten Trennzeile
 `----------` und null bis 10.000 Member-Records. Records werden durch genau
