@@ -666,8 +666,13 @@ mit ADR-0033 umgesetzt. `S-EB07-10` schließt zusätzlich die zuvor nur deklarie
 Outputgrenze: Die generische ToolRuntime begrenzt stdout/stderr schon während
 des Prozesses, beendet Überläufe fail-closed und die vier fachlichen
 `calibredb`-Shapes binden exakt 64 MiB, 1 MiB, 4 MiB beziehungsweise 16 MiB.
-Offen bleibt `S-EB07-11`, die Capture-Orchestrierung mit paginiertem
-Vorher-/Nachher-Inventar, Lease-Keeper und atomarer Snapshot-Persistenz.
+`S-EB07-11A` ergänzt die fehlende Capture-Grenze: `last_modified` ist nun
+verpflichtende UTC-normalisierte Inventory-Evidence, Exact-ID-Suche und
+Kategorie-CSV werden strikt und begrenzt geparst, und der kanonische
+`calibre-library-inventory-digest/v1` bindet ID, UUID, Änderungszeit sowie
+Formattyp und relativen Locator. Offen bleibt `S-EB07-11B`, die eigentliche
+Capture-Orchestrierung mit paginiertem Vorher-/Nachher-Inventar,
+OPF-Projektion, Lease-Keeper und atomarer Snapshot-Persistenz.
 
 ### calibre EPUB/MOBI/AZW/AZW3-Text und normalisierter Fingerprint
 
