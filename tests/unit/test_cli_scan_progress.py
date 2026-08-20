@@ -39,7 +39,6 @@ def test_scan_progress_requires_explicit_opt_in(
 ) -> None:
     assert cli_module._scan_progress_enabled(requested) is expected
 
-
 @pytest.mark.parametrize("value", ["0", "9", "invalid"])
 def test_scan_worker_parser_rejects_unbounded_values(value: str) -> None:
     with pytest.raises(cli_module.argparse.ArgumentTypeError):
@@ -224,4 +223,3 @@ def test_scan_cli_interrupts_cleanly_before_migration_starts_a_run(
 
     assert exit_code == 130
     assert capsys.readouterr().out == "Scan interrupted before a ScanRun was started.\n"
-
