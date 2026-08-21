@@ -27,6 +27,11 @@ from foliotone.persistence.archive_collection import (
     SQLiteArchiveCollectionStore,
     archive_collection_plan_content_hash,
 )
+from foliotone.workflows.archive_collection_plan import (
+    ArchiveCollectionPlanSourceInput,
+    build_archive_collection_plan,
+    persist_archive_collection_plan,
+)
 
 NOW = datetime(2026, 8, 21, 10, 0, tzinfo=UTC)
 ROOT_ID = EntityId.parse("00000000-0000-0000-0000-000000000301")
@@ -443,6 +448,50 @@ def test_populated_archive_collection_blocks_downgrade(head_database: Path) -> N
     _planning_run(head_database)
     with pytest.raises(RuntimeError, match="archive collection state"):
         command.downgrade(alembic_config(head_database), "0019_archive_evidence")
+
+
+def test_partial_plan_resumes_without_replanning_or_hash_drift(head_database: Path) -> None:
+    store, run = _planning_run(head_database)
+    candidate = ArchiveCollectionPlanSourceInput(
+        FILE_OBSERVATION_ID,
+        8,
+        FILE_HASH,
+        "private-parent",
+        "synthetic.zip",
+        b"PK\x03\x04data",
+    )
+    snapshot = build_archive_collection_plan(run, (candidate,))
+    store.append_plan_batch(run.id, "owner-one", snapshot.entries, now=NOW)
+    resumed = store.acquire_resume(
+        run.id,
+        lease_token="owner-two",
+        now=NOW + timedelta(minutes=31),
+        lease_expires_at=NOW + timedelta(minutes=61),
+    )
+    moments = iter(
+        (
+            NOW + timedelta(minutes=31, seconds=1),
+            NOW + timedelta(minutes=31, seconds=2),
+        )
+    )
+    sealed = persist_archive_collection_plan(
+        store,
+        resumed,
+        "owner-two",
+        (candidate,),
+        now=lambda: next(moments),
+    )
+    assert sealed.status is ArchiveCollectionRunStatus.RUNNING
+    assert sealed.plan_content_hash == snapshot.content_hash
+    with pytest.raises(ArchiveCollectionStoreError):
+        store.seal_plan(
+            run.id,
+            "owner-one",
+            planned_count=1,
+            findings=snapshot.findings,
+            plan_content_hash=snapshot.content_hash,
+            sealed_at=NOW + timedelta(minutes=31, seconds=3),
+        )
 
 
 def test_archive_collection_disposition_is_closed() -> None:
