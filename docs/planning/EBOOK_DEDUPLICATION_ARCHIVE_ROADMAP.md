@@ -369,6 +369,10 @@ S-EBAR-01 Execution-DTOs
     -> S-EBAR-08A Models/Schema/Store, abgeschlossen
     -> S-EBAR-08B Plan, abgeschlossen -> 08C Ausführung, abgeschlossen -> 08D Status, abgeschlossen
     -> EBAR-09 Abschluss und EB-A3-Übergang, abgeschlossen
+    -> FG-A3-MATCHING Source-/Member-Grenze, durch ADR-0054 abgeschlossen
+    -> S-EBA3-01 reiner Source-Dependency-Vertrag, als nächstes
+    -> S-EBA3-02 bounded Query/Store -> S-EBA3-03 nicht ausführbare Planintegration
+    -> FG-A3-MEMBER-BYTE, bis vollständige Member-SHA-256 blockiert
 ```
 
 Die mechanischen S-EBAR-Pakete verwenden das im Spark-Katalog jeweils
@@ -422,6 +426,15 @@ Die Welle trennt exakte Memberbytes, identische Containerbytes, gleiche
 `Edition`, unterschiedliche Ausgabe, Formatvariante und reine
 Qualitätsvariante. Ein Online-Passworttreffer oder gleicher Name reicht für
 keine Relation. Unsichere Fälle gehen in die `Review Queue`.
+
+ADR-0054 teilt diese Welle fail-closed. Bereits jetzt kann ein generisches
+direktes, mehrteiliges oder Wrapper-Archive seine physische Source-Datei als
+`ARCHIVE=KNOWN_PRESENT`-Dependency belegen. Publication Container bleiben
+normale physische Medien und werden nicht allein wegen ZIP-/RAR-Struktur als
+entbehrliche Verpackung behandelt. Member-/File- und Member-/Member-Identity
+bleiben ohne vollständige Member-SHA-256 `UNKNOWN`; CRC, Größe, Locator und
+Wrapper-Inner-Hash genügen nicht. S-EBA3-01 bis S-EBA3-03 implementieren nur
+die Source-Dependency-Strecke. FG-A3-MEMBER-BYTE bleibt separat blockiert.
 
 ### EA9 — Calibre-, Sidecar- und Keep-Präferenz
 

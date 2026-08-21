@@ -96,11 +96,12 @@ den fokussierten Abschluss. Die Wrapperstrecke erzeugt weder
 Extraction-Handoff noch Persistenz oder Schreiboperationen.
 
 [ADR-0052](../decisions/ADR-0052-immutable-archive-evidence-persistence.md)
-schließt FG-A-PERSISTENCE ab. Als nächstes setzt S-EBAR-07 die additive
-Migration `0019_archive_evidence` und den dedizierten insert-only Archive-
-Store um. Das Paket bindet Source-, Tool-, Profil-, Formatlock-, Wrapper- und
-Fence-Lineage, erweitert aber weder Extraction noch Secret- oder
-Source-Mutationsauthority.
+und ADR-0053 sind mit S-EBAR-07, S-EBAR-08A bis 08D und EBAR-09 umgesetzt.
+[ADR-0054](../decisions/ADR-0054-archive-aware-matching-frontier.md) schließt
+danach FG-A3-MATCHING. Als Nächstes implementiert S-EBA3-01 ausschließlich
+den reinen Source-Dependency-Vertrag. Member-Byte-Identity bleibt ohne
+vollständige Member-SHA-256 `UNKNOWN`; Extraction, Secrets und
+Source-Mutationsauthority bleiben gesperrt.
 
 ### `W3-017` (E5 synthetischer Performance-/Restart-Vertrag)
 

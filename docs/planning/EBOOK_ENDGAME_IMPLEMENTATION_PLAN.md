@@ -2343,8 +2343,10 @@ ADR-0052 entscheidet FG-A-PERSISTENCE mit Migration
 Reuse und ScanRoot-Fencing. S-EBAR-07 ist umgesetzt. Vor EBAR-08 schließt
 ADR-0053 schließt FG-A-COLLECTION-ORCHESTRATION mit stabilem Multi-Volume-
 Plan, Lease/Fencing, Resume und path-freiem Status. S-EBAR-08A bis 08D sowie
-EBAR-09 sind umgesetzt. Ein EB-A3-Start benötigt weiterhin ein eigenes
-Frontier-Gate.
+EBAR-09 sind umgesetzt. ADR-0054 entscheidet FG-A3-MATCHING: S-EBA3-01 bis
+S-EBA3-03 dürfen ausschließlich generische Archive-Source-Dependencies in den
+nicht ausführbaren Plan integrieren. Member-Byte-Identity bleibt bis
+FG-A3-MEMBER-BYTE blockiert.
 Die Tabelle bleibt als Abhängigkeitsfolge maßgeblich; sie ist keine zweite
 Statusquelle.
 
