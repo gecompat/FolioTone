@@ -544,6 +544,61 @@ def build_7zzs_integrity_command() -> tuple[str, ...]:
     )
 
 
+def build_7zzs_wrapper_decode_command() -> tuple[str, ...]:
+    """Return the sole allowed outer-compression stdout command shape."""
+
+    return (
+        _CONTAINER_7ZZS,
+        "x",
+        "-so",
+        "-bd",
+        "-bb0",
+        "-bso0",
+        "-bse0",
+        "-bsp0",
+        "-mmt=1",
+        "--",
+        _CONTAINER_ARCHIVE,
+    )
+
+
+def build_7zzs_tar_stdin_listing_command() -> tuple[str, ...]:
+    """Return the sole allowed TAR listing command over broker stdin."""
+
+    return (
+        _CONTAINER_7ZZS,
+        "l",
+        "-si",
+        "-ttar",
+        "-slt",
+        "-ba",
+        "-bd",
+        "-bb0",
+        "-bso1",
+        "-bse0",
+        "-bsp0",
+        "-sccUTF-8",
+    )
+
+
+def build_7zzs_tar_stdin_integrity_command() -> tuple[str, ...]:
+    """Return the sole allowed TAR integrity command over broker stdin."""
+
+    return (
+        _CONTAINER_7ZZS,
+        "t",
+        "-si",
+        "-ttar",
+        "-bd",
+        "-bb0",
+        "-bso0",
+        "-bse0",
+        "-bsp0",
+        "-sccUTF-8",
+        "-mmt=1",
+    )
+
+
 def build_7zzs_extraction_command() -> tuple[str, ...]:
     """Return the reserved, fixed private-workspace extraction command shape."""
 
