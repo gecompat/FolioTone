@@ -8,7 +8,8 @@ Stand: 2026-08-21
 
 ADR-0056 akzeptiert als erste W10-Grenze ausschließlich reine Quarantäne-
 DTOs, insert-only Authorization-/Run-Persistenz und read-only Status. Als
-nächstes folgt S-W10-01 ohne I/O. Es gibt weiterhin keine reale Mutation; sie
+nächstes folgt S-W10-02 mit insert-only Persistenz ohne Source-I/O. Es gibt
+weiterhin keine reale Mutation; sie
 bleibt bis zum
 separaten `FG-W10-MOVE-BACKEND` blockiert; der Vertrag verlangt kein
 bestimmtes Dateisystem und besitzt keinen Copy+Delete-Fallback.
@@ -1496,7 +1497,9 @@ Collection-Bericht und ein insert-only, scan- und archivegebundener
 Sidecar-Inventarsnapshot sind umgesetzt. Das Inventar speichert weder
 Basename/Pfad noch Inhalt oder Secret und erweitert weder Toolstatus noch
 CLI-Profil oder Ausführungsauthority. ADR-0056 entscheidet inzwischen das
-enge W10-Vertragsgate für Quarantäne; S-W10-01 folgt ohne Mutation.
+enge W10-Vertragsgate für Quarantäne. S-W10-01 liefert die reinen, path-free
+Authorization-/Eligibility-Verträge und ist abgeschlossen; S-W10-02 folgt
+mit Persistenz, aber weiterhin ohne Mutation.
 
 ## Nicht implementiert
 
