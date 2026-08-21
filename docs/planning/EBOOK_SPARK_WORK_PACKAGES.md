@@ -3,7 +3,7 @@
 **Status:** In Ausführung; die read-only Archive-Strecke bis EBAR-09 sowie
 FG-A3-MATCHING und S-EBA3-01 bis S-EBA3-03 sind abgeschlossen.
 Member-Byte-Identity, Extraction, Secrets und W10 bleiben getrennt blockiert;
-ADR-0055 grenzt als einzige W3-019-Restlücke S-EBAR-07A ab.
+ADR-0055 und S-EBAR-07A schließen W3-019 vollständig ab.
 
 **Stand:** 2026-08-20
 
@@ -336,7 +336,7 @@ W10-Funktion einführen.
 | S-EBA3-03 | Nicht ausführbare Planintegration für die zwei Endpunkte eines vorhandenen actionable `EXACT_DUPLICATE`. Erlaubt: neue `src/foliotone/workflows/archive_consolidation.py`, `src/foliotone/consolidation/planner.py` sowie eine Unit- und die S02-Integrationstestdatei. | Candidate-Sourcegraph blockiert, Keeper-Dependency bleibt als Unchanged-Precondition, Publication und fehlende Member-Coverage bleiben `UNKNOWN`; keine neue Relation, Reviewentscheidung oder Ausführung. | Terra `high`; abgeschlossen. `consolidation-plan/v1` blieb unverändert. |
 | FG-A3-MEMBER-BYTE | Separates späteres Frontier-Gate für vollständige Member-SHA-256 durch bounded Extraction oder einen eigenständig akzeptierten Streaming-Hash-Vertrag. | Keine CRC-/Größen-/Locator-Ersatzidentity; vollständige Execution-/Tool-/Parser-/Formatlock-/Source-Lineage und Coverage-Grenze. | Sol `high`; blockiert, kein niedrigeres Fallback. |
 | FG-A-SIDECAR-PERSISTENCE | Durch ADR-0055 abgeschlossenes Frontier-Gate für die einzige verbleibende W3-019-Lücke. | Bindet höchstens 32 bereits indexierte direkte Sidecar-FileObservations insert-only an einen aktuellen ArchiveObservation-Graph; keine Namen, Pfade, Inhalte, Secrets, Tool- oder CLI-Erweiterung. | Sol `high`; abgeschlossen. |
-| S-EBAR-07A | Additive Sidecar-Inventar-Persistenz `archive-sidecar-inventory/v1` und bounded Query im exakten ADR-0055-Scope. | Migration `0021`, Root-/Scan-/Source-/Direktnachbar-/Kind-Revalidierung, deterministische ID/Content Hash, Retry, Collision, 32er-Bound und pfadfreie Fehler. | Terra `high`; als nächstes. Stop bei Inhaltszugriff, öffentlichem Reportprofil oder neuer Runtime-Authority. |
+| S-EBAR-07A | Additive Sidecar-Inventar-Persistenz `archive-sidecar-inventory/v1` und bounded Query im exakten ADR-0055-Scope. | Migration `0021`, Root-/Scan-/Source-/Direktnachbar-/Kind-Revalidierung, deterministische ID/Content Hash, Retry, Collision, 32er-Bound und pfadfreie Fehler. | Terra `high`; abgeschlossen. Kein Inhaltszugriff, öffentliches Reportprofil oder neue Runtime-Authority. |
 
 S-EBAR-01 bis S-EBAR-03A, EBAR-04, S-EBAR-02A bis S-EBAR-02C und EBAR-05
 sind abgeschlossen. FG-A-IMAGE, FG-A-RUNTIME-AVAILABILITY,

@@ -4,7 +4,7 @@ Stand: 2026-08-21
 
 ## Aktuelle Welle
 
-**W3-019 Sidecar-Inventar abgegrenzt — S-EBAR-07A ist der nächste Schritt**
+**W3-019 einschließlich Sidecar-Inventar abgeschlossen — W10-Vertragsgate folgt**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -1483,12 +1483,13 @@ Passwortversuche bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert
 gesperrt. Music W4 bleibt bis zur E-Book-Reife zurückgestellt. Die
 Produktoberfläche bleibt ausschließlich die CLI.
 
-ADR-0055 gleicht den historischen W3-019-Vertrag mit diesem Stand ab.
-Archive-/Volume-Evidence, Missing-Volume-Findings und der pfadfreie
-Collection-Bericht sind umgesetzt. Als einzige Restlücke folgt S-EBAR-07A mit
-einem insert-only, scan- und archivegebundenen Sidecar-Inventarsnapshot. Das
-Paket speichert weder Basename/Pfad noch Inhalt oder Secret und erweitert
-weder Toolstatus noch CLI-Profil oder Ausführungsauthority.
+ADR-0055 und S-EBAR-07A schließen den historischen W3-019-Vertrag ab.
+Archive-/Volume-Evidence, Missing-Volume-Findings, der pfadfreie
+Collection-Bericht und ein insert-only, scan- und archivegebundener
+Sidecar-Inventarsnapshot sind umgesetzt. Das Inventar speichert weder
+Basename/Pfad noch Inhalt oder Secret und erweitert weder Toolstatus noch
+CLI-Profil oder Ausführungsauthority. Als nächste E-Book-Entscheidung folgt
+ein enges W10-Vertragsgate für Quarantäne; es autorisiert noch keine Mutation.
 
 ## Nicht implementiert
 

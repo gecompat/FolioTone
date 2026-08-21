@@ -41,5 +41,6 @@ def test_planning_sources_agree_on_the_next_bounded_package() -> None:
     contents = [(ROOT / name).read_text(encoding="utf-8") for name in files]
 
     assert all("S-EBAR-07A" in text for text in contents)
-    assert "| W3-019 | IN PROGRESS |" in contents[1]
+    assert "| W3-019 | DONE |" in contents[1]
+    assert "S-EBAR-07A" in contents[0] and "abgeschlossen" in contents[0]
     assert "FG-A3-MEMBER-BYTE bleibt" in contents[3]
