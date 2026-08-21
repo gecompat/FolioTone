@@ -16,6 +16,22 @@ bestimmtes Dateisystem und besitzt keinen Copy+Delete-Fallback.
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
+Der unabhängige operative Punkt W3-026 ist abgeschlossen. ADR-0057 ergänzt ein
+gelocktes Docker-first-Image für calibre, Poppler, Java und EPUBCheck, einen
+expliziten Windows-/WSL2-Provisioning-Schritt sowie den pfadfreien
+`ebook-tools-doctor` mit Readiness je unterstütztem E-Book-Format. Kein
+Analysekommando installiert oder aktualisiert Werkzeuge. Die aktive W10-
+Vertragsfrontier S-W10-01 bleibt dadurch unverändert.
+
+Die lokale Windows-Verifikation am 2026-08-21 verwendete Docker Engine 29.7.2
+in `Codex-Ubuntu-24.04` unter WSL2. Die automatische Backendwahl, der
+vollständige gelockte Image-Build und der anschließende offline/read-only
+Doctor waren erfolgreich; alle sieben Komponentenprobes und alle fünf
+Formatprofile meldeten `READY`. Die fokussierte Suite einschließlich der
+betroffenen `main`-Regressionen bestand mit 26 Tests; Ruff, Mypy für 180
+Source-Dateien, Compose- und Dokumentationsverträge waren
+ebenfalls grün.
+
 EB-04 ist mit S-EB04-01 bis S-EB04-07 abgeschlossen. Die additive Migration
 0018, der immutable profiled Assertion-/Lineage-Store, bounded Target-/Profile-
 Queries, der deterministische Projection-Reducer, immutable Reprojection-

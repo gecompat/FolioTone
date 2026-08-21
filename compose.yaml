@@ -14,3 +14,23 @@ services:
     cap_drop:
       - ALL
     command: ["status"]
+
+  foliotone-ebook:
+    profiles: ["ebook-tools"]
+    platform: linux/amd64
+    image: "${FOLIOTONE_EBOOK_TOOLCHAIN_IMAGE:-foliotone-ebook-tools:local}"
+    build:
+      context: .
+      dockerfile: packaging/ebook-tools/Dockerfile
+    volumes:
+      - "${FOLIOTONE_DATA_DIR:-./data}:/data:rw"
+      - "${FOLIOTONE_EBOOKS_DIR:-./media/ebooks}:/media/ebooks:ro"
+    read_only: true
+    network_mode: none
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    command: ["ebook-tools-doctor"]

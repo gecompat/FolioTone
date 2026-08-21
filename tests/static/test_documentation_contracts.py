@@ -73,6 +73,9 @@ DOCKER_CONTEXT_ALLOWLIST = (
     "!Dockerfile",
     "!pyproject.toml",
     "!README.md",
+    "!packaging/",
+    "!packaging/ebook-tools/",
+    "!packaging/ebook-tools/**",
     "!src/",
     "!src/**",
 )

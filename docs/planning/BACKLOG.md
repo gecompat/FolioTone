@@ -81,6 +81,7 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W3-023 | DONE | ADR-0053 schließt FG-A-COLLECTION-ORCHESTRATION mit getrennten Archive-Run-/Item-/Source-Snapshots, stabilem Multi-Volume-Plan, eigener `ARCHIVE_COLLECTION_RUN`-Lease, Heartbeat, stale Resume, bounded Ausführung und path-freiem read-only Status ab. |
 | W3-024 | DONE | S-EBAR-08A bis 08D und EBAR-09 schließen Models, Migration `0020`, Store/Fencing, restartbare Planpartition, bounded Ausführung sowie den strikt read-only und path-freien Archive-Collection-Status ab. Extraction, Secrets, Mutation und allgemeiner E-Book-Collection-Status bleiben getrennt; EB-A3 benötigt ein eigenes Frontier-Gate. |
 | W3-025 | DONE | ADR-0054 schließt FG-A3-MATCHING und trennt belegbare generische Archive-Source-Dependencies von weiterhin unbekannter Member-Byte-Identity. S-EBA3-01 bis S-EBA3-03 implementieren reinen Vertrag, bounded Query/Store-Revalidierung und nicht ausführbare Planintegration. `KNOWN_NONE`, Member-/File-Matching, EA9/EA10-Abschluss und jede W10-Operation bleiben gesperrt. |
+| W3-026 | DONE | ADR-0057 ergänzt die explizite Docker-first-Bereitstellung der E-Book-Spezialwerkzeuge: gelocktes Linux/amd64-Image, Windows-/WSL2-Provisioning ohne Hostinstallation, pfadfreier `ebook-tools-doctor` und Readiness je EPUB/MOBI/AZW/AZW3/PDF. Analysebefehle installieren oder aktualisieren nichts; ein fertiges Drittanbieter-Image wird nicht veröffentlicht. |
 
 ## W4 — Music Analysis / Tool Orchestration
 
