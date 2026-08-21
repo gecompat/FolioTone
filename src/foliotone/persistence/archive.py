@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Final
 
-from sqlalchemy import Engine, insert, select
+from sqlalchemy import Engine, func, insert, select
 from sqlalchemy.engine import Connection
 
 from foliotone.archive.provider import (
@@ -408,7 +408,7 @@ class SQLiteArchiveEvidenceStore:
                 self._leases.fence(connection, write_lease, committed_at)
                 graph = _graph(snapshot, write_lease)
                 self._validate_sources(connection, snapshot)
-                self._validate_executions(connection, snapshot)
+                self._validate_executions(connection, snapshot, write_lease)
                 existing = self._read(connection, snapshot.id)
                 if existing is not None:
                     if existing != graph:
@@ -482,11 +482,28 @@ class SQLiteArchiveEvidenceStore:
         self,
         key: ArchiveReuseKey,
         compatibility: ArchiveEvidenceCompatibility,
+        *,
+        scan_root_id: EntityId | None = None,
+        source_scan_run_id: EntityId | None = None,
+        sources: tuple[ArchiveEvidenceSource, ...] | None = None,
     ) -> PersistedArchiveEvidence | None:
         if not isinstance(key, ArchiveReuseKey):
             raise ValueError("key must be ArchiveReuseKey")
         if not isinstance(compatibility, ArchiveEvidenceCompatibility):
             raise ValueError("compatibility must be ArchiveEvidenceCompatibility")
+        scoped = (scan_root_id, source_scan_run_id, sources)
+        if any(value is None for value in scoped) and not all(
+            value is None for value in scoped
+        ):
+            raise ValueError("archive reuse source scope must be complete")
+        if sources is not None and (
+            not isinstance(scan_root_id, EntityId)
+            or not isinstance(source_scan_run_id, EntityId)
+            or not isinstance(sources, tuple)
+            or not 1 <= len(sources) <= 256
+            or any(not isinstance(value, ArchiveEvidenceSource) for value in sources)
+        ):
+            raise ValueError("archive reuse source scope is invalid")
         parent = archive_schema.archive_observations
         links = archive_schema.archive_observation_executions
         tools = schema.tool_executions
@@ -548,6 +565,32 @@ class SQLiteArchiveEvidenceStore:
                 wrapper.c.integrity_command_identity
                 == compatibility.integrity_command_identity,
             )
+        if sources is not None:
+            assert scan_root_id is not None and source_scan_run_id is not None
+            source_rows = archive_schema.archive_observation_sources
+            statement = statement.where(
+                parent.c.scan_root_id == str(scan_root_id),
+                parent.c.source_scan_run_id == str(source_scan_run_id),
+                select(func.count())
+                .select_from(source_rows)
+                .where(source_rows.c.archive_observation_id == parent.c.id)
+                .scalar_subquery()
+                == len(sources),
+            )
+            for ordinal, source in enumerate(sources):
+                statement = statement.where(
+                    select(source_rows.c.archive_observation_id)
+                    .where(
+                        source_rows.c.archive_observation_id == parent.c.id,
+                        source_rows.c.source_ordinal == ordinal,
+                        source_rows.c.file_observation_id
+                        == str(source.file_observation_id),
+                        source_rows.c.source_full_sha256 == source.full_sha256,
+                        source_rows.c.source_size_bytes == source.size_bytes,
+                        source_rows.c.staging_name == source.staging_name,
+                    )
+                    .exists()
+                )
         with self._engine.connect() as connection:
             value = connection.execute(statement).scalar_one_or_none()
             graph = (
@@ -647,7 +690,10 @@ class SQLiteArchiveEvidenceStore:
                 raise ArchiveEvidenceStoreError("archive source lineage is invalid")
 
     def _validate_executions(
-        self, connection: Connection, snapshot: ArchiveEvidenceSnapshot
+        self,
+        connection: Connection,
+        snapshot: ArchiveEvidenceSnapshot,
+        write_lease: OwnedScanRootWriteLease,
     ) -> None:
         result = snapshot.outcome.result
         assert result is not None
@@ -657,6 +703,32 @@ class SQLiteArchiveEvidenceStore:
                     schema.tool_executions.c.id == str(execution.id)
                 )
             ).mappings().one_or_none()
+            if (
+                row is None
+                and write_lease.owner_kind
+                is ScanRootWriteOwnerKind.ARCHIVE_COLLECTION_RUN
+            ):
+                connection.execute(
+                    insert(schema.tool_executions).values(
+                        id=str(execution.id),
+                        provider_id=execution.provider_id,
+                        tool_version=execution.tool_version,
+                        adapter_version=execution.adapter_version,
+                        capability=execution.capability.value,
+                        input_identity=execution.input_identity,
+                        config_identity=execution.config_identity,
+                        started_at=datetime_to_db(execution.started_at),
+                        finished_at=datetime_to_db(execution.finished_at),
+                        status=execution.status.value,
+                        exit_code=execution.exit_code,
+                        error_summary=execution.error_summary,
+                    )
+                )
+                row = connection.execute(
+                    select(schema.tool_executions).where(
+                        schema.tool_executions.c.id == str(execution.id)
+                    )
+                ).mappings().one_or_none()
             if row is None or any(
                 row[key] != expected
                 for key, expected in (
