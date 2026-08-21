@@ -310,13 +310,14 @@ trennt ZIP/RAR4/RAR5/7z/TAR von den Publication-Kinds EPUB/CBZ/CBR und bindet
 äußere Kompression separat. Suffixe setzen keine Storage-Familie; Tooloutput
 klassifiziert sie nicht neu. [ADR-0047](../decisions/ADR-0047-final-archive-7zip-format-lock.md)
 akzeptiert den maschinenlesbaren `archive-7zip-format-lock/v1` mit getrenntem
-SHA-256 und strikt verify-only Workflowprüfung. gzip, bzip2,
-xz und zstd bleiben gemäß ADR-0048 bis zu einem separaten
-FG-A-WRAPPER-PIPELINE ausschließlich `OUTER_COMPRESSION_ONLY`: kein
-produktiver Listing-/Integrity-/Extraction-Lauf, keine Member-Evidence,
-Encryption `UNKNOWN` und keine Extraction-Freigabe. Erst ein akzeptierter
-Vertrag für private begrenzte Dekompression, Byte-/Hash-Lineage und erneute
-Signaturprüfung darf einen inneren TAR-Container auswerten.
+SHA-256 und strikt verify-only Workflowprüfung. ADR-0051 entscheidet
+FG-A-WRAPPER-PIPELINE für gzip, bzip2, xz und zstd. Erst S-EBAR-W01 bis
+S-EBAR-W03 dürfen eine feste no-shell `7zzs x -so`-Dekompression über einen
+bounded TAR-Rahmenprüfer an feste `-si -ttar`-Listing-/Integrity-Container
+streamen. Listing und Integrity laufen getrennt und müssen dieselbe innere
+Bytelänge und denselben SHA-256 liefern. Die Source bleibt
+`OUTER_COMPRESSION_ONLY` mit Storage `UNKNOWN`; ein Extraction-Lauf,
+Extraction-Handoff oder Persistenz sind nicht autorisiert.
 
 Der erste freigegebene Backendvertrag heißt
 `archive-linux-container-runner/v1` für die primäre Docker/Linux-Runtime. Er

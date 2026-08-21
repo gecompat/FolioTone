@@ -104,8 +104,9 @@ als `VT_BOOL`-Felder, und `ArchiveFormatKind` trennte Publication Kind nicht
 von der RAR4-/RAR5-/ZIP-Storage-Familie. ADR-0045 akzeptierte deshalb die neue
 Folge S-EBAR-02B2, FG-A-STORAGE-FAMILY, finaler FG-A-FORMAT-LOCK und danach
 S-EBAR-02C. Measurement SHA-256 `40a6ee...` und Vorabkandidat `fdebe71...`
-bleiben ausschließlich diagnostisch. gzip, bzip2, xz und zstd bleiben bis zu
-einem separaten FG-A-WRAPPER-PIPELINE `OUTER_COMPRESSION_ONLY`.
+bleiben ausschließlich diagnostisch. gzip, bzip2, xz und zstd bleiben als
+Source-Beobachtung dauerhaft `OUTER_COMPRESSION_ONLY`; ADR-0051 entscheidet
+ihre separate read-only Streamingstrecke.
 
 S-EBAR-02B2 ist auf `main` umgesetzt. Das geschlossene v2-Messmanifest enthält
 die vollständige 5×8-Matrix aus `MEASURED`, `FORMAT_UNSUPPORTED` und
@@ -129,9 +130,9 @@ FG-A-STORAGE-FAMILY ist durch ADR-0046 entschieden, unabhängig geprüft und auf
 `NONE/GZIP/BZIP2/XZ/ZSTD`. Suffixe liefern Publication- und normalisierte
 Suffix-Evidence, aber niemals Storage-Authority; Signaturebytes liefern
 ausschließlich Storage oder äußere Kompression.
-Widersprüche bleiben `SIGNATURE_SUFFIX_MISMATCH`, Wrapper bleiben bis
-FG-A-WRAPPER-PIPELINE Storage `UNKNOWN`. Profil v1 bleibt legacy-read-only und darf keinen neuen
-Runtimelauf autorisieren.
+Widersprüche bleiben `SIGNATURE_SUFFIX_MISMATCH`; Wrapper behalten als
+Source-Beobachtung Storage `UNKNOWN`. Profil v1 bleibt legacy-read-only und
+darf keinen neuen Runtimelauf autorisieren.
 
 FG-A-FORMAT-LOCK ist durch ADR-0047 entschieden. Der kanonische
 `archive-7zip-format-lock/v1` bindet alle 40 Capability-Zellen, 21 geordnete
@@ -163,8 +164,16 @@ harten Cap; vorläufige Hashes werden erst nach Cleanup, leerer
 Slot-Revalidierung und erfolgreichem Return freigegeben. Unsichere Slots werden
 quarantänisiert. EBAR-06 bleibt auf direkte
 unverschlüsselte ZIP-/RAR4-/RAR5-/7z-/TAR-Fälle beschränkt. gzip, bzip2, xz
-und zstd erhalten bis FG-A-WRAPPER-PIPELINE keinen Provider- oder
-Extraction-Lauf.
+und zstd erhalten bis S-EBAR-W03 keinen Providerlauf und unabhängig davon
+keinen Extraction-Lauf.
+
+FG-A-WRAPPER-PIPELINE ist durch ADR-0051 entschieden. S-EBAR-W01 bis
+S-EBAR-W03 implementieren danach ausschließlich read-only TAR-Streaming ohne
+Zwischen-Datei: feste äußere Dekompression, bounded TAR-Rahmenprüfung und
+getrennte innere Listing-/Integrity-Läufe mit identischer Bytelänge und
+SHA-256. S-EBAR-W04 schließt die Welle. Bis W03 abgeschlossen ist, starten
+Wrapper weiterhin keinen Lauf; Extraction-Handoff, Persistenz und Writes
+bleiben auch danach gesperrt.
 
 S-EBAR-05A und S-EBAR-06A sind auf `main` umgesetzt. Der private Handoff
 bindet Locator, CRC und Memberidentität an denselben EBAR-05-Lauf; der reine
@@ -1426,12 +1435,13 @@ statischem Non-Execution-Gate. FG-03A/EB-03A und EB-03B sind abgeschlossen.
 In der getrennten Archivstrecke sind FG-A, S-EBA-01 bis S-EBA-07,
 FG-A-RUNTIME, S-EBAR-01 bis S-EBAR-03A, FG-A-IMAGE,
 FG-A-RUNTIME-AVAILABILITY, EBAR-04, S-EBAR-02A und S-EBAR-02B abgeschlossen.
-FG-A-FORMAT-LOCK bleibt nach ADR-0045 offen. S-EBAR-02B2 ist auf `main`
-integriert; ADR-0046 entscheidet FG-A-STORAGE-FAMILY und wartet auf das
-PR-Gate. Danach folgt der finale Formatlock. Reale Passwortversuche
-bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert gesperrt. Music W4
-bleibt bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
-ausschließlich die CLI.
+FG-A-STORAGE-FAMILY und FG-A-FORMAT-LOCK sind abgeschlossen; S-EBAR-02C,
+EBAR-05, S-EBAR-05A, S-EBAR-06A und S-EBAR-04Q sind auf `main`. ADR-0050
+hält reale Extraction mangels Backend gesperrt. ADR-0051 entscheidet die
+unabhängige read-only Wrapperstrecke; als nächstes folgt S-EBAR-W01. Reale
+Passwortversuche bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert
+gesperrt. Music W4 bleibt bis zur E-Book-Reife zurückgestellt. Die
+Produktoberfläche bleibt ausschließlich die CLI.
 
 ## Nicht implementiert
 

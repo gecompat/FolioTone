@@ -464,7 +464,9 @@ PR-Stand. Die Pakete stoppen fail-closed bei:
 Diese ADR ersetzt ausdrücklich ausschließlich folgende frühere Klauseln:
 
 - ADR-0046s Aussage, äußere Kompression werde erstmals in EBAR-06 privat
-  dekomprimiert. Wrapper bleiben nun bis FG-A-WRAPPER-PIPELINE ohne Lauf.
+  dekomprimiert. Diese ADR trennte Wrapper zunächst in
+  FG-A-WRAPPER-PIPELINE ab; ADR-0051 entscheidet inzwischen ausschließlich
+  deren read-only Listing-/Integrity-Strecke. EBAR-06 bleibt wrapperfrei.
 - ADR-0039s Reihenfolge, nach der Cleanup erst nach Evidence-Übernahme erfolgt.
   Für diesen Lifecycle bleibt Evidence bis nach erfolgreichem Cleanup nur
   vorläufig und wird erst danach freigegeben.

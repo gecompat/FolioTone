@@ -1861,9 +1861,11 @@ schließt FG-A-WORKSPACE-BACKEND negativ und hält die Adapter-Allowlist leer.
 S-EBAR-04A und EBAR-06 bleiben bis zu einem erfolgreichen Revalidation-Gate
 mit konkretem Backend und echtem Linux-/Docker-Conformancehost
 `TOOL_UNAVAILABLE`.
-Die vier äußeren Kompressionsstreams bleiben bis zu einem
-separaten FG-A-WRAPPER-PIPELINE bei `OUTER_COMPRESSION_ONLY` und erhalten in
-EBAR-06 keinen Lauf.
+ADR-0051 entscheidet FG-A-WRAPPER-PIPELINE für eine getrennte bounded
+read-only Streamingstrecke. Bis S-EBAR-W01 bis S-EBAR-W03 abgeschlossen sind,
+bleiben die vier äußeren Kompressionsstreams ohne produktiven Lauf. Danach
+dürfen nur Listing und Integrity starten; Source-Recognition bleibt
+`OUTER_COMPRESSION_ONLY`, EBAR-06 und Extraction bleiben ausgeschlossen.
 Der erste freigegebene Backendvertrag ist
 `archive-linux-container-runner/v1` für die primäre Docker/Linux-Runtime. Er
 verwendet ein digest-gepinntes Image mit exakt verifizierter eingebetteter
@@ -2332,9 +2334,12 @@ book-only Scope abgeschlossen. In der Archivstrecke sind FG-A und S-EBA-01 bis
 S-EBA-07 abgeschlossen; FG-A-RUNTIME, FG-A-IMAGE und
 FG-A-RUNTIME-AVAILABILITY sind akzeptiert. S-EBAR-01 bis S-EBAR-03A, EBAR-04
 sowie S-EBAR-02A, S-EBAR-02B und S-EBAR-02B2 sind umgesetzt.
-FG-A-STORAGE-FAMILY ist durch ADR-0046 entschieden; FG-A-FORMAT-LOCK bleibt
-offen und ist der nächste Schritt. Die Tabelle bleibt als Abhängigkeitsfolge
-maßgeblich; sie ist keine zweite Statusquelle.
+FG-A-STORAGE-FAMILY, FG-A-FORMAT-LOCK und die direkten read-only Pakete bis
+EBAR-05 sind abgeschlossen. ADR-0050 hält die reale Extractionstrecke mangels
+Backend fail-closed gesperrt. ADR-0051 entscheidet die davon unabhängige
+read-only Wrapperstrecke; S-EBAR-W01 ist der nächste mechanische Schritt.
+Die Tabelle bleibt als Abhängigkeitsfolge maßgeblich; sie ist keine zweite
+Statusquelle.
 
 | Reihenfolge | Welle | Inhalt | Priorität | Abhängigkeit |
 |---:|---|---|---|---|

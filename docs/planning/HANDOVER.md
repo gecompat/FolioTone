@@ -88,6 +88,13 @@ FG-A-WORKSPACE-BACKEND-REVALIDATION beginnt erst mit einem konkreten
 administrativ vorprovisionierten Backend und einem echten Linux-/Docker-
 Conformancehost; es autorisiert selbst noch keine Implementierung.
 
+[ADR-0051](../decisions/ADR-0051-bounded-archive-wrapper-streaming.md)
+schließt FG-A-WRAPPER-PIPELINE für eine unabhängige read-only Strecke ab.
+S-EBAR-W01 bis S-EBAR-W03 implementieren TAR-Rahmenprüfung, bounded
+Duplex-Containerstreaming und Providerintegration; S-EBAR-W04 schließt die
+Welle. Bis dahin starten Wrapper keinen Lauf. Auch danach entstehen weder
+Extraction-Handoff noch Persistenz oder Schreiboperationen.
+
 ### `W3-017` (E5 synthetischer Performance-/Restart-Vertrag)
 
 Die E5-Verifikation wurde auf Testebene ergänzt: neue synthetische
