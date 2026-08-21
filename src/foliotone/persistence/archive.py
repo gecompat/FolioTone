@@ -8,9 +8,11 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any, Final
+from uuid import UUID, uuid5
 
-from sqlalchemy import Engine, func, insert, select
+from sqlalchemy import Engine, func, insert, or_, select
 from sqlalchemy.engine import Connection
 
 from foliotone.archive.provider import (
@@ -31,6 +33,11 @@ from foliotone.archive.sevenzip_slt import (
     ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE,
     ArchiveSevenZipSltParseStatus,
 )
+from foliotone.archive.sidecars import (
+    MAX_ARCHIVE_SIDECAR_FILES,
+    ArchiveSidecarKind,
+    classify_archive_sidecars,
+)
 from foliotone.archive.signatures import (
     ArchiveContainerClass,
     ArchiveOuterCompressionKind,
@@ -50,7 +57,7 @@ from foliotone.archive.workflow import (
 )
 from foliotone.core import EntityId
 from foliotone.persistence import archive_schema, schema
-from foliotone.persistence._mapping import datetime_to_db
+from foliotone.persistence._mapping import datetime_to_db, required_datetime_from_db
 from foliotone.persistence.scan_root_lease import (
     OwnedScanRootWriteLease,
     ScanRootWriteOwnerKind,
@@ -65,6 +72,11 @@ if TYPE_CHECKING:
 ARCHIVE_OBSERVATION_PROFILE: Final = "archive-observation/v1"
 ARCHIVE_CONTENT_FINGERPRINT_DOMAIN: Final = b"archive-content-fingerprint/v1\x00"
 ARCHIVE_VOLUME_GROUP_DOMAIN: Final = b"archive-volume-group/v1\x00"
+ARCHIVE_SIDECAR_INVENTORY_PROFILE: Final = "archive-sidecar-inventory/v1"
+ARCHIVE_SIDECAR_INVENTORY_DOMAIN: Final = b"archive-sidecar-inventory/v1\x00"
+ARCHIVE_SIDECAR_INVENTORY_NAMESPACE: Final = UUID(
+    "40d517c3-c650-5760-8b8b-6e8e6665989b"
+)
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _STAGING = re.compile(r"archive(?:\.[A-Za-z0-9]{1,24})?\Z")
 _WRAPPER_RUNNER_PROFILE: Final = "archive-wrapper-container-runner/v1"
@@ -81,6 +93,86 @@ _WRITER_KINDS = {
 
 class ArchiveEvidenceStoreError(RuntimeError):
     """Path-, locator-, and secret-free archive persistence failure."""
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveSidecarInventoryItem:
+    """One opaque sidecar relation; no basename, path, or content is retained."""
+
+    sidecar_file_observation_id: EntityId
+    sidecar_kind: ArchiveSidecarKind
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.sidecar_file_observation_id, EntityId):
+            raise ValueError("sidecar file observation must be EntityId")
+        if not isinstance(self.sidecar_kind, ArchiveSidecarKind):
+            raise ValueError("sidecar kind is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class PersistedArchiveSidecarInventory:
+    """Complete immutable sidecar inventory for one archive observation."""
+
+    id: EntityId
+    archive_observation_id: EntityId
+    archive_file_observation_id: EntityId
+    scan_root_id: EntityId
+    source_scan_run_id: EntityId
+    content_hash: str
+    created_at: datetime
+    items: tuple[ArchiveSidecarInventoryItem, ...]
+    profile: str = ARCHIVE_SIDECAR_INVENTORY_PROFILE
+
+    def __post_init__(self) -> None:
+        if self.profile != ARCHIVE_SIDECAR_INVENTORY_PROFILE:
+            raise ValueError("archive sidecar inventory profile is invalid")
+        if any(
+            not isinstance(value, EntityId)
+            for value in (
+                self.id,
+                self.archive_observation_id,
+                self.archive_file_observation_id,
+                self.scan_root_id,
+                self.source_scan_run_id,
+            )
+        ):
+            raise ValueError("archive sidecar inventory IDs are invalid")
+        _require_sha256(self.content_hash)
+        if (
+            not isinstance(self.created_at, datetime)
+            or self.created_at.tzinfo is None
+            or self.created_at.utcoffset() is None
+        ):
+            raise ValueError("archive sidecar inventory time must be timezone-aware")
+        if (
+            not isinstance(self.items, tuple)
+            or len(self.items) > MAX_ARCHIVE_SIDECAR_FILES
+            or any(not isinstance(item, ArchiveSidecarInventoryItem) for item in self.items)
+        ):
+            raise ValueError("archive sidecar inventory items are invalid")
+        expected = tuple(
+            sorted(
+                self.items,
+                key=lambda item: (
+                    item.sidecar_kind.value,
+                    str(item.sidecar_file_observation_id),
+                ),
+            )
+        )
+        if self.items != expected or len(
+            {item.sidecar_file_observation_id for item in self.items}
+        ) != len(self.items):
+            raise ValueError("archive sidecar inventory items are not canonical")
+        if self.id != _sidecar_inventory_id(self.content_hash):
+            raise ValueError("archive sidecar inventory ID is invalid")
+        if self.content_hash != _sidecar_inventory_content_hash(
+            self.archive_observation_id,
+            self.archive_file_observation_id,
+            self.scan_root_id,
+            self.source_scan_run_id,
+            self.items,
+        ):
+            raise ValueError("archive sidecar inventory content hash is invalid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -505,6 +597,94 @@ class SQLiteArchiveEvidenceStore:
                 scan_root_id,
                 source_scan_run_id,
             )
+
+    def create_or_get_sidecar_inventory(
+        self,
+        archive_observation_id: EntityId,
+        write_lease: OwnedScanRootWriteLease,
+        committed_at: datetime,
+    ) -> PersistedArchiveSidecarInventory:
+        """Derive and atomically persist the complete bounded direct-sidecar set."""
+
+        if not isinstance(archive_observation_id, EntityId):
+            raise ValueError("archive_observation_id must be EntityId")
+        if not isinstance(write_lease, OwnedScanRootWriteLease):
+            raise ValueError("write_lease must be OwnedScanRootWriteLease")
+        if (
+            not isinstance(committed_at, datetime)
+            or committed_at.tzinfo is None
+            or committed_at.utcoffset() is None
+        ):
+            raise ValueError("committed_at must be timezone-aware")
+        if write_lease.owner_kind not in _WRITER_KINDS:
+            raise ArchiveEvidenceStoreError("archive sidecar writer lease is invalid")
+        try:
+            with self._engine.begin() as connection:
+                graph = self._read(connection, archive_observation_id)
+                if graph is None:
+                    raise ArchiveEvidenceStoreError("archive sidecar source is missing")
+                graph = _validated_graph(graph)
+                parent = dict(graph.parent)
+                if str(write_lease.scan_root_id) != str(parent["scan_root_id"]):
+                    raise ArchiveEvidenceStoreError(
+                        "archive sidecar writer lease does not match the source"
+                    )
+                self._leases.fence(connection, write_lease, committed_at)
+                derived = _derive_sidecar_inventory(connection, graph, committed_at)
+                existing = _read_sidecar_inventory(
+                    connection, archive_observation_id=archive_observation_id
+                )
+                if existing is not None:
+                    if not _same_sidecar_inventory_material(existing, derived):
+                        raise ArchiveEvidenceStoreError(
+                            "archive sidecar inventory has different immutable content"
+                        )
+                    self._leases.fence(connection, write_lease, committed_at)
+                    return existing
+                collision = connection.execute(
+                    select(archive_schema.archive_sidecar_inventories.c.id).where(
+                        archive_schema.archive_sidecar_inventories.c.content_hash
+                        == derived.content_hash
+                    )
+                ).scalar_one_or_none()
+                if collision is not None:
+                    raise ArchiveEvidenceStoreError(
+                        "archive sidecar content hash collides with another inventory"
+                    )
+                self._leases.fence(connection, write_lease, committed_at)
+                _insert_sidecar_inventory(connection, derived)
+                stored = _read_sidecar_inventory(
+                    connection, archive_observation_id=archive_observation_id
+                )
+                if stored != derived:
+                    raise ArchiveEvidenceStoreError(
+                        "persisted archive sidecar inventory is inconsistent"
+                    )
+                self._leases.fence(connection, write_lease, committed_at)
+                return stored
+        except ArchiveEvidenceStoreError:
+            raise
+        except Exception:
+            raise ArchiveEvidenceStoreError(
+                "archive sidecar inventory write failed"
+            ) from None
+
+    def get_sidecar_inventory(
+        self, archive_observation_id: EntityId
+    ) -> PersistedArchiveSidecarInventory | None:
+        if not isinstance(archive_observation_id, EntityId):
+            raise ValueError("archive_observation_id must be EntityId")
+        try:
+            with self._engine.connect() as connection:
+                return _read_sidecar_inventory(
+                    connection, archive_observation_id=archive_observation_id
+                )
+        except ArchiveEvidenceStoreError:
+            raise
+        except Exception:
+            raise ArchiveEvidenceStoreError(
+                "archive sidecar inventory read failed"
+            ) from None
 
     def find_listing_reuse(
         self,
@@ -1251,6 +1431,335 @@ def _required_case_value(value: Any) -> str:
     if value is None:
         raise ArchiveEvidenceStoreError("listed archive parser case is missing")
     return str(value.value)
+
+
+def _derive_sidecar_inventory(
+    connection: Connection,
+    graph: _PersistedArchiveEvidenceGraph,
+    created_at: datetime,
+) -> PersistedArchiveSidecarInventory:
+    parent = dict(graph.parent)
+    archive_observation_id = EntityId.parse(str(parent["id"]))
+    scan_root_id = EntityId.parse(str(parent["scan_root_id"]))
+    source_scan_run_id = EntityId.parse(str(parent["source_scan_run_id"]))
+    sources = tuple(dict(row) for row in graph.sources)
+    primary = next(
+        (row for row in sources if int(row["source_ordinal"]) == 0), None
+    )
+    if primary is None:
+        raise ArchiveEvidenceStoreError("archive sidecar primary source is missing")
+    archive_file_observation_id = EntityId.parse(
+        str(primary["file_observation_id"])
+    )
+    archive_row = _sidecar_file_row(connection, archive_file_observation_id)
+    _validate_sidecar_file_lineage(
+        archive_row,
+        scan_root_id=scan_root_id,
+        source_scan_run_id=source_scan_run_id,
+    )
+    archive_relative = _canonical_relative_path(archive_row["relative_path"])
+    directory = archive_relative.parent
+    candidates = _sidecar_candidates(
+        connection,
+        source_scan_run_id=source_scan_run_id,
+        scan_root_id=scan_root_id,
+        directory=directory,
+        archive_file_observation_id=archive_file_observation_id,
+    )
+    if len(candidates) > MAX_ARCHIVE_SIDECAR_FILES:
+        raise ArchiveEvidenceStoreError("archive sidecar inventory exceeds the bound")
+    items: list[ArchiveSidecarInventoryItem] = []
+    for row in candidates:
+        _validate_sidecar_file_lineage(
+            row,
+            scan_root_id=scan_root_id,
+            source_scan_run_id=source_scan_run_id,
+        )
+        relative = _canonical_relative_path(row["relative_path"])
+        if relative.parent != directory:
+            raise ArchiveEvidenceStoreError("archive sidecar lineage is invalid")
+        classified = classify_archive_sidecars((relative.name,))
+        if len(classified.sidecars) != 1:
+            raise ArchiveEvidenceStoreError("archive sidecar classification is invalid")
+        items.append(
+            ArchiveSidecarInventoryItem(
+                EntityId.parse(str(row["id"])),
+                classified.sidecars[0].kind,
+            )
+        )
+    ordered = tuple(
+        sorted(
+            items,
+            key=lambda item: (
+                item.sidecar_kind.value,
+                str(item.sidecar_file_observation_id),
+            ),
+        )
+    )
+    content_hash = _sidecar_inventory_content_hash(
+        archive_observation_id,
+        archive_file_observation_id,
+        scan_root_id,
+        source_scan_run_id,
+        ordered,
+    )
+    return PersistedArchiveSidecarInventory(
+        _sidecar_inventory_id(content_hash),
+        archive_observation_id,
+        archive_file_observation_id,
+        scan_root_id,
+        source_scan_run_id,
+        content_hash,
+        created_at,
+        ordered,
+    )
+
+
+def _sidecar_file_row(
+    connection: Connection, file_observation_id: EntityId
+) -> dict[str, Any]:
+    row = connection.execute(
+        select(
+            schema.file_observations.c.id,
+            schema.file_observations.c.scan_run_id,
+            schema.file_observations.c.relative_path,
+            schema.file_records.c.scan_root_id,
+            schema.file_records.c.relative_path.label("record_relative_path"),
+            schema.file_records.c.presence_state,
+            schema.scan_runs.c.status.label("run_status"),
+            schema.scan_runs.c.scan_root_id.label("run_root_id"),
+        )
+        .join(
+            schema.file_records,
+            schema.file_records.c.id == schema.file_observations.c.file_id,
+        )
+        .join(
+            schema.scan_runs,
+            schema.scan_runs.c.id == schema.file_observations.c.scan_run_id,
+        )
+        .where(schema.file_observations.c.id == str(file_observation_id))
+    ).mappings().one_or_none()
+    if row is None:
+        raise ArchiveEvidenceStoreError("archive sidecar file observation is missing")
+    return dict(row)
+
+
+def _validate_sidecar_file_lineage(
+    row: dict[str, Any],
+    *,
+    scan_root_id: EntityId,
+    source_scan_run_id: EntityId,
+) -> None:
+    if (
+        str(row["scan_run_id"]) != str(source_scan_run_id)
+        or str(row["scan_root_id"]) != str(scan_root_id)
+        or str(row["run_root_id"]) != str(scan_root_id)
+        or str(row["run_status"]) != "COMPLETED"
+        or str(row["presence_state"]) != "PRESENT"
+        or str(row["relative_path"]) != str(row["record_relative_path"])
+    ):
+        raise ArchiveEvidenceStoreError("archive sidecar file lineage is invalid")
+    _canonical_relative_path(row["relative_path"])
+
+
+def _canonical_relative_path(value: Any) -> PurePosixPath:
+    if not isinstance(value, str) or not value or "\\" in value:
+        raise ArchiveEvidenceStoreError("archive sidecar path evidence is invalid")
+    path = PurePosixPath(value)
+    if path.is_absolute() or path.as_posix() != value or any(
+        part in {"", ".", ".."} for part in path.parts
+    ):
+        raise ArchiveEvidenceStoreError("archive sidecar path evidence is invalid")
+    return path
+
+
+def _sidecar_candidates(
+    connection: Connection,
+    *,
+    source_scan_run_id: EntityId,
+    scan_root_id: EntityId,
+    directory: PurePosixPath,
+    archive_file_observation_id: EntityId,
+) -> tuple[dict[str, Any], ...]:
+    observations = schema.file_observations
+    records = schema.file_records
+    basename: Any
+    if directory == PurePosixPath("."):
+        prefix = ""
+        basename = observations.c.relative_path
+    else:
+        prefix = f"{directory.as_posix()}/"
+        basename = func.substr(observations.c.relative_path, len(prefix) + 1)
+    lowered = func.lower(basename)
+    allowed = or_(
+        lowered.in_(("readme", "read.me", "password", "passwort", "pass", "pw")),
+        *(lowered.like(f"%{suffix}") for suffix in (
+            ".nfo",
+            ".txt",
+            ".diz",
+            ".info",
+            ".url",
+            ".html",
+            ".htm",
+            ".sfv",
+        )),
+    )
+    statement = (
+        select(
+            observations.c.id,
+            observations.c.scan_run_id,
+            observations.c.relative_path,
+            records.c.scan_root_id,
+            records.c.relative_path.label("record_relative_path"),
+            records.c.presence_state,
+            schema.scan_runs.c.status.label("run_status"),
+            schema.scan_runs.c.scan_root_id.label("run_root_id"),
+        )
+        .join(records, records.c.id == observations.c.file_id)
+        .join(schema.scan_runs, schema.scan_runs.c.id == observations.c.scan_run_id)
+        .where(
+            observations.c.scan_run_id == str(source_scan_run_id),
+            observations.c.id != str(archive_file_observation_id),
+            records.c.scan_root_id == str(scan_root_id),
+            observations.c.relative_path >= prefix,
+            observations.c.relative_path < f"{prefix}\U0010ffff",
+            func.instr(basename, "/") == 0,
+            allowed,
+        )
+        .order_by(func.lower(observations.c.relative_path), observations.c.id)
+        .limit(MAX_ARCHIVE_SIDECAR_FILES + 1)
+    )
+    return tuple(dict(row) for row in connection.execute(statement).mappings())
+
+
+def _sidecar_inventory_content_hash(
+    archive_observation_id: EntityId,
+    archive_file_observation_id: EntityId,
+    scan_root_id: EntityId,
+    source_scan_run_id: EntityId,
+    items: tuple[ArchiveSidecarInventoryItem, ...],
+) -> str:
+    material = {
+        "profile": ARCHIVE_SIDECAR_INVENTORY_PROFILE,
+        "archive_observation_id": str(archive_observation_id),
+        "archive_file_observation_id": str(archive_file_observation_id),
+        "scan_root_id": str(scan_root_id),
+        "source_scan_run_id": str(source_scan_run_id),
+        "items": [
+            {
+                "sidecar_ordinal": ordinal,
+                "sidecar_file_observation_id": str(item.sidecar_file_observation_id),
+                "sidecar_kind": item.sidecar_kind.value,
+            }
+            for ordinal, item in enumerate(items)
+        ],
+    }
+    return hashlib.sha256(
+        ARCHIVE_SIDECAR_INVENTORY_DOMAIN + _canonical_json(material)
+    ).hexdigest()
+
+
+def _sidecar_inventory_id(content_hash: str) -> EntityId:
+    _require_sha256(content_hash)
+    return EntityId(uuid5(ARCHIVE_SIDECAR_INVENTORY_NAMESPACE, content_hash))
+
+
+def _insert_sidecar_inventory(
+    connection: Connection, inventory: PersistedArchiveSidecarInventory
+) -> None:
+    connection.execute(
+        insert(archive_schema.archive_sidecar_inventories),
+        {
+            "id": str(inventory.id),
+            "profile": inventory.profile,
+            "content_hash": inventory.content_hash,
+            "archive_observation_id": str(inventory.archive_observation_id),
+            "archive_file_observation_id": str(inventory.archive_file_observation_id),
+            "scan_root_id": str(inventory.scan_root_id),
+            "source_scan_run_id": str(inventory.source_scan_run_id),
+            "sidecar_count": len(inventory.items),
+            "created_at": datetime_to_db(inventory.created_at),
+        },
+    )
+    if inventory.items:
+        connection.execute(
+            insert(archive_schema.archive_sidecar_inventory_items),
+            [
+                {
+                    "inventory_id": str(inventory.id),
+                    "sidecar_ordinal": ordinal,
+                    "sidecar_file_observation_id": str(
+                        item.sidecar_file_observation_id
+                    ),
+                    "sidecar_kind": item.sidecar_kind.value,
+                }
+                for ordinal, item in enumerate(inventory.items)
+            ],
+        )
+
+
+def _read_sidecar_inventory(
+    connection: Connection, *, archive_observation_id: EntityId
+) -> PersistedArchiveSidecarInventory | None:
+    row = connection.execute(
+        select(archive_schema.archive_sidecar_inventories).where(
+            archive_schema.archive_sidecar_inventories.c.archive_observation_id
+            == str(archive_observation_id)
+        )
+    ).mappings().one_or_none()
+    if row is None:
+        return None
+    values = dict(row)
+    children = connection.execute(
+        select(archive_schema.archive_sidecar_inventory_items)
+        .where(
+            archive_schema.archive_sidecar_inventory_items.c.inventory_id
+            == str(values["id"])
+        )
+        .order_by(archive_schema.archive_sidecar_inventory_items.c.sidecar_ordinal)
+        .limit(MAX_ARCHIVE_SIDECAR_FILES + 1)
+    ).mappings().all()
+    if len(children) != int(values["sidecar_count"]) or len(children) > (
+        MAX_ARCHIVE_SIDECAR_FILES
+    ):
+        raise ArchiveEvidenceStoreError("archive sidecar inventory is corrupt")
+    if tuple(int(child["sidecar_ordinal"]) for child in children) != tuple(
+        range(len(children))
+    ):
+        raise ArchiveEvidenceStoreError("archive sidecar inventory is corrupt")
+    return PersistedArchiveSidecarInventory(
+        EntityId.parse(str(values["id"])),
+        EntityId.parse(str(values["archive_observation_id"])),
+        EntityId.parse(str(values["archive_file_observation_id"])),
+        EntityId.parse(str(values["scan_root_id"])),
+        EntityId.parse(str(values["source_scan_run_id"])),
+        str(values["content_hash"]),
+        required_datetime_from_db(str(values["created_at"])),
+        tuple(
+            ArchiveSidecarInventoryItem(
+                EntityId.parse(str(child["sidecar_file_observation_id"])),
+                ArchiveSidecarKind(str(child["sidecar_kind"])),
+            )
+            for child in children
+        ),
+        str(values["profile"]),
+    )
+
+
+def _same_sidecar_inventory_material(
+    left: PersistedArchiveSidecarInventory,
+    right: PersistedArchiveSidecarInventory,
+) -> bool:
+    return (
+        left.id == right.id
+        and left.archive_observation_id == right.archive_observation_id
+        and left.archive_file_observation_id == right.archive_file_observation_id
+        and left.scan_root_id == right.scan_root_id
+        and left.source_scan_run_id == right.source_scan_run_id
+        and left.content_hash == right.content_hash
+        and left.items == right.items
+        and left.profile == right.profile
+    )
 
 
 def _canonical_json(material: object) -> bytes:

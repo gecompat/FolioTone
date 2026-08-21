@@ -5,13 +5,14 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     ForeignKey,
+    Index,
     Integer,
     Table,
     Text,
     UniqueConstraint,
 )
 
-from foliotone.persistence.schema import DATETIME, ENUM, ID, metadata
+from foliotone.persistence.schema import DATETIME, ENUM, ID, file_observations, metadata
 
 
 def _sha256(table: str, column: str) -> CheckConstraint:
@@ -390,4 +391,97 @@ ARCHIVE_EVIDENCE_TABLES = (
     archive_observation_executions,
     archive_member_observations,
     archive_wrapper_lineage,
+)
+
+
+archive_sidecar_inventories = Table(
+    "archive_sidecar_inventories",
+    metadata,
+    Column("id", ID, primary_key=True),
+    Column("profile", Text, nullable=False),
+    Column("content_hash", Text, nullable=False),
+    Column(
+        "archive_observation_id",
+        ID,
+        ForeignKey("archive_observations.id"),
+        nullable=False,
+    ),
+    Column(
+        "archive_file_observation_id",
+        ID,
+        ForeignKey("file_observations.id"),
+        nullable=False,
+    ),
+    Column("scan_root_id", ID, ForeignKey("scan_roots.id"), nullable=False),
+    Column("source_scan_run_id", ID, ForeignKey("scan_runs.id"), nullable=False),
+    Column("sidecar_count", Integer, nullable=False),
+    Column("created_at", DATETIME, nullable=False),
+    CheckConstraint(
+        "profile = 'archive-sidecar-inventory/v1'",
+        name="ck_archive_sidecar_inventories_profile",
+    ),
+    CheckConstraint(
+        "sidecar_count BETWEEN 0 AND 32",
+        name="ck_archive_sidecar_inventories_count",
+    ),
+    _sha256("archive_sidecar_inventories", "content_hash"),
+    UniqueConstraint(
+        "archive_observation_id",
+        name="uq_archive_sidecar_inventories_archive",
+    ),
+    UniqueConstraint(
+        "content_hash",
+        name="uq_archive_sidecar_inventories_content_hash",
+    ),
+)
+
+
+archive_sidecar_inventory_items = Table(
+    "archive_sidecar_inventory_items",
+    metadata,
+    Column(
+        "inventory_id",
+        ID,
+        ForeignKey("archive_sidecar_inventories.id"),
+        primary_key=True,
+    ),
+    Column("sidecar_ordinal", Integer, primary_key=True),
+    Column(
+        "sidecar_file_observation_id",
+        ID,
+        ForeignKey("file_observations.id"),
+        nullable=False,
+    ),
+    Column("sidecar_kind", ENUM, nullable=False),
+    CheckConstraint(
+        "sidecar_ordinal BETWEEN 0 AND 31",
+        name="ck_archive_sidecar_inventory_items_ordinal",
+    ),
+    CheckConstraint(
+        "sidecar_kind IN ('NFO','TEXT','DIZ','INFO','URL','HTML','SFV','README','PASSWORD')",
+        name="ck_archive_sidecar_inventory_items_kind",
+    ),
+    UniqueConstraint(
+        "inventory_id",
+        "sidecar_file_observation_id",
+        name="uq_archive_sidecar_inventory_items_file",
+    ),
+)
+
+Index(
+    "ix_archive_sidecar_inventory_items_kind_file",
+    archive_sidecar_inventory_items.c.inventory_id,
+    archive_sidecar_inventory_items.c.sidecar_kind,
+    archive_sidecar_inventory_items.c.sidecar_file_observation_id,
+)
+
+file_observations_run_path_index = Index(
+    "ix_file_observations_run_path",
+    file_observations.c.scan_run_id,
+    file_observations.c.relative_path,
+)
+
+ARCHIVE_SIDECAR_TABLES = (
+    archive_sidecar_inventories,
+    archive_sidecar_inventory_items,
 )
