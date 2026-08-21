@@ -35,7 +35,7 @@ Eine Implementierungs-Wave erfindet die Entscheidung nicht stillschweigend.
    vorhandene Worktrees und betroffene Verträge read-only prüfen.
 2. **Isolation:** Vorhandene Benutzerarbeit bleibt unangetastet. Eine neue
    Wave verwendet bei Bedarf einen sauberen Worktree unter
-   `C:\rep\worktrees\FolioTone` und einen eigenen Feature-Branch.
+   `C:\rep\worktrees\FolioToneDev1` und einen eigenen Feature-Branch.
 3. **Begrenzung:** Den kleinsten vollständigen vertikalen Slice und die
    Abnahme definieren. Modell- und Agentenwahl erfolgen pro Schritt.
 4. **Implementierung:** Genau ein Implementierungsagent bearbeitet den

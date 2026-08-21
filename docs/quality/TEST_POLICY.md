@@ -54,11 +54,11 @@ wenn sich das Verhalten geändert hat.
 - Reale Collection-Daten, private Metadaten, Runtime-Datenbanken und Secrets
   gelangen weder in Tests noch in Git oder CI.
 - Lokale Windows-Läufe setzen `TEMP` und `TMP` oder `pytest --basetemp` auf
-  einen neuen aufgabenspezifischen Pfad unter `C:\rep\tmp\FolioTone`.
+  einen neuen aufgabenspezifischen Pfad unter `C:\rep\tmp\FolioToneDev1`.
 - Ein vorhandener Basistemp-Pfad wird nicht wiederverwendet oder automatisch
   gelöscht.
 - Vollständige Logs und private Testartefakte liegen außerhalb von Git unter
-  `C:\rep\artifacts\FolioTone`.
+  `C:\rep\artifacts\FolioToneDev1`.
 
 ## SQLite-Testdatenbanken
 

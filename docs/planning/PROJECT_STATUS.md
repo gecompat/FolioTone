@@ -365,12 +365,16 @@ Ausführungsnotizen, sind für neue Läufe aber nicht normativ. Die Richtlinien
 ändern keinen fachlichen Wellenstatus und autorisieren keine
 Source-Media-Mutation.
 
-**Lokale Verifikation der Agentenstrategie:** Am 2026-08-21 bestanden alle 18
-statischen Vertrags-Tests sowie Ruff für den geänderten Dokumentationstest.
-Die relativen Links aller geänderten Markdown-Dateien und `git diff --check`
-waren ohne Befund. Der vollständige Quality-Gate wird ausschließlich für den
-exakten Pull-Request-Head in GitHub belegt und ist nicht Teil dieses lokalen
-Nachweises.
+**Lokale Verifikation der Agentenstrategie:** Am 2026-08-21 bestanden die
+neun statischen Dokumentationsvertrags-Tests, `ruff check .` und Mypy für 182
+Source-Dateien. Die relativen Links der geänderten Markdown-Dateien und
+`git diff --check` waren ohne Befund. Der vollständige lokale Pytest-Lauf
+endete nach 14 Minuten 8 Sekunden mit 47 Fehlern, die auf dem unveränderten
+`main` reproduzierbar sind: Git wendet CRLF auf bytegehashte Archive-Evidence
+an, und die Windows-Laufzeit fügt erwarteten Toolpfaden den `\\?\`-Präfix
+hinzu. Die Agentendokumentation berührt weder diese Evidence noch die
+Pfadbildung. Der vollständige Quality-Gate muss daher für den exakten
+aktualisierten Pull-Request-Head in GitHub erneut grün verifiziert werden.
 
 **Abgeschlossene Voraussetzung: EB-06 — versioniertes E-Book-Matching und Review**
 

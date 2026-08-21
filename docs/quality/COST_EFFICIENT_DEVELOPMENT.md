@@ -28,7 +28,7 @@ Folgende Daten werden zuerst lokal und deterministisch ausgewertet:
 - Branch-, Commit-, PR- und CI-Status.
 
 Vollständige Logs bleiben in einem nicht versionierten Pfad unter
-`C:\rep\artifacts\FolioTone`. Ein lokaler Parser oder ein knappes Skript
+`C:\rep\artifacts\FolioToneDev1`. Ein lokaler Parser oder ein knappes Skript
 erzeugt daraus eine begrenzte Zusammenfassung mit:
 
 - ausgeführtem Test- oder Prüfprofil;
