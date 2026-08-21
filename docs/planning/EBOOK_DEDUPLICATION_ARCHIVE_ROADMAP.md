@@ -298,7 +298,7 @@ Extraction-Handoff und keinen Write.
 
 FG-A-PERSISTENCE ist durch
 [ADR-0052](../decisions/ADR-0052-immutable-archive-evidence-persistence.md)
-abgeschlossen. S-EBAR-07 implementiert als nächsten Schritt ausschließlich
+abgeschlossen. S-EBAR-07 implementiert ausschließlich
 die additive Migration `0019_archive_evidence` und den dedizierten
 insert-only Store. Das Paket persistiert direkte und Wrapper-Listing-Evidence,
 autorisiert aber keine Extraction oder Source-Mutation.
@@ -364,7 +364,8 @@ S-EBAR-01 Execution-DTOs
     -> S-EBAR-W03 read-only Wrapper-Provider, abgeschlossen
     -> S-EBAR-W04 fokussierter Wrapper-Abschluss, abgeschlossen
     -> FG-A-PERSISTENCE Schema-, Reuse- und Writer-Gate, abgeschlossen
-    -> S-EBAR-07 Persistenz, als nächstes
+    -> S-EBAR-07 Persistenz, abgeschlossen
+    -> FG-A-COLLECTION-ORCHESTRATION Vertragsgate, als nächstes
     -> EBAR-08 Collection-Orchestrierung
     -> EBAR-09 Abschluss und EB-A3-Übergang
 ```
