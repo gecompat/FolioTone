@@ -7,8 +7,9 @@ import json
 from dataclasses import dataclass, replace
 from dataclasses import field as dataclass_field
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import Engine, func, insert, select, update
+from sqlalchemy import Engine, and_, func, insert, or_, select, update
 from sqlalchemy.engine import Connection, RowMapping
 
 from foliotone.archive.signatures import (
@@ -97,6 +98,53 @@ class _ArchiveCollectionResolvedSource:
         object.__setattr__(
             self, "relative_path", require_relative_path(self.relative_path)
         )
+
+
+@dataclass(frozen=True, slots=True)
+class _ArchiveCollectionLiteralCount:
+    literal: str
+    count: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.literal, str) or not self.literal:
+            raise ValueError("archive collection aggregate literal is invalid")
+        if isinstance(self.count, bool) or not isinstance(self.count, int) or self.count < 1:
+            raise ValueError("archive collection aggregate count is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class _ArchiveCollectionReportSnapshot:
+    run: ArchiveCollectionRun
+    item_statuses: tuple[_ArchiveCollectionLiteralCount, ...]
+    dispositions: tuple[_ArchiveCollectionLiteralCount, ...]
+    listing_statuses: tuple[_ArchiveCollectionLiteralCount, ...]
+    integrity_statuses: tuple[_ArchiveCollectionLiteralCount, ...]
+    encryption_statuses: tuple[_ArchiveCollectionLiteralCount, ...]
+    recognition_statuses: tuple[_ArchiveCollectionLiteralCount, ...]
+    storage_families: tuple[_ArchiveCollectionLiteralCount, ...]
+    error_codes: tuple[_ArchiveCollectionLiteralCount, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.run, ArchiveCollectionRun):
+            raise ValueError("archive collection report run is invalid")
+        for values in (
+            self.item_statuses,
+            self.dispositions,
+            self.listing_statuses,
+            self.integrity_statuses,
+            self.encryption_statuses,
+            self.recognition_statuses,
+            self.storage_families,
+            self.error_codes,
+        ):
+            if (
+                not isinstance(values, tuple)
+                or any(not isinstance(value, _ArchiveCollectionLiteralCount) for value in values)
+                or tuple(value.literal for value in values)
+                != tuple(sorted(value.literal for value in values))
+                or len({value.literal for value in values}) != len(values)
+            ):
+                raise ValueError("archive collection report aggregates are invalid")
 
 
 def archive_collection_plan_content_hash(
@@ -668,6 +716,96 @@ class SQLiteArchiveCollectionStore:
         with self._engine.connect() as connection:
             return self._get_run(connection, run_id)
 
+    def _read_report_snapshot(
+        self, run_id: EntityId
+    ) -> _ArchiveCollectionReportSnapshot | None:
+        """Read one bounded aggregate projection in a single DB transaction."""
+
+        if not isinstance(run_id, EntityId):
+            raise ValueError("archive collection report run ID is invalid")
+        try:
+            with self._engine.connect() as connection, connection.begin():
+                run = self._get_run(connection, run_id)
+                if run is None:
+                    return None
+                items = tables.archive_collection_items
+                parent = archive_schema.archive_observations
+                item_statuses = _literal_counts(
+                    connection,
+                    select(items.c.status, func.count())
+                    .where(items.c.run_id == str(run_id))
+                    .group_by(items.c.status)
+                    .order_by(items.c.status),
+                    bound=5,
+                )
+                dispositions = _literal_counts(
+                    connection,
+                    select(items.c.disposition, func.count())
+                    .where(
+                        items.c.run_id == str(run_id),
+                        items.c.disposition.is_not(None),
+                    )
+                    .group_by(items.c.disposition)
+                    .order_by(items.c.disposition),
+                    bound=2,
+                )
+                archive_base = items.join(
+                    parent, parent.c.id == items.c.archive_observation_id
+                )
+
+                def archive_counts(column: Any) -> tuple[_ArchiveCollectionLiteralCount, ...]:
+                    return _literal_counts(
+                        connection,
+                        select(column, func.count())
+                        .select_from(archive_base)
+                        .where(items.c.run_id == str(run_id))
+                        .group_by(column)
+                        .order_by(column),
+                        bound=16,
+                    )
+
+                listing_statuses = archive_counts(parent.c.listing_status)
+                integrity_statuses = archive_counts(parent.c.integrity_status)
+                encryption_statuses = archive_counts(parent.c.encryption_status)
+                recognition_statuses = archive_counts(parent.c.recognition_status)
+                storage_families = archive_counts(parent.c.storage_family)
+                error_codes = _literal_counts(
+                    connection,
+                    select(items.c.error_code, func.count())
+                    .where(
+                        items.c.run_id == str(run_id),
+                        items.c.error_code.is_not(None),
+                    )
+                    .group_by(items.c.error_code)
+                    .order_by(items.c.error_code),
+                    bound=64,
+                )
+                _validate_report_aggregates(
+                    connection,
+                    run,
+                    item_statuses,
+                    dispositions,
+                    listing_statuses,
+                    error_codes,
+                )
+                return _ArchiveCollectionReportSnapshot(
+                    run,
+                    item_statuses,
+                    dispositions,
+                    listing_statuses,
+                    integrity_statuses,
+                    encryption_statuses,
+                    recognition_statuses,
+                    storage_families,
+                    error_codes,
+                )
+        except (ArchiveCollectionStoreError, ValueError):
+            raise
+        except Exception:
+            raise ArchiveCollectionStoreError(
+                "archive collection report read failed"
+            ) from None
+
     def owned_write_lease(self, run_id: EntityId, lease_token: str) -> OwnedScanRootWriteLease:
         with self._engine.connect() as connection:
             run = self._get_run(connection, run_id)
@@ -850,6 +988,181 @@ class SQLiteArchiveCollectionStore:
                 )
             entries.append(entry)
         return tuple(entries)
+
+
+def _literal_counts(
+    connection: Connection, statement: Any, *, bound: int
+) -> tuple[_ArchiveCollectionLiteralCount, ...]:
+    rows = connection.execute(statement.limit(bound + 1)).all()
+    if len(rows) > bound:
+        raise ArchiveCollectionStoreError(
+            "archive collection report aggregate exceeds its bound"
+        )
+    return tuple(
+        _ArchiveCollectionLiteralCount(str(literal), int(count))
+        for literal, count in rows
+    )
+
+
+def _validate_report_aggregates(
+    connection: Connection,
+    run: ArchiveCollectionRun,
+    item_statuses: tuple[_ArchiveCollectionLiteralCount, ...],
+    dispositions: tuple[_ArchiveCollectionLiteralCount, ...],
+    listing_statuses: tuple[_ArchiveCollectionLiteralCount, ...],
+    error_codes: tuple[_ArchiveCollectionLiteralCount, ...],
+) -> None:
+    statuses = {value.literal: value.count for value in item_statuses}
+    disposition_counts = {value.literal: value.count for value in dispositions}
+    if set(statuses) - {value.value for value in ArchiveCollectionItemStatus} or set(
+        disposition_counts
+    ) - {value.value for value in ArchiveCollectionDisposition}:
+        raise ArchiveCollectionStoreError(
+            "archive collection report contains an unknown state"
+        )
+    if sum(statuses.values()) != run.planned_count:
+        raise ArchiveCollectionStoreError(
+            "archive collection report item count is inconsistent"
+        )
+    succeeded = statuses.get(ArchiveCollectionItemStatus.SUCCEEDED.value, 0)
+    failed = statuses.get(ArchiveCollectionItemStatus.FAILED.value, 0)
+    errored = statuses.get(ArchiveCollectionItemStatus.ERROR.value, 0)
+    pending = statuses.get(ArchiveCollectionItemStatus.PENDING.value, 0)
+    running = statuses.get(ArchiveCollectionItemStatus.RUNNING.value, 0)
+    archived = succeeded + failed
+    if (
+        sum(value.count for value in listing_statuses) != archived
+        or sum(disposition_counts.values()) != archived
+        or sum(value.count for value in error_codes) != failed + errored
+        or disposition_counts.get(ArchiveCollectionDisposition.REUSED.value, 0) > succeeded
+    ):
+        raise ArchiveCollectionStoreError(
+            "archive collection report terminal counts are inconsistent"
+        )
+    if (
+        run.status is ArchiveCollectionRunStatus.COMPLETED
+        and (pending or running or failed or errored)
+        or run.status is ArchiveCollectionRunStatus.COMPLETED_WITH_FAILURES
+        and (pending or running or not (failed or errored))
+        or run.status is ArchiveCollectionRunStatus.INTERRUPTED
+        and not (pending or running)
+    ):
+        raise ArchiveCollectionStoreError(
+            "archive collection report run status is inconsistent"
+        )
+    items = tables.archive_collection_items
+    parent = archive_schema.archive_observations
+    invalid_graphs = int(
+        connection.execute(
+            select(func.count())
+            .select_from(items.outerjoin(parent, parent.c.id == items.c.archive_observation_id))
+            .where(
+                items.c.run_id == str(run.id),
+                items.c.archive_observation_id.is_not(None),
+                or_(
+                    parent.c.id.is_(None),
+                    parent.c.scan_root_id != str(run.scan_root_id),
+                    parent.c.source_scan_run_id != str(run.source_scan_run_id),
+                    parent.c.signature_profile != items.c.signature_profile,
+                    parent.c.compatibility_profile != items.c.compatibility_profile,
+                    parent.c.container_class != items.c.container_class,
+                    parent.c.suffix_kind != items.c.suffix_kind,
+                    parent.c.publication_kind != items.c.publication_kind,
+                    parent.c.storage_family != items.c.storage_family,
+                    parent.c.outer_compression_kind != items.c.outer_compression_kind,
+                    parent.c.recognition_status != items.c.recognition_status,
+                    parent.c.inspected_bytes != items.c.inspected_bytes,
+                    parent.c.structural_confirmation_required
+                    != items.c.structural_confirmation_required,
+                    and_(
+                        items.c.disposition
+                        == ArchiveCollectionDisposition.EXECUTED.value,
+                        or_(
+                            parent.c.writer_owner_kind
+                            != ScanRootWriteOwnerKind.ARCHIVE_COLLECTION_RUN.value,
+                            parent.c.writer_owner_run_id != str(run.id),
+                            parent.c.writer_fence_epoch != run.fence_epoch,
+                        ),
+                    ),
+                    and_(
+                        items.c.disposition
+                        == ArchiveCollectionDisposition.REUSED.value,
+                        parent.c.writer_owner_kind.not_in(
+                            (
+                                ScanRootWriteOwnerKind.EBOOK_ANALYSIS.value,
+                                ScanRootWriteOwnerKind.EBOOK_COLLECTION_RUN.value,
+                                ScanRootWriteOwnerKind.ARCHIVE_COLLECTION_RUN.value,
+                            )
+                        ),
+                    ),
+                ),
+            )
+        ).scalar_one()
+    )
+    if invalid_graphs:
+        raise ArchiveCollectionStoreError(
+            "archive collection report graph lineage is inconsistent"
+        )
+    collection_sources = tables.archive_collection_item_sources
+    archive_sources = archive_schema.archive_observation_sources
+    terminal_sources = collection_sources.join(
+        items, items.c.id == collection_sources.c.item_id
+    )
+    expected_sources = int(
+        connection.execute(
+            select(func.count())
+            .select_from(terminal_sources)
+            .where(
+                items.c.run_id == str(run.id),
+                items.c.archive_observation_id.is_not(None),
+            )
+        ).scalar_one()
+    )
+    actual_sources = int(
+        connection.execute(
+            select(func.count())
+            .select_from(
+                items.join(
+                    archive_sources,
+                    archive_sources.c.archive_observation_id
+                    == items.c.archive_observation_id,
+                )
+            )
+            .where(items.c.run_id == str(run.id))
+        ).scalar_one()
+    )
+    matched_sources = int(
+        connection.execute(
+            select(func.count())
+            .select_from(
+                terminal_sources.join(
+                    archive_sources,
+                    and_(
+                        archive_sources.c.archive_observation_id
+                        == items.c.archive_observation_id,
+                        archive_sources.c.source_ordinal
+                        == collection_sources.c.source_ordinal,
+                        archive_sources.c.file_observation_id
+                        == collection_sources.c.file_observation_id,
+                        archive_sources.c.source_full_sha256
+                        == collection_sources.c.full_sha256,
+                        archive_sources.c.source_size_bytes
+                        == collection_sources.c.size_bytes,
+                        archive_sources.c.staging_name
+                        == collection_sources.c.staging_name,
+                    ),
+                )
+            )
+            .where(
+                items.c.run_id == str(run.id),
+                items.c.archive_observation_id.is_not(None),
+            )
+        ).scalar_one()
+    )
+    if expected_sources != actual_sources or matched_sources != expected_sources:
+        raise ArchiveCollectionStoreError(
+            "archive collection report source lineage is inconsistent"
+        )
 
 
 def _latest_completed_scan(connection: Connection, scan_root_id: EntityId) -> EntityId:
