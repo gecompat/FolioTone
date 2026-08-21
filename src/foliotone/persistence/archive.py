@@ -8,7 +8,7 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from sqlalchemy import Engine, func, insert, select
 from sqlalchemy.engine import Connection
@@ -31,7 +31,14 @@ from foliotone.archive.sevenzip_slt import (
     ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE,
     ArchiveSevenZipSltParseStatus,
 )
-from foliotone.archive.signatures import ArchiveSignatureObservationV2
+from foliotone.archive.signatures import (
+    ArchiveContainerClass,
+    ArchiveOuterCompressionKind,
+    ArchivePublicationKind,
+    ArchiveRecognitionStatus,
+    ArchiveSignatureObservationV2,
+    ArchiveStorageFamily,
+)
 from foliotone.archive.workflow import (
     ARCHIVE_EXTRACTION_PROFILE,
     ARCHIVE_INTEGRITY_PROFILE,
@@ -49,6 +56,11 @@ from foliotone.persistence.scan_root_lease import (
     ScanRootWriteOwnerKind,
     SQLiteScanRootWriteLeaseStore,
 )
+
+if TYPE_CHECKING:
+    from foliotone.consolidation.archive_dependencies import (
+        ArchiveSourceDependencyBinding,
+    )
 
 ARCHIVE_OBSERVATION_PROFILE: Final = "archive-observation/v1"
 ARCHIVE_CONTENT_FINGERPRINT_DOMAIN: Final = b"archive-content-fingerprint/v1\x00"
@@ -478,6 +490,22 @@ class SQLiteArchiveEvidenceStore:
             )
         return tuple(_project_graph(_validated_graph(graph)) for graph in graphs)
 
+    def list_source_dependency_bindings(
+        self,
+        file_observation_ids: tuple[EntityId, ...],
+        scan_root_id: EntityId,
+        source_scan_run_id: EntityId,
+    ) -> tuple[ArchiveSourceDependencyBinding, ...]:
+        """Read canonical archive-source bindings for at most two endpoints."""
+
+        with self._engine.connect() as connection:
+            return _read_archive_source_dependency_bindings(
+                connection,
+                file_observation_ids,
+                scan_root_id,
+                source_scan_run_id,
+            )
+
     def find_listing_reuse(
         self,
         key: ArchiveReuseKey,
@@ -616,31 +644,7 @@ class SQLiteArchiveEvidenceStore:
     def _read(
         self, connection: Connection, observation_id: EntityId
     ) -> _PersistedArchiveEvidenceGraph | None:
-        parent = connection.execute(
-            select(archive_schema.archive_observations).where(
-                archive_schema.archive_observations.c.id == str(observation_id)
-            )
-        ).mappings().one_or_none()
-        if parent is None:
-            return None
-        try:
-            return _PersistedArchiveEvidenceGraph(
-                _row_tuple(parent),
-                _children(
-                    connection, archive_schema.archive_observation_sources, observation_id
-                ),
-                _children(
-                    connection, archive_schema.archive_observation_executions, observation_id
-                ),
-                _children(
-                    connection, archive_schema.archive_member_observations, observation_id
-                ),
-                _optional_child(
-                    connection, archive_schema.archive_wrapper_lineage, observation_id
-                ),
-            )
-        except (TypeError, ValueError):
-            raise ArchiveEvidenceStoreError("persisted archive graph is corrupt") from None
+        return _read_archive_graph(connection, observation_id)
 
     def _validate_sources(
         self, connection: Connection, snapshot: ArchiveEvidenceSnapshot
@@ -918,6 +922,204 @@ def _insert_graph(connection: Connection, graph: _PersistedArchiveEvidenceGraph)
             connection.execute(insert(table), [dict(row) for row in rows])
     if graph.wrapper is not None:
         connection.execute(insert(archive_schema.archive_wrapper_lineage).values(**dict(graph.wrapper)))
+
+
+def _read_archive_graph(
+    connection: Connection, observation_id: EntityId
+) -> _PersistedArchiveEvidenceGraph | None:
+    parent = connection.execute(
+        select(archive_schema.archive_observations).where(
+            archive_schema.archive_observations.c.id == str(observation_id)
+        )
+    ).mappings().one_or_none()
+    if parent is None:
+        return None
+    try:
+        return _PersistedArchiveEvidenceGraph(
+            _row_tuple(parent),
+            _children(
+                connection, archive_schema.archive_observation_sources, observation_id
+            ),
+            _children(
+                connection, archive_schema.archive_observation_executions, observation_id
+            ),
+            _children(
+                connection, archive_schema.archive_member_observations, observation_id
+            ),
+            _optional_child(
+                connection, archive_schema.archive_wrapper_lineage, observation_id
+            ),
+        )
+    except (TypeError, ValueError):
+        raise ArchiveEvidenceStoreError("persisted archive graph is corrupt") from None
+
+
+def _read_archive_source_dependency_bindings(
+    connection: Connection,
+    file_observation_ids: tuple[EntityId, ...],
+    scan_root_id: EntityId,
+    source_scan_run_id: EntityId,
+) -> tuple[ArchiveSourceDependencyBinding, ...]:
+    from foliotone.consolidation.archive_dependencies import (
+        MAX_ARCHIVE_SOURCE_DEPENDENCY_BINDINGS,
+        ArchiveSourceDependencyBinding,
+    )
+
+    if (
+        not isinstance(file_observation_ids, tuple)
+        or not 1 <= len(file_observation_ids) <= 2
+        or any(not isinstance(value, EntityId) for value in file_observation_ids)
+        or len(set(file_observation_ids)) != len(file_observation_ids)
+        or not isinstance(scan_root_id, EntityId)
+        or not isinstance(source_scan_run_id, EntityId)
+    ):
+        raise ValueError("archive dependency query scope is invalid")
+    requested = tuple(sorted(str(value) for value in file_observation_ids))
+    parent = archive_schema.archive_observations
+    source = archive_schema.archive_observation_sources
+    observation = schema.file_observations
+    record = schema.file_records
+    run = schema.scan_runs
+    fingerprint_exists = (
+        select(schema.fingerprints.c.id)
+        .where(
+            schema.fingerprints.c.target_kind == "FILE_OBSERVATION",
+            schema.fingerprints.c.target_id == source.c.file_observation_id,
+            schema.fingerprints.c.kind == "FILE_SHA256",
+            schema.fingerprints.c.algorithm == "sha256",
+            schema.fingerprints.c.algorithm_version == "1",
+            schema.fingerprints.c.value == source.c.source_full_sha256,
+        )
+        .limit(1)
+        .exists()
+    )
+    scoped_observation_count = connection.execute(
+        select(func.count())
+        .select_from(
+            observation.join(record, record.c.id == observation.c.file_id).join(
+                run, run.c.id == observation.c.scan_run_id
+            )
+        )
+        .where(
+            observation.c.id.in_(requested),
+            observation.c.scan_run_id == str(source_scan_run_id),
+            record.c.scan_root_id == str(scan_root_id),
+            record.c.presence_state == "PRESENT",
+            run.c.scan_root_id == str(scan_root_id),
+            run.c.status == "COMPLETED",
+        )
+    ).scalar_one()
+    if int(scoped_observation_count) != len(requested):
+        raise ArchiveEvidenceStoreError("archive dependency endpoint lineage is invalid")
+    rows = connection.execute(
+        select(
+            source.c.archive_observation_id,
+            source.c.source_ordinal,
+            source.c.file_observation_id,
+            source.c.source_size_bytes,
+            parent.c.scan_root_id.label("archive_root_id"),
+            parent.c.source_scan_run_id.label("archive_scan_run_id"),
+            observation.c.scan_run_id.label("observation_scan_run_id"),
+            observation.c.size_bytes.label("observation_size"),
+            record.c.scan_root_id.label("record_root_id"),
+            record.c.presence_state,
+            record.c.size_bytes.label("record_size"),
+            run.c.scan_root_id.label("run_root_id"),
+            run.c.status.label("run_status"),
+            fingerprint_exists.label("has_full_fingerprint"),
+        )
+        .select_from(
+            source.join(parent, parent.c.id == source.c.archive_observation_id)
+            .join(observation, observation.c.id == source.c.file_observation_id)
+            .join(record, record.c.id == observation.c.file_id)
+            .join(run, run.c.id == observation.c.scan_run_id)
+        )
+        .where(
+            source.c.file_observation_id.in_(requested),
+        )
+        .order_by(
+            source.c.file_observation_id,
+            source.c.archive_observation_id,
+            source.c.source_ordinal,
+        )
+        .limit(2 * MAX_ARCHIVE_SOURCE_DEPENDENCY_BINDINGS + 1)
+    ).mappings().all()
+    if len(rows) > 2 * MAX_ARCHIVE_SOURCE_DEPENDENCY_BINDINGS:
+        raise ArchiveEvidenceStoreError("archive dependency query exceeds the bound")
+    counts = {value: 0 for value in requested}
+    graphs: dict[str, _PersistedArchiveEvidenceGraph] = {}
+    bindings: list[ArchiveSourceDependencyBinding] = []
+    for row in rows:
+        if (
+            str(row["archive_root_id"]) != str(scan_root_id)
+            or str(row["archive_scan_run_id"]) != str(source_scan_run_id)
+            or str(row["observation_scan_run_id"]) != str(source_scan_run_id)
+            or str(row["record_root_id"]) != str(scan_root_id)
+            or str(row["run_root_id"]) != str(scan_root_id)
+            or str(row["presence_state"]) != "PRESENT"
+            or str(row["run_status"]) != "COMPLETED"
+            or int(row["observation_size"]) != int(row["source_size_bytes"])
+            or int(row["record_size"]) != int(row["source_size_bytes"])
+            or not bool(row["has_full_fingerprint"])
+        ):
+            raise ArchiveEvidenceStoreError(
+                "archive dependency source lineage is inconsistent"
+            )
+        file_observation_id = str(row["file_observation_id"])
+        counts[file_observation_id] += 1
+        if counts[file_observation_id] > MAX_ARCHIVE_SOURCE_DEPENDENCY_BINDINGS:
+            raise ArchiveEvidenceStoreError("archive dependency query exceeds the bound")
+        observation_id = str(row["archive_observation_id"])
+        graph = graphs.get(observation_id)
+        if graph is None:
+            loaded = _read_archive_graph(connection, EntityId.parse(observation_id))
+            if loaded is None:
+                raise ArchiveEvidenceStoreError("archive dependency graph is missing")
+            graph = _validated_graph(loaded)
+            graphs[observation_id] = graph
+        material = dict(graph.parent)
+        source_row = next(
+            (
+                dict(value)
+                for value in graph.sources
+                if int(dict(value)["source_ordinal"]) == int(row["source_ordinal"])
+            ),
+            None,
+        )
+        if (
+            source_row is None
+            or str(source_row["file_observation_id"]) != file_observation_id
+        ):
+            raise ArchiveEvidenceStoreError("archive dependency source is inconsistent")
+        bindings.append(
+            ArchiveSourceDependencyBinding(
+                archive_observation_id=EntityId.parse(observation_id),
+                file_observation_id=EntityId.parse(file_observation_id),
+                scan_root_id=EntityId.parse(str(material["scan_root_id"])),
+                source_scan_run_id=EntityId.parse(
+                    str(material["source_scan_run_id"])
+                ),
+                source_ordinal=int(row["source_ordinal"]),
+                container_class=ArchiveContainerClass(
+                    str(material["container_class"])
+                ),
+                publication_kind=ArchivePublicationKind(
+                    str(material["publication_kind"])
+                ),
+                storage_family=ArchiveStorageFamily(
+                    str(material["storage_family"])
+                ),
+                outer_compression_kind=ArchiveOuterCompressionKind(
+                    str(material["outer_compression_kind"])
+                ),
+                recognition_status=ArchiveRecognitionStatus(
+                    str(material["recognition_status"])
+                ),
+                archive_content_hash=str(material["content_hash"]),
+                archive_profile=str(material["profile"]),
+            )
+        )
+    return tuple(bindings)
 
 
 def _children(

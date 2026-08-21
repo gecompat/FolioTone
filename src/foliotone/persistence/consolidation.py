@@ -10,6 +10,10 @@ from typing import Any, NamedTuple
 from sqlalchemy import Engine, Table, insert, select
 from sqlalchemy.engine import Connection, RowMapping
 
+from foliotone.consolidation.archive_dependencies import (
+    ArchiveDependencyProjectionInputs,
+    build_archive_dependency,
+)
 from foliotone.consolidation.contracts import (
     CONSOLIDATION_CANDIDATE_DECISION,
     CONSOLIDATION_KEEP_PREFERENCE_DECISION,
@@ -61,12 +65,16 @@ from foliotone.core import (
     ReviewType,
     ScanRunStatus,
 )
+from foliotone.persistence import archive_schema, schema, w3_schema
 from foliotone.persistence import calibre_library_schema as calibre
 from foliotone.persistence import consolidation_schema as cs
 from foliotone.persistence import relation_candidate_schema as rc
 from foliotone.persistence import resolution_review_schema as rr
-from foliotone.persistence import schema, w3_schema
 from foliotone.persistence._mapping import datetime_from_db, datetime_to_db
+from foliotone.persistence.archive import (
+    ArchiveEvidenceStoreError,
+    _read_archive_source_dependency_bindings,
+)
 from foliotone.persistence.codecs import codec_for
 from foliotone.tooling import ToolExecution, ToolResult
 from foliotone.workflows.ebook import (
@@ -626,6 +634,7 @@ class SQLiteConsolidationStore:
                     raise ConsolidationStoreError("plan evidence reference is unknown or missing")
                 _validate_reference_lineage(connection, ref.kind.value, ref.ref_id, plan)
         dependency_tables = {
+            "ARCHIVE_OBSERVATION": archive_schema.archive_observations,
             "CALIBRE_SNAPSHOT": calibre.calibre_library_snapshots,
             "CALIBRE_FINDING": calibre.calibre_reconciliation_findings,
             "CALIBRE_FORMAT": calibre.calibre_library_formats,
@@ -634,6 +643,15 @@ class SQLiteConsolidationStore:
         for dependency in plan.dependencies:
             if (dependency.snapshot_kind is None) is not (dependency.snapshot_id is None):
                 raise ConsolidationStoreError("plan dependency snapshot kind and id must be paired")
+            if (
+                dependency.kind is ConsolidationDependencyKind.ARCHIVE
+                and dependency.snapshot_kind is not None
+            ):
+                if dependency.snapshot_kind != "ARCHIVE_OBSERVATION":
+                    raise ConsolidationStoreError(
+                        "archive dependency snapshot kind is incompatible"
+                    )
+                _validate_archive_dependency(connection, plan, dependency)
             if dependency.snapshot_id is None:
                 continue
             table = dependency_tables.get(dependency.snapshot_kind or "")
@@ -1078,6 +1096,13 @@ def _validate_reference_lineage(
     elif kind in {"CALIBRE_FORMAT", "CALIBRE_SIDECAR"}:
         child = calibre.calibre_library_formats if kind == "CALIBRE_FORMAT" else calibre.calibre_library_sidecars
         lineage = connection.execute(select(calibre.calibre_library_snapshots.c.scan_root_id, calibre.calibre_library_snapshots.c.source_scan_run_id).select_from(child.join(calibre.calibre_library_records, child.c.record_snapshot_id == calibre.calibre_library_records.c.id).join(calibre.calibre_library_snapshots, calibre.calibre_library_records.c.snapshot_id == calibre.calibre_library_snapshots.c.id)).where(child.c.id == ref_id)).one_or_none()
+    elif kind == "ARCHIVE_OBSERVATION":
+        lineage = connection.execute(
+            select(
+                archive_schema.archive_observations.c.scan_root_id,
+                archive_schema.archive_observations.c.source_scan_run_id,
+            ).where(archive_schema.archive_observations.c.id == ref_id)
+        ).one_or_none()
     if lineage is None:
         raise ConsolidationStoreError("plan evidence reference has no verifiable lineage")
     if (
@@ -1085,6 +1110,42 @@ def _validate_reference_lineage(
         or str(lineage.source_scan_run_id) != str(plan.source_scan_run_id)
     ):
         raise ConsolidationStoreError("plan evidence reference belongs to foreign lineage")
+
+
+def _validate_archive_dependency(
+    connection: Connection,
+    plan: ConsolidationPlan,
+    dependency: ConsolidationDependency,
+) -> None:
+    endpoint = (
+        plan.keeper
+        if dependency.file_role is ConsolidationFileRole.KEEPER
+        else plan.candidate
+    )
+    if endpoint is None:
+        raise ConsolidationStoreError("archive dependency lacks a directed endpoint")
+    try:
+        bindings = _read_archive_source_dependency_bindings(
+            connection,
+            (endpoint.observation_id,),
+            plan.scan_root_id,
+            plan.source_scan_run_id,
+        )
+        expected = build_archive_dependency(
+            ArchiveDependencyProjectionInputs(
+                file_role=dependency.file_role,
+                file_observation_id=endpoint.observation_id,
+                scan_root_id=plan.scan_root_id,
+                source_scan_run_id=plan.source_scan_run_id,
+                bindings=bindings,
+            )
+        )
+    except (ArchiveEvidenceStoreError, TypeError, ValueError):
+        raise ConsolidationStoreError(
+            "archive dependency evidence is invalid or ambiguous"
+        ) from None
+    if dependency != expected:
+        raise ConsolidationStoreError("archive dependency differs from persisted evidence")
 
 
 def _target_lineage(
