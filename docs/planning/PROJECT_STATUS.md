@@ -4,7 +4,7 @@ Stand: 2026-08-21
 
 ## Aktuelle Welle
 
-**S-EBAR-08C abgeschlossen — S-EBAR-08D ist der nächste Archive-Schritt**
+**EBAR-09 abgeschlossen — Archive Collection ist read-only orchestrierbar**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -189,9 +189,10 @@ bounded Ausführung und den path-freien read-only Status mechanisch um.
 S-EBAR-08A ist mit Migration `0020`, geschlossenem Store und Fencing auf
 `main` abgeschlossen; S-EBAR-08B hat den restartbaren Plan versiegelt und
 S-EBAR-08C die bounded Ausführung mit Reuse, Heartbeat und Resume umgesetzt.
-S-EBAR-08D beginnt als Nächstes. Extraction, Secretkanal,
-Source-Mutation und Collection-Orchestrierung werden dadurch nicht
-freigeschaltet.
+S-EBAR-08D ergänzt den strikt read-only geöffneten, bounded aggregierenden und
+path-/locator-/hash-/secret-freien Statusbericht. EBAR-09 synchronisiert den
+Abschluss und den Übergang: EB-A3 beginnt nicht ohne ein eigenes Frontier-Gate.
+Extraction, Secretkanal und Source-Mutation bleiben gesperrt.
 
 `archive-tar-stream-frame/v1` validiert den
 inneren TAR-Strom inkrementell in 512-Byte-Blöcken, begrenzt Chunk-, Stream-,
@@ -1468,8 +1469,10 @@ EBAR-05, S-EBAR-05A, S-EBAR-06A und S-EBAR-04Q sind auf `main`. ADR-0050
 hält reale Extraction mangels Backend gesperrt. ADR-0051 entscheidet die
 unabhängige read-only Wrapperstrecke; S-EBAR-W01 bis S-EBAR-W04 sind auf
 `main` abgeschlossen. ADR-0052 entscheidet die immutable Archive-Persistenz;
-S-EBAR-07, FG-A-COLLECTION-ORCHESTRATION sowie S-EBAR-08A bis 08C sind
-abgeschlossen. S-EBAR-08D folgt als nächstes. Reale
+S-EBAR-07, FG-A-COLLECTION-ORCHESTRATION, S-EBAR-08A bis 08D und EBAR-09 sind
+abgeschlossen. Der nächste Archive-Entwicklungsschritt ist ein eigenes
+Frontier-Gate für EB-A3; daraus wird noch keine Matching- oder
+Source-Operations-Authority abgeleitet. Reale
 Passwortversuche bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert
 gesperrt. Music W4 bleibt bis zur E-Book-Reife zurückgestellt. Die
 Produktoberfläche bleibt ausschließlich die CLI.

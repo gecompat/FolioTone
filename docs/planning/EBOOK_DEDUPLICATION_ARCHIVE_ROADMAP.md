@@ -367,8 +367,8 @@ S-EBAR-01 Execution-DTOs
     -> S-EBAR-07 Persistenz, abgeschlossen
     -> FG-A-COLLECTION-ORCHESTRATION Vertragsgate, abgeschlossen
     -> S-EBAR-08A Models/Schema/Store, abgeschlossen
-    -> S-EBAR-08B Plan, abgeschlossen -> 08C Ausführung, abgeschlossen -> 08D Status, als nächstes
-    -> EBAR-09 Abschluss und EB-A3-Übergang
+    -> S-EBAR-08B Plan, abgeschlossen -> 08C Ausführung, abgeschlossen -> 08D Status, abgeschlossen
+    -> EBAR-09 Abschluss und EB-A3-Übergang, abgeschlossen
 ```
 
 Die mechanischen S-EBAR-Pakete verwenden das im Spark-Katalog jeweils
