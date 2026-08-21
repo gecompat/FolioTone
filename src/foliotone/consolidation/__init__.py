@@ -1,6 +1,15 @@
 """Public immutable contracts for non-executable consolidation planning."""
 
 from foliotone.consolidation import contracts as _contracts
+from foliotone.consolidation.archive_dependencies import (
+    ARCHIVE_OBSERVATION_PROFILE,
+    ARCHIVE_OBSERVATION_SNAPSHOT_KIND,
+    CONSOLIDATION_ARCHIVE_DEPENDENCY_PROFILE,
+    MAX_ARCHIVE_SOURCE_DEPENDENCY_BINDINGS,
+    ArchiveDependencyProjectionInputs,
+    ArchiveSourceDependencyBinding,
+    build_archive_dependency,
+)
 from foliotone.consolidation.blockers import (
     ConsolidationBlockerInputs,
     ConsolidationHardBlockerInputs,
@@ -38,6 +47,13 @@ from foliotone.consolidation.serialization import (
 
 __all__ = [
     *_contracts.__all__,
+    "ARCHIVE_OBSERVATION_PROFILE",
+    "ARCHIVE_OBSERVATION_SNAPSHOT_KIND",
+    "CONSOLIDATION_ARCHIVE_DEPENDENCY_PROFILE",
+    "MAX_ARCHIVE_SOURCE_DEPENDENCY_BINDINGS",
+    "ArchiveDependencyProjectionInputs",
+    "ArchiveSourceDependencyBinding",
+    "build_archive_dependency",
     "canonical_consolidation_plan_payload",
     "canonical_plan_bytes",
     "compute_consolidation_plan_content_hash",
