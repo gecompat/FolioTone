@@ -14,6 +14,7 @@ import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from functools import partial
 from pathlib import Path
 from typing import Any, Final, Protocol, cast
 
@@ -22,6 +23,7 @@ from foliotone.archive.process_runner import (
     ArchiveProcessStatus,
     ByteConsumer,
     CancellationProbe,
+    DuplexProcessExecutionResult,
     ProcessExecutionResult,
 )
 from foliotone.archive.safety_policy import (
@@ -36,6 +38,15 @@ from foliotone.archive.sevenzip import (
     build_7zzs_information_command,
     build_7zzs_integrity_command,
     build_7zzs_listing_command,
+    build_7zzs_tar_stdin_integrity_command,
+    build_7zzs_tar_stdin_listing_command,
+    build_7zzs_wrapper_decode_command,
+)
+from foliotone.archive.wrapper_stream import (
+    MAX_TAR_STREAM_BYTES,
+    ArchiveTarStreamFrameConsumer,
+    ArchiveTarStreamFrameResult,
+    ArchiveTarStreamFrameStatus,
 )
 
 ARCHIVE_CONTAINER_UID: Final = 65_532
@@ -72,6 +83,13 @@ _COMMAND_TIMEOUTS: Final = {
     build_7zzs_listing_command(): 60.0,
     build_7zzs_integrity_command(): 300.0,
 }
+ARCHIVE_WRAPPER_CONTAINER_RUNNER_PROFILE: Final = (
+    "archive-wrapper-container-runner/v1"
+)
+_WRAPPER_TIMEOUTS: Final = {
+    "LISTING": 60.0,
+    "INTEGRITY": 300.0,
+}
 _ACTIVE_ARCHIVE_JOBS: Final = threading.BoundedSemaphore(MAX_CONCURRENT_ARCHIVE_JOBS)
 _O_NOFOLLOW: Final = cast(int, getattr(os, "O_NOFOLLOW", 0))
 _O_DIRECTORY: Final = cast(int, getattr(os, "O_DIRECTORY", 0))
@@ -90,6 +108,11 @@ class ArchiveContainerRunStatus(StrEnum):
     LIMIT_EXCEEDED = "LIMIT_EXCEEDED"
     TIMED_OUT = "TIMED_OUT"
     CANCELLED = "CANCELLED"
+
+
+class ArchiveWrapperOperation(StrEnum):
+    LISTING = "LISTING"
+    INTEGRITY = "INTEGRITY"
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +161,38 @@ class ArchiveContainerRequest:
             not isinstance(self.scan_roots, tuple)
             or not self.scan_roots
             or any(not isinstance(root, Path) or not root.is_absolute() for root in self.scan_roots)
+        ):
+            raise ValueError("scan_roots must contain at least one absolute path")
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveWrapperContainerRequest:
+    volumes: tuple[ArchiveVolumeSource, ...]
+    operation: ArchiveWrapperOperation
+    scan_roots: tuple[Path, ...] = field(default=(), repr=False)
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.volumes, tuple)
+            or not 1 <= len(self.volumes) <= MAX_VOLUME_COUNT
+            or any(not isinstance(item, ArchiveVolumeSource) for item in self.volumes)
+        ):
+            raise ValueError("volumes must contain one bounded validated volume group")
+        names = [item.staging_name for item in self.volumes]
+        if (
+            len(names) != len(set(name.casefold() for name in names))
+            or names.count("archive") != 1
+        ):
+            raise ValueError("volume staging names must be unique and include archive")
+        if not isinstance(self.operation, ArchiveWrapperOperation):
+            raise ValueError("operation must be ArchiveWrapperOperation")
+        if (
+            not isinstance(self.scan_roots, tuple)
+            or not self.scan_roots
+            or any(
+                not isinstance(root, Path) or not root.is_absolute()
+                for root in self.scan_roots
+            )
         ):
             raise ValueError("scan_roots must contain at least one absolute path")
 
@@ -195,6 +250,47 @@ class ArchiveContainerRunResult:
 
 
 @dataclass(frozen=True, slots=True)
+class ArchiveWrapperContainerRunResult:
+    profile: str
+    status: ArchiveContainerRunStatus
+    producer_exit_code: int | None = None
+    consumer_exit_code: int | None = None
+    stdout_bytes: int = 0
+    stderr_bytes: int = 0
+    inner_stream_size_bytes: int = 0
+    inner_stream_sha256: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.profile != ARCHIVE_WRAPPER_CONTAINER_RUNNER_PROFILE:
+            raise ValueError("unsupported wrapper container runner profile")
+        if not isinstance(self.status, ArchiveContainerRunStatus):
+            raise ValueError("status must be ArchiveContainerRunStatus")
+        for value in (self.producer_exit_code, self.consumer_exit_code):
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, int)
+            ):
+                raise ValueError("exit codes must be integers or None")
+        for value in (
+            self.stdout_bytes,
+            self.stderr_bytes,
+            self.inner_stream_size_bytes,
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError("stream byte counts must be non-negative")
+        if self.status is ArchiveContainerRunStatus.COMPLETED:
+            if (
+                self.producer_exit_code != 0
+                or self.consumer_exit_code != 0
+                or self.inner_stream_size_bytes < 1_024
+                or not isinstance(self.inner_stream_sha256, str)
+                or re.fullmatch(r"[0-9a-f]{64}", self.inner_stream_sha256) is None
+            ):
+                raise ValueError("completed wrapper run requires exact stream evidence")
+        elif self.inner_stream_size_bytes != 0 or self.inner_stream_sha256 is not None:
+            raise ValueError("failed wrapper run contains partial stream evidence")
+
+
+@dataclass(frozen=True, slots=True)
 class StagedArchiveSandbox:
     temp_root: Path = field(repr=False)
     root: Path = field(repr=False)
@@ -229,6 +325,8 @@ class DockerSandboxBackend(Protocol):
     def inspect_container(self, container_id: str) -> Mapping[str, Any] | None: ...
 
     def start_argv(self, container_id: str) -> tuple[str, ...]: ...
+
+    def start_interactive_argv(self, container_id: str) -> tuple[str, ...]: ...
 
     def kill_container(self, container_id: str) -> bool: ...
 
@@ -280,6 +378,32 @@ class ArchiveLinuxContainerRunner:
                 request,
                 stdout_consumer=stdout_consumer,
                 stderr_classifier=stderr_classifier,
+                cancellation=cancellation,
+            )
+        finally:
+            _ACTIVE_ARCHIVE_JOBS.release()
+            self._single_job.release()
+
+    def run_wrapper_pipeline(
+        self,
+        request: ArchiveWrapperContainerRequest,
+        *,
+        stdout_consumer: ByteConsumer,
+        cancellation: CancellationProbe | None = None,
+    ) -> ArchiveWrapperContainerRunResult:
+        if not isinstance(request, ArchiveWrapperContainerRequest):
+            raise ValueError("request must be ArchiveWrapperContainerRequest")
+        if not self._filesystem.supports_linux_sandbox:
+            return _wrapper_result(ArchiveContainerRunStatus.TOOL_UNAVAILABLE)
+        if not self._single_job.acquire(blocking=False):
+            return _wrapper_result(ArchiveContainerRunStatus.POLICY_REJECTED)
+        if not _ACTIVE_ARCHIVE_JOBS.acquire(blocking=False):
+            self._single_job.release()
+            return _wrapper_result(ArchiveContainerRunStatus.POLICY_REJECTED)
+        try:
+            return self._run_wrapper_locked(
+                request,
+                stdout_consumer=stdout_consumer,
                 cancellation=cancellation,
             )
         finally:
@@ -432,6 +556,314 @@ class ArchiveLinuxContainerRunner:
             stdout_bytes=process_result.stdout_bytes,
             stderr_bytes=process_result.stderr_bytes,
         )
+
+    def _run_wrapper_locked(
+        self,
+        request: ArchiveWrapperContainerRequest,
+        *,
+        stdout_consumer: ByteConsumer,
+        cancellation: CancellationProbe | None,
+    ) -> ArchiveWrapperContainerRunResult:
+        inputs = self._runtime_preflight
+        try:
+            if cancellation is not None and cancellation.is_set():
+                return _wrapper_result(ArchiveContainerRunStatus.CANCELLED)
+            availability = archive_7zip_runtime_availability(
+                inputs.lock_path,
+                release_path=inputs.release_path,
+                revocations_path=inputs.revocations_path,
+                evidence_directory=inputs.evidence_directory,
+                local_state_root=inputs.local_state_root,
+                private_state_parent=inputs.private_state_parent,
+                scan_roots=request.scan_roots,
+                oci_layout_path=inputs.oci_layout_path,
+            )
+        except Exception:
+            return _wrapper_result(ArchiveContainerRunStatus.TOOL_UNAVAILABLE)
+        if (
+            not availability.available
+            or availability.image_reference is None
+            or not _is_approved_image_reference(availability.image_reference)
+        ):
+            return _wrapper_result(ArchiveContainerRunStatus.TOOL_UNAVAILABLE)
+
+        sandbox: StagedArchiveSandbox | None = None
+        outer_id: str | None = None
+        inner_id: str | None = None
+        outer_create_attempted = False
+        inner_create_attempted = False
+        process_result: DuplexProcessExecutionResult | None = None
+        start_attempted = False
+        lifecycle_status = ArchiveContainerRunStatus.TOOL_FAILED
+        outer_name = f"foliotone-archive-{secrets.token_hex(16)}"
+        inner_name = f"foliotone-archive-{secrets.token_hex(16)}"
+        while inner_name == outer_name:
+            inner_name = f"foliotone-archive-{secrets.token_hex(16)}"
+        frame_consumer = ArchiveTarStreamFrameConsumer()
+        frame_result: ArchiveTarStreamFrameResult | None = None
+        frame_terminal_status: ArchiveTarStreamFrameStatus | None = None
+
+        def consume_frame(chunk: bytes) -> bool:
+            nonlocal frame_terminal_status
+            accepted = frame_consumer.feed(chunk)
+            if not accepted:
+                frame_terminal_status = frame_consumer.terminal_status
+            return accepted
+
+        def finalize_frame() -> bool:
+            nonlocal frame_result, frame_terminal_status
+            frame_result = frame_consumer.finish()
+            if frame_result.status is not ArchiveTarStreamFrameStatus.VALID:
+                frame_terminal_status = frame_result.status
+            return frame_result.status is ArchiveTarStreamFrameStatus.VALID
+
+        inner_command = (
+            build_7zzs_tar_stdin_listing_command()
+            if request.operation is ArchiveWrapperOperation.LISTING
+            else build_7zzs_tar_stdin_integrity_command()
+        )
+        try:
+            try:
+                sandbox = self._filesystem.stage(
+                    self._temp_root, request.volumes, request.scan_roots
+                )
+            except _StagingCleanupRequired as error:
+                sandbox = error.sandbox
+                raise _LifecycleAbort(ArchiveContainerRunStatus.TOOL_FAILED) from None
+            if cancellation is not None and cancellation.is_set():
+                raise _LifecycleAbort(ArchiveContainerRunStatus.CANCELLED)
+            if not self._filesystem.verify_before_start(sandbox):
+                raise _LifecycleAbort(ArchiveContainerRunStatus.TOOL_UNAVAILABLE)
+
+            outer_argv = _build_wrapper_outer_create_argv(
+                self._docker,
+                container_name=outer_name,
+                image_reference=availability.image_reference,
+                input_root=sandbox.input_root,
+            )
+            outer_create_attempted = True
+            outer_id = self._docker.create_container(outer_argv)
+            if outer_id is None:
+                raise _LifecycleAbort(ArchiveContainerRunStatus.TOOL_UNAVAILABLE)
+            outer_inspection = self._docker.inspect_container(outer_id)
+            if outer_inspection is None or not verify_wrapper_container_projection(
+                outer_inspection,
+                container_id=outer_id,
+                container_name=outer_name,
+                image_reference=availability.image_reference,
+                command=build_7zzs_wrapper_decode_command(),
+                input_root=sandbox.input_root,
+                interactive=False,
+            ):
+                raise _LifecycleAbort(ArchiveContainerRunStatus.TOOL_UNAVAILABLE)
+
+            inner_argv = _build_wrapper_inner_create_argv(
+                self._docker,
+                container_name=inner_name,
+                image_reference=availability.image_reference,
+                command=inner_command,
+            )
+            inner_create_attempted = True
+            inner_id = self._docker.create_container(inner_argv)
+            if inner_id is None or inner_id == outer_id:
+                raise _LifecycleAbort(ArchiveContainerRunStatus.TOOL_UNAVAILABLE)
+            inner_inspection = self._docker.inspect_container(inner_id)
+            if inner_inspection is None or not verify_wrapper_container_projection(
+                inner_inspection,
+                container_id=inner_id,
+                container_name=inner_name,
+                image_reference=availability.image_reference,
+                command=inner_command,
+                input_root=None,
+                interactive=True,
+            ):
+                raise _LifecycleAbort(ArchiveContainerRunStatus.TOOL_UNAVAILABLE)
+            if not self._filesystem.verify_before_start(sandbox):
+                raise _LifecycleAbort(ArchiveContainerRunStatus.TOOL_UNAVAILABLE)
+            if cancellation is not None and cancellation.is_set():
+                raise _LifecycleAbort(ArchiveContainerRunStatus.CANCELLED)
+
+            start_attempted = True
+            process_result = self._process_runner.run_duplex(
+                self._docker.start_argv(outer_id),
+                self._docker.start_interactive_argv(inner_id),
+                environment=_CLIENT_ENVIRONMENT,
+                timeout_seconds=_WRAPPER_TIMEOUTS[request.operation.value],
+                max_stream_bytes=MAX_TAR_STREAM_BYTES,
+                max_producer_stderr_bytes=MAX_STDERR_BYTES,
+                max_consumer_stdout_bytes=MAX_STDOUT_BYTES,
+                max_consumer_stderr_bytes=MAX_STDERR_BYTES,
+                stream_consumer=consume_frame,
+                stream_finalizer=finalize_frame,
+                consumer_stdout_consumer=stdout_consumer,
+                producer_stderr_consumer=_discard_classified_stderr,
+                consumer_stderr_consumer=_discard_classified_stderr,
+                cancellation=cancellation,
+            )
+            lifecycle_status = _map_process_status(process_result.status)
+            if process_result.status is ArchiveProcessStatus.CONSUMER_REJECTED:
+                if frame_terminal_status is ArchiveTarStreamFrameStatus.LIMIT_EXCEEDED:
+                    lifecycle_status = ArchiveContainerRunStatus.LIMIT_EXCEEDED
+                elif frame_terminal_status is ArchiveTarStreamFrameStatus.INVALID:
+                    lifecycle_status = ArchiveContainerRunStatus.TOOL_FAILED
+        except _LifecycleAbort as error:
+            lifecycle_status = error.status
+        except Exception:
+            lifecycle_status = ArchiveContainerRunStatus.TOOL_FAILED
+        finally:
+            cleanup_ok = True
+            targets = (
+                (
+                    inner_id
+                    if inner_id is not None
+                    else inner_name if inner_create_attempted else None
+                ),
+                (
+                    outer_id
+                    if outer_id is not None
+                    else outer_name if outer_create_attempted else None
+                ),
+            )
+            containers_absent = True
+            for target in targets:
+                if target is None:
+                    continue
+                target_value: str = target
+                needs_kill = start_attempted and (
+                    process_result is None
+                    or process_result.status is not ArchiveProcessStatus.SUCCEEDED
+                )
+                if needs_kill and not _bounded_cleanup_call(
+                    partial(self._docker.kill_container, target_value)
+                ):
+                    cleanup_ok = False
+                _bounded_cleanup_call(
+                    partial(self._docker.remove_container, target_value)
+                )
+                absent = _container_absence_proven(self._docker, target_value)
+                containers_absent = containers_absent and absent
+                if not absent:
+                    cleanup_ok = False
+            if sandbox is not None:
+                if not _bounded_cleanup_call(
+                    lambda: self._filesystem.verify_after_run(sandbox)
+                ):
+                    cleanup_ok = False
+                if containers_absent:
+                    if not _bounded_cleanup_call(
+                        lambda: self._filesystem.cleanup(sandbox)
+                    ):
+                        cleanup_ok = False
+                else:
+                    cleanup_ok = False
+            if not cleanup_ok:
+                lifecycle_status = ArchiveContainerRunStatus.TOOL_FAILED
+
+        if process_result is None:
+            return _wrapper_result(lifecycle_status)
+        if frame_result is None:
+            frame_result = frame_consumer.finish()
+        completed_frame = (
+            lifecycle_status is ArchiveContainerRunStatus.COMPLETED
+            and frame_result.status is ArchiveTarStreamFrameStatus.VALID
+        )
+        if lifecycle_status is ArchiveContainerRunStatus.COMPLETED and not completed_frame:
+            lifecycle_status = ArchiveContainerRunStatus.TOOL_FAILED
+        return _wrapper_result(
+            lifecycle_status,
+            producer_exit_code=process_result.producer_exit_code,
+            consumer_exit_code=process_result.consumer_exit_code,
+            stdout_bytes=process_result.consumer_stdout_bytes,
+            stderr_bytes=(
+                process_result.producer_stderr_bytes
+                + process_result.consumer_stderr_bytes
+            ),
+            inner_stream_size_bytes=(
+                frame_result.stream_size_bytes if completed_frame else 0
+            ),
+            inner_stream_sha256=(frame_result.stream_sha256 if completed_frame else None),
+        )
+
+
+def _wrapper_security_argv(
+    docker: DockerSandboxBackend,
+    *,
+    container_name: str,
+) -> tuple[str, ...]:
+    if _CONTAINER_NAME_RE.fullmatch(container_name) is None:
+        raise ValueError("container name must be opaque")
+    return (
+        docker.executable,
+        "create",
+        "--name",
+        container_name,
+        "--pull=never",
+        "--platform",
+        "linux/amd64",
+        "--log-driver=none",
+        "--user",
+        "65532:65532",
+        "--network",
+        "none",
+        "--read-only",
+        "--cap-drop",
+        "ALL",
+        "--security-opt",
+        "no-new-privileges=true",
+        "--security-opt",
+        "seccomp=builtin",
+        "--pids-limit",
+        "16",
+        "--memory",
+        "1g",
+        "--memory-swap",
+        "1g",
+        "--cpus",
+        "1.0",
+        "--env",
+        ARCHIVE_CONTAINER_ENVIRONMENT[0],
+    )
+
+
+def _build_wrapper_outer_create_argv(
+    docker: DockerSandboxBackend,
+    *,
+    container_name: str,
+    image_reference: str,
+    input_root: Path,
+) -> tuple[str, ...]:
+    command = build_7zzs_wrapper_decode_command()
+    if not _is_approved_image_reference(image_reference):
+        raise ValueError("unapproved wrapper image")
+    if not input_root.is_absolute() or "," in os.fspath(input_root):
+        raise ValueError("input root must be absolute and unambiguous")
+    return (
+        *_wrapper_security_argv(docker, container_name=container_name),
+        "--mount",
+        f"type=bind,source={input_root},target={ARCHIVE_CONTAINER_INPUT},readonly,bind-propagation=rprivate",
+        image_reference,
+        *command[1:],
+    )
+
+
+def _build_wrapper_inner_create_argv(
+    docker: DockerSandboxBackend,
+    *,
+    container_name: str,
+    image_reference: str,
+    command: tuple[str, ...],
+) -> tuple[str, ...]:
+    if not _is_approved_image_reference(image_reference) or command not in {
+        build_7zzs_tar_stdin_listing_command(),
+        build_7zzs_tar_stdin_integrity_command(),
+    }:
+        raise ValueError("unapproved wrapper consumer")
+    return (
+        *_wrapper_security_argv(docker, container_name=container_name),
+        "--interactive",
+        image_reference,
+        *command[1:],
+    )
 
 
 def _build_docker_create_argv(
@@ -619,6 +1051,92 @@ def verify_container_projection(
         return False
 
 
+def verify_wrapper_container_projection(
+    inspection: Mapping[str, Any],
+    *,
+    container_id: str,
+    container_name: str,
+    image_reference: str,
+    command: tuple[str, ...],
+    input_root: Path | None,
+    interactive: bool,
+) -> bool:
+    """Revalidate one wrapper producer or stdin consumer container."""
+
+    try:
+        if (
+            _CONTAINER_ID_RE.fullmatch(container_id) is None
+            or _CONTAINER_NAME_RE.fullmatch(container_name) is None
+            or not _is_approved_image_reference(image_reference)
+            or inspection.get("Id") != container_id
+            or inspection.get("Name") != f"/{container_name}"
+            or inspection.get("Platform") != "linux"
+        ):
+            return False
+        config = _mapping(inspection["Config"])
+        host = _mapping(inspection["HostConfig"])
+        mounts = cast(Sequence[object], inspection["Mounts"])
+        if (
+            config.get("Image") != image_reference
+            or config.get("User") != "65532:65532"
+            or config.get("Entrypoint") != ["/usr/local/bin/7zzs"]
+            or config.get("WorkingDir") != "/workspace"
+            or config.get("Env") != list(ARCHIVE_CONTAINER_ENVIRONMENT)
+            or config.get("Labels")
+            != {"org.opencontainers.image.source": "https://github.com/gecompat/FolioTone"}
+            or config.get("Volumes") not in (None, {})
+            or config.get("Cmd") != list(command[1:])
+            or config.get("OpenStdin") is not interactive
+            or config.get("StdinOnce") is not interactive
+            or config.get("AttachStdin") is not interactive
+            or config.get("Tty") is not False
+        ):
+            return False
+        if (
+            host.get("Privileged") is not False
+            or host.get("ReadonlyRootfs") is not True
+            or host.get("NetworkMode") != "none"
+            or host.get("LogConfig") != {"Type": "none", "Config": {}}
+            or host.get("CapAdd") not in (None, [])
+            or host.get("CapDrop") != ["ALL"]
+            or host.get("Devices") not in (None, [])
+            or host.get("DeviceRequests") not in (None, [])
+            or host.get("DeviceCgroupRules") not in (None, [])
+            or host.get("PidsLimit") != 16
+            or host.get("Memory") != 1_073_741_824
+            or host.get("MemorySwap") != 1_073_741_824
+            or host.get("NanoCpus") != 1_000_000_000
+            or host.get("Binds") not in (None, [])
+            or host.get("Tmpfs") not in (None, {})
+            or host.get("VolumesFrom") not in (None, [])
+            or host.get("Links") not in (None, [])
+            or host.get("PortBindings") not in (None, {})
+            or host.get("PublishAllPorts") is not False
+            or host.get("AutoRemove") is not False
+        ):
+            return False
+        security_options = cast(Sequence[str], host.get("SecurityOpt", []))
+        if len(security_options) != 2 or set(security_options) != {
+            "no-new-privileges=true",
+            "seccomp=builtin",
+        }:
+            return False
+        if input_root is None:
+            return interactive and isinstance(mounts, list) and not mounts
+        if interactive or not isinstance(mounts, list) or len(mounts) != 1:
+            return False
+        mount = _mapping(mounts[0])
+        return (
+            mount.get("Type") == "bind"
+            and mount.get("Source") == os.fspath(input_root)
+            and mount.get("Destination") == ARCHIVE_CONTAINER_INPUT
+            and mount.get("RW") is False
+            and mount.get("Propagation") == "rprivate"
+        )
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
 class _BoundedCapture:
     def __init__(self, limit: int) -> None:
         if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
@@ -692,6 +1210,17 @@ class DockerCliSandboxBackend:
         if container_id and _CONTAINER_ID_RE.fullmatch(container_id) is None:
             raise ValueError("invalid opaque container id")
         return (self._executable, "start", "--attach", container_id)
+
+    def start_interactive_argv(self, container_id: str) -> tuple[str, ...]:
+        if _CONTAINER_ID_RE.fullmatch(container_id) is None:
+            raise ValueError("invalid opaque container id")
+        return (
+            self._executable,
+            "start",
+            "--attach",
+            "--interactive",
+            container_id,
+        )
 
     def kill_container(self, container_id: str) -> bool:
         if not _valid_container_target(container_id):
@@ -1200,4 +1729,26 @@ def _result(
         exit_code,
         stdout_bytes,
         stderr_bytes,
+    )
+
+
+def _wrapper_result(
+    status: ArchiveContainerRunStatus,
+    *,
+    producer_exit_code: int | None = None,
+    consumer_exit_code: int | None = None,
+    stdout_bytes: int = 0,
+    stderr_bytes: int = 0,
+    inner_stream_size_bytes: int = 0,
+    inner_stream_sha256: str | None = None,
+) -> ArchiveWrapperContainerRunResult:
+    return ArchiveWrapperContainerRunResult(
+        ARCHIVE_WRAPPER_CONTAINER_RUNNER_PROFILE,
+        status,
+        producer_exit_code,
+        consumer_exit_code,
+        stdout_bytes,
+        stderr_bytes,
+        inner_stream_size_bytes,
+        inner_stream_sha256,
     )
