@@ -248,7 +248,7 @@ archive_collection_item_sources = Table(
         name="uq_archive_collection_sources_run_observation",
     ),
     CheckConstraint(
-        "source_ordinal >= 0 AND size_bytes >= 0 "
+        "source_ordinal BETWEEN 0 AND 255 AND size_bytes >= 0 "
         "AND length(full_sha256)=64 AND full_sha256 NOT GLOB '*[^0-9a-f]*' "
         "AND (staging_name = 'archive' OR "
         "length(staging_name) BETWEEN 9 AND 32 "

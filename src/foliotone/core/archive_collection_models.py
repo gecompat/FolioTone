@@ -291,7 +291,7 @@ class ArchiveCollectionItemSource:
         if (
             isinstance(self.source_ordinal, bool)
             or not isinstance(self.source_ordinal, int)
-            or self.source_ordinal < 0
+            or not 0 <= self.source_ordinal <= 255
         ):
             raise ValueError("archive collection source ordinal is invalid")
         if not isinstance(self.full_sha256, str) or _SHA256.fullmatch(self.full_sha256) is None:

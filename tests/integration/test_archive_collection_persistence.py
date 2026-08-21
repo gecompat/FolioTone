@@ -411,6 +411,8 @@ def test_direct_dto_and_ddl_shapes_fail_closed(head_database: Path) -> None:
         ArchiveCollectionPlanEntry(
             replace(entry.item, primary_file_observation_id=wrong_primary), entry.sources
         )
+    with pytest.raises(ValueError):
+        replace(entry.sources[0], source_ordinal=256)
     wrong_material = ArchiveCollectionPlanEntry(
         entry.item, (replace(entry.sources[0], full_sha256="e" * 64),)
     )
