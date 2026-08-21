@@ -73,6 +73,14 @@ Tool execution is not domain truth. Multiple tools can support or contradict the
 
 Coordinates e-book-specific observations and fingerprints. Mature calibre CLI capabilities should be evaluated first for metadata/library/format operations. FolioTone-native parsers are added only when external tools do not satisfy the required semantics, reproducibility, performance or licensing constraints.
 
+Die optionale E-Book-Laufzeit folgt ADR-0057 Docker-first. Ein expliziter
+Provisioning-Schritt baut ein gelocktes `linux/amd64`-Image mit calibre,
+Poppler, Java und EPUBCheck. Der davon getrennte, nicht mutierende
+`ebook-tools-doctor` prüft Versionen und Readiness je Format, ohne Medien oder
+Datenbank zu öffnen. Analysebefehle installieren, aktualisieren oder bauen
+niemals Werkzeuge. Das Containerprofil bindet Source Media read-only ein und
+ändert die vorhandenen Adapter-/Evidence-Verträge nicht.
+
 The first W3 vertical slice invokes only
 `ebook-meta FILE --to-opf metadata.opf`. It records the exact tool/adapter/config
 identity, rejects calibre versions below 9.10.0 or unrecognized versions before

@@ -92,6 +92,7 @@ from foliotone.persistence.consolidation_report import (
     ConsolidationPlanReportReaderError,
     SQLiteConsolidationPlanReportReader,
 )
+from foliotone.tooling.ebook_readiness import inspect_ebook_toolchain
 from foliotone.tooling.runtime import ToolRuntime
 from foliotone.workflows import (
     DEFAULT_COLLECTION_REPORT_GROUP_LIMIT,
@@ -337,6 +338,55 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=__version__)
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("status", help="Show the current implementation status.")
+
+    ebook_tools_doctor = subparsers.add_parser(
+        "ebook-tools-doctor",
+        help=(
+            "Check calibre, Poppler, Java, EPUBCheck, and readiness for every "
+            "supported e-book format without installing tools or opening media."
+        ),
+    )
+    ebook_tools_doctor.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the stable path-free ebook-toolchain-doctor/v1 JSON report.",
+    )
+    ebook_tools_doctor.add_argument(
+        "--ebook-meta-executable",
+        default=os.environ.get("FOLIOTONE_EBOOK_META", "ebook-meta"),
+        help="ebook-meta executable or absolute executable path.",
+    )
+    ebook_tools_doctor.add_argument(
+        "--ebook-convert-executable",
+        default=os.environ.get("FOLIOTONE_EBOOK_CONVERT", "ebook-convert"),
+        help="ebook-convert executable or absolute executable path.",
+    )
+    ebook_tools_doctor.add_argument(
+        "--calibre-debug-executable",
+        default=os.environ.get("FOLIOTONE_CALIBRE_DEBUG", "calibre-debug"),
+        help="calibre-debug executable or absolute executable path.",
+    )
+    ebook_tools_doctor.add_argument(
+        "--pdfinfo-executable",
+        default=os.environ.get("FOLIOTONE_PDFINFO", "pdfinfo"),
+        help="pdfinfo executable or absolute executable path.",
+    )
+    ebook_tools_doctor.add_argument(
+        "--pdftotext-executable",
+        default=os.environ.get("FOLIOTONE_PDFTOTEXT", "pdftotext"),
+        help="pdftotext executable or absolute executable path.",
+    )
+    ebook_tools_doctor.add_argument(
+        "--java-executable",
+        default=os.environ.get("FOLIOTONE_JAVA", "java"),
+        help="Java executable or absolute executable path.",
+    )
+    ebook_tools_doctor.add_argument(
+        "--epubcheck-jar",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_EPUBCHECK_JAR", "epubcheck.jar")),
+        help="EPUBCheck JAR path; defaults to epubcheck.jar.",
+    )
 
     scan = subparsers.add_parser(
         "scan",
@@ -1530,8 +1580,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print("Read-only PDF metadata and text analysis is available through pdf-analyze.")
         print("Read-only EPUB conformance evidence is available through epub-validate.")
+        print(
+            "Explicit e-book specialist readiness is available through ebook-tools-doctor."
+        )
         print("Source-media and external-tool mutation commands are not implemented.")
         return 0
+
+    if args.command == "ebook-tools-doctor":
+        return _run_ebook_tools_doctor(args)
 
     if args.command == "scan":
         deletion_policy = _deletion_policy(parser, args)
@@ -1606,6 +1662,39 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     parser.print_help()
     return 0
+
+
+def _run_ebook_tools_doctor(args: argparse.Namespace) -> int:
+    report = inspect_ebook_toolchain(
+        ebook_meta_executable=args.ebook_meta_executable,
+        ebook_convert_executable=args.ebook_convert_executable,
+        calibre_debug_executable=args.calibre_debug_executable,
+        pdfinfo_executable=args.pdfinfo_executable,
+        pdftotext_executable=args.pdftotext_executable,
+        java_executable=args.java_executable,
+        epubcheck_jar=args.epubcheck_jar,
+    )
+    if args.json:
+        print(json.dumps(report.as_dict(), sort_keys=True, separators=(",", ":")))
+        return 0 if report.ready else 2
+
+    print(f"E-book toolchain: {'READY' if report.ready else 'NOT_READY'}")
+    print(f"Doctor profile: {report.profile}")
+    print(f"Provisioned profile: {report.provisioned_profile}")
+    print("Tools:")
+    for tool in report.tools:
+        detail = tool.version or tool.reason or "no details"
+        print(f"  {tool.tool:<16} {tool.status:<12} {detail}")
+    print("Formats:")
+    for item in report.formats:
+        detail = (
+            "all required tools ready"
+            if item.ready
+            else "unavailable: " + ", ".join(item.unavailable_tools)
+        )
+        print(f"  {item.format:<16} {item.status:<12} {detail}")
+    print("Provisioning is explicit; analysis commands never install or update tools.")
+    return 0 if report.ready else 2
 
 
 def _deletion_policy(

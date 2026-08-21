@@ -1,6 +1,6 @@
 # Bewertung der E-Book-Toolchain
 
-Stand: 2026-08-15
+Stand: 2026-08-21
 
 Diese Bewertung schloss `W3-001` ab und dokumentiert zusätzlich die in
 `W3-002` bis `W3-009` implementierten calibre-, Poppler-, EPUBCheck- und
@@ -24,6 +24,23 @@ MuPDF und FolioTone-native EPUB-/PDF-Parser werden zunächst nicht ausgewählt.
 Calibre, EPUBCheck, Poppler und qpdf decken die aktuell geplanten Rollen besser
 ab. Ein weiterer Spezialist wird erst bewertet, wenn ein konkreter, durch diese
 Toolchain nicht erfüllter Vertrag vorliegt.
+
+## Bereitstellungsentscheidung
+
+ADR-0057 entscheidet die operative Lücke Docker-first. Das optionale
+`ebook-toolchain-linux-amd64/v1`-Image enthält exakt die bewerteten calibre-,
+Poppler- und EPUBCheck-Versionen sowie Temurin JRE 21.0.12+8. Upstream-Archive,
+Basisimage und Debian-Snapshot sind gelockt; das PowerShell-Provisioning nutzt
+unter Windows eine Linux-Docker-Engine direkt oder über WSL2.
+
+`foliotone ebook-tools-doctor` übernimmt die nicht mutierende Vorabprüfung und
+meldet Readiness für EPUB, MOBI, AZW, AZW3 und PDF. Er ersetzt weder die
+adaptereigene Prüfung unmittelbar vor dem Öffnen einer Source noch persistierte
+`ToolExecution`-Provenance. Analysebefehle lösen niemals Provisioning aus.
+
+Das Repository enthält nur Rezept, Lockfile und Hinweise, keine Drittanbieter-
+Binaries. Ein fertiges Image wird nicht publiziert; Redistribution benötigt
+eine separate komponentengenaue Lizenz- und Source-Offer-Prüfung.
 
 ## calibre
 

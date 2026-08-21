@@ -72,5 +72,6 @@ def test_status_command_is_non_destructive_bootstrap(
         ),
         "Read-only PDF metadata and text analysis is available through pdf-analyze.",
         "Read-only EPUB conformance evidence is available through epub-validate.",
+        "Explicit e-book specialist readiness is available through ebook-tools-doctor.",
         "Source-media and external-tool mutation commands are not implemented.",
     ]

@@ -1,0 +1,52 @@
+{
+  "profile": "ebook-toolchain-linux-amd64/v1",
+  "platform": "linux/amd64",
+  "base_image": "python:3.12.11-slim-trixie@sha256:0b29ab9e420820f53d1cd5ce0157dfe07bea8a7cff5b4754d6d95c07b0e5bc47",
+  "debian_snapshot": "20260807T000000Z",
+  "components": [
+    {
+      "id": "calibre",
+      "version": "9.13.0",
+      "archive": "calibre-9.13.0-x86_64.txz",
+      "url": "https://download.calibre-ebook.com/9.13.0/calibre-9.13.0-x86_64.txz",
+      "sha256": "d664fe74953463f1b679945a5460234b61cbf539da48fc78f2111ff8d9503cc0",
+      "size_bytes": 192554776,
+      "format": "tar.xz",
+      "strip_components": 0,
+      "license": "GPL-3.0"
+    },
+    {
+      "id": "poppler",
+      "version": "26.07.0",
+      "archive": "poppler-26.07.0.tar.xz",
+      "url": "https://poppler.freedesktop.org/poppler-26.07.0.tar.xz",
+      "sha256": "304832f48f8a47fdca90c6b6d1f684e68f37c10c9a0726f345f4ca9df4ca01e2",
+      "size_bytes": 2027720,
+      "format": "tar.xz",
+      "strip_components": 1,
+      "license": "GPL-2.0-or-later"
+    },
+    {
+      "id": "temurin-jre",
+      "version": "21.0.12+8",
+      "archive": "OpenJDK21U-jre_x64_linux_hotspot_21.0.12_8.tar.gz",
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12%2B8/OpenJDK21U-jre_x64_linux_hotspot_21.0.12_8.tar.gz",
+      "sha256": "8a379a67c91a3ae61ffb33d46e0a40c7ba35e70713c4db31cfca30492f792eff",
+      "size_bytes": 52069757,
+      "format": "tar.gz",
+      "strip_components": 1,
+      "license": "GPL-2.0-with-classpath-exception"
+    },
+    {
+      "id": "epubcheck",
+      "version": "5.3.0",
+      "archive": "epubcheck-5.3.0.zip",
+      "url": "https://github.com/w3c/epubcheck/releases/download/v5.3.0/epubcheck-5.3.0.zip",
+      "sha256": "6c07e68584b2e2ce2f89fe06e1246dfead3eb36b46b340e7d93524f29dcff6c5",
+      "size_bytes": 33071108,
+      "format": "zip",
+      "strip_components": 1,
+      "license": "BSD-3-Clause"
+    }
+  ]
+}

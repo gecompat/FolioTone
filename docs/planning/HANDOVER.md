@@ -6,6 +6,17 @@ FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Boo
 
 W0 bis W2 sind abgeschlossen. Der W2-Slice umfasst Incremental Index, Hashing, Filename-/Path-Kandidaten, konfigurierbare Parsing-Profile und eine generische read-only ToolProvider Runtime. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
 
+W3-026 schließt die operative Windows-Lücke Docker-first. Das explizite Skript
+`scripts/provision-ebook-tools.ps1` baut über eine native Linux-Docker-Engine
+oder WSL2 das gelockte E-Book-Toolchain-Image. `ebook-tools-doctor` prüft
+calibre, Poppler, Java und EPUBCheck sowie die Readiness je EPUB, MOBI, AZW,
+AZW3 und PDF, ohne Medien/Datenbank zu öffnen oder etwas zu installieren. Die
+Anleitung steht unter `docs/operations/WINDOWS_EBOOK_TOOLCHAIN.md`.
+
+Der lokale WSL2-Build wurde am 2026-08-21 mit Docker Engine 29.7.2 vollständig
+ausgeführt. Der gehärtete Offline-Doctor im fertigen Image meldete sieben
+bereite Komponenten und `READY` für alle fünf Formatprofile.
+
 `W2-008` und `W2-009` sind vollständig validiert: Basisparser und konfigurierbare, versionierte Regex-Profile erzeugen ausschließlich Provenance-behaftete `FieldCandidate`-Werte und setzen keine kanonischen Metadaten. `W2-011` ergänzt begrenzte, strikte JSON-Auswertung aus `ToolArtifact`-Dateien und konservative Reanalyse-Entscheidungen. Der Docker-Build-Kontext ist auf die tatsächlich paketierten Anwendungsdateien beschränkt.
 
 Die anfängliche Produktoberfläche ist gemäß Benutzerentscheidung und ADR-0016

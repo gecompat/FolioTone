@@ -21,6 +21,7 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 8. [Ausführungs-Prompt für die E-Book-Roadmap](planning/W3_017_EBOOK_ROADMAP_PROMPT.md) enthält den wiederverwendbaren Auftrag für einen neuen Codex-Thread.
 9. [E-Book-Archive und kontrollierte Deduplizierung](planning/EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md) plant read-only Archivanalyse, lokale Passwortkandidaten, archive-aware Matching und die weiterhin gesperrte spätere W10-Ausführung.
 10. [Lokaler W2-Smoke-Test](quality/LOCAL_SMOKE_TEST.md) dokumentiert den abgeschlossenen manuellen Windows-/Docker-Testpunkt mit ausschließlich synthetischen Dateien.
+11. [E-Book-Toolchain unter Windows](operations/WINDOWS_EBOOK_TOOLCHAIN.md) beschreibt das explizite Docker-/WSL2-Provisioning und den formatspezifischen Doctor.
 
 ## Architektur
 
@@ -63,6 +64,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0032](decisions/ADR-0032-bounded-offline-ebook-matching-workflow.md) definiert den begrenzten Offline-Matching-Workflow, path-freie Review-CLI und weiterhin deaktivierte bibliografische Auto-Confirmation.
 - [ADR-0033](decisions/ADR-0033-read-only-calibredb-library-reconciliation.md) definiert die festen lokalen read-only `calibredb`-Shapes, konsistente Library-Snapshots sowie Calibre-Ownership- und Sidecar-Evidence.
 - [ADR-0052](decisions/ADR-0052-immutable-archive-evidence-persistence.md) definiert die additive insert-only Archive-Evidence-Persistenz mit exakter Source-/Execution-/Wrapper-Lineage, Reuse und ScanRoot-Fencing.
+- [ADR-0057](decisions/ADR-0057-docker-first-ebook-toolchain-provisioning.md) definiert das explizite, gelockte Docker-first-Provisioning der E-Book-Spezialwerkzeuge und deren pfadfreie Format-Readiness.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

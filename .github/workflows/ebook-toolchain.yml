@@ -1,0 +1,36 @@
+name: E-book toolchain
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".dockerignore"
+      - ".github/workflows/ebook-toolchain.yml"
+      - "compose.yaml"
+      - "packaging/ebook-tools/**"
+      - "scripts/provision-ebook-tools.ps1"
+      - "src/foliotone/cli/main.py"
+      - "src/foliotone/tooling/ebook_readiness.py"
+      - "tests/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build locked toolchain image
+        run: >-
+          docker build --platform linux/amd64
+          --file packaging/ebook-tools/Dockerfile
+          --tag foliotone-ebook-tools:test .
+      - name: Verify offline Doctor readiness
+        run: >-
+          docker run --rm --network none --read-only --tmpfs /tmp
+          --cap-drop ALL --security-opt no-new-privileges
+          foliotone-ebook-tools:test ebook-tools-doctor

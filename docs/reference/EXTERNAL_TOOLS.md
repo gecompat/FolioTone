@@ -35,6 +35,22 @@ nicht standardmäßig.
 
 ## E-book tools
 
+### Docker-first-Bereitstellung
+
+ADR-0057 stellt die bereits integrierten Spezialwerkzeuge optional in einem
+projekt-eigenen, gelockten `linux/amd64`-Image bereit. Die Lockfile bindet
+calibre 9.13.0, Poppler 26.07.0, Temurin JRE 21.0.12+8 und EPUBCheck 5.3.0
+durch URL, Bytelänge und SHA-256; Basisimage und Debian-Paketstand sind
+ebenfalls gepinnt. `scripts/provision-ebook-tools.ps1` ist der einzige
+Provisioning-Einstieg. Analysebefehle führen keine Installation und keinen
+Image-Build aus.
+
+Das Image wird durch dieses Vorhaben nur lokal gebaut und nicht als fertiges
+Binärartefakt veröffentlicht. Vor einer späteren Veröffentlichung müssen die
+komponentengenauen Lizenz-, Source-Offer- und Abhängigkeitsanforderungen erneut
+geprüft werden. Bedienung und Doctor-Vertrag stehen unter
+[Windows E-Book-Toolchain](../operations/WINDOWS_EBOOK_TOOLCHAIN.md).
+
 ### calibre
 
 Priority: **very high**
@@ -202,9 +218,10 @@ fatal/error/warning/usage/info counts and aggregated severity/code counts.
 They omit report message text and local paths. The raw private report remains a
 `ToolArtifact`; it is not committed or printed by the CLI.
 
-EPUBCheck is BSD-3-Clause. FolioTone does not bundle its JAR or a Java runtime
-in this repository. A later distributable package must decide and document how
-those dependencies and their license notices are supplied.
+EPUBCheck is BSD-3-Clause. JAR und Java-Runtime liegen nicht als Binärdateien
+im Repository. Das optionale Docker-Rezept lädt ihre gelockten offiziellen
+Archive beim expliziten lokalen Build und übernimmt die Lizenzhinweise. Eine
+fertige Image-Distribution bleibt bis zu einer separaten Prüfung ausgeschlossen.
 
 Official references:
 
