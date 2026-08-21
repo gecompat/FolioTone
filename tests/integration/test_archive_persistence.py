@@ -138,7 +138,7 @@ def test_migration_0019_upgrades_0018_and_has_exact_schema(tmp_path: Path) -> No
     assert archive.archive_observations.name not in inspect(previous).get_table_names()
     previous.dispose()
 
-    migrate(path)
+    migrate(path, "0019_archive_evidence")
     engine = create_sqlite_engine(path)
     inspector = inspect(engine)
     with engine.connect() as connection:
@@ -474,7 +474,7 @@ def test_archive_store_direct_roundtrip_exact_retry_and_fence(
     owner = EntityId.parse("00000000-0000-0000-0000-000000000208")
     lease = SQLiteScanRootWriteLeaseStore(engine).acquire(
         EntityId.parse(ROOT_ID),
-        ScanRootWriteOwnerKind.EBOOK_ANALYSIS,
+        ScanRootWriteOwnerKind.ARCHIVE_COLLECTION_RUN,
         owner,
         lease_token="synthetic-secret-token",
         acquired_at=NOW,

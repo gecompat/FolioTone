@@ -85,7 +85,7 @@ def test_migration_0018_upgrades_0017_without_reprofiling_legacy_assertions(
     )
     legacy.dispose()
 
-    migrate(path)
+    migrate(path, "0018_book_classification_projection")
     upgraded = create_sqlite_engine(path)
     with upgraded.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
@@ -97,7 +97,7 @@ def test_migration_0018_upgrades_0017_without_reprofiling_legacy_assertions(
         ).scalar_one()
     upgraded.dispose()
 
-    assert revision == "0019_archive_evidence"
+    assert revision == "0018_book_classification_projection"
     assert legacy_count == 1
     assert lineage_count == 0
 

@@ -63,6 +63,7 @@ _WRAPPER_IMAGE_REFERENCE: Final = (
 _WRITER_KINDS = {
     ScanRootWriteOwnerKind.EBOOK_ANALYSIS,
     ScanRootWriteOwnerKind.EBOOK_COLLECTION_RUN,
+    ScanRootWriteOwnerKind.ARCHIVE_COLLECTION_RUN,
 }
 
 

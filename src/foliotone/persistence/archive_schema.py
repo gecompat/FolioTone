@@ -169,7 +169,8 @@ archive_observations = Table(
         name="ck_archive_observations_member_count",
     ),
     CheckConstraint(
-        "writer_owner_kind IN ('EBOOK_ANALYSIS','EBOOK_COLLECTION_RUN') "
+        "writer_owner_kind IN "
+        "('EBOOK_ANALYSIS','EBOOK_COLLECTION_RUN','ARCHIVE_COLLECTION_RUN') "
         "AND writer_fence_epoch > 0",
         name="ck_archive_observations_writer",
     ),

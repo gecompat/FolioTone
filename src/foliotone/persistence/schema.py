@@ -73,7 +73,8 @@ scan_root_write_leases = Table(
         "AND lease_expires_at IS NULL AND heartbeat_at IS NULL AND acquired_at IS NULL) "
         "OR (lease_token IS NOT NULL AND lease_token <> '' "
         "AND owner_kind IN ('SCAN_RUN', 'EBOOK_CANDIDATE_HASH_RUN', "
-        "'EBOOK_COLLECTION_RUN', 'EBOOK_ANALYSIS') AND owner_run_id IS NOT NULL "
+        "'EBOOK_COLLECTION_RUN', 'EBOOK_ANALYSIS', 'ARCHIVE_COLLECTION_RUN') "
+        "AND owner_run_id IS NOT NULL "
         "AND lease_expires_at IS NOT NULL AND heartbeat_at IS NOT NULL "
         "AND acquired_at IS NOT NULL AND fence_epoch >= 1 "
         "AND acquired_at <= heartbeat_at AND heartbeat_at < lease_expires_at)",

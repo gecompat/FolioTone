@@ -1,5 +1,18 @@
 """Shared domain models and core contracts."""
 
+from foliotone.core.archive_collection_models import (
+    ARCHIVE_COLLECTION_PLAN_PROFILE,
+    ARCHIVE_COLLECTION_PROFILE,
+    MAX_ARCHIVE_COLLECTION_ATTEMPTS,
+    MAX_ARCHIVE_COLLECTION_WORKERS,
+    ArchiveCollectionDisposition,
+    ArchiveCollectionItem,
+    ArchiveCollectionItemSource,
+    ArchiveCollectionItemStatus,
+    ArchiveCollectionPlanFindingCounts,
+    ArchiveCollectionRun,
+    ArchiveCollectionRunStatus,
+)
 from foliotone.core.authority_models import Agent, AgentName, Contribution, ExternalIdentifier
 from foliotone.core.candidate_hash_models import EbookCandidateHashRun
 from foliotone.core.collection_models import (
@@ -67,6 +80,15 @@ __all__ = [
     "AgentName",
     "AgentNameType",
     "AgentType",
+    "ARCHIVE_COLLECTION_PLAN_PROFILE",
+    "ARCHIVE_COLLECTION_PROFILE",
+    "ArchiveCollectionDisposition",
+    "ArchiveCollectionItem",
+    "ArchiveCollectionItemSource",
+    "ArchiveCollectionItemStatus",
+    "ArchiveCollectionPlanFindingCounts",
+    "ArchiveCollectionRun",
+    "ArchiveCollectionRunStatus",
     "BOOK_RESOLUTION_ENTITY_KINDS",
     "CatalogDesignation",
     "ClassificationAssertion",
@@ -74,6 +96,8 @@ __all__ = [
     "Edition",
     "EBOOK_COLLECTION_FORMATS",
     "MAX_EBOOK_COLLECTION_WORKERS",
+    "MAX_ARCHIVE_COLLECTION_ATTEMPTS",
+    "MAX_ARCHIVE_COLLECTION_WORKERS",
     "EbookCollectionItem",
     "EbookCollectionItemStatus",
     "EbookCollectionRun",

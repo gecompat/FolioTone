@@ -53,6 +53,7 @@ from foliotone.persistence import (
     migrate,
     repository,
 )
+from foliotone.persistence.archive_collection_schema import ARCHIVE_COLLECTION_TABLES
 from foliotone.persistence.archive_schema import ARCHIVE_EVIDENCE_TABLES
 from foliotone.persistence.calibre_library_schema import (
     calibre_library_formats,
@@ -135,6 +136,8 @@ def test_migration_creates_current_schema_and_is_idempotent(tmp_path: Path) -> N
         table.name for table in CLASSIFICATION_PROJECTION_TABLES
     } | {
         table.name for table in ARCHIVE_EVIDENCE_TABLES
+    } | {
+        table.name for table in ARCHIVE_COLLECTION_TABLES
     } | {
         "alembic_version",
         file_scan_events.name,
@@ -238,6 +241,14 @@ def test_migration_creates_current_schema_and_is_idempotent(tmp_path: Path) -> N
         },
         "archive_observation_sources": {"ix_archive_observation_sources_file"},
         "archive_observation_executions": {"ix_archive_observation_executions_tool"},
+        "archive_collection_runs": {"uq_archive_collection_runs_active_root"},
+        "archive_collection_items": {
+            "ix_archive_collection_items_claim",
+            "ix_archive_collection_items_observation",
+        },
+        "archive_collection_item_sources": {
+            "ix_archive_collection_sources_observation"
+        },
     }
     for table_name, names in expected_indexes.items():
         assert names <= {str(index["name"]) for index in inspector.get_indexes(table_name)}
@@ -326,7 +337,7 @@ def test_migration_creates_current_schema_and_is_idempotent(tmp_path: Path) -> N
                 "target_id": "00000000-0000-0000-0000-000000000001",
             },
         ).all()
-    assert revision == "0019_archive_evidence"
+    assert revision == "0020_archive_collection_runs"
     assert any("ix_fingerprints_target_profile_id_value" in str(row[-1]) for row in query_plan)
     with engine.begin() as connection:
         connection.execute(
@@ -681,7 +692,7 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0019_archive_evidence"
+    assert revision == "0020_archive_collection_runs"
 
 
 def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
@@ -702,7 +713,7 @@ def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
 
     assert "ix_fingerprints_target_profile_id_value" in indexes
-    assert revision == "0019_archive_evidence"
+    assert revision == "0020_archive_collection_runs"
 
 
 def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
@@ -753,7 +764,7 @@ def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
         "ix_ebook_candidate_hash_runs_root_started",
     } <= {str(index["name"]) for index in inspector.get_indexes(ebook_candidate_hash_runs.name)}
     assert duplicate_count == 2
-    assert revision == "0019_archive_evidence"
+    assert revision == "0020_archive_collection_runs"
 
 
 def test_migration_from_previous_head_adds_provider_cache_entries(
@@ -770,7 +781,7 @@ def test_migration_from_previous_head_adds_provider_cache_entries(
     assert provider_cache_entries.name in inspect(upgraded).get_table_names()
     with upgraded.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0019_archive_evidence"
+    assert revision == "0020_archive_collection_runs"
 
     migrate(path)
     second = create_sqlite_engine(path)
@@ -778,7 +789,7 @@ def test_migration_from_previous_head_adds_provider_cache_entries(
         second_revision = connection.execute(
             text("SELECT version_num FROM alembic_version")
         ).scalar_one()
-    assert second_revision == "0019_archive_evidence"
+    assert second_revision == "0020_archive_collection_runs"
 
 
 def test_migration_repairs_exact_empty_0016_table_left_by_interrupt(
@@ -796,7 +807,7 @@ def test_migration_repairs_exact_empty_0016_table_left_by_interrupt(
     upgraded = create_sqlite_engine(path)
     with upgraded.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0019_archive_evidence"
+    assert revision == "0020_archive_collection_runs"
     assert consolidation_quality_evidence.name in inspect(upgraded).get_table_names()
 
 

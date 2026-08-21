@@ -10,6 +10,14 @@ from foliotone.persistence.archive import (
     PersistedArchiveEvidence,
     SQLiteArchiveEvidenceStore,
 )
+from foliotone.persistence.archive_collection import (
+    ARCHIVE_COLLECTION_PLAN_BATCH_SIZE,
+    ArchiveCollectionPlanEntry,
+    ArchiveCollectionStoreError,
+    ArchiveCollectionWorkItem,
+    SQLiteArchiveCollectionStore,
+    archive_collection_plan_content_hash,
+)
 from foliotone.persistence.calibre_library import (
     CalibreLibraryStoreError,
     SQLiteCalibreLibraryStore,
@@ -137,8 +145,14 @@ __all__ = [
     "ArchiveEvidenceCompatibility",
     "ArchiveEvidenceSource",
     "ArchiveEvidenceStoreError",
+    "ARCHIVE_COLLECTION_PLAN_BATCH_SIZE",
+    "ArchiveCollectionPlanEntry",
+    "ArchiveCollectionStoreError",
+    "ArchiveCollectionWorkItem",
     "PersistedArchiveEvidence",
     "SQLiteArchiveEvidenceStore",
+    "SQLiteArchiveCollectionStore",
+    "archive_collection_plan_content_hash",
     "CalibreLibraryStoreError",
     "ConsolidationStoreError",
     "CALIBRE_RECONCILIATION_FINDING_CODES",
