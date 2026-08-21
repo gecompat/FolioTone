@@ -119,10 +119,15 @@ Publication, Storage, äußere Kompression, Recognition, `inspected_bytes` und
 andere Publication-/Suffixprojektion nicht unter unveränderten Sourcebytes
 still wiederverwendet werden. `inspected_bytes` liegt zwischen `0` und `512`.
 
-`parser_status` stammt aus `ArchiveSevenZipSltParseStatus`. Genau bei
-`PARSED` ist `format_case_kind` gesetzt und gehört zur final gelockten
-`(parser storage family, format case)`-Zelle; bei allen anderen Parserstatus
-ist es `NULL`. Bei Wrappern ist die Parser-Storage-Familie die in
+`parser_status` stammt aus `ArchiveSevenZipSltParseStatus`, wenn der
+Listing-/Parserlauf tatsächlich begonnen hat. Ausschließlich bei
+`listing_status = NOT_ATTEMPTED` sind `parser_status` und
+`format_case_kind` gemeinsam `NULL`; eine bloß fehlgeschlagene oder
+unverfügbare Toolausführung darf den Parserstatus nicht erfinden. Bei
+`parser_status = PARSED` ist `format_case_kind` gesetzt und gehört zur final
+gelockten `(parser storage family, format case)`-Zelle; bei allen anderen
+Parserstatus ist `format_case_kind` `NULL`. Bei Wrappern ist die
+Parser-Storage-Familie die in
 `archive_wrapper_lineage` gebundene innere Familie `TAR`, nicht die
 Source-Storage-Familie `UNKNOWN`. Ohne diese Achsen ist ein Snapshot weder
 persistierbar noch wiederverwendbar.
@@ -277,10 +282,14 @@ listing_command_identity
 integrity_command_identity
 ```
 
-`profile` ist `archive-7zip-wrapper-provider/v1`,
-`inner_storage_family` ist ausschließlich `TAR`, die innere Größe liegt
-zwischen `1.024` und `8.589.934.592`, und alle Hash-/Commandidentitäten sind
-lowercase SHA-256. Parent und Wrapperzeile müssen dieselben festen Runner-,
+`profile` ist `archive-7zip-wrapper-provider/v1` und
+`inner_storage_family` ist ausschließlich `TAR`. Die drei Commandidentitäten
+sind immer vorhanden und lowercase SHA-256. Innere Größe und SHA-256 sind
+gemeinsam nullable, solange kein vollständiger innerer Stream erzeugt wurde;
+sobald `listing_status = LISTED` ist, sind beide zwingend vorhanden und die
+Größe liegt zwischen `1.024` und `8.589.934.592`. Ein teilweise beobachteter
+Stream erzeugt keine scheinbar vollständige innere Materialevidence. Parent
+und Wrapperzeile müssen dieselben festen Runner-,
 Parser-, Formatlock-, Compatibility- und Imageidentitäten wie der versiegelte
 W03-Outcome tragen. Direkte Archive besitzen keine Wrapperzeile.
 
@@ -429,7 +438,8 @@ Pflichttests sind:
 - Upgrade `0018 -> 0019`, leere Neuinstallation, wiederholtes Upgrade und
   bewachter leerer/nichtleerer Downgrade;
 - direkte DDL-Negativtests für Profile, Enumwerte, SHA-256, Bounds,
-  Ordinale, Fremdschlüssel und nullable Sum-Types;
+  Ordinale, Fremdschlüssel und nullable Sum-Types, einschließlich
+  `NOT_ATTEMPTED` ohne Parserlauf sowie Wrapperfehler ohne inneren Stream;
 - atomarer direkter und Wrapper-Roundtrip mit exakt denselben
   ToolExecution-/Source-/Profil-/Formatlockidentitäten;
 - exakte Wiederholung, ID-/Hashkollision und injizierter Rollback nach jeder
