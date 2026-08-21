@@ -2586,11 +2586,13 @@ S-EBA3-01 bis S-EBA3-03 schließen zusätzlich die generische
 Source-Dependency-Strecke und integrieren sie ausschließlich in nicht
 ausführbare Pläne.
 
-ADR-0055 schließt den W3-019-Abgleich. Als nächstes folgt S-EBAR-07A: ein
-additiver insert-only Sidecar-Inventarsnapshot für höchstens 32 bereits
-indexierte direkte Nachbardateien je ArchiveObservation. Sie speichert keine
+ADR-0055 und S-EBAR-07A schließen den W3-019-Abgleich einschließlich eines
+additiven insert-only Sidecar-Inventarsnapshots für höchstens 32 bereits
+indexierte direkte Nachbardateien je ArchiveObservation ab. Er speichert keine
 Namen, Pfade, Inhalte oder Secrets und ändert weder Toolruntime noch
-öffentliches Reportprofil.
+öffentliches Reportprofil. Als nächstes folgt ein enges W10-Vertragsgate für
+eine restartbare Quarantäne; Implementierung und Source-Mutation bleiben bis
+zu dessen Annahme gesperrt.
 FG-A3-MEMBER-BYTE bleibt bis vollständiger Member-SHA-256-Evidence blockiert.
 Passwortversuche bleiben bis FG-A-SECRET blockiert. Jede
 Filesystem-Mutation, mutierende Calibre-Operation und ausführbare W10-Strecke

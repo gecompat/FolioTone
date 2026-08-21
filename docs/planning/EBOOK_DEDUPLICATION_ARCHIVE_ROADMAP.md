@@ -374,7 +374,8 @@ S-EBAR-01 Execution-DTOs
     -> S-EBA3-03 nicht ausführbare Planintegration, abgeschlossen
     -> FG-A3-MEMBER-BYTE, bis vollständige Member-SHA-256 blockiert
     -> FG-A-SIDECAR-PERSISTENCE durch ADR-0055 abgeschlossen
-    -> S-EBAR-07A Sidecar-Inventar-Persistenz, als nächstes
+    -> S-EBAR-07A Sidecar-Inventar-Persistenz, abgeschlossen
+    -> FG-W10-QUARANTINE nächstes docs-only Vertragsgate
 ```
 
 Die mechanischen S-EBAR-Pakete verwenden das im Spark-Katalog jeweils
