@@ -262,6 +262,7 @@ src/foliotone/core/__init__.py
 src/foliotone/persistence/archive_collection_schema.py
 src/foliotone/persistence/archive_collection.py
 src/foliotone/persistence/archive.py
+src/foliotone/persistence/archive_schema.py
 src/foliotone/persistence/schema.py
 src/foliotone/persistence/alembic/versions/0020_archive_collection_runs.py
 src/foliotone/persistence/scan_root_lease.py
@@ -270,6 +271,8 @@ tests/integration/test_archive_collection_persistence.py
 tests/integration/test_scan_root_write_leases.py
 tests/integration/test_database_fixtures.py
 tests/integration/test_persistence.py
+tests/integration/test_archive_persistence.py
+tests/integration/test_classification_migration.py
 ```
 
 ### S-EBAR-08B — Reine Gruppenpartition und restartbare Planung
@@ -307,6 +310,14 @@ und Indexerwartungen von `0019` auf `0020` aktualisieren. Kein späteres Paket
 darf diese beiden Dateien erneut ändern. Keine vorhandene
 Archive-Runtime-, Parser-, Provider-, Extraction- oder Schema-0019-Semantik
 darf gelockert werden.
+
+`test_archive_persistence.py` und `test_classification_migration.py` dürfen
+ausschließlich ihre migrationsspezifischen Upgrade-Tests an das jeweils
+getestete feste Ziel `0019` beziehungsweise `0018` binden, statt versehentlich
+bis zum jeweils aktuellen Head weiterzumigrieren. `archive_schema.py` darf nur
+den geschlossenen Writer-Check um `ARCHIVE_COLLECTION_RUN` erweitern; ohne
+diese Ergänzung würde die in diesem Paket freigegebene Archive-Persistenz trotz
+gültiger Root-Lease an der DDL scheitern.
 
 Pflichttests umfassen:
 
