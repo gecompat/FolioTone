@@ -368,14 +368,16 @@ Speicherersparnis bleiben erhalten. Rohe Fingerprint-Werte verlassen die
 Query-Schicht nicht. ADR-0024 definiert Snapshot-, Datenschutz- und
 Nicht-Mutationsvertrag; eine zusätzliche Persistenzmigration ist nicht nötig.
 
-### Geplante Archive-Evidence-Grenze
+### Entschiedene Archive-Evidence-Grenze
 
-ADR-0038 legt noch keine Migration oder Tabellennamen fest. Spätere
-Archive-Persistenz verwendet dedizierte insert-only Snapshot-Stores für
-`ArchiveObservation`, Volume-Lineage und `ArchiveMemberObservation`. Ein
-Member wird nicht im generischen `FileRecord`-/`FileObservation`-Schema
-gespeichert. Konkrete Source-, Listing- und Extraction-`ToolExecution`-
-Referenzen bleiben erhalten.
+ADR-0052 legt die additive Migration `0019_archive_evidence` mit den fünf
+Tabellen `archive_observations`, `archive_observation_sources`,
+`archive_observation_executions`, `archive_member_observations` und
+`archive_wrapper_lineage` fest. Der dedizierte
+`SQLiteArchiveEvidenceStore` ist insert-only und verwendet niemals den
+generischen Update-by-ID-Pfad. Ein Member wird nicht im generischen
+`FileRecord`-/`FileObservation`-Schema gespeichert. Konkrete Source-, Listing-,
+Integrity- und spätere Extraction-`ToolExecution`-Referenzen bleiben erhalten.
 
 Persistierbar sind ausschließlich opake `SecretHandle`- und
 `secret_version`-Referenzen sowie feste Versuchstatus- und Quellklassen.
@@ -388,9 +390,13 @@ Listing- und Member-Reuse binden mindestens vollständigen Archive-SHA-256,
 Volumegruppenfingerprint, ToolProvider-/Tool-/Adapter-/Parserversion,
 Listing-, Extraction- und Safety-Profil sowie Secret-Version oder `NONE`.
 Ein neueres terminales Fehlerresultat darf keine ältere erfolgreiche
-Ableitung als aktuell erscheinen lassen. Das spätere Migrationsgate muss
-Bounds, Indizes, Idempotenz, Rollback und den Ausschluss des generischen
-Update-by-ID-Pfads konkret festlegen.
+Ableitung als aktuell erscheinen lassen. Wrapper-Reuse bindet zusätzlich die
+festen Image-/Command-/Frameprofile; innerer TAR-Hash und innere Größe bleiben
+content-gebundene Ergebnisevidence.
+Der Store fence-validiert jede atomare Transaktion gegen die vorhandene
+ScanRoot-Write-Lease und rekonstruiert Contenthash, Memberidentitäten und
+Sum-Types beim Read erneut. Bounds, Indizes, Idempotenz, Rollback und
+Downgrade-Guard sind im ADR exakt festgelegt.
 
 ## Current constraints and deferred integrity
 

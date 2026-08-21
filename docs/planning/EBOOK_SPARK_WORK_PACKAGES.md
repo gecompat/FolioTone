@@ -322,8 +322,8 @@ W10-Funktion einführen.
 | S-EBAR-W03 | Read-only Provider-Integration für die vier Wrapper. Erlaubt: `src/foliotone/archive/provider.py` sowie die bestehenden EBAR-05 Unit-/Integrationstests. | Zwei Composite-Executions, identische innere Länge/SHA-256, gelocktes TAR-Listing/Integrity, konservative Statusmatrix und vier gebundene Fixtures. Kein Extraction-Handoff, keine Persistenz, kein Source-Rewrite. | Terra `high`; umgesetzt. Bei Lineage-/Privacy-/Statuskonflikt Sol `high`. |
 | S-EBAR-W04 | Wrapper-Abschluss in Status-, Roadmap-, Safety- und Tooldokumentation. | Fokussierte direkte Archive-Regression, Wrapper-Matrix, Links, Privacy-/Rawstream-Suche und Statuskonsistenz. Keine neue Runtimeentscheidung. | Luna `medium`; abgeschlossen. Bei semantischer Abweichung Terra `medium`. |
 | FG-A-SECRET | Separates dokumentationsbasiertes Gate für Helper, Kanal und tatsächlich unterstützte verschlüsselte Formate. Erlaubt: neue ADR sowie die unmittelbar betroffenen Safety-/Tool-/Planungsdokumente. | Primärquellen, Leakage-Matrix, explizite Handle-Vererbung, Speicherbereinigung und adversarial Fixtureplan; keine Toolausführung im Gate. | Sol `xhigh`; kein niedrigeres Fallback. Ohne technischen Nachweis bleibt `SECURE_CHANNEL_UNAVAILABLE`. |
-| FG-A-PERSISTENCE | Separates Gate benennt immutable Archive-/Member-/Execution-Lineage, Reuse, Tabellen, Indizes, Lease/Fencing und Migration nach dem dann aktuellen Head. Erlaubt: neue ADR und unmittelbar betroffene Planungs-/Persistenzarchitektur-Dokumente. | Schema-, Privacy-, Restart-, Stale-Writer- und Migration-in-place-Widerspruchsprüfung; kein Code und keine Migration im Gate. | Sol `high`; kein Spark-Fallback. Stop bei offener Writer-, Reuse- oder Privacy-Semantik. |
-| S-EBAR-07 | Die durch FG-A-PERSISTENCE exakt benannte additive Migration und der insert-only Archive-Store werden mechanisch umgesetzt. Der Gate-PR legt den exakten Dateibereich fest. | Upgrade vom vorherigen Head, Head-Eindeutigkeit, Insert/read, idempotente Wiederholung, Reuse, atomarer Rollback und keine Raw-/Pfad-/Secretspalten. | Spark `high`; 5.4 Mini, danach Terra als Fallback. Stop bei zusätzlicher Schema- oder Reuse-Entscheidung. |
+| FG-A-PERSISTENCE | Durch ADR-0052 abgeschlossenes Gate für immutable Archive-/Member-/Execution-/Wrapper-Lineage, Reuse, fünf Tabellen, Indizes, Migration `0019_archive_evidence` und ScanRoot-Fencing. | Schema-, Privacy-, Restart-, Stale-Writer- und Migration-in-place-Widerspruchsprüfung; kein Code und keine Migration im Gate. | Sol `high`; abgeschlossen. Kein Spark-Fallback. |
+| S-EBAR-07 | Mechanische Umsetzung von ADR-0052. Erlaubt exakt: `src/foliotone/archive/provider.py`, neue `src/foliotone/persistence/archive_schema.py`, neue `src/foliotone/persistence/archive.py`, neue Migration `0019_archive_evidence.py`, `src/foliotone/persistence/__init__.py`, den bestehenden EBAR-05-Unit-Test, neue `tests/integration/test_archive_persistence.py` und ausschließlich Head-/Tabellen-/Indexerwartungen in den zwei zentralen Persistenztests. | Upgrade 0018→0019, Head-Eindeutigkeit, direkter und Wrapper-Roundtrip, idempotente Wiederholung, vollständige Reuse-/Stale-Matrix, Fencing, atomarer Rollback, bounded Reads und keine Raw-/öffentlichen Locator-/Secretprojektionen. | Spark `high`; als nächstes. 5.4 Mini, danach Terra als Fallback. Stop bei zusätzlicher Schema-, Reuse-, Privacy-, Runtime- oder Authorityentscheidung. |
 | EBAR-08 | Restartbare Collection-Orchestrierung ergänzt Lease/Fencing, Heartbeat und pfadfreie Reports. Der Dateibereich wird durch FG-A-PERSISTENCE festgelegt. | Deterministische Konkurrenz-, stale-Takeover-, Resume-, Keeper-, bounded Batch- und echte SQLite-read-only Reporttests. | Sol `high`; kein Spark-Fallback. Stop bei ungeklärter Writer- oder stale-Fencing-Semantik. |
 | EBAR-09 | Status, Backlog und EB-A2-/EB-A3-Übergang werden nach Gesamtprüfung synchronisiert. Erlaubt: `docs/planning/PROJECT_STATUS.md`, `docs/planning/BACKLOG.md`, Archive-Roadmap und tatsächlich betroffene Referenz. | Link-, Status-, Privacy- und W10-Widerspruchssuche sowie gezielte Archive-Regressionen. | Luna `medium`; semantische Integration Terra `medium`. Kein EB-A3-Start ohne eigenes Gate. |
 
@@ -340,8 +340,8 @@ Docker-Conformancehost beginnen und autorisiert selbst noch keinen Code.
 FG-A-WRAPPER-PIPELINE sowie S-EBAR-W01 bis S-EBAR-W04 sind abgeschlossen und
 autorisieren unabhängig von der blockierten Extractionstrecke nur read-only
 Listing und Integrity. Anschließend legt
-FG-A-PERSISTENCE den exakten Schema- und Writer-Vertrag fest; erst dann darf
-S-EBAR-07 beginnen. FG-A-SECRET bleibt separat blockiert.
+ADR-0052 legt den exakten Schema- und Writer-Vertrag fest; S-EBAR-07 ist der
+nächste mechanische Schritt. FG-A-SECRET bleibt separat blockiert.
 
 ## Abnahme eines Spark-Pakets
 
@@ -426,7 +426,7 @@ FG-A → S-EBA-01..07 → FG-A-RUNTIME → S-EBAR-01..EBAR-05
     → FG-A-WORKSPACE-BACKEND (fail-closed)
     → FG-A-WORKSPACE-BACKEND-REVALIDATION → Plattformpaket
     → S-EBAR-04A → EBAR-06
-    → FG-A-PERSISTENCE → S-EBAR-07..EBAR-09
+    → FG-A-PERSISTENCE, abgeschlossen → S-EBAR-07 als nächstes → EBAR-08..09
 
 separat und weiterhin blockiert:
 FG-A-SECRET → erst danach sichere Passwortversuche

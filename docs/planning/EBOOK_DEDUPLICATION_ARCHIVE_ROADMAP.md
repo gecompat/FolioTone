@@ -296,6 +296,13 @@ nur bounded Listing und Integrity der vier äußeren TAR-Kompressionsformen.
 Sie ist abgeschlossen und erzeugt keine Zwischen-Datei, keinen
 Extraction-Handoff und keinen Write.
 
+FG-A-PERSISTENCE ist durch
+[ADR-0052](../decisions/ADR-0052-immutable-archive-evidence-persistence.md)
+abgeschlossen. S-EBAR-07 implementiert als nächsten Schritt ausschließlich
+die additive Migration `0019_archive_evidence` und den dedizierten
+insert-only Store. Das Paket persistiert direkte und Wrapper-Listing-Evidence,
+autorisiert aber keine Extraction oder Source-Mutation.
+
 **Ziel:** Ein technisch zulässiges Archiv kann in einem ephemeren privaten
 Workspace vollständig geprüft werden.
 
@@ -356,8 +363,8 @@ S-EBAR-01 Execution-DTOs
     -> S-EBAR-W02 bounded Duplex-Containerbroker, abgeschlossen
     -> S-EBAR-W03 read-only Wrapper-Provider, abgeschlossen
     -> S-EBAR-W04 fokussierter Wrapper-Abschluss, abgeschlossen
-    -> FG-A-PERSISTENCE Schema-, Reuse- und Writer-Gate
-    -> S-EBAR-07 Persistenz
+    -> FG-A-PERSISTENCE Schema-, Reuse- und Writer-Gate, abgeschlossen
+    -> S-EBAR-07 Persistenz, als nächstes
     -> EBAR-08 Collection-Orchestrierung
     -> EBAR-09 Abschluss und EB-A3-Übergang
 ```

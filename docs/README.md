@@ -62,6 +62,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0031](decisions/ADR-0031-persisted-relation-candidates-and-review-reuse.md) definiert insert-only Relation-Candidate-Snapshots, konkrete Feature-Evidence und kompatible Matching-Review-Wiederverwendung.
 - [ADR-0032](decisions/ADR-0032-bounded-offline-ebook-matching-workflow.md) definiert den begrenzten Offline-Matching-Workflow, path-freie Review-CLI und weiterhin deaktivierte bibliografische Auto-Confirmation.
 - [ADR-0033](decisions/ADR-0033-read-only-calibredb-library-reconciliation.md) definiert die festen lokalen read-only `calibredb`-Shapes, konsistente Library-Snapshots sowie Calibre-Ownership- und Sidecar-Evidence.
+- [ADR-0052](decisions/ADR-0052-immutable-archive-evidence-persistence.md) definiert die additive insert-only Archive-Evidence-Persistenz mit exakter Source-/Execution-/Wrapper-Lineage, Reuse und ScanRoot-Fencing.
 
 ## Qualität, Sprache und Dokumentationsregeln
 
