@@ -8,6 +8,7 @@ consumers.
 
 from __future__ import annotations
 
+import math
 import os
 import signal
 import subprocess
@@ -75,8 +76,53 @@ class RunningProcess(Protocol):
 class ProcessLauncher(Protocol):
     def start(self, argv: tuple[str, ...], environment: Mapping[str, str]) -> RunningProcess: ...
 
+    def start_with_stdin(
+        self, argv: tuple[str, ...], environment: Mapping[str, str]
+    ) -> WritableRunningProcess: ...
+
+
+class WritableRunningProcess(RunningProcess, Protocol):
+    def write_stdin(self, chunk: bytes) -> None: ...
+
+    def close_stdin(self) -> None: ...
+
 
 ByteConsumer = Callable[[bytes], bool | None]
+StreamFinalizer = Callable[[], bool | None]
+
+
+@dataclass(frozen=True, slots=True)
+class DuplexProcessExecutionResult:
+    """Path-free terminal information for one producer-consumer pipeline."""
+
+    status: ArchiveProcessStatus
+    producer_exit_code: int | None
+    consumer_exit_code: int | None
+    stream_bytes: int
+    producer_stderr_bytes: int
+    consumer_stdout_bytes: int
+    consumer_stderr_bytes: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.status, ArchiveProcessStatus):
+            raise ValueError("status must be ArchiveProcessStatus")
+        for value in (self.producer_exit_code, self.consumer_exit_code):
+            if value is not None and (
+                isinstance(value, bool) or not isinstance(value, int)
+            ):
+                raise ValueError("exit codes must be integers or None")
+        for value in (
+            self.stream_bytes,
+            self.producer_stderr_bytes,
+            self.consumer_stdout_bytes,
+            self.consumer_stderr_bytes,
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError("stream byte counts must be non-negative integers")
+        if self.status is ArchiveProcessStatus.SUCCEEDED and (
+            self.producer_exit_code != 0 or self.consumer_exit_code != 0
+        ):
+            raise ValueError("successful duplex result requires two zero exits")
 
 
 class ArchiveProcessRunner:
@@ -230,6 +276,253 @@ class ArchiveProcessRunner:
             if not closed:
                 process.close()
 
+    def run_duplex(
+        self,
+        producer_argv: Sequence[str],
+        consumer_argv: Sequence[str],
+        *,
+        environment: Mapping[str, str],
+        timeout_seconds: float,
+        max_stream_bytes: int,
+        max_producer_stderr_bytes: int,
+        max_consumer_stdout_bytes: int,
+        max_consumer_stderr_bytes: int,
+        stream_consumer: ByteConsumer,
+        stream_finalizer: StreamFinalizer,
+        consumer_stdout_consumer: ByteConsumer,
+        producer_stderr_consumer: ByteConsumer,
+        consumer_stderr_consumer: ByteConsumer,
+        cancellation: CancellationProbe | None = None,
+    ) -> DuplexProcessExecutionResult:
+        producer_command = _validated_argv(producer_argv)
+        consumer_command = _validated_argv(consumer_argv)
+        clean_environment = _validated_environment(environment)
+        _require_positive_number(timeout_seconds, "timeout_seconds")
+        for value, label in (
+            (max_stream_bytes, "max_stream_bytes"),
+            (max_producer_stderr_bytes, "max_producer_stderr_bytes"),
+            (max_consumer_stdout_bytes, "max_consumer_stdout_bytes"),
+            (max_consumer_stderr_bytes, "max_consumer_stderr_bytes"),
+        ):
+            _require_nonnegative_int(value, label)
+
+        consumer = self._launcher.start_with_stdin(consumer_command, clean_environment)
+        try:
+            producer = self._launcher.start(producer_command, clean_environment)
+        except Exception:
+            _try_kill_tree(consumer)
+            try:
+                consumer.close_stdin()
+            except Exception:
+                pass
+            try:
+                consumer.close()
+            except Exception:
+                pass
+            raise
+
+        counters = {
+            "stream": 0,
+            "producer_stderr": 0,
+            "consumer_stdout": 0,
+            "consumer_stderr": 0,
+        }
+        failures: list[ArchiveProcessStatus] = []
+        failure_event = threading.Event()
+        lock = threading.Lock()
+
+        def fail(status: ArchiveProcessStatus) -> None:
+            with lock:
+                failures.append(status)
+                failure_event.set()
+
+        def pump_stream() -> None:
+            try:
+                while not failure_event.is_set():
+                    chunk = producer.read_stdout(_READ_CHUNK_BYTES)
+                    if not chunk:
+                        if stream_finalizer() is False:
+                            fail(ArchiveProcessStatus.CONSUMER_REJECTED)
+                        return
+                    if not isinstance(chunk, bytes):
+                        fail(ArchiveProcessStatus.CONSUMER_REJECTED)
+                        return
+                    with lock:
+                        next_count = counters["stream"] + len(chunk)
+                        counters["stream"] = next_count
+                    if next_count > max_stream_bytes:
+                        fail(ArchiveProcessStatus.LIMIT_EXCEEDED)
+                        return
+                    if stream_consumer(chunk) is False:
+                        fail(ArchiveProcessStatus.CONSUMER_REJECTED)
+                        return
+                    consumer.write_stdin(chunk)
+            except Exception:
+                fail(ArchiveProcessStatus.CONSUMER_REJECTED)
+            finally:
+                try:
+                    consumer.close_stdin()
+                except Exception:
+                    fail(ArchiveProcessStatus.CONSUMER_REJECTED)
+
+        def consume_stream(
+            name: str,
+            reader: Callable[[int], bytes],
+            limit: int,
+            consumer_callback: ByteConsumer,
+        ) -> None:
+            try:
+                while not failure_event.is_set():
+                    chunk = reader(_READ_CHUNK_BYTES)
+                    if not chunk:
+                        return
+                    if not isinstance(chunk, bytes):
+                        fail(ArchiveProcessStatus.CONSUMER_REJECTED)
+                        return
+                    with lock:
+                        next_count = counters[name] + len(chunk)
+                        counters[name] = next_count
+                    if next_count > limit:
+                        fail(ArchiveProcessStatus.LIMIT_EXCEEDED)
+                        return
+                    if consumer_callback(chunk) is False:
+                        fail(ArchiveProcessStatus.CONSUMER_REJECTED)
+                        return
+            except Exception:
+                fail(ArchiveProcessStatus.CONSUMER_REJECTED)
+
+        readers = (
+            threading.Thread(target=pump_stream),
+            threading.Thread(
+                target=consume_stream,
+                args=(
+                    "producer_stderr",
+                    producer.read_stderr,
+                    max_producer_stderr_bytes,
+                    producer_stderr_consumer,
+                ),
+            ),
+            threading.Thread(
+                target=consume_stream,
+                args=(
+                    "consumer_stdout",
+                    consumer.read_stdout,
+                    max_consumer_stdout_bytes,
+                    consumer_stdout_consumer,
+                ),
+            ),
+            threading.Thread(
+                target=consume_stream,
+                args=(
+                    "consumer_stderr",
+                    consumer.read_stderr,
+                    max_consumer_stderr_bytes,
+                    consumer_stderr_consumer,
+                ),
+            ),
+        )
+        for reader in readers:
+            reader.start()
+
+        deadline = self._monotonic() + timeout_seconds
+        status: ArchiveProcessStatus | None = None
+        producer_exit: int | None = None
+        consumer_exit: int | None = None
+        termination_failed = False
+        processes_closed = False
+        try:
+            while producer_exit is None or consumer_exit is None:
+                if failure_event.is_set():
+                    with lock:
+                        status = _stream_failure_precedence(failures)
+                    break
+                if cancellation is not None:
+                    try:
+                        if cancellation.is_set():
+                            status = ArchiveProcessStatus.CANCELLED
+                            break
+                    except Exception:
+                        status = ArchiveProcessStatus.FAILED
+                        break
+                remaining = deadline - self._monotonic()
+                if remaining <= 0:
+                    status = ArchiveProcessStatus.TIMED_OUT
+                    break
+                if producer_exit is None:
+                    producer_exit = producer.wait(min(remaining, 0.02))
+                    if producer_exit not in (None, 0):
+                        status = ArchiveProcessStatus.FAILED
+                        break
+                if consumer_exit is None:
+                    consumer_exit = consumer.wait(min(remaining, 0.02))
+                    if consumer_exit is not None and producer_exit is None:
+                        status = ArchiveProcessStatus.FAILED
+                        break
+                    if consumer_exit not in (None, 0):
+                        status = ArchiveProcessStatus.FAILED
+                        break
+
+            if status is not None:
+                failure_event.set()
+                if not _try_kill_tree(producer):
+                    termination_failed = True
+                if not _try_kill_tree(consumer):
+                    termination_failed = True
+                try:
+                    consumer.close_stdin()
+                except Exception:
+                    termination_failed = True
+
+            if producer_exit is None:
+                producer_exit = producer.wait(_PROCESS_STOP_SECONDS)
+            if consumer_exit is None:
+                consumer_exit = consumer.wait(_PROCESS_STOP_SECONDS)
+            if producer_exit is None or consumer_exit is None:
+                _try_kill_tree(producer)
+                _try_kill_tree(consumer)
+                termination_failed = True
+
+            for reader in readers:
+                reader.join(_PROCESS_STOP_SECONDS)
+            if any(reader.is_alive() for reader in readers):
+                failure_event.set()
+                _try_kill_tree(producer)
+                _try_kill_tree(consumer)
+                try:
+                    producer.close()
+                    consumer.close()
+                    processes_closed = True
+                except Exception:
+                    termination_failed = True
+                for reader in readers:
+                    reader.join(_PROCESS_STOP_SECONDS)
+                termination_failed = True
+
+            with lock:
+                if termination_failed:
+                    status = ArchiveProcessStatus.FAILED
+                elif status is None and failures:
+                    status = _stream_failure_precedence(failures)
+            if status is None:
+                status = (
+                    ArchiveProcessStatus.SUCCEEDED
+                    if producer_exit == 0 and consumer_exit == 0
+                    else ArchiveProcessStatus.FAILED
+                )
+            return DuplexProcessExecutionResult(
+                status,
+                producer_exit,
+                consumer_exit,
+                counters["stream"],
+                counters["producer_stderr"],
+                counters["consumer_stdout"],
+                counters["consumer_stderr"],
+            )
+        finally:
+            if not processes_closed:
+                producer.close()
+                consumer.close()
+
 
 class SubprocessLauncher:
     """No-shell launcher with a new POSIX process group for tree termination."""
@@ -246,6 +539,21 @@ class SubprocessLauncher:
             start_new_session=os.name == "posix",
         )
         return _SubprocessHandle(process)
+
+    def start_with_stdin(
+        self, argv: tuple[str, ...], environment: Mapping[str, str]
+    ) -> WritableRunningProcess:
+        process = subprocess.Popen(  # noqa: S603 - argv is closed by the caller contract
+            argv,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=dict(environment),
+            shell=False,
+            close_fds=True,
+            start_new_session=os.name == "posix",
+        )
+        return _WritableSubprocessHandle(process)
 
 
 class _SubprocessHandle:
@@ -282,6 +590,31 @@ class _SubprocessHandle:
     def close(self) -> None:
         self._stdout.close()
         self._stderr.close()
+
+
+class _WritableSubprocessHandle(_SubprocessHandle):
+    def __init__(self, process: subprocess.Popen[bytes]) -> None:
+        super().__init__(process)
+        if process.stdin is None:
+            raise RuntimeError("duplex process requires an input pipe")
+        self._stdin = cast(BinaryIO, process.stdin)
+
+    def write_stdin(self, chunk: bytes) -> None:
+        offset = 0
+        while offset < len(chunk):
+            written = self._stdin.write(chunk[offset:])
+            if written is None or written <= 0:
+                raise BrokenPipeError("duplex process stdin closed")
+            offset += written
+        self._stdin.flush()
+
+    def close_stdin(self) -> None:
+        if not self._stdin.closed:
+            self._stdin.close()
+
+    def close(self) -> None:
+        self.close_stdin()
+        super().close()
 
 
 def discard_process_bytes(_chunk: bytes) -> bool:
@@ -325,7 +658,12 @@ def _validated_environment(environment: Mapping[str, str]) -> dict[str, str]:
 
 
 def _require_positive_number(value: float, label: str) -> None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value <= 0
+    ):
         raise ValueError(f"{label} must be positive")
 
 
