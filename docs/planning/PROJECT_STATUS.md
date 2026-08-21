@@ -177,7 +177,8 @@ FG-A-PERSISTENCE ist durch ADR-0052 abgeschlossen. Die additive Migration
 `0019_archive_evidence` erhält fünf dedizierte insert-only Tabellen für
 Archive-, Source-, Execution-, Member- und optionale Wrapper-Lineage. Der
 Store bindet vollständige Sourcehashes, Tool-/Parser-/Formatlockprofile,
-Wrapper-Innenstream und bestehendes ScanRoot-Fencing. Fehler-Snapshots bleiben
+vollständige Signature-/Suffix-/Parserfall-Achsen, Wrapper-Innenstream und
+bestehendes ScanRoot-Fencing. Fehler-Snapshots bleiben
 auditierbar, maskieren aber keinen älteren exakt kompatiblen Erfolg. S-EBAR-07
 ist der nächste mechanische Archive-Schritt; Extraction, Secretkanal,
 Source-Mutation und Collection-Orchestrierung werden dadurch nicht

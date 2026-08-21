@@ -61,13 +61,19 @@ archive_content_fingerprint
 volume_group_fingerprint
 signature_profile
 compatibility_profile
+container_class
+suffix_kind
 publication_kind
 storage_family
 outer_compression_kind
 recognition_status
+inspected_bytes
+structural_confirmation_required
 provider_profile
 runner_profile
 parser_profile
+parser_status
+format_case_kind
 format_lock_profile
 format_lock_sha256
 listing_profile
@@ -105,6 +111,21 @@ exakt mit den Kindzeilen überein.
 und bereits an die privaten Memberprojektionen bindet. Sie ist Teil des
 gehashten Snapshotmaterials. `content_hash` ist keine alternative ID und darf
 nicht öffentlich berichtet werden.
+
+Die Signature-Lineage ist vollständig: `container_class`, `suffix_kind`,
+Publication, Storage, äußere Kompression, Recognition, `inspected_bytes` und
+`structural_confirmation_required` müssen exakt dieselbe gültige
+`ArchiveSignatureObservationV2` ergeben. Damit kann eine Umbenennung oder eine
+andere Publication-/Suffixprojektion nicht unter unveränderten Sourcebytes
+still wiederverwendet werden. `inspected_bytes` liegt zwischen `0` und `512`.
+
+`parser_status` stammt aus `ArchiveSevenZipSltParseStatus`. Genau bei
+`PARSED` ist `format_case_kind` gesetzt und gehört zur final gelockten
+`(parser storage family, format case)`-Zelle; bei allen anderen Parserstatus
+ist es `NULL`. Bei Wrappern ist die Parser-Storage-Familie die in
+`archive_wrapper_lineage` gebundene innere Familie `TAR`, nicht die
+Source-Storage-Familie `UNKNOWN`. Ohne diese Achsen ist ein Snapshot weder
+persistierbar noch wiederverwendbar.
 
 Für v1 gelten ausschließlich folgende feste Produktionsidentitäten:
 
@@ -293,7 +314,8 @@ secret_version
 ```
 
 Die Persistenzquery verlangt zusätzlich exakte Signature-, Compatibility-,
-Provider-, Runner- und Formatlockidentitäten. Bei Wrappern müssen außerdem
+Provider-, Runner-, Parserstatus-/Formatfall- und Formatlockidentitäten. Bei
+Wrappern müssen außerdem
 Frame-, Image- und alle drei Commandidentitäten kompatibel sein. Der
 persistierte innere Hash und die innere Größe sind content-gebundene
 Ergebnisevidence und werden beim Read revalidiert; sie müssen für den
@@ -413,7 +435,8 @@ Pflichttests sind:
 - exakte Wiederholung, ID-/Hashkollision und injizierter Rollback nach jeder
   Kindtabellenphase;
 - fremder Root/Run/Filehash, fehlender oder falscher ToolExecution-Status,
-  nichtkontiguierliche Members und manipulierte Wrapperlineage;
+  nichtkontiguierliche Members, Signature-/Suffix-/Parserfall-Drift und
+  manipulierte Wrapperlineage;
 - verlorenes, abgelaufenes und übernommenes Writer-Fence;
 - erfolgreicher Reuse trotz neuerem Fehler sowie Stale-Fälle für jede
   materielle Schlüssel-/Compatibilityachse;
