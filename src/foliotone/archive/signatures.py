@@ -105,6 +105,14 @@ class ArchiveListingStatus(StrEnum):
     POLICY_REJECTED = "POLICY_REJECTED"
 
 
+class ArchiveVolumePartitionFinding(StrEnum):
+    MISSING_VOLUME = "MISSING_VOLUME"
+    UNSUPPORTED_VOLUME = "UNSUPPORTED_VOLUME"
+    AMBIGUOUS_VOLUME = "AMBIGUOUS_VOLUME"
+    NAME_COLLISION = "NAME_COLLISION"
+    ORPHAN_VOLUME = "ORPHAN_VOLUME"
+
+
 @dataclass(frozen=True, slots=True)
 class ArchiveSignatureObservation:
     profile: str
@@ -219,6 +227,26 @@ class ArchiveVolumeGroup:
                 raise ValueError("complete volume groups require a canonical entry")
         elif self.entry_name is not None:
             raise ValueError("incomplete volume groups cannot expose an entry")
+
+
+@dataclass(frozen=True, slots=True)
+class ArchiveVolumePartition:
+    groups: tuple[ArchiveVolumeGroup, ...]
+    findings: tuple[ArchiveVolumePartitionFinding, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.groups, tuple) or any(
+            not isinstance(group, ArchiveVolumeGroup) for group in self.groups
+        ):
+            raise ValueError("archive volume partition groups are invalid")
+        if not isinstance(self.findings, tuple) or any(
+            not isinstance(finding, ArchiveVolumePartitionFinding)
+            for finding in self.findings
+        ):
+            raise ValueError("archive volume partition findings are invalid")
+        members = tuple(member for group in self.groups for member in group.members)
+        if len(members) != len(set(members)):
+            raise ValueError("archive volume partition reuses an input")
 
 
 _ZIP_SIGNATURES: Final = (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")
@@ -457,6 +485,95 @@ def group_archive_volume_names(names: Iterable[str]) -> ArchiveVolumeGroup:
     if len(results) != 1:
         return ArchiveVolumeGroup(ArchiveListingStatus.POLICY_REJECTED)
     return results[0]
+
+
+def partition_archive_volume_names(names: Iterable[str]) -> ArchiveVolumePartition:
+    """Consume one private parent directory into disjoint deterministic groups."""
+
+    materialized = tuple(_require_basename(name) for name in names)
+    by_fold: dict[str, list[str]] = {}
+    for name in materialized:
+        by_fold.setdefault(name.casefold(), []).append(name)
+    collisions = {fold for fold, values in by_fold.items() if len(values) > 1}
+    consumed = {
+        name for fold in collisions for name in by_fold[fold]
+    }
+    findings: list[ArchiveVolumePartitionFinding] = [
+        ArchiveVolumePartitionFinding.NAME_COLLISION for _ in sorted(collisions)
+    ]
+    available = tuple(name for name in materialized if name not in consumed)
+    lower_lookup = {name.casefold(): name for name in available}
+    schemes: dict[str, dict[str, tuple[str, ...]]] = {}
+
+    def add_scheme(logical: str, family: str, members: tuple[str, ...]) -> None:
+        schemes.setdefault(logical.casefold(), {})[family] = members
+
+    new_rar: dict[str, list[str]] = {}
+    seven_z: dict[str, list[str]] = {}
+    old_rar: dict[str, list[str]] = {}
+    split_zip: dict[str, list[str]] = {}
+    for name in available:
+        if match := _NEW_RAR.fullmatch(name):
+            new_rar.setdefault(match.group("stem").casefold(), []).append(name)
+        if match := _SEVEN_Z_PART.fullmatch(name):
+            seven_z.setdefault(match.group("stem").casefold(), []).append(name)
+        if match := _OLD_RAR_PART.fullmatch(name):
+            old_rar.setdefault(match.group("stem").casefold(), []).append(name)
+        if match := _SPLIT_ZIP_PART.fullmatch(name):
+            split_zip.setdefault(match.group("stem").casefold(), []).append(name)
+    for stem, bucket_members in new_rar.items():
+        add_scheme(stem, "NEW_RAR", tuple(bucket_members))
+        if entry := lower_lookup.get(f"{stem}.rar"):
+            add_scheme(stem, "DIRECT_RAR_CONFLICT", (entry,))
+    for stem, bucket_members in seven_z.items():
+        add_scheme(stem, "SEVEN_Z", tuple(bucket_members))
+        if entry := lower_lookup.get(f"{stem}.7z"):
+            add_scheme(stem, "DIRECT_SEVEN_Z_CONFLICT", (entry,))
+    for stem, bucket_members in old_rar.items():
+        entry = lower_lookup.get(f"{stem}.rar")
+        prefix = () if entry is None else (entry,)
+        add_scheme(stem, "OLD_RAR", (*prefix, *bucket_members))
+    for stem, bucket_members in split_zip.items():
+        entry = lower_lookup.get(f"{stem}.zip")
+        prefix = () if entry is None else (entry,)
+        add_scheme(stem, "SPLIT_ZIP", (*prefix, *bucket_members))
+
+    groups: list[ArchiveVolumeGroup] = []
+    for logical in sorted(schemes):
+        families = schemes[logical]
+        family_members = {name for values in families.values() for name in values}
+        if len(families) != 1:
+            consumed.update(family_members)
+            findings.append(ArchiveVolumePartitionFinding.AMBIGUOUS_VOLUME)
+            continue
+        family, family_sources = next(iter(families.items()))
+        consumed.update(family_sources)
+        if family in {"OLD_RAR", "SPLIT_ZIP"}:
+            suffix = ".rar" if family == "OLD_RAR" else ".zip"
+            if not any(name.casefold() == f"{logical}{suffix}" for name in family_sources):
+                findings.append(ArchiveVolumePartitionFinding.ORPHAN_VOLUME)
+                continue
+        if len(family_sources) > MAX_ARCHIVE_VOLUMES:
+            findings.append(ArchiveVolumePartitionFinding.UNSUPPORTED_VOLUME)
+            continue
+        observed = group_archive_volume_names(family_sources)
+        if observed.status is ArchiveListingStatus.MISSING_VOLUME:
+            findings.append(ArchiveVolumePartitionFinding.MISSING_VOLUME)
+        elif observed.status is ArchiveListingStatus.POLICY_REJECTED:
+            findings.append(ArchiveVolumePartitionFinding.AMBIGUOUS_VOLUME)
+        else:
+            groups.append(observed)
+
+    for name in sorted(
+        (name for name in available if name not in consumed),
+        key=lambda value: (value.casefold(), value),
+    ):
+        if _suffix_kind(name.lower()) is not ArchiveSuffixKind.OTHER:
+            groups.append(ArchiveVolumeGroup(ArchiveListingStatus.LISTED, name, (name,)))
+
+    groups.sort(key=lambda group: ((group.entry_name or "").casefold(), group.entry_name or ""))
+    findings.sort(key=lambda finding: finding.value)
+    return ArchiveVolumePartition(tuple(groups), tuple(findings))
 
 
 def _observation(

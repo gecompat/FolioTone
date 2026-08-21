@@ -25,6 +25,10 @@ from foliotone.archive import (
     observe_archive_signature,
     observe_archive_signature_v2,
 )
+from foliotone.archive.signatures import (
+    ArchiveVolumePartitionFinding,
+    partition_archive_volume_names,
+)
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "archive" / "v1" / "archive_cases.json"
 
@@ -122,6 +126,50 @@ def test_ambiguous_or_inconsistent_volume_names_are_policy_rejected(
 def test_volume_input_is_consumed_only_to_the_documented_bound() -> None:
     observed = group_archive_volume_names(repeat("book.part001.rar"))
     assert observed.status is ArchiveListingStatus.POLICY_REJECTED
+
+
+def test_volume_partition_is_disjoint_ordered_and_keeps_split_zip_unsupported() -> None:
+    observed = partition_archive_volume_names(
+        (
+            "other.tar",
+            "book.part02.rar",
+            "split.zip",
+            "book.part01.rar",
+            "split.z01",
+            "single.cbz",
+        )
+    )
+    assert observed.findings == ()
+    assert tuple(group.entry_name for group in observed.groups) == (
+        "book.part01.rar",
+        "other.tar",
+        "single.cbz",
+        "split.zip",
+    )
+    split = observed.groups[-1]
+    assert split.status is ArchiveListingStatus.UNSUPPORTED_FORMAT
+    assert split.members == ("split.z01", "split.zip")
+
+
+def test_volume_partition_counts_gap_orphan_collision_and_ambiguity() -> None:
+    observed = partition_archive_volume_names(
+        (
+            "gap.7z.001",
+            "gap.7z.003",
+            "orphan.r00",
+            "Case.zip",
+            "case.ZIP",
+            "mixed.part01.rar",
+            "mixed.rar",
+        )
+    )
+    assert observed.groups == ()
+    assert observed.findings == (
+        ArchiveVolumePartitionFinding.AMBIGUOUS_VOLUME,
+        ArchiveVolumePartitionFinding.MISSING_VOLUME,
+        ArchiveVolumePartitionFinding.NAME_COLLISION,
+        ArchiveVolumePartitionFinding.ORPHAN_VOLUME,
+    )
 
 
 @pytest.mark.parametrize(
