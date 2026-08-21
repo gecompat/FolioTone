@@ -2579,18 +2579,18 @@ ohne die Fähigkeit, Source Media zu verändern.
 
 # 42. Empfohlener unmittelbarer nächster Implementierungsschritt
 
-Die book-only Wellen EB-00 bis EB-08/W9 sind abgeschlossen. FG-A,
-S-EBA-01 bis S-EBA-07, FG-A-RUNTIME, S-EBAR-01 bis S-EBAR-03A, FG-A-IMAGE,
-FG-A-RUNTIME-AVAILABILITY, EBAR-04, S-EBAR-02A, S-EBAR-02B und S-EBAR-02B2
-sind abgeschlossen. ADR-0046 entscheidet FG-A-STORAGE-FAMILY. ADR-0045 ist
-akzeptiert, hält FG-A-FORMAT-LOCK aber ausdrücklich offen. Unmittelbar als
-Nächstes folgt:
+Die book-only Wellen EB-00 bis EB-08/W9 sind abgeschlossen. Die read-only
+Archivstrecke ist durch Formatlock, produktiven Parser/Provider, immutable
+Persistenz, Collection-Orchestrierung und Status umgesetzt. ADR-0054 sowie
+S-EBA3-01 bis S-EBA3-03 schließen zusätzlich die generische
+Source-Dependency-Strecke und integrieren sie ausschließlich in nicht
+ausführbare Pläne.
 
-**FG-A-FORMAT-LOCK – finaler maschinenlesbarer Storage-Family-/Fall-Lock mit
-getrenntem Digest und strikt verify-only Workflowprüfung.**
-
-Danach folgt S-EBAR-02C strikt in Katalogreihenfolge.
-Die produktive Formatparserstrecke ist noch nicht implementiert.
+Der nächste unblocked Koordinationsschritt ist der fokussierte Abgleich von
+`W3-019` gegen die inzwischen umgesetzte Archive-Persistenz und
+Collection-Berichterstattung. Er darf nur bestehende Evidence bestätigen oder
+eine klar begrenzte Restlücke festhalten; er autorisiert keine Extraction.
+FG-A3-MEMBER-BYTE bleibt bis vollständiger Member-SHA-256-Evidence blockiert.
 Passwortversuche bleiben bis FG-A-SECRET blockiert. Jede
 Filesystem-Mutation, mutierende Calibre-Operation und ausführbare W10-Strecke
 bleibt ausgeschlossen.

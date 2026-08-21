@@ -1,9 +1,10 @@
 # Spark-Arbeitspakete für die E-Book-Endgerade
 
-**Status:** In Ausführung; S-EBA-01 bis S-EBA-07, S-EBAR-01 bis
-S-EBAR-03A, EBAR-04, S-EBAR-02A bis S-EBAR-02C und EBAR-05 abgeschlossen;
-FG-A-STORAGE-FAMILY, FG-A-FORMAT-LOCK und
-FG-A-EXTRACTION-LIFECYCLE entschieden; S-EBAR-05A als nächstes Paket
+**Status:** In Ausführung; die read-only Archive-Strecke bis EBAR-09 sowie
+FG-A3-MATCHING und S-EBA3-01 bis S-EBA3-03 sind abgeschlossen.
+Member-Byte-Identity, Extraction, Secrets und W10 bleiben getrennt blockiert;
+als Nächstes wird der verbliebene W3-019-Status gegen die implementierte
+Persistenz und Berichterstattung abgeglichen.
 
 **Stand:** 2026-08-20
 
@@ -331,9 +332,9 @@ W10-Funktion einführen.
 | S-EBAR-08D | Read-only Archive-Collection-Status und CLI-Abschluss im exakten ADR-0053-Scope. | Echte SQLite-mode-ro-Tests, vollständige Counts, Determinismus sowie path-/locator-/hash-/secret-freie Ausgabe und generische Fehler. | Terra `medium`; abgeschlossen. |
 | EBAR-09 | Status, Backlog und EB-A2-/EB-A3-Übergang werden nach Gesamtprüfung synchronisiert. Erlaubt: `docs/planning/PROJECT_STATUS.md`, `docs/planning/BACKLOG.md`, Archive-Roadmap und tatsächlich betroffene Referenz. | Link-, Status-, Privacy- und W10-Widerspruchssuche sowie gezielte Archive-Regressionen. | Luna `medium`; abgeschlossen. Kein EB-A3-Start ohne eigenes Gate. |
 | FG-A3-MATCHING | Durch ADR-0054 abgeschlossenes Frontier-Gate für die Trennung belegbarer Archive-Source-Dependencies von noch unbekannter Member-Byte-Identity. | Exakte Ebenenmatrix, Publication-Grenze, `KNOWN_PRESENT`/`UNKNOWN`, kanonischer Fingerprint, Persistence-Revalidierung und blockiertes FG-A3-MEMBER-BYTE; keine Identity- oder W10-Autorisierung. | Sol `high`; abgeschlossen. Kein niedrigeres Fallback für die Matching-Entscheidung. |
-| S-EBA3-01 | Reiner Vertrag `consolidation-archive-dependency/v1`. Erlaubt: neue `src/foliotone/consolidation/archive_dependencies.py`, `src/foliotone/consolidation/__init__.py` und neue fokussierte Unit-Testdatei. | Immutable bounded DTOs, kanonische Source-Bindings, exakte Statusmatrix und domain-separierter Fingerprint; kein I/O. | Spark `high`; 5.4 Mini, danach Terra. Als nächstes. |
-| S-EBA3-02 | Bounded Archive-Source-Query und unabhängige Consolidation-Store-Revalidierung. Erlaubt: `src/foliotone/persistence/archive.py`, `src/foliotone/persistence/consolidation.py` und eine neue Integrationstestdatei. | Höchstens zwei explizite FileObservation-IDs, vorhandene Indizes, `ARCHIVE_OBSERVATION`-Allowlist, Root-/Scan-/Source-/Publication-/Fingerprint-Bindung; keine Migration. | Terra `high`; Fallback 5.4. Stop bei Schema- oder Indexbedarf. |
-| S-EBA3-03 | Nicht ausführbare Planintegration für die zwei Endpunkte eines vorhandenen actionable `EXACT_DUPLICATE`. Erlaubt: neue `src/foliotone/workflows/archive_consolidation.py`, `src/foliotone/consolidation/planner.py` sowie eine Unit- und die S02-Integrationstestdatei. | Candidate-Sourcegraph blockiert, Keeper-Dependency bleibt als Unchanged-Precondition, Publication und fehlende Member-Coverage bleiben `UNKNOWN`; keine neue Relation, Reviewentscheidung oder Ausführung. | Terra `high`; Fallback 5.4. Stop bei Änderung von `consolidation-plan/v1`. |
+| S-EBA3-01 | Reiner Vertrag `consolidation-archive-dependency/v1`. Erlaubt: neue `src/foliotone/consolidation/archive_dependencies.py`, `src/foliotone/consolidation/__init__.py` und neue fokussierte Unit-Testdatei. | Immutable bounded DTOs, kanonische Source-Bindings, exakte Statusmatrix und domain-separierter Fingerprint; kein I/O. | Spark `high`; abgeschlossen. |
+| S-EBA3-02 | Bounded Archive-Source-Query und unabhängige Consolidation-Store-Revalidierung. Erlaubt: `src/foliotone/persistence/archive.py`, `src/foliotone/persistence/consolidation.py` und eine neue Integrationstestdatei. | Höchstens zwei explizite FileObservation-IDs, vorhandene Indizes, `ARCHIVE_OBSERVATION`-Allowlist, Root-/Scan-/Source-/Publication-/Fingerprint-Bindung; keine Migration. | Terra `high`; abgeschlossen. |
+| S-EBA3-03 | Nicht ausführbare Planintegration für die zwei Endpunkte eines vorhandenen actionable `EXACT_DUPLICATE`. Erlaubt: neue `src/foliotone/workflows/archive_consolidation.py`, `src/foliotone/consolidation/planner.py` sowie eine Unit- und die S02-Integrationstestdatei. | Candidate-Sourcegraph blockiert, Keeper-Dependency bleibt als Unchanged-Precondition, Publication und fehlende Member-Coverage bleiben `UNKNOWN`; keine neue Relation, Reviewentscheidung oder Ausführung. | Terra `high`; abgeschlossen. `consolidation-plan/v1` blieb unverändert. |
 | FG-A3-MEMBER-BYTE | Separates späteres Frontier-Gate für vollständige Member-SHA-256 durch bounded Extraction oder einen eigenständig akzeptierten Streaming-Hash-Vertrag. | Keine CRC-/Größen-/Locator-Ersatzidentity; vollständige Execution-/Tool-/Parser-/Formatlock-/Source-Lineage und Coverage-Grenze. | Sol `high`; blockiert, kein niedrigeres Fallback. |
 
 S-EBAR-01 bis S-EBAR-03A, EBAR-04, S-EBAR-02A bis S-EBAR-02C und EBAR-05
@@ -350,8 +351,9 @@ FG-A-WRAPPER-PIPELINE sowie S-EBAR-W01 bis S-EBAR-W04 sind abgeschlossen und
 autorisieren unabhängig von der blockierten Extractionstrecke nur read-only
 Listing und Integrity. ADR-0052 legt den exakten Schema- und Writer-Vertrag
 fest; S-EBAR-07 und FG-A-COLLECTION-ORCHESTRATION sind abgeschlossen.
-S-EBAR-08A bis 08D und EBAR-09 sind abgeschlossen. ADR-0054 schließt
-FG-A3-MATCHING; S-EBA3-01 ist der nächste mechanische Schritt.
+S-EBAR-08A bis 08D und EBAR-09 sind abgeschlossen. ADR-0054 sowie
+S-EBA3-01 bis S-EBA3-03 schließen die generische Source-Dependency-Strecke;
+FG-A3-MEMBER-BYTE bleibt bis zu vollständiger Member-SHA-256-Evidence blockiert.
 FG-A-SECRET bleibt separat
 blockiert.
 

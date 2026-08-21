@@ -2,13 +2,12 @@
 
 ## Status und Geltungsbereich
 
-**Status:** In Ausführung; FG-A, S-EBA-01 bis S-EBA-07, FG-A-RUNTIME,
-S-EBAR-01 bis S-EBAR-03A, FG-A-IMAGE, FG-A-RUNTIME-AVAILABILITY, EBAR-04,
-S-EBAR-02A bis S-EBAR-02C und EBAR-05 abgeschlossen;
-FG-A-STORAGE-FAMILY, FG-A-FORMAT-LOCK und
-FG-A-EXTRACTION-LIFECYCLE entschieden; S-EBAR-05A als nächster Schritt
+**Status:** In Ausführung; read-only Archive-Discovery, Runtime, Formatlock,
+Listing, Persistenz, Collection-Orchestrierung und die generische
+Source-Dependency-Strecke bis S-EBA3-03 sind abgeschlossen. Extraction,
+Member-Byte-Identity, Secrets und W10 bleiben getrennt blockiert.
 
-**Stand:** 2026-08-20
+**Stand:** 2026-08-21
 
 **Scope:** Read-only Archivanalyse, lokale Passwortkandidaten, archive-aware
 Matching und Review, nicht ausführbare Deduplizierungsplanung sowie eine
@@ -370,8 +369,9 @@ S-EBAR-01 Execution-DTOs
     -> S-EBAR-08B Plan, abgeschlossen -> 08C Ausführung, abgeschlossen -> 08D Status, abgeschlossen
     -> EBAR-09 Abschluss und EB-A3-Übergang, abgeschlossen
     -> FG-A3-MATCHING Source-/Member-Grenze, durch ADR-0054 abgeschlossen
-    -> S-EBA3-01 reiner Source-Dependency-Vertrag, als nächstes
-    -> S-EBA3-02 bounded Query/Store -> S-EBA3-03 nicht ausführbare Planintegration
+    -> S-EBA3-01 reiner Source-Dependency-Vertrag, abgeschlossen
+    -> S-EBA3-02 bounded Query/Store, abgeschlossen
+    -> S-EBA3-03 nicht ausführbare Planintegration, abgeschlossen
     -> FG-A3-MEMBER-BYTE, bis vollständige Member-SHA-256 blockiert
 ```
 

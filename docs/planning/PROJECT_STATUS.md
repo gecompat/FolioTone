@@ -4,7 +4,7 @@ Stand: 2026-08-21
 
 ## Aktuelle Welle
 
-**FG-A3-MATCHING abgeschlossen — S-EBA3-01 ist der nächste Archive-Schritt**
+**EBA3-Source-Dependency-Welle abgeschlossen — Member-Byte-Identity bleibt blockiert**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -1474,8 +1474,10 @@ hält reale Extraction mangels Backend gesperrt. ADR-0051 entscheidet die
 unabhängige read-only Wrapperstrecke; S-EBAR-W01 bis S-EBAR-W04 sind auf
 `main` abgeschlossen. ADR-0052 entscheidet die immutable Archive-Persistenz;
 S-EBAR-07, FG-A-COLLECTION-ORCHESTRATION, S-EBAR-08A bis 08D und EBAR-09 sind
-abgeschlossen. ADR-0054 schließt das begrenzte FG-A3-MATCHING und gibt
-S-EBA3-01 als reinen Source-Dependency-Vertrag frei. Member-Byte-Identity,
+abgeschlossen. ADR-0054 schließt das begrenzte FG-A3-MATCHING; S-EBA3-01 bis
+S-EBA3-03 sind auf `main` umgesetzt. Sie liefern den reinen
+Source-Dependency-Vertrag, bounded Query-/Store-Revalidierung und die strikt
+nicht ausführbare Planintegration. Member-Byte-Identity,
 EA9/EA10-Abschluss und Source-Operations bleiben getrennt. Reale
 Passwortversuche bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert
 gesperrt. Music W4 bleibt bis zur E-Book-Reife zurückgestellt. Die
