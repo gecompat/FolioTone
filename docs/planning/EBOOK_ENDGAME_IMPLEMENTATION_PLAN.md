@@ -2586,10 +2586,11 @@ S-EBA3-01 bis S-EBA3-03 schließen zusätzlich die generische
 Source-Dependency-Strecke und integrieren sie ausschließlich in nicht
 ausführbare Pläne.
 
-Der nächste unblocked Koordinationsschritt ist der fokussierte Abgleich von
-`W3-019` gegen die inzwischen umgesetzte Archive-Persistenz und
-Collection-Berichterstattung. Er darf nur bestehende Evidence bestätigen oder
-eine klar begrenzte Restlücke festhalten; er autorisiert keine Extraction.
+ADR-0055 schließt den W3-019-Abgleich. Als nächstes folgt S-EBAR-07A: ein
+additiver insert-only Sidecar-Inventarsnapshot für höchstens 32 bereits
+indexierte direkte Nachbardateien je ArchiveObservation. Sie speichert keine
+Namen, Pfade, Inhalte oder Secrets und ändert weder Toolruntime noch
+öffentliches Reportprofil.
 FG-A3-MEMBER-BYTE bleibt bis vollständiger Member-SHA-256-Evidence blockiert.
 Passwortversuche bleiben bis FG-A-SECRET blockiert. Jede
 Filesystem-Mutation, mutierende Calibre-Operation und ausführbare W10-Strecke
