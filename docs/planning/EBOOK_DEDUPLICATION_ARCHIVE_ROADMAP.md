@@ -366,8 +366,8 @@ S-EBAR-01 Execution-DTOs
     -> FG-A-PERSISTENCE Schema-, Reuse- und Writer-Gate, abgeschlossen
     -> S-EBAR-07 Persistenz, abgeschlossen
     -> FG-A-COLLECTION-ORCHESTRATION Vertragsgate, abgeschlossen
-    -> S-EBAR-08A Models/Schema/Store, als nächstes
-    -> S-EBAR-08B Plan -> 08C Ausführung -> 08D Status
+    -> S-EBAR-08A Models/Schema/Store, abgeschlossen
+    -> S-EBAR-08B Plan, als nächstes -> 08C Ausführung -> 08D Status
     -> EBAR-09 Abschluss und EB-A3-Übergang
 ```
 
