@@ -378,6 +378,10 @@ Tabellen `archive_observations`, `archive_observation_sources`,
 generischen Update-by-ID-Pfad. Ein Member wird nicht im generischen
 `FileRecord`-/`FileObservation`-Schema gespeichert. Konkrete Source-, Listing-,
 Integrity- und spätere Extraction-`ToolExecution`-Referenzen bleiben erhalten.
+Der Elternsnapshot bewahrt außerdem die vollständige Signature-v2-Projektion
+einschließlich Suffix-/Container-/Inspection-Achsen sowie Parserstatus und den
+nullable gelockten Formatfall. Gleiche Sourcebytes nach Umbenennung sind daher
+nicht automatisch dieselbe Compatibility-Evidence.
 
 Persistierbar sind ausschließlich opake `SecretHandle`- und
 `secret_version`-Referenzen sowie feste Versuchstatus- und Quellklassen.
