@@ -341,4 +341,12 @@ Content-Variant-Gruppen sind technische Review-Kandidaten und berechtigen
 weder eine Source-Media-Operation noch eine `Relation` oder
 Identitätsentscheidung.
 
+`archive-collection-orchestration/v1` persistiert einen pfadfreien,
+immutable Multi-Volume-Plan für genau einen abgeschlossenen Scan. Der
+Orchestrator revalidiert jede Source vor dem Providerlauf und schreibt nur
+unter einer gefenceten `ARCHIVE_COLLECTION_RUN`-Lease. Stale Worker verlieren
+nach Takeover jede Write-Authority. Der read-only Status gibt ausschließlich
+Run-ID, Profile, feste Statusliterale und Summenzähler aus. Extraction,
+Secretübergabe, Quarantäne und Source-Mutation bleiben dadurch gesperrt.
+
 Imported/local provider datasets and external tool reports derived from a private collection must also stay out of Git unless a future explicit decision establishes that a specific redistributable artifact belongs in the repository.

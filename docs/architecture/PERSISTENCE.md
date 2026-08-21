@@ -402,6 +402,22 @@ ScanRoot-Write-Lease und rekonstruiert Contenthash, Memberidentitäten und
 Sum-Types beim Read erneut. Bounds, Indizes, Idempotenz, Rollback und
 Downgrade-Guard sind im ADR exakt festgelegt.
 
+### Restartbare Archive-Collection
+
+ADR-0053 trennt `archive-collection-orchestration/v1` vom allgemeinen
+E-Book-Collection-Profil. Migration `0020_archive_collection_runs` ergänzt
+eigene Run-, Item- und geordnete Source-Zeilen für einen immutable
+Multi-Volume-Plan. Persistiert werden nur opaque Observation-IDs,
+Hash-/Größenmaterial, Ordinale, feste Stagingrollen, Lifecycle und
+Summenzähler; keine Pfade oder Memberlocator.
+
+`ARCHIVE_COLLECTION_RUN` nimmt am gemeinsamen ScanRoot-Write-Fence teil.
+Jeder Claim, Heartbeat, Evidence-/Itemabschluss und Runübergang validiert
+Token, Ablauf und Fence-Epoch atomar. Ein stale Resume übernimmt denselben
+Plan und setzt nur verwaiste `RUNNING`-Items zurück. Der Statusbericht öffnet
+SQLite read-only, aggregiert bounded in SQL und gibt weder Source-IDs noch
+Hashes, Pfade, Locator oder Secrets aus.
+
 ## Current constraints and deferred integrity
 
 Implemented SQL constraints include:
