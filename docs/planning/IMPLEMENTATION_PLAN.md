@@ -409,11 +409,18 @@ Acceptance:
 - changed-since-analysis requirements are represented for future W10;
 - no single ToolProvider/provider/AI/web inference can justify a destructive candidate by itself.
 
-## W10 — Controlled Consolidation (future, gated)
+## W10 — Controlled Consolidation (gated)
 
-Do not implement until a new ADR explicitly accepts write-capable behavior.
+ADR-0056 akzeptiert zunächst ausschließlich reine Quarantäneverträge,
+insert-only Authorization-/Run-Persistenz und read-only Status. S-W10-01 und
+S-W10-02 dürfen keine Source-Mutation enthalten. Ein realer Ein-Datei-
+Quarantäneexecutor bleibt bis zum separaten `FG-W10-MOVE-BACKEND` blockiert;
+Cross-Volume-Copy+Delete und Überschreiben sind kein Fallback.
 
-Potential operations: copy, move, rename, hardlink/reflink where supported, metadata update, delete, and explicitly authorized external-tool write workflows. All require explicit safety design, revalidation, audit, collision handling, and failure semantics.
+Spätere Operationen wie Rollback, Purge, Metadatenupdate, Calibrewrite und
+explizit autorisierte externe Toolwrites benötigen jeweils eine eigene
+Sicherheitsentscheidung, Revalidierung, Audit, Collision Handling und feste
+Fehlersemantik.
 
 ## Cross-cutting future extensions
 
