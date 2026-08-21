@@ -6,6 +6,11 @@ from datetime import timedelta
 from pathlib import Path
 
 import pytest
+from test_consolidation_planner import (
+    _clock,
+    _inputs,
+    _with_candidate_review,
+)
 
 from foliotone.consolidation import (
     ConsolidationDependencyState,
@@ -22,11 +27,6 @@ from foliotone.quarantine import (
     QuarantineEligibilityStatus,
     QuarantineRunStatus,
     build_quarantine_authorization,
-)
-from test_consolidation_planner import (
-    _clock,
-    _inputs,
-    _with_candidate_review,
 )
 
 
