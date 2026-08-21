@@ -28,8 +28,11 @@ from foliotone.consolidation import (
     ConsolidationDependencyState,
     ConsolidationExecutionState,
     ConsolidationFileEndpoint,
+    ConsolidationFilePreconditionInputs,
     ConsolidationFileRole,
+    ConsolidationIdentitySnapshot,
     ConsolidationPlan,
+    ConsolidationPlannerInputs,
     ConsolidationPlanStatus,
     build_archive_dependency,
     consolidation_candidate_physical_preconditions,
@@ -37,10 +40,13 @@ from foliotone.consolidation import (
 )
 from foliotone.core import (
     EntityId,
+    EntityKind,
     FileObservation,
     FileRecord,
+    MatchStatus,
     MediaType,
     PresenceState,
+    RelationType,
     ScanRoot,
     ScanRun,
     ScanRunStatus,
@@ -67,6 +73,7 @@ from foliotone.persistence.consolidation import (
     ConsolidationStoreError,
     SQLiteConsolidationStore,
 )
+from foliotone.workflows.archive_consolidation import archive_aware_planner_inputs
 
 NOW = datetime(2026, 8, 21, 15, 0, tzinfo=UTC)
 ROOT_ID = EntityId.parse("00000000-0000-4000-8000-000000000001")
@@ -392,8 +399,70 @@ def test_consolidation_store_revalidates_archive_dependency_material(
     )
     keeper_endpoint = _endpoint(ConsolidationFileRole.KEEPER, *keeper)
     candidate_endpoint = _endpoint(ConsolidationFileRole.CANDIDATE, *candidate)
+    legacy_dependencies = tuple(
+        item
+        if item.kind is not ConsolidationDependencyKind.ARCHIVE
+        else ConsolidationDependency(
+            item.file_role,
+            ConsolidationDependencyKind.ARCHIVE,
+            ConsolidationDependencyState.KNOWN_NONE,
+            "9" * 64,
+        )
+        for item in dependencies
+    )
+    # This integration seam exercises only endpoint/dependency replacement;
+    # the focused workflow unit tests supply every remaining planner source DTO.
+    planner_sources = tuple(
+        ConsolidationFilePreconditionInputs(
+            endpoint,
+            object(),
+            object(),
+            object(),
+            tuple(
+                item
+                for item in legacy_dependencies
+                if item.file_role is endpoint.role
+            ),
+            object(),
+        )
+        for endpoint in (keeper_endpoint, candidate_endpoint)
+    )
+    planner_inputs = ConsolidationPlannerInputs(
+        plan_id=_id(690),
+        consolidation_candidate_id=_id(691),
+        scan_root_id=ROOT_ID,
+        source_scan_run_id=RUN_ID,
+        identity=ConsolidationIdentitySnapshot(
+            relation_candidate_id=_id(692),
+            relation_type=RelationType.EXACT_DUPLICATE,
+            left_kind=EntityKind.FILE,
+            right_kind=EntityKind.FILE,
+            left_file_id=keeper[0],
+            right_file_id=candidate[0],
+            scan_root_id=ROOT_ID,
+            source_scan_run_id=RUN_ID,
+            status=MatchStatus.CONFIRMED,
+            matcher_version="synthetic/v1",
+            decision_compatibility_version="synthetic/v1",
+            evidence_fingerprint="7" * 64,
+            candidate_set_fingerprint="8" * 64,
+        ),
+        keep_preference=None,
+        dependencies=legacy_dependencies,
+        precondition_inputs=planner_sources,
+    )
+    updated_inputs = archive_aware_planner_inputs(
+        planner_inputs,
+        (
+            *SQLiteArchiveEvidenceStore(engine).list_source_dependency_bindings(
+                (keeper[1],), ROOT_ID, RUN_ID
+            ),
+            *bindings,
+        ),
+    )
+    assert set(updated_inputs.dependencies) == set(dependencies)
     preconditions = consolidation_candidate_physical_preconditions(
-        (keeper_endpoint, candidate_endpoint), dependencies
+        (keeper_endpoint, candidate_endpoint), updated_inputs.dependencies
     )
     plan = ConsolidationPlan(
         id=_id(700),
@@ -407,7 +476,7 @@ def test_consolidation_store_revalidates_archive_dependency_material(
         candidate=candidate_endpoint,
         keep_preference=None,
         consolidation_candidate=None,
-        dependencies=dependencies,
+        dependencies=updated_inputs.dependencies,
         quality_evidence=(),
         required_reviews=(),
         preconditions=preconditions,
