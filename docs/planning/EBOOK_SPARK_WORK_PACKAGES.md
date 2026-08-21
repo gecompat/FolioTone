@@ -326,8 +326,8 @@ W10-Funktion einführen.
 | S-EBAR-07 | Mechanische Umsetzung von ADR-0052. Erlaubt exakt: `src/foliotone/archive/provider.py`, neue `src/foliotone/persistence/archive_schema.py`, neue `src/foliotone/persistence/archive.py`, neue Migration `0019_archive_evidence.py`, `src/foliotone/persistence/__init__.py`, den bestehenden EBAR-05-Unit-Test, neue `tests/integration/test_archive_persistence.py` und ausschließlich Head-/Tabellen-/Indexerwartungen in den zwei zentralen Persistenztests. | Upgrade 0018→0019, Head-Eindeutigkeit, direkter und Wrapper-Roundtrip, idempotente Wiederholung, Reuse-/Stale-Matrix, Fencing, atomarer Rollback, bounded Reads und keine Raw-/öffentlichen Locator-/Secretprojektionen. | Spark `high`; abgeschlossen. 5.4 Mini, danach Terra als Fallback. |
 | FG-A-COLLECTION-ORCHESTRATION | Durch ADR-0053 abgeschlossenes Docs-only Frontier-Gate. Es entscheidet stabilen Archive-Plan, Kandidaten-/Volume-Gruppierung, eigene Run-/Item-/Source-Snapshots, `ARCHIVE_COLLECTION_RUN`, Lease-/Fence-/Heartbeat-/Takeover-Priorität, Resume-/Retry-Semantik, bounded Concurrency und den exakten mechanischen Dateiscope. | Widerspruchsprüfung gegen den bestehenden E-Book-Collection-Store, ADR-0052, Multi-Volume-/Wrapper-Lineage, Source-read-only und path-/locator-freie Reports; keine Produktionsänderung. | Sol `high`; abgeschlossen, kein Spark-Fallback. |
 | S-EBAR-08A | Models, Migration `0020_archive_collection_runs`, `ARCHIVE_COLLECTION_RUN` und gefenceter Store im exakten ADR-0053-Scope. | Migration, DDL-Sum-Types, atomare Planzeilen, Claim/Complete, Fencing, stale Takeover, Indexpläne und zentrale Head-Erwartungen. | Terra `high`; abgeschlossen. |
-| S-EBAR-08B | Reine Volume-Partition und restartbare bounded Planversiegelung im exakten ADR-0053-Scope. | Vollständiger Inputverbrauch, direkte/mehrteilige Gruppen, Findings, Prefix-/Signature-Bindung, 500er-Batches, Planresume und Contenthash-Drift. | Terra `high`; als nächstes. Bei Gruppierungsmehrdeutigkeit Sol `high`. |
-| S-EBAR-08C | Bounded Provider-/Reuse-Ausführung, Heartbeat und Resume im exakten ADR-0053-Scope. | Konkurrenz, stale Worker, Keeperfehler, Cancellation, executed/reused direkte/Wrapper-Fälle, kein zweiter Toollauf. | Sol `high`; nach 08B, kein niedrigeres Fallback. |
+| S-EBAR-08B | Reine Volume-Partition und restartbare bounded Planversiegelung im exakten ADR-0053-Scope. | Vollständiger Inputverbrauch, direkte/mehrteilige Gruppen, Findings, Prefix-/Signature-Bindung, 500er-Batches, Planresume und Contenthash-Drift. | Terra `high`; abgeschlossen. |
+| S-EBAR-08C | Bounded Provider-/Reuse-Ausführung, Heartbeat und Resume im exakten ADR-0053-Scope. | Konkurrenz, stale Worker, Keeperfehler, Cancellation, executed/reused direkte/Wrapper-Fälle, kein zweiter Toollauf. | Sol `high`; als nächstes, kein niedrigeres Fallback. |
 | S-EBAR-08D | Read-only Archive-Collection-Status und CLI-Abschluss im exakten ADR-0053-Scope. | Echte SQLite-mode-ro-Tests, vollständige Counts, Determinismus sowie path-/locator-/hash-/secret-freie Ausgabe und generische Fehler. | Terra `medium`; nach 08C. Bei Privacyabweichung Sol `high`. |
 | EBAR-09 | Status, Backlog und EB-A2-/EB-A3-Übergang werden nach Gesamtprüfung synchronisiert. Erlaubt: `docs/planning/PROJECT_STATUS.md`, `docs/planning/BACKLOG.md`, Archive-Roadmap und tatsächlich betroffene Referenz. | Link-, Status-, Privacy- und W10-Widerspruchssuche sowie gezielte Archive-Regressionen. | Luna `medium`; semantische Integration Terra `medium`. Kein EB-A3-Start ohne eigenes Gate. |
 
@@ -345,7 +345,8 @@ FG-A-WRAPPER-PIPELINE sowie S-EBAR-W01 bis S-EBAR-W04 sind abgeschlossen und
 autorisieren unabhängig von der blockierten Extractionstrecke nur read-only
 Listing und Integrity. ADR-0052 legt den exakten Schema- und Writer-Vertrag
 fest; S-EBAR-07 und FG-A-COLLECTION-ORCHESTRATION sind abgeschlossen.
-S-EBAR-08A ist abgeschlossen; S-EBAR-08B ist der nächste mechanische Schritt.
+S-EBAR-08A und 08B sind abgeschlossen; S-EBAR-08C ist der nächste mechanische
+Schritt.
 FG-A-SECRET bleibt separat
 blockiert.
 
@@ -434,7 +435,7 @@ FG-A → S-EBA-01..07 → FG-A-RUNTIME → S-EBAR-01..EBAR-05
     → S-EBAR-04A → EBAR-06
     → FG-A-PERSISTENCE, abgeschlossen → S-EBAR-07, abgeschlossen
     → FG-A-COLLECTION-ORCHESTRATION, abgeschlossen
-    → S-EBAR-08A, abgeschlossen → 08B als nächstes → 08C → 08D → EBAR-09
+    → S-EBAR-08A, abgeschlossen → 08B, abgeschlossen → 08C als nächstes → 08D → EBAR-09
 
 separat und weiterhin blockiert:
 FG-A-SECRET → erst danach sichere Passwortversuche

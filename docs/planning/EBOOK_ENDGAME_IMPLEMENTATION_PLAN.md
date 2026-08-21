@@ -2342,8 +2342,9 @@ ADR-0052 entscheidet FG-A-PERSISTENCE mit Migration
 `0019_archive_evidence`, dedizierten insert-only Snapshottabellen, gebundenem
 Reuse und ScanRoot-Fencing. S-EBAR-07 ist umgesetzt. Vor EBAR-08 schließt
 ADR-0053 schließt FG-A-COLLECTION-ORCHESTRATION mit stabilem Multi-Volume-
-Plan, Lease/Fencing, Resume und path-freiem Status. S-EBAR-08A ist umgesetzt;
-S-EBAR-08B bis 08D sind die nächsten drei getrennten mechanischen Pakete.
+Plan, Lease/Fencing, Resume und path-freiem Status. S-EBAR-08A und 08B sind
+umgesetzt; S-EBAR-08C und 08D sind die nächsten zwei getrennten mechanischen
+Pakete.
 Die Tabelle bleibt als Abhängigkeitsfolge maßgeblich; sie ist keine zweite
 Statusquelle.
 
