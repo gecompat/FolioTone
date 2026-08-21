@@ -34,5 +34,6 @@ def test_w10_backlog_keeps_execution_blocked_until_backend_gate() -> None:
     assert "| W10-001 | DECISION |" in backlog
     assert "| W10-002 | BLOCKED |" in backlog
     assert "FG-W10-MOVE-BACKEND" in backlog
-    assert "S-W10-01" in status
+    assert "S-W10-01" in status and "abgeschlossen" in status
+    assert "S-W10-02" in status
     assert "keine reale Mutation" in status
