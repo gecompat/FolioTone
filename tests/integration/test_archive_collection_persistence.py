@@ -1,15 +1,29 @@
 """Focused persistence coverage for restartable archive collection runs."""
 
+import hashlib
+import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 from alembic import command
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 
-from foliotone.archive.signatures import observe_archive_signature_v2
+from foliotone.archive.container_sandbox import (
+    ArchiveContainerRequest,
+    ArchiveContainerRunResult,
+    ArchiveContainerRunStatus,
+)
+from foliotone.archive.provider import ArchiveProviderOutcome, _inspect
+from foliotone.archive.sevenzip import ARCHIVE_LINUX_CONTAINER_RUNNER_PROFILE
+from foliotone.archive.sevenzip_slt import ArchiveSevenZipFormatCase
+from foliotone.archive.signatures import (
+    ArchiveSignatureObservationV2,
+    observe_archive_signature_v2,
+)
 from foliotone.core import (
     ArchiveCollectionDisposition,
     ArchiveCollectionItem,
@@ -21,11 +35,16 @@ from foliotone.core import (
     EntityId,
 )
 from foliotone.persistence import alembic_config, archive_schema, create_sqlite_engine, migrate
+from foliotone.persistence.archive import ArchiveEvidenceSource, SQLiteArchiveEvidenceStore
 from foliotone.persistence.archive_collection import (
     ArchiveCollectionPlanEntry,
     ArchiveCollectionStoreError,
     SQLiteArchiveCollectionStore,
     archive_collection_plan_content_hash,
+)
+from foliotone.workflows.archive_collection import (
+    _compatibility,
+    _execute_archive_collection_invocation,
 )
 from foliotone.workflows.archive_collection_plan import (
     ArchiveCollectionPlanSourceInput,
@@ -39,6 +58,13 @@ SCAN_ID = EntityId.parse("00000000-0000-0000-0000-000000000302")
 FILE_ID = EntityId.parse("00000000-0000-0000-0000-000000000303")
 FILE_OBSERVATION_ID = EntityId.parse("00000000-0000-0000-0000-000000000304")
 FILE_HASH = "b" * 64
+FORMAT_LOCK = (
+    Path(__file__).parents[2]
+    / "packaging"
+    / "archive"
+    / "7zip-26.02"
+    / "archive-format.lock.json"
+)
 
 
 def _seed_source(database: Path) -> None:
@@ -496,3 +522,349 @@ def test_partial_plan_resumes_without_replanning_or_hash_drift(head_database: Pa
 
 def test_archive_collection_disposition_is_closed() -> None:
     assert {item.value for item in ArchiveCollectionDisposition} == {"EXECUTED", "REUSED"}
+
+
+class _ExecutionRunner:
+    def __init__(self) -> None:
+        self._steps = [(_locked_listing(),), ()]
+
+    def run(
+        self, request: ArchiveContainerRequest, **kwargs: Any
+    ) -> ArchiveContainerRunResult:
+        del request
+        chunks = self._steps.pop(0)
+        for chunk in chunks:
+            assert kwargs["stdout_consumer"](chunk)
+        return ArchiveContainerRunResult(
+            ARCHIVE_LINUX_CONTAINER_RUNNER_PROFILE,
+            ArchiveContainerRunStatus.COMPLETED,
+            0,
+        )
+
+
+class _ExecutionProvider:
+    def __init__(self) -> None:
+        self.calls = 0
+        self.last_outcome: ArchiveProviderOutcome | None = None
+
+    def inspect(
+        self,
+        request: ArchiveContainerRequest,
+        *,
+        signature: ArchiveSignatureObservationV2,
+        archive_observation_id: str,
+        archive_full_sha256: str,
+        volume_group_fingerprint: str,
+        cancellation: Any = None,
+    ) -> ArchiveProviderOutcome:
+        self.calls += 1
+        moments = iter(
+            NOW + timedelta(hours=1, seconds=value) for value in range(8)
+        )
+        self.last_outcome = _inspect(
+            _ExecutionRunner(),
+            request,
+            signature=signature,
+            archive_observation_id=archive_observation_id,
+            archive_full_sha256=archive_full_sha256,
+            volume_group_fingerprint=volume_group_fingerprint,
+            cancellation=cancellation,
+            now=lambda: next(moments),
+        )
+        return self.last_outcome
+
+
+class _NeverProvider:
+    calls = 0
+
+    def inspect(self, *args: Any, **kwargs: Any) -> ArchiveProviderOutcome:
+        del args, kwargs
+        self.calls += 1
+        raise AssertionError("exact reuse must not execute the provider")
+
+
+class _CancelledRunner:
+    def run(
+        self, request: ArchiveContainerRequest, **kwargs: Any
+    ) -> ArchiveContainerRunResult:
+        del request, kwargs
+        return ArchiveContainerRunResult(
+            ARCHIVE_LINUX_CONTAINER_RUNNER_PROFILE,
+            ArchiveContainerRunStatus.CANCELLED,
+        )
+
+
+class _CancelledProvider:
+    calls = 0
+
+    def inspect(
+        self,
+        request: ArchiveContainerRequest,
+        *,
+        signature: ArchiveSignatureObservationV2,
+        archive_observation_id: str,
+        archive_full_sha256: str,
+        volume_group_fingerprint: str,
+        cancellation: Any = None,
+    ) -> ArchiveProviderOutcome:
+        self.calls += 1
+        moments = iter(
+            NOW + timedelta(hours=3, seconds=value) for value in range(4)
+        )
+        return _inspect(
+            _CancelledRunner(),
+            request,
+            signature=signature,
+            archive_observation_id=archive_observation_id,
+            archive_full_sha256=archive_full_sha256,
+            volume_group_fingerprint=volume_group_fingerprint,
+            cancellation=cancellation,
+            now=lambda: next(moments),
+        )
+
+
+class _Clock:
+    def __init__(self, start: datetime) -> None:
+        self._value = start
+
+    def __call__(self) -> datetime:
+        self._value += timedelta(seconds=1)
+        return self._value
+
+
+def _locked_listing() -> bytes:
+    lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
+    capability = next(
+        item
+        for item in lock["capabilities"]
+        if item["storage_family"] == "ZIP"
+        and item["case_kind"] == "PLAINTEXT_REGULAR"
+    )
+    values = {
+        "EMPTY": "",
+        "BOOL_PLUS": "+",
+        "BOOL_MINUS": "-",
+        "CANONICAL_UINT": "1",
+        "CRC32": "ABCDEF12",
+        "TIMESTAMP": "2026-08-21 09:00:00",
+        "PRIVATE_LOCATOR_DISCARDED": "member.bin",
+        "PRIVATE_NONEMPTY_DISCARDED": "private",
+        "TECHNICAL_NONEMPTY_DISCARDED": "technical",
+    }
+    return (
+        "".join(
+            f"{field['name']} = {values[field['value_class']]}\n"
+            for field in capability["record_profiles"][0]["fields"]
+        )
+        + "\n"
+    ).encode()
+
+
+def _seal_execution_run(
+    store: SQLiteArchiveCollectionStore,
+    run: ArchiveCollectionRun,
+    digest: str,
+    *,
+    token: str,
+    at: datetime,
+) -> ArchiveCollectionRun:
+    snapshot = build_archive_collection_plan(
+        run,
+        (
+            ArchiveCollectionPlanSourceInput(
+                FILE_OBSERVATION_ID,
+                8,
+                digest,
+                "private-parent",
+                "synthetic.zip",
+                b"PK\x03\x04data",
+            ),
+        ),
+    )
+    store.append_plan_batch(run.id, token, snapshot.entries, now=at)
+    return store.seal_plan(
+        run.id,
+        token,
+        planned_count=1,
+        findings=snapshot.findings,
+        plan_content_hash=snapshot.content_hash,
+        sealed_at=at + timedelta(seconds=1),
+    )
+
+
+def test_execution_persists_same_provider_graph_then_reuses_without_second_run(
+    tmp_path: Path, head_database: Path
+) -> None:
+    payload = b"PK\x03\x04data"
+    digest = hashlib.sha256(payload).hexdigest()
+    (tmp_path / "synthetic.zip").write_bytes(payload)
+    store, planning = _planning_run(head_database)
+    engine = create_sqlite_engine(head_database)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE fingerprints SET value=:value "
+                "WHERE target_id=:target AND kind='FILE_SHA256'"
+            ),
+            {"value": digest, "target": str(FILE_OBSERVATION_ID)},
+        )
+    running = _seal_execution_run(
+        store, planning, digest, token="owner-one", at=NOW + timedelta(seconds=1)
+    )
+    provider = _ExecutionProvider()
+    completed = _execute_archive_collection_invocation(
+        store,
+        SQLiteArchiveEvidenceStore(engine),
+        provider,
+        running.id,
+        "owner-one",
+        tmp_path,
+        max_items=1,
+        now=_Clock(NOW + timedelta(seconds=10)),
+        cancellation=None,
+        lease_duration=timedelta(minutes=30),
+        heartbeat_interval=timedelta(seconds=1),
+    )
+    assert completed.status is ArchiveCollectionRunStatus.COMPLETED
+    assert provider.calls == 1
+    assert provider.last_outcome is not None
+    assert provider.last_outcome.result is not None
+    evidence_store = SQLiteArchiveEvidenceStore(engine)
+    assert evidence_store.find_listing_reuse(
+        provider.last_outcome.result.reuse_key,
+        _compatibility(
+            observe_archive_signature_v2("synthetic.zip", payload),
+            ArchiveSevenZipFormatCase.PLAINTEXT_REGULAR,
+        ),
+        scan_root_id=EntityId.parse(
+            "00000000-0000-0000-0000-000000000399"
+        ),
+        source_scan_run_id=SCAN_ID,
+        sources=(
+            ArchiveEvidenceSource(FILE_OBSERVATION_ID, digest, len(payload), "archive"),
+        ),
+    ) is None
+    with engine.connect() as connection:
+        first = connection.execute(
+            text(
+                "SELECT status, disposition, archive_observation_id "
+                "FROM archive_collection_items WHERE run_id=:run"
+            ),
+            {"run": str(running.id)},
+        ).mappings().one()
+        assert first["status"] == "SUCCEEDED"
+        assert first["disposition"] == "EXECUTED"
+        assert first["archive_observation_id"] is not None
+
+    second = store.create_planning_run(
+        ROOT_ID,
+        worker_count=1,
+        plan_limit=None,
+        started_at=NOW + timedelta(hours=2),
+        lease_token="owner-two",
+        lease_expires_at=NOW + timedelta(hours=2, minutes=30),
+    )
+    running_second = _seal_execution_run(
+        store,
+        second,
+        digest,
+        token="owner-two",
+        at=NOW + timedelta(hours=2, seconds=1),
+    )
+    never = _NeverProvider()
+    reused = _execute_archive_collection_invocation(
+        store,
+        SQLiteArchiveEvidenceStore(engine),
+        never,
+        running_second.id,
+        "owner-two",
+        tmp_path,
+        max_items=1,
+        now=_Clock(NOW + timedelta(hours=2, seconds=10)),
+        cancellation=None,
+        lease_duration=timedelta(minutes=30),
+        heartbeat_interval=timedelta(seconds=1),
+    )
+    assert reused.status is ArchiveCollectionRunStatus.COMPLETED
+    assert never.calls == 0
+    with engine.connect() as connection:
+        second_item = connection.execute(
+            text(
+                "SELECT status, disposition, archive_observation_id "
+                "FROM archive_collection_items WHERE run_id=:run"
+            ),
+            {"run": str(running_second.id)},
+        ).mappings().one()
+    assert second_item["status"] == "SUCCEEDED"
+    assert second_item["disposition"] == "REUSED"
+    assert second_item["archive_observation_id"] == first["archive_observation_id"]
+    engine.dispose()
+
+
+def test_cancelled_provider_run_remains_resumable_without_terminal_graph(
+    tmp_path: Path, head_database: Path
+) -> None:
+    payload = b"PK\x03\x04data"
+    digest = hashlib.sha256(payload).hexdigest()
+    (tmp_path / "synthetic.zip").write_bytes(payload)
+    store, planning = _planning_run(head_database)
+    engine = create_sqlite_engine(head_database)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE fingerprints SET value=:value "
+                "WHERE target_id=:target AND kind='FILE_SHA256'"
+            ),
+            {"value": digest, "target": str(FILE_OBSERVATION_ID)},
+        )
+    running = _seal_execution_run(
+        store, planning, digest, token="owner-one", at=NOW + timedelta(seconds=1)
+    )
+    provider = _CancelledProvider()
+
+    interrupted = _execute_archive_collection_invocation(
+        store,
+        SQLiteArchiveEvidenceStore(engine),
+        provider,
+        running.id,
+        "owner-one",
+        tmp_path,
+        max_items=1,
+        now=_Clock(NOW + timedelta(seconds=10)),
+        cancellation=None,
+        lease_duration=timedelta(minutes=30),
+        heartbeat_interval=timedelta(seconds=1),
+    )
+
+    assert interrupted.status is ArchiveCollectionRunStatus.INTERRUPTED
+    assert provider.calls == 1
+    with engine.connect() as connection:
+        item = connection.execute(
+            text(
+                "SELECT status, archive_observation_id, error_code "
+                "FROM archive_collection_items WHERE run_id=:run"
+            ),
+            {"run": str(running.id)},
+        ).mappings().one()
+        assert dict(item) == {
+            "status": "RUNNING",
+            "archive_observation_id": None,
+            "error_code": None,
+        }
+        assert connection.execute(
+            text("SELECT count(*) FROM archive_observations")
+        ).scalar_one() == 0
+    resumed = store.acquire_resume(
+        running.id,
+        lease_token="owner-two",
+        now=NOW + timedelta(minutes=31),
+        lease_expires_at=NOW + timedelta(minutes=61),
+    )
+    reclaimed = store.claim_pending(
+        resumed.id,
+        "owner-two",
+        limit=1,
+        started_at=NOW + timedelta(minutes=31, seconds=1),
+    )
+    assert reclaimed[0].item.attempt_count == 2
+    engine.dispose()

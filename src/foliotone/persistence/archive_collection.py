@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, replace
+from dataclasses import field as dataclass_field
 from datetime import datetime
 
 from sqlalchemy import Engine, func, insert, select, update
@@ -29,6 +30,7 @@ from foliotone.core import (
     ArchiveCollectionRunStatus,
     EntityId,
 )
+from foliotone.core._validation import require_relative_path
 from foliotone.persistence import archive_collection_schema as tables
 from foliotone.persistence import archive_schema, schema
 from foliotone.persistence._mapping import datetime_to_db, required_datetime_from_db
@@ -82,6 +84,19 @@ class ArchiveCollectionPlanEntry:
 class ArchiveCollectionWorkItem:
     item: ArchiveCollectionItem
     sources: tuple[ArchiveCollectionItemSource, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _ArchiveCollectionResolvedSource:
+    source: ArchiveCollectionItemSource
+    relative_path: str = dataclass_field(repr=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source, ArchiveCollectionItemSource):
+            raise ValueError("archive collection resolved source is invalid")
+        object.__setattr__(
+            self, "relative_path", require_relative_path(self.relative_path)
+        )
 
 
 def archive_collection_plan_content_hash(
@@ -668,6 +683,97 @@ class SQLiteArchiveCollectionStore:
         ):
             raise ArchiveCollectionStoreError("archive collection lease is not owned")
         return current
+
+    def _resolve_work_item_sources(
+        self, work_item: ArchiveCollectionWorkItem
+    ) -> tuple[_ArchiveCollectionResolvedSource, ...]:
+        """Return private locators only after revalidating the sealed DB lineage."""
+
+        if not isinstance(work_item, ArchiveCollectionWorkItem):
+            raise ValueError("archive collection work item is invalid")
+        try:
+            with self._engine.connect() as connection:
+                run = self._get_run(connection, work_item.item.run_id)
+                current = self._entry(connection, work_item.item.id)
+                if (
+                    run is None
+                    or current is None
+                    or current.item != work_item.item
+                    or current.sources != work_item.sources
+                ):
+                    raise ArchiveCollectionStoreError(
+                        "archive collection work item lineage is invalid"
+                    )
+                resolved: list[_ArchiveCollectionResolvedSource] = []
+                for source in work_item.sources:
+                    row = connection.execute(
+                        select(
+                            schema.file_observations.c.relative_path,
+                            schema.file_observations.c.size_bytes,
+                            schema.file_observations.c.scan_run_id,
+                            schema.file_records.c.relative_path.label("record_path"),
+                            schema.file_records.c.size_bytes.label("record_size"),
+                            schema.file_records.c.scan_root_id,
+                            schema.file_records.c.presence_state,
+                            schema.scan_runs.c.scan_root_id.label("run_root"),
+                            schema.scan_runs.c.status,
+                        )
+                        .select_from(
+                            schema.file_observations.join(
+                                schema.file_records,
+                                schema.file_records.c.id
+                                == schema.file_observations.c.file_id,
+                            ).join(
+                                schema.scan_runs,
+                                schema.scan_runs.c.id
+                                == schema.file_observations.c.scan_run_id,
+                            )
+                        )
+                        .where(
+                            schema.file_observations.c.id
+                            == str(source.file_observation_id)
+                        )
+                    ).mappings().one_or_none()
+                    fingerprint = connection.execute(
+                        select(schema.fingerprints.c.id)
+                        .where(
+                            schema.fingerprints.c.target_kind == "FILE_OBSERVATION",
+                            schema.fingerprints.c.target_id
+                            == str(source.file_observation_id),
+                            schema.fingerprints.c.kind == "FILE_SHA256",
+                            schema.fingerprints.c.algorithm == "sha256",
+                            schema.fingerprints.c.algorithm_version == "1",
+                            schema.fingerprints.c.value == source.full_sha256,
+                        )
+                        .limit(1)
+                    ).scalar_one_or_none()
+                    if (
+                        row is None
+                        or fingerprint is None
+                        or str(row["scan_run_id"]) != str(run.source_scan_run_id)
+                        or str(row["scan_root_id"]) != str(run.scan_root_id)
+                        or str(row["run_root"]) != str(run.scan_root_id)
+                        or row["status"] != "COMPLETED"
+                        or row["presence_state"] != "PRESENT"
+                        or int(row["size_bytes"]) != source.size_bytes
+                        or int(row["record_size"]) != source.size_bytes
+                        or row["relative_path"] != row["record_path"]
+                    ):
+                        raise ArchiveCollectionStoreError(
+                            "archive collection source lineage is invalid"
+                        )
+                    resolved.append(
+                        _ArchiveCollectionResolvedSource(
+                            source, str(row["relative_path"])
+                        )
+                    )
+            return tuple(resolved)
+        except (ArchiveCollectionStoreError, ValueError):
+            raise
+        except Exception:
+            raise ArchiveCollectionStoreError(
+                "archive collection source resolution failed"
+            ) from None
 
     def _owned_run(
         self, connection: Connection, run_id: EntityId, lease_token: str, now: datetime
