@@ -29,7 +29,7 @@ def test_head_database_factory_returns_isolated_schema_copies(
     right_engine.dispose()
 
     assert marker is None
-    assert revision == "0018_book_classification_projection"
+    assert revision == "0019_archive_evidence"
 
 
 def test_head_database_factory_rejects_reuse_and_nested_names(

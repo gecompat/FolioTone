@@ -253,6 +253,11 @@ def test_every_measured_cell_uses_locked_parser_and_exact_provenance() -> None:
         assert outcome.result.listing_status.value == "LISTED"
         assert outcome.executions[0].status is ToolExecutionStatus.SUCCEEDED
         assert outcome.result.member_count == len(capability["record_profiles"])
+        persistence = outcome._persistence_handoff
+        assert persistence is not None
+        assert persistence.outcome is outcome
+        assert persistence.parser_result.public.case_kind.value == capability["case_kind"]
+        assert len(persistence.listing_result.members) == outcome.result.member_count
         assert not hasattr(outcome.result, "members")
         assert len(runner.requests) == (
             1 if capability["case_kind"] in {"ALL_ENCRYPTED", "MIXED"} else 2
@@ -507,6 +512,9 @@ def test_wrapper_runs_two_composites_with_matching_inner_evidence_and_no_handoff
     assert outcome._extraction_handoff is None
     evidence = outcome._wrapper_reuse_evidence
     assert isinstance(evidence, _ArchiveWrapperReuseEvidence)
+    assert outcome._persistence_handoff is not None
+    assert outcome._persistence_handoff.wrapper_listing_run is evidence.listing_run
+    assert outcome._persistence_handoff.wrapper_integrity_run is evidence.integrity_run
     assert evidence.inner_stream_size_bytes == 2_048
     assert evidence.inner_stream_sha256 == "e" * 64
     assert kind not in repr(outcome)
@@ -528,6 +536,8 @@ def test_wrapper_inner_hash_mismatch_fails_integrity_and_discards_reuse_evidence
     assert outcome.result.integrity_status is ArchiveIntegrityStatus.TOOL_FAILED
     assert outcome.executions[1].status is ToolExecutionStatus.FAILED
     assert outcome._wrapper_reuse_evidence is None
+    assert outcome._persistence_handoff is not None
+    assert outcome._persistence_handoff.wrapper_listing_run is not None
     assert outcome._extraction_handoff is None
 
 
@@ -560,6 +570,7 @@ def test_wrapper_listing_runner_status_is_preserved(
     assert outcome.result.listing_status.value == expected
     assert len(outcome.executions) == 1
     assert outcome._wrapper_reuse_evidence is None
+    assert outcome._persistence_handoff is not None
 
 
 def test_wrapper_cancellation_is_snapshotless_and_signature_mismatch_never_runs() -> None:
@@ -640,6 +651,7 @@ def test_parser_failure_is_failed_execution_not_false_success() -> None:
     assert outcome.result is not None
     assert outcome.result.listing_status.value == "TOOL_FAILED"
     assert outcome.executions[0].status is ToolExecutionStatus.FAILED
+    assert outcome._persistence_handoff is not None
     assert not any(thread.name == "archive-locked-parser" for thread in threading.enumerate())
     with pytest.raises(ValueError, match="statuses"):
         ArchiveProviderOutcome(
