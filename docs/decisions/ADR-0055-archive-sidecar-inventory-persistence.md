@@ -95,12 +95,19 @@ gelten:
 
 Der Writer nimmt keine vom Caller behauptete Sidecar-Liste, keinen Basename
 und keinen Pfad entgegen. `create_or_get_sidecar_inventory()` erhält genau die
-opaque `archive_observation_id` und eine Clock. Er leitet die kanonische
+opaque `archive_observation_id`, eine passende `OwnedScanRootWriteLease` und
+einen timezone-aware Commitzeitpunkt. Er leitet die kanonische
 vollständige Kandidatenmenge selbst aus den aktuellen `FileObservation`-Zeilen
 desselben abgeschlossenen Scans und unmittelbaren Verzeichnisses ab, liest
 höchstens 33 klassifizierbare direkte Nachbarn und klassifiziert sie erneut.
 Damit sind auch ein leerer Snapshot und die Abwesenheit eines 33. zulässigen
 Sidecars materiell belegt; eine vom Caller gekürzte Teilmenge ist unmöglich.
+
+Der Store prüft und fencet die bestehende Root-Lease innerhalb derselben
+Transaktion vor der Ableitung, unmittelbar vor einem Insert und erneut vor
+jeder erfolgreichen Rückgabe. Er akzeptiert ausschließlich die bereits für
+Archive-Evidence erlaubten Owner-Klassen. Eine fremde, abgelaufene oder
+überholte Lease scheitert pfadfrei; es gibt keinen unfenced Write-Pfad.
 
 Ein Sidecar kann mehreren im selben Verzeichnis liegenden Archiven zugeordnet
 sein. Diese Beziehungen sind getrennte Evidence und werden nicht geraten oder
@@ -111,6 +118,11 @@ zusammengeführt.
 `content_hash` verwendet `canonical-json/v1` mit eigener Domain-Separation,
 dem vollständigen Elternmaterial und allen geordneten Kindzeilen außer `id`
 und `created_at`. Pfade und Sidecar-Inhalte sind ausgeschlossen.
+
+Lease-Token, Owner-Run und Fence-Epoch gehören nicht in den materiellen Hash.
+Sie autorisieren den konkreten Insert, dürfen aber eine spätere exakte
+Wiederholung unter einer neuen gültigen Lease nicht in anderes Inventarmaterial
+verwandeln.
 
 Die ID ist UUIDv5 im festen Namespace
 `40d517c3-c650-5760-8b8b-6e8e6665989b` über die kleingeschriebene
@@ -185,6 +197,7 @@ Abnahme:
 - exakt gebundene NFO/TXT/DIZ/INFO/URL/HTML/SFV/README/PASSWORD-Fälle
   roundtrippen insert-only;
 - exakte Wiederholung ist idempotent;
+- fremde, abgelaufene und stale gefencete Root-Leases schreiben nichts;
 - fremder Root/Run, nicht abgeschlossener Scan, Nicht-Nachbar, Rekursion,
   Archive-Self-Link, falsche Klasse, 33. Sidecar und materielle Kollision
   scheitern fail-closed;
