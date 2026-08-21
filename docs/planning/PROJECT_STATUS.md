@@ -4,7 +4,7 @@ Stand: 2026-08-21
 
 ## Aktuelle Welle
 
-**S-EBAR-07 abgeschlossen — FG-A-COLLECTION-ORCHESTRATION ist der nächste Archive-Schritt**
+**FG-A-COLLECTION-ORCHESTRATION abgeschlossen — S-EBAR-08A ist der nächste Archive-Schritt**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -181,8 +181,12 @@ Store bindet vollständige Sourcehashes, Tool-/Parser-/Formatlockprofile,
 vollständige Signature-/Suffix-/Parserfall-Achsen, Wrapper-Innenstream und
 bestehendes ScanRoot-Fencing. Fehler-Snapshots bleiben
 auditierbar, maskieren aber keinen älteren exakt kompatiblen Erfolg.
-FG-A-COLLECTION-ORCHESTRATION ist der nächste Archive-Gate-Schritt;
-Extraction, Secretkanal,
+FG-A-COLLECTION-ORCHESTRATION ist durch
+[ADR-0053](../decisions/ADR-0053-restartable-archive-collection-orchestration.md)
+abgeschlossen. S-EBAR-08A bis 08D setzen als vier kleine Wellen Models/Store,
+den stabilen Multi-Volume-Plan, Lease/Fencing, Heartbeat, stale Resume,
+bounded Ausführung und den path-freien read-only Status mechanisch um.
+S-EBAR-08A beginnt als Nächstes. Extraction, Secretkanal,
 Source-Mutation und Collection-Orchestrierung werden dadurch nicht
 freigeschaltet.
 
@@ -1461,7 +1465,8 @@ EBAR-05, S-EBAR-05A, S-EBAR-06A und S-EBAR-04Q sind auf `main`. ADR-0050
 hält reale Extraction mangels Backend gesperrt. ADR-0051 entscheidet die
 unabhängige read-only Wrapperstrecke; S-EBAR-W01 bis S-EBAR-W04 sind auf
 `main` abgeschlossen. ADR-0052 entscheidet die immutable Archive-Persistenz;
-S-EBAR-07 ist abgeschlossen. FG-A-COLLECTION-ORCHESTRATION folgt als nächstes. Reale
+S-EBAR-07 und FG-A-COLLECTION-ORCHESTRATION sind abgeschlossen. S-EBAR-08A
+folgt als nächstes. Reale
 Passwortversuche bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert
 gesperrt. Music W4 bleibt bis zur E-Book-Reife zurückgestellt. Die
 Produktoberfläche bleibt ausschließlich die CLI.
