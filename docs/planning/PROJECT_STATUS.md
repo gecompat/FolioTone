@@ -175,6 +175,14 @@ SHA-256. S-EBAR-W04 schließt die Welle. Bis W03 abgeschlossen ist, starten
 Wrapper weiterhin keinen Lauf; Extraction-Handoff, Persistenz und Writes
 bleiben auch danach gesperrt.
 
+S-EBAR-W01 ist umgesetzt. `archive-tar-stream-frame/v1` validiert den
+inneren TAR-Strom inkrementell in 512-Byte-Blöcken, begrenzt Chunk-, Stream-,
+Header- und Payloadmengen, verlangt gültige Headerchecksummen sowie mindestens
+zwei Endblöcke und weist partielle, verkettete oder nichtnull nachlaufende
+Streams ab. Drei feste no-shell Commands definieren äußere stdout-
+Dekompression und innere TAR-Listing-/Integrity-Läufe über stdin. Der Code
+führt noch keinen Prozess aus; S-EBAR-W02 ist der nächste Schritt.
+
 S-EBAR-05A und S-EBAR-06A sind auf `main` umgesetzt. Der private Handoff
 bindet Locator, CRC und Memberidentität an denselben EBAR-05-Lauf; der reine
 Extraction-Validator prüft Workspaceprojektion, Größen, CRC, SHA-256,
@@ -1438,7 +1446,8 @@ FG-A-RUNTIME-AVAILABILITY, EBAR-04, S-EBAR-02A und S-EBAR-02B abgeschlossen.
 FG-A-STORAGE-FAMILY und FG-A-FORMAT-LOCK sind abgeschlossen; S-EBAR-02C,
 EBAR-05, S-EBAR-05A, S-EBAR-06A und S-EBAR-04Q sind auf `main`. ADR-0050
 hält reale Extraction mangels Backend gesperrt. ADR-0051 entscheidet die
-unabhängige read-only Wrapperstrecke; als nächstes folgt S-EBAR-W01. Reale
+unabhängige read-only Wrapperstrecke. S-EBAR-W01 ist umgesetzt; als nächstes
+folgt S-EBAR-W02. Reale
 Passwortversuche bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert
 gesperrt. Music W4 bleibt bis zur E-Book-Reife zurückgestellt. Die
 Produktoberfläche bleibt ausschließlich die CLI.
