@@ -87,6 +87,7 @@ from foliotone.persistence import (
     repository,
     scan_root_write_scope,
 )
+from foliotone.persistence.archive_collection import SQLiteArchiveCollectionStore
 from foliotone.persistence.consolidation_report import (
     ConsolidationPlanReportReaderError,
     SQLiteConsolidationPlanReportReader,
@@ -118,6 +119,11 @@ from foliotone.workflows import (
     PostscanCompletionVerifier,
     candidate_hash_status_payload,
     ebook_analysis_format,
+)
+from foliotone.workflows.archive_collection_report import (
+    ArchiveCollectionReportError,
+    ArchiveCollectionStatusReport,
+    SQLiteArchiveCollectionReportReader,
 )
 from foliotone.workflows.classification import (
     ClassificationReportError,
@@ -1315,6 +1321,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format; defaults to text.",
     )
 
+    archive_collection_status = subparsers.add_parser(
+        "archive-collection-status",
+        help="Read one persisted archive collection run without source access.",
+    )
+    archive_collection_status.add_argument(
+        "--run-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque persisted archive collection run identifier.",
+    )
+    archive_collection_status.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="Existing SQLite database path; defaults to /data/foliotone.db.",
+    )
+    archive_collection_status.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format; defaults to text.",
+    )
+
     ebook_compare = subparsers.add_parser(
         "ebook-compare",
         help=(
@@ -1553,6 +1582,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-consolidation-report":
         return _run_ebook_consolidation_report(args)
+
+    if args.command == "archive-collection-status":
+        return _run_archive_collection_status(args)
 
     if args.command == "ebook-match":
         return _run_ebook_match(args)
@@ -2659,6 +2691,77 @@ def _ebook_consolidation_report_error(args: argparse.Namespace, code: str) -> in
         )
     else:
         print("Consolidation report failed: read-only state is unavailable.")
+    return 2
+
+
+def _run_archive_collection_status(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    if not database.is_file():
+        return _archive_collection_status_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            report = SQLiteArchiveCollectionReportReader(
+                SQLiteArchiveCollectionStore(engine)
+            ).read(args.run_id)
+        finally:
+            engine.dispose()
+    except ArchiveCollectionReportError:
+        return _archive_collection_status_error(args, "RUN_UNAVAILABLE")
+    except OperationalError:
+        return _archive_collection_status_error(args, "SCHEMA_UNAVAILABLE")
+    except (OSError, ValueError):
+        return _archive_collection_status_error(args, "DATABASE_UNAVAILABLE")
+    except Exception:
+        return _archive_collection_status_error(args, "INTERNAL_READ_ERROR")
+    if args.output == "json":
+        _emit_json(report.payload())
+    else:
+        _print_archive_collection_status(report)
+    return 0
+
+
+def _print_archive_collection_status(report: ArchiveCollectionStatusReport) -> None:
+    print(f"Run: {report.run_id}")
+    print(f"Profile: {report.profile}")
+    print(f"Status: {report.status.value}")
+    print(f"Source scan: {report.source_scan_run_id}")
+    for label, value in (
+        ("Planned", report.counts.planned),
+        ("Pending", report.counts.pending),
+        ("Running", report.counts.running),
+        ("Succeeded", report.counts.succeeded),
+        ("Failed", report.counts.failed),
+        ("Error", report.counts.error),
+        ("Executed", report.counts.executed),
+        ("Reused", report.counts.reused),
+    ):
+        print(f"{label}: {value}")
+    for label, values in (
+        ("Listing status", report.listing_statuses),
+        ("Integrity status", report.integrity_statuses),
+        ("Encryption status", report.encryption_statuses),
+        ("Recognition status", report.recognition_statuses),
+        ("Storage family", report.storage_families),
+        ("Error code", report.error_codes),
+    ):
+        for aggregate in values:
+            print(f"{label}: {aggregate.literal}={aggregate.count}")
+    print("Truncated: false")
+
+
+def _archive_collection_status_error(args: argparse.Namespace, code: str) -> int:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": "archive-collection-status",
+                "ok": False,
+                "error": {"code": code},
+            }
+        )
+    else:
+        print("Archive collection status failed: read-only state is unavailable.")
     return 2
 
 
