@@ -152,8 +152,13 @@ secret_version        = NONE
 ```
 
 Direkte und Wrapper-Provider-/Runnerprofile dürfen nur in ihrer jeweiligen
-Paarung vorkommen. Ein neuer Profilwert benötigt eine additive Compatibility-
-Entscheidung und darf nicht still als v1 gelesen werden.
+Paarung vorkommen. Die Wrapperpaarung gilt ausschließlich bei
+`recognition_status = OUTER_COMPRESSION_ONLY`; alle anderen Recognition-
+Zustände, einschließlich eines nicht freigegebenen einzelnen `.gz`-/`.xz`-
+Suffixes mit erkannter äußerer Signatur, bleiben beim direkten Provider und
+erzeugen keinen erfundenen Wrapperlauf. Ein neuer Profilwert benötigt eine
+additive Compatibility-Entscheidung und darf nicht still als v1 gelesen
+werden.
 
 Die Statuswerte stammen aus den bestehenden Enum-Allowlists. Ein `LISTED`-
 Snapshot bindet eine Listing-Execution. Ein getesteter Integrity-Status bindet
@@ -265,8 +270,10 @@ sind nicht persistierbar.
 
 `archive_wrapper_lineage` ist eine optionale One-to-one-Tabelle mit
 `archive_observation_id` als Primär- und Fremdschlüssel. Eine Zeile existiert
-genau dann, wenn `outer_compression_kind` `GZIP`, `BZIP2`, `XZ` oder `ZSTD`
-ist. Sie enthält:
+genau dann, wenn `recognition_status = OUTER_COMPRESSION_ONLY` und damit der
+freigegebene Wrapperprovider ausgewählt wurde. Ein bloß erkannter äußerer
+Kompressionsheader bei `UNSUPPORTED_FORMAT` ist keine Wrapperausführung und
+erzeugt keine Zeile. Sie enthält:
 
 ```text
 archive_observation_id
