@@ -1,7 +1,8 @@
 # Ausführungs-Prompt für die E-Book-Roadmap
 
-Der folgende Prompt ist für einen neuen FolioTone-Thread vorgesehen. Vor der
-Verwendung muss das Codex-Projekt auf einem Host mit `C:\rep` geöffnet sein.
+Der folgende Prompt ist für einen neuen FolioTone-Task eines Coding-Agenten
+vorgesehen. Vor der Verwendung muss das Repository auf einem Host mit
+`C:\rep` geöffnet sein.
 
 ```text
 Setze die E-Book-Roadmap aus
@@ -9,6 +10,11 @@ docs\planning\W3_017_EBOOK_ROADMAP.md im aktuell geöffneten FolioTone-
 Repository autonom und wellenweise um. Lies zuerst AGENTS.md sowie die dort
 vorgeschriebenen Status-, Handover-, Architektur-, ADR-, Qualitäts- und
 Terminologiedokumente.
+Wähle für jeden Schritt gemäß MODEL_ROUTING_POLICY.md den Tier LOCAL,
+ECONOMICAL, BALANCED oder FRONTIER. Bilde den Tier erst in der aktuellen
+Laufzeit auf ein verfügbares Modell ab und kehre nach einer schwierigen
+Entscheidung für mechanische Folgearbeiten zum günstigsten ausreichenden Tier
+zurück.
 Prüfe den tatsächlichen Stand von origin/main und behandle den Plan nicht als
 Beleg für bereits implementierte oder bereits gemergte Arbeit.
 
@@ -30,8 +36,8 @@ Prüfung und Writer-Stillstand an.
 Für E2 bist du nach erfolgreichem Preflight ausdrücklich autorisiert, den
 eindeutig verifizierten alten ebook-hash-candidates-Prozessbaum und die davon
 abhängigen obsoleten Supervisor-/Watcher-Prozesse kontrolliert zu beenden.
-Beende niemals Codex, fremde Projektprozesse oder einen nicht eindeutig
-zugeordneten Prozess. Mehrere PIDs gelten nicht ohne Prozessbaum- und
+Beende niemals den aktiven Coding-Agenten, fremde Projektprozesse oder einen
+nicht eindeutig zugeordneten Prozess. Mehrere PIDs gelten nicht ohne Prozessbaum- und
 Commandline-Nachweis als mehrere Hash-Invocations. Prüfe vor dem Beenden, dass
 der neueste ScanRun COMPLETED ist, kein Scan-Writer läuft und die gemergte
 optimierte Kandidaten-Hash-Implementierung bereitsteht.

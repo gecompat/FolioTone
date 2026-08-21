@@ -61,11 +61,16 @@ PROTECTED_README_PREFIX = "\n".join(
 ) + "\n"
 
 REQUIRED_GOVERNANCE_PATHS = (
+    "docs/planning/AI_WORKFLOW.md",
+    "docs/planning/AI_TOOL_ADAPTERS.md",
+    "docs/planning/MODEL_ROUTING_POLICY.md",
+    "docs/quality/TEST_POLICY.md",
     "docs/quality/DOCUMENTATION_STYLE.md",
     "docs/quality/LANGUAGE_AND_TERMINOLOGY.md",
     "docs/reference/GLOSSARY.md",
     "docs/README.md",
     ".github/copilot-instructions.md",
+    ".junie/AGENTS.md",
 )
 
 DOCKER_CONTEXT_ALLOWLIST = (
@@ -105,6 +110,23 @@ def test_copilot_routes_documentation_changes_to_same_policies() -> None:
     assert "LANGUAGE_AND_TERMINOLOGY.md" in instructions
     assert "GLOSSARY.md" in instructions
     assert "Lizenzblock" in instructions
+
+
+def test_agent_strategy_is_vendor_neutral_and_adapters_are_thin() -> None:
+    policy = (ROOT / "docs/planning/MODEL_ROUTING_POLICY.md").read_text(encoding="utf-8")
+    workflow = (ROOT / "docs/planning/AI_WORKFLOW.md").read_text(encoding="utf-8")
+    adapters = (ROOT / "docs/planning/AI_TOOL_ADAPTERS.md").read_text(encoding="utf-8")
+    copilot = (ROOT / ".github/copilot-instructions.md").read_text(encoding="utf-8")
+    junie = (ROOT / ".junie/AGENTS.md").read_text(encoding="utf-8")
+
+    for tier in ("LOCAL", "ECONOMICAL", "BALANCED", "FRONTIER"):
+        assert f"`{tier}`" in policy
+    assert "gpt-" not in policy.lower()
+    assert "Genau ein Implementierungsagent" in workflow
+    assert "Databricks Genie Code" in adapters
+    assert "Databricks Genie Agents" in adapters
+    assert "AGENTS.md" in copilot
+    assert "AGENTS.md" in junie
 
 
 def test_legacy_project_name_is_absent_from_public_markdown() -> None:

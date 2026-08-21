@@ -329,7 +329,7 @@ erhalten.
 ## FG-A-RUNTIME-Folgepakete und Modellrouting
 
 Die vollständigen Dateigrenzen und Stopbedingungen stehen im
-[`Spark-Arbeitspaketkatalog`](EBOOK_SPARK_WORK_PACKAGES.md). Die Reihenfolge
+[`atomaren Arbeitspaketkatalog`](EBOOK_SPARK_WORK_PACKAGES.md). Die Reihenfolge
 lautet:
 
 ```text
@@ -381,16 +381,15 @@ S-EBAR-01 Execution-DTOs
     -> FG-W10-MOVE-BACKEND vor jeder realen Mutation
 ```
 
-Die mechanischen S-EBAR-Pakete verwenden das im Spark-Katalog jeweils
-festgelegte Routing. FG-A-IMAGE und FG-A-RUNTIME-AVAILABILITY wurden als
-Frontier-Gates abgeschlossen; S-EBAR-03 bis S-EBAR-03A, EBAR-04,
-S-EBAR-02A, S-EBAR-02B und S-EBAR-02B2 sind umgesetzt.
-FG-A-STORAGE-FAMILY verwendet 5.6 Sol `high`; der finale Formatlock behält
-dasselbe Frontier-Routing.
-Docker/Linux-Streaming-Runner und Extraction-Sandbox verwenden
-5.6 Sol mit Thinking `high`. Nur FG-A-SECRET verwendet 5.6 Sol mit Thinking
-`xhigh` und besitzt kein niedriger eingestuftes Fallback. Status-, CI- und
-Mergeprüfungen verwenden 5.6 Luna.
+Die mechanischen S-EBAR-Pakete verwenden das im atomaren Katalog jeweils
+festgelegte Risiko. Historische Modellnamen werden gemäß
+`MODEL_ROUTING_POLICY.md` auf die aktuellen Tiers abgebildet. FG-A-IMAGE,
+FG-A-RUNTIME-AVAILABILITY, FG-A-STORAGE-FAMILY und der finale Formatlock sind
+`FRONTIER`. Docker/Linux-Streaming-Runner, Extraction-Sandbox und
+FG-A-SECRET bleiben ebenfalls `FRONTIER`; solange ihre kritische Frage offen
+ist, ist kein niedrigeres Fallback zulässig. Status-, CI- und Mergeprüfungen
+beginnen mit `LOCAL` und verwenden nur bei nichtdeterministischem Bedarf
+`ECONOMICAL` oder `BALANCED`.
 
 `archive-linux-container-runner/v1` ist der erste freigegebene Backendvertrag.
 Er mountet niemals die tatsächliche Source, sondern nur eine vollhashgeprüfte

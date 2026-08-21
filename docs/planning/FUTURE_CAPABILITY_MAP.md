@@ -57,7 +57,7 @@ Statusachse und keine öffentlichen Runtime-Literale.
 Beim Aktualisieren dieser Map sind EB-07 und EB-08 abgeschlossen; die aktive
 Arbeit liegt in der getrennten Archive-Strecke. Der genaue Paketstatus und der
 jeweils nächste atomare Schritt werden hier nicht dupliziert; dafür sind
-`PROJECT_STATUS.md`, `HANDOVER.md` und der Spark-Arbeitspaketkatalog
+`PROJECT_STATUS.md`, `HANDOVER.md` und der atomare Arbeitspaketkatalog
 maßgeblich.
 
 ## Empfohlene Entwicklungsfolge
@@ -221,12 +221,12 @@ abgeleitet werden.
 
 | Fähigkeit | Nutzerergebnis | Einordnung | Bestehende Zuordnung | Nächste Entscheidung |
 |---|---|---|---|---|
-| Calibre Reconciliation | Calibre- und Dateisystemzustand read-only vergleichen | bestehender Plan, aktuell | EB-07, W8, ADR-0033 | verbleibende Pakete gemäß Spark-Katalog |
+| Calibre Reconciliation | Calibre- und Dateisystemzustand read-only vergleichen | bestehender Plan, aktuell | EB-07, W8, ADR-0033 | verbleibende atomare Pakete |
 | Keep Preference und Plan | bevorzugte Repräsentation und Blocker ohne Ausführung | bestehender Plan, abhängigkeitsgebunden | FG-08, EB-08, W9 | Frontier-Vertrag nach EB-07 |
 | Archive Discovery/Inventory | Container, Volumes, Sidecars, Members und Integrität nachvollziehen | bestehender Plan, abhängigkeitsgebunden | W3-018 bis W3-022; EB-A1 und Teile von EB-A2 | bestehende Archive-Gates |
 | Archive Matching/Planung | Secret-, Member-, Matching- und Planungs-Evidence verbinden | bestehender Plan, abhängigkeitsgebunden | W5B-011, W6-007, W9-004/W9-005; EB-A2/EB-A3 | bestehende Archive-Gates |
 | Provider Cache/Book Provider | externe Evidence kontrolliert und offline wiederverwendbar machen | bestehender Plan, abhängigkeitsgebunden | EB-03A/B, W5B | vorhandene Provider-Gates |
-| Classification Projection | widersprüchliche Facets getrennt und rebuildbar projizieren | bestehender Plan, abhängigkeitsgebunden | EB-04, W5C | FG-04 und Spark-Pakete |
+| Classification Projection | widersprüchliche Facets getrennt und rebuildbar projizieren | bestehender Plan, abhängigkeitsgebunden | EB-04, W5C | FG-04 und atomare Pakete |
 | `CollectionState` | physische Beobachtungen, bestätigte Identitäten und offene Candidates getrennt verstehen | strategischer Vorschlag, danach | neu; Reports und Scan-Lineage sind Vorarbeit | Frontier-ADR und book-only v1 |
 | Portable Identität und föderierter Austausch | Datensatz-Lineage über externe Kopien sowie zwischen FolioTone-Systemen nachvollziehen und konfliktbewusst fusionieren | strategischer Vorschlag, danach; Writes W10-blockiert | FUT-010, ADR-0011, ADR-0014 und ADR-0042 Proposed | FG-FED-IDENTITY, FG-FED-BUNDLE, FG-FED-MERGE und FG-FED-CARRIER |
 | Snapshot Diff | Veränderungen zwischen zwei konsistenten Zuständen erklären | strategischer Vorschlag, danach | W2-Lineage ist Vorarbeit; keine direkte Backlogaufgabe | CollectionState-Vertrag |
@@ -293,7 +293,7 @@ Jede neue Medienlinie muss vor Implementierung mindestens festlegen:
 
 ## Erforderliche Frontier-Entscheidungen
 
-Die folgenden Fragen werden nicht in Spark-Paketen vorentschieden:
+Die folgenden Fragen werden nicht in `ECONOMICAL`-Paketen vorentschieden:
 
 - `CollectionState`-Lineage und Rebuild-Semantik;
 - Query-AST, FTS-Projektion, Limits, Content-Index-Privacy sowie

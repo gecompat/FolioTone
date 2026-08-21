@@ -1,4 +1,4 @@
-# Spark-Arbeitspakete für die E-Book-Endgerade
+# Atomare Arbeitspakete für die E-Book-Endgerade
 
 **Status:** In Ausführung; die read-only Archive-Strecke bis EBAR-09 sowie
 FG-A3-MATCHING und S-EBA3-01 bis S-EBA3-03 sind abgeschlossen.
@@ -7,45 +7,47 @@ ADR-0055 und S-EBAR-07A schließen W3-019 vollständig ab.
 
 **Stand:** 2026-08-20
 
-**Scope:** Atomare Implementierungspakete für Codex Spark innerhalb der
+**Scope:** Atomare Implementierungspakete innerhalb der
 E-Book-Lieferwellen EB-00, EB-03A, EB-03B, EB-04, EB-07, EB-08 sowie begrenzter
 Vorarbeiten aus EB-A1 und EB-A2
 
-**Vorgesehene Ausführung:** 5.3 Codex Spark mit Thinking `high` als Standard
-und kontrollierter Eskalation gemäß diesem Dokument; die Aufgabengrenzen
-bleiben unabhängig von der konkreten Modellverfügbarkeit verbindlich
+**Vorgesehene Ausführung:** `ECONOMICAL` für vollständig festgelegte Pakete,
+mit kontrollierter Eskalation auf `BALANCED` oder `FRONTIER` gemäß
+`MODEL_ROUTING_POLICY.md`; die Aufgabengrenzen bleiben unabhängig von der
+konkreten Modellverfügbarkeit verbindlich
 
 ## Einordnung
 
 Dieses Dokument verfeinert den
 [`E-Book-Endgame-Ausführungsplan`](EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md). Die
 W-, E-, EA- und EB-Bezeichnungen, Statuswerte und Sicherheitsgrenzen des
-Endgame-Plans bleiben maßgeblich. Die Kennzeichnung „Spark-tauglich“ ist eine
-FolioTone-interne Aufgabeneinstufung und keine allgemeine Aussage über eine
-Modellgarantie.
+Endgame-Plans bleiben maßgeblich. Der Dateiname und historische
+„Spark-tauglich“-Verweise bleiben aus Gründen stabiler Links erhalten. Für
+neue Läufe bezeichnen sie ein atomar begrenztes `ECONOMICAL`-Paket und keine
+Bindung an einen Anbieter oder Modellnamen.
 
-Ein Paket ist nur dann Spark-tauglich, wenn alle fachlichen Entscheidungen vor
-Beginn feststehen, der erlaubte Dateibereich klein ist, das Ergebnis durch
+Ein Paket ist nur dann `ECONOMICAL`-tauglich, wenn alle fachlichen
+Entscheidungen vor Beginn feststehen, der erlaubte Dateibereich klein ist, das Ergebnis durch
 deterministische Tests beweisbar ist und ein Abbruch bei Vertragsabweichung
 keinen unfertigen Zustand auf `main` hinterlässt.
 
-## Adaptive Modell- und Thinking-Regel
+## Adaptive Tier- und Reasoning-Regel
 
 Der repositoryweite Vertrag steht in
-[`MODEL_ROUTING_POLICY.md`](MODEL_ROUTING_POLICY.md). Der koordinierende
-Codex-Task wählt Modell und Thinking automatisch anhand dieser Richtlinie und
+[`MODEL_ROUTING_POLICY.md`](MODEL_ROUTING_POLICY.md). Der koordinierende Task
+wählt Tier und gegebenenfalls Reasoning-Aufwand anhand dieser Richtlinie und
 der nachstehenden strengeren E-Book-Grenzen. Eine erneute Benutzerfrage ist
 nicht erforderlich, solange die Arbeit innerhalb des genehmigten E-Book-Scopes
 und dieser Grenzen bleibt.
 
-| Aufgabenklasse | Modell | Standard | Zulässige Eskalation |
+| Aufgabenklasse | Tier | Standard | Zulässige Eskalation |
 |---|---|---|---|
-| Atomare Pakete dieses Dokuments | `gpt-5.3-codex-spark` | `high` | Wechsel zu 5.4 Mini oder 5.6 Terra nur nach dem repositoryweiten Fallback-Vertrag; eine offene Architekturfrage stoppt das Paket |
-| Statusabgleich, gewöhnliche Reviews, CI-Triage und Merge-Verifikation | `gpt-5.6-luna` | `low` oder `medium` | 5.4 Mini oder 5.6 Terra nur bei Kapazitäts- oder Qualitätsbedarf |
-| Gewöhnliche Integration innerhalb akzeptierter Verträge | `gpt-5.6-terra` | `medium` | `high`, wenn mehrere Schichten oder ein ungeklärter reproduzierbarer Fehler betroffen sind |
-| Frontier-Gates für Provider, Classification, Calibre, Persistenz und nicht ausführbare Planung | `gpt-5.6-sol` | `medium` | `high`, wenn neue öffentliche Verträge oder mehrere kanonische Schichten betroffen sind |
-| EB-01, EB-02, EB-05, EB-06, Archive-Security und vergleichbare kritische Architekturarbeit | `gpt-5.6-sol` | `high` | `xhigh` nur für die unten genannten kritischen Risikoklassen; `max` nur nach den festgelegten Kriterien |
-| W10-Entscheidung oder bestätigter datenverlustrelevanter Fehler | `gpt-5.6-sol` | `max` | keine automatische Erweiterung des genehmigten Scopes |
+| Atomare Pakete dieses Dokuments | `ECONOMICAL` | niedrigster ausreichender Aufwand | `BALANCED` bei Integrationsbedarf; eine offene Architekturfrage stoppt das Paket |
+| Statusabgleich, gewöhnliche Reviews, CI-Triage und Merge-Verifikation | zuerst `LOCAL`, sonst `ECONOMICAL` | niedriger Aufwand | `BALANCED` nur bei konkretem Diagnose- oder Qualitätsbedarf |
+| Gewöhnliche Integration innerhalb akzeptierter Verträge | `BALANCED` | mittlerer Aufwand | hoher Aufwand, wenn mehrere Schichten oder ein ungeklärter reproduzierbarer Fehler betroffen sind |
+| Frontier-Gates für Provider, Classification, Calibre, Persistenz und nicht ausführbare Planung | `FRONTIER` | mittlerer oder hoher Aufwand nach Risiko | keine Abstufung, solange eine kritische Frage offen ist |
+| EB-01, EB-02, EB-05, EB-06, Archive-Security und vergleichbare kritische Architekturarbeit | `FRONTIER` | hoher Aufwand | höchste verfügbare Stufe nur für die unten genannten kritischen Risikoklassen |
+| W10-Entscheidung oder bestätigter datenverlustrelevanter Fehler | `FRONTIER` | höchste verfügbare Stufe | keine automatische Erweiterung des genehmigten Scopes |
 
 Eine Eskalation von `medium` auf `high` erfolgt, wenn mindestens eines der
 folgenden Merkmale vorliegt:
@@ -75,12 +77,12 @@ Die höhere Thinking-Stufe erteilt niemals zusätzliche Berechtigungen. Bei eine
 Scope-Erweiterung, destruktiven Aktion oder fehlenden Benutzerentscheidung muss
 der Task unabhängig von Modell und Thinking stoppen.
 
-Wenn Spark während eines Pakets eine nicht im Frontier-Gate entschiedene
-Architektur- oder Sicherheitsfrage entdeckt, darf das Paket nicht allein durch
+Wenn ein `ECONOMICAL`-Agent während eines Pakets eine nicht im Frontier-Gate
+entschiedene Architektur- oder Sicherheitsfrage entdeckt, darf das Paket nicht allein durch
 Eskalation auf `xhigh` fortgesetzt werden. Es stoppt unverändert; ein separates
 Frontier-Task klärt die Frage mit der für die Risikoklasse vorgesehenen Stufe.
 
-## Nicht autonom an Spark delegieren
+## Nicht autonom an `ECONOMICAL` delegieren
 
 Folgende Kernwellen bleiben bei einem Frontier-Modell und werden nicht durch
 die nachstehenden Pakete ersetzt:
@@ -95,12 +97,12 @@ die nachstehenden Pakete ersetzt:
 | EB-A3 | Archive-aware Matching und Deduplizierungsplanung hängen von EB-05, EB-06 und EB-07 ab. |
 | W10/EA11/EA12 | Jede Mutation, Quarantäne, Löschung oder Verzeichnisbereinigung bleibt gesperrt. |
 
-Spark darf nach einem Frontier-Gate mechanische Folgearbeiten für diese Wellen
-übernehmen, beispielsweise Fixture-Erweiterungen oder einen bereits exakt
+Ein `ECONOMICAL`-Agent darf nach einem Frontier-Gate mechanische Folgearbeiten
+für diese Wellen übernehmen, beispielsweise Fixture-Erweiterungen oder einen bereits exakt
 spezifizierten Mapper. Solche Folgearbeiten benötigen ein eigenes Paket und
 dürfen nicht aus diesem Dokument abgeleitet werden.
 
-## Verbindlicher Vertrag für jedes Spark-Paket
+## Verbindlicher Vertrag für jedes atomare Paket
 
 Jedes Paket wird einzeln auf dem dann aktuellen `origin/main` begonnen. Ein
 Paket entspricht genau einem Branch, einem Commit-Scope und einem Pull Request.
@@ -139,14 +141,14 @@ Architekturentscheidung nötig wird, die Dateigrenze nicht eingehalten werden
 kann oder ein Test nur durch Abschwächung einer Sicherheitsinvariante grün
 würde.
 
-## Frontier-Gates vor Spark-Ausführung
+## Frontier-Gates vor atomarer Ausführung
 
 Ein Frontier-Gate ist eine dokumentierte Entscheidung, keine umfangreiche
 Implementierungswelle. Der Gate-PR muss die genannten Literale, Invarianten,
-Persistenzgrenzen und Kompatibilitätsregeln so festlegen, dass Spark sie nur
-noch implementiert.
+Persistenzgrenzen und Kompatibilitätsregeln so festlegen, dass ein
+`ECONOMICAL`-Agent sie nur noch implementiert.
 
-| Gate | Muss vorliegen, bevor Spark beginnt |
+| Gate | Muss vorliegen, bevor die atomare Implementierung beginnt |
 |---|---|
 | FG-00 | Durch [ADR-0026](../decisions/ADR-0026-provider-access-and-cache-policy.md) akzeptiert: exakte `ProviderAccessMode`-/`ProviderCachePolicy`-Literale, Legacy-Mapping und Deprecation-Regel. |
 | FG-03A | Durch [ADR-0035](../decisions/ADR-0035-provider-cache-runtime-contract.md) akzeptiert: Cache-Payload-Regel je Provider, TTL-/Freshness-Regeln, getrennte Source-/Mapping-Keys, CAS-Transaktionsgrenze und bounded Retention. |
@@ -363,7 +365,7 @@ FG-A3-MEMBER-BYTE bleibt bis zu vollständiger Member-SHA-256-Evidence blockiert
 FG-A-SECRET bleibt separat
 blockiert.
 
-## Abnahme eines Spark-Pakets
+## Abnahme eines atomaren Pakets
 
 Ein Paket ist nur abgeschlossen, wenn:
 
@@ -391,10 +393,10 @@ Arbeite im FolioTone-Repository unter C:\rep und implementiere ausschließlich
 das Paket <PAKET-ID> aus
 docs/planning/EBOOK_SPARK_WORK_PACKAGES.md.
 
-Dieser Task ist für 5.3 Codex Spark mit Thinking `high` vorgesehen. Wenn die
-Aufgabe trotz des bereits festgelegten Vertrags mehrere Schichten integriert
-oder einen schwer reproduzierbaren Fehler betrifft, darf der koordinierende
-Task gemäß `MODEL_ROUTING_POLICY.md` auf 5.6 Terra mit `high` wechseln.
+Dieser Task verwendet `ECONOMICAL`. Wenn die Aufgabe trotz des bereits
+festgelegten Vertrags mehrere Schichten integriert oder einen schwer
+reproduzierbaren Fehler betrifft, darf der koordinierende Task gemäß
+`MODEL_ROUTING_POLICY.md` auf `BALANCED` eskalieren.
 Eine fehlende Architektur- oder Sicherheitsentscheidung ist kein
 Eskalationsgrund, sondern eine Stoppbedingung für dieses Paket.
 
@@ -408,8 +410,8 @@ sauberen Worktree unter C:\rep\worktrees\FolioTone.
 Der Vertrag aus <FRONTIER-GATE-PR-ODER-COMMIT> ist verbindlich. Triff keine
 zusätzliche Architektur-, Schema-, Sicherheits- oder Produktentscheidung.
 Ändere nur die im Paket erlaubten Dateien und halte die allgemeine Dateigrenze
-des Spark-Katalogs ein. Verwende ausschließlich synthetische Fixtures. Keine
-Live-Netzwerktests, privaten Sammlungsdaten, Secrets oder Source-Media-Writes.
+des atomaren Paketkatalogs ein. Verwende ausschließlich synthetische Fixtures.
+Keine Live-Netzwerktests, privaten Sammlungsdaten, Secrets oder Source-Media-Writes.
 W10 bleibt gesperrt.
 
 Führe die im Paket genannten fokussierten Tests sowie Ruff, Mypy und

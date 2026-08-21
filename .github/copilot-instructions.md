@@ -1,15 +1,21 @@
-# GitHub Copilot repository instructions
+# GitHub and Visual Studio Copilot discovery adapter
 
-Vor neuen oder geänderten Dokumentationsfreitexten sind die Root-Anweisungen in [`AGENTS.md`](../AGENTS.md), der [verbindliche Dokumentationsstil](../docs/quality/DOCUMENTATION_STYLE.md) und die [Sprach- und Terminologierichtlinie](../docs/quality/LANGUAGE_AND_TERMINOLOGY.md) zu lesen und einzuhalten.
+Diese Datei enthält keine eigenständigen Projektregeln. Lies vor jeder
+Analyse oder Änderung die Root-Datei [`AGENTS.md`](../AGENTS.md) und die dort
+für den aktuellen Scope referenzierten kanonischen Dokumente.
 
-Das [Glossar](../docs/reference/GLOSSARY.md) ist für fachliche Kernbegriffe verbindlich. Technische Bezeichner, Code, Enum-Werte, CLI-Kommandos, Provider-/Tool-IDs und andere öffentliche Verträge werden nicht aus Stil- oder Übersetzungsgründen verändert.
+Insbesondere gelten:
 
-## Geschützter Lizenzblock der Root-README
+- Wave-Orchestrierung: [`AI_WORKFLOW.md`](../docs/planning/AI_WORKFLOW.md)
+- Modell-Tiers: [`MODEL_ROUTING_POLICY.md`](../docs/planning/MODEL_ROUTING_POLICY.md)
+- Local-first-Tests: [`TEST_POLICY.md`](../docs/quality/TEST_POLICY.md)
+- Dokumentationsstil: [`DOCUMENTATION_STYLE.md`](../docs/quality/DOCUMENTATION_STYLE.md)
+- Sprache und Terminologie: [`LANGUAGE_AND_TERMINOLOGY.md`](../docs/quality/LANGUAGE_AND_TERMINOLOGY.md)
+- Fachbegriffe: [`GLOSSARY.md`](../docs/reference/GLOSSARY.md)
 
-Bei jeder Änderung der Root-`README.md` ist der vorhandene englische und deutsche Lizenzblock vollständig und unverändert zu erhalten. Allgemeine README-, Dokumentations-, Formatierungs- oder Stilaufträge erlauben keine Bearbeitung dieses Blocks.
-
-Eine Änderung des Lizenzblocks ist nur zulässig, wenn der Benutzer sie ausdrücklich und unmittelbar verlangt. Maßgeblich ist dann der zu Beginn der Aufgabe im Zielbranch vorhandene Stand.
-
-## Änderungsumfang
-
-Eine technische Änderung ist keine Erlaubnis für eine unverbundene redaktionelle Gesamtüberarbeitung. Dokumentationsänderungen bleiben auf den sachlich betroffenen Umfang begrenzt. Tatsachen, empirische Beobachtungen, Heuristiken, Annahmen, Empfehlungen und offene Fragen werden sprachlich voneinander getrennt.
+Verwende die Tiers `LOCAL`, `ECONOMICAL`, `BALANCED` und `FRONTIER` und bilde
+sie erst in der aktuellen Copilot-Oberfläche auf ein verfügbares Modell ab.
+Dieser Adapter darf den Root-Vertrag, Safety, Privacy, W10, den geschützten
+Root-README-Lizenzblock oder die Git-Regeln weder ersetzen noch abschwächen.
+Der Lizenzblock bleibt unverändert, sofern der Benutzer nicht ausdrücklich
+seine Änderung beauftragt.

@@ -59,6 +59,10 @@ The FolioTone `src/foliotone/cli/main.py` status output is already line-wrapped,
 
 ## Verification rule
 
+Local-first selection and evidence follow
+[`TEST_POLICY.md`](../quality/TEST_POLICY.md). This CI document defines the
+remote gate and does not require duplicate local full-suite runs.
+
 1. verify one `quality` run for the pull-request head;
 2. verify Ruff, Mypy, Pytest and all Docker smoke steps in that run;
 3. merge only the exact green pull-request head;
