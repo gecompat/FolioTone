@@ -11,18 +11,22 @@ import pytest
 
 from foliotone.archive.container_sandbox import (
     ARCHIVE_LINUX_CONTAINER_RUNNER_PROFILE,
+    ARCHIVE_WRAPPER_CONTAINER_RUNNER_PROFILE,
     ArchiveContainerRequest,
     ArchiveContainerRunResult,
     ArchiveContainerRunStatus,
     ArchiveVolumeSource,
+    ArchiveWrapperContainerRequest,
+    ArchiveWrapperContainerRunResult,
+    ArchiveWrapperOperation,
 )
 from foliotone.archive.provider import (
     ARCHIVE_PROVIDER_PROFILE,
     ArchiveProviderOutcome,
-    ArchiveProviderResult,
     ArchiveSevenZipProvider,
     _ArchiveExtractionHandoff,
     _ArchiveExtractionMemberHandoff,
+    _ArchiveWrapperReuseEvidence,
     _attach_extraction_handoff,
     _inspect,
     _listing_status,
@@ -74,6 +78,50 @@ class _FakeRunner:
             if not consumer(chunk):
                 return _run(ArchiveContainerRunStatus.POLICY_REJECTED)
         return _run(status)
+
+
+class _FakeWrapperRunner:
+    def __init__(
+        self,
+        steps: list[
+            tuple[
+                ArchiveContainerRunStatus,
+                tuple[bytes, ...],
+                int,
+                str | None,
+            ]
+        ],
+    ) -> None:
+        self.steps = steps
+        self.requests: list[ArchiveWrapperContainerRequest] = []
+        self.direct_requests: list[ArchiveContainerRequest] = []
+
+    def run(self, request: ArchiveContainerRequest, **_kwargs: Any) -> ArchiveContainerRunResult:
+        self.direct_requests.append(request)
+        raise AssertionError("wrapper provider must not use the direct runner")
+
+    def run_wrapper_pipeline(
+        self, request: ArchiveWrapperContainerRequest, **kwargs: Any
+    ) -> ArchiveWrapperContainerRunResult:
+        self.requests.append(request)
+        status, chunks, stream_size, stream_sha256 = self.steps.pop(0)
+        consumer = kwargs["stdout_consumer"]
+        for chunk in chunks:
+            if not consumer(chunk):
+                return ArchiveWrapperContainerRunResult(
+                    ARCHIVE_WRAPPER_CONTAINER_RUNNER_PROFILE,
+                    ArchiveContainerRunStatus.POLICY_REJECTED,
+                )
+        return ArchiveWrapperContainerRunResult(
+            ARCHIVE_WRAPPER_CONTAINER_RUNNER_PROFILE,
+            status,
+            0 if status is ArchiveContainerRunStatus.COMPLETED else 2,
+            0 if status is ArchiveContainerRunStatus.COMPLETED else None,
+            sum(len(chunk) for chunk in chunks),
+            0,
+            stream_size if status is ArchiveContainerRunStatus.COMPLETED else 0,
+            stream_sha256 if status is ArchiveContainerRunStatus.COMPLETED else None,
+        )
 
 
 def _request() -> ArchiveContainerRequest:
@@ -136,6 +184,38 @@ def _stream(capability: dict[str, Any]) -> bytes:
             + "\n"
         )
     return "".join(records).encode()
+
+
+def _tar_plaintext_capability() -> dict[str, Any]:
+    lock = json.loads(FORMAT_LOCK.read_text(encoding="utf-8"))
+    return next(
+        item
+        for item in lock["capabilities"]
+        if item["storage_family"] == "TAR"
+        and item["case_kind"] == "PLAINTEXT_REGULAR"
+        and item["disposition"] == "MEASURED"
+    )
+
+
+def _wrapper_signature(kind: str) -> object:
+    names = {
+        "GZIP": ("book.tar.gz", b"\x1f\x8b"),
+        "BZIP2": ("book.tar.bz2", b"BZh"),
+        "XZ": ("book.tar.xz", b"\xfd7zXZ\x00"),
+        "ZSTD": ("book.tar.zst", b"(\xb5/\xfd"),
+    }
+    name, header = names[kind]
+    return observe_archive_signature_v2(name, header)
+
+
+def _wrapper_steps(
+    *, integrity_hash: str = "e" * 64
+) -> list[tuple[ArchiveContainerRunStatus, tuple[bytes, ...], int, str | None]]:
+    listing = _stream(_tar_plaintext_capability())
+    return [
+        (ArchiveContainerRunStatus.COMPLETED, (listing,), 2_048, "e" * 64),
+        (ArchiveContainerRunStatus.COMPLETED, (), 2_048, integrity_hash),
+    ]
 
 
 def _clock() -> Any:
@@ -399,34 +479,149 @@ def test_private_handoff_is_absent_for_every_non_extractable_terminal_state() ->
     assert all(outcome._extraction_handoff is None for outcome in outcomes)
 
 
-def test_wrapper_is_rejected_without_runner_or_execution() -> None:
-    runner = _FakeRunner([])
+@pytest.mark.parametrize("kind", ["GZIP", "BZIP2", "XZ", "ZSTD"])
+def test_wrapper_runs_two_composites_with_matching_inner_evidence_and_no_handoff(
+    kind: str,
+) -> None:
+    runner = _FakeWrapperRunner(_wrapper_steps())
     outcome = _inspect(
         runner,
         _request(),
-        signature=observe_archive_signature_v2("book.tar.gz", b"\x1f\x8b"),
+        signature=_wrapper_signature(kind),  # type: ignore[arg-type]
         archive_observation_id="archive-observation-1",
         archive_full_sha256="a" * 64,
         volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
         cancellation=None,
         now=_clock(),
     )
-    assert runner.requests == []
-    assert outcome.executions == ()
     assert outcome.result is not None
-    assert outcome.result.listing_status.value == "NOT_ATTEMPTED"
-    with pytest.raises(ValueError, match="bound"):
-        replace(outcome.result, member_count=999_999)
-    with pytest.raises(ValueError, match="inconsistent"):
-        ArchiveProviderResult(
-            outcome.result.profile,
-            outcome.result.listing_execution,
-            outcome.result.encryption_status,
-            outcome.result.reuse_key,
-            outcome.result.integrity_execution,
-            outcome.result.password_attempt_status,
-            ArchiveSafetyStatus.ACCEPTED,
-            0,
+    assert outcome.result.listing_status.value == "LISTED"
+    assert outcome.result.integrity_status is ArchiveIntegrityStatus.PASSED
+    assert outcome.result.extraction_policy_status is ArchiveSafetyStatus.POLICY_REJECTED
+    assert len(outcome.executions) == 2
+    assert [request.operation for request in runner.requests] == [
+        ArchiveWrapperOperation.LISTING,
+        ArchiveWrapperOperation.INTEGRITY,
+    ]
+    assert runner.direct_requests == []
+    assert outcome._extraction_handoff is None
+    evidence = outcome._wrapper_reuse_evidence
+    assert isinstance(evidence, _ArchiveWrapperReuseEvidence)
+    assert evidence.inner_stream_size_bytes == 2_048
+    assert evidence.inner_stream_sha256 == "e" * 64
+    assert kind not in repr(outcome)
+
+
+def test_wrapper_inner_hash_mismatch_fails_integrity_and_discards_reuse_evidence() -> None:
+    runner = _FakeWrapperRunner(_wrapper_steps(integrity_hash="f" * 64))
+    outcome = _inspect(
+        runner,
+        _request(),
+        signature=_wrapper_signature("GZIP"),  # type: ignore[arg-type]
+        archive_observation_id="archive-observation-1",
+        archive_full_sha256="a" * 64,
+        volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+        cancellation=None,
+        now=_clock(),
+    )
+    assert outcome.result is not None
+    assert outcome.result.integrity_status is ArchiveIntegrityStatus.TOOL_FAILED
+    assert outcome.executions[1].status is ToolExecutionStatus.FAILED
+    assert outcome._wrapper_reuse_evidence is None
+    assert outcome._extraction_handoff is None
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        (ArchiveContainerRunStatus.TOOL_UNAVAILABLE, "TOOL_UNAVAILABLE"),
+        (ArchiveContainerRunStatus.TIMED_OUT, "TIMED_OUT"),
+        (ArchiveContainerRunStatus.LIMIT_EXCEEDED, "LIMIT_EXCEEDED"),
+        (ArchiveContainerRunStatus.POLICY_REJECTED, "POLICY_REJECTED"),
+        (ArchiveContainerRunStatus.TOOL_FAILED, "TOOL_FAILED"),
+    ],
+)
+def test_wrapper_listing_runner_status_is_preserved(
+    status: ArchiveContainerRunStatus,
+    expected: str,
+) -> None:
+    runner = _FakeWrapperRunner([(status, (), 0, None)])
+    outcome = _inspect(
+        runner,
+        _request(),
+        signature=_wrapper_signature("GZIP"),  # type: ignore[arg-type]
+        archive_observation_id="archive-observation-1",
+        archive_full_sha256="a" * 64,
+        volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+        cancellation=None,
+        now=_clock(),
+    )
+    assert outcome.result is not None
+    assert outcome.result.listing_status.value == expected
+    assert len(outcome.executions) == 1
+    assert outcome._wrapper_reuse_evidence is None
+
+
+def test_wrapper_cancellation_is_snapshotless_and_signature_mismatch_never_runs() -> None:
+    cancelled_runner = _FakeWrapperRunner(
+        [(ArchiveContainerRunStatus.CANCELLED, (), 0, None)]
+    )
+    cancelled = _inspect(
+        cancelled_runner,
+        _request(),
+        signature=_wrapper_signature("GZIP"),  # type: ignore[arg-type]
+        archive_observation_id="archive-observation-1",
+        archive_full_sha256="a" * 64,
+        volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+        cancellation=None,
+        now=_clock(),
+    )
+    assert cancelled.result is None
+    assert cancelled.executions[0].status is ToolExecutionStatus.CANCELLED
+
+    mismatched_runner = _FakeWrapperRunner([])
+    mismatched = _inspect(
+        mismatched_runner,
+        _request(),
+        signature=observe_archive_signature_v2("book.gz", b"\x1f\x8b"),
+        archive_observation_id="archive-observation-1",
+        archive_full_sha256="a" * 64,
+        volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+        cancellation=None,
+        now=_clock(),
+    )
+    assert mismatched.result is not None
+    assert mismatched.result.listing_status.value == "NOT_ATTEMPTED"
+    assert mismatched_runner.requests == []
+
+
+def test_wrapper_reuse_evidence_is_sealed_to_both_concrete_runs() -> None:
+    outcome = _inspect(
+        _FakeWrapperRunner(_wrapper_steps()),
+        _request(),
+        signature=_wrapper_signature("GZIP"),  # type: ignore[arg-type]
+        archive_observation_id="archive-observation-1",
+        archive_full_sha256="a" * 64,
+        volume_group_fingerprint=build_archive_volume_group_fingerprint(_request()),
+        cancellation=None,
+        now=_clock(),
+    )
+    evidence = outcome._wrapper_reuse_evidence
+    assert isinstance(evidence, _ArchiveWrapperReuseEvidence)
+    with pytest.raises(ValueError, match="lineage"):
+        replace(evidence, inner_stream_sha256="f" * 64)
+    with pytest.raises(ValueError, match="lineage"):
+        replace(
+            evidence,
+            outer_compression_kind=evidence.outer_compression_kind.__class__.XZ,
+        )
+    with pytest.raises(ValueError, match="lineage"):
+        replace(
+            evidence,
+            integrity_run=replace(
+                evidence.integrity_run,
+                inner_stream_sha256="f" * 64,
+            ),
         )
 
 
