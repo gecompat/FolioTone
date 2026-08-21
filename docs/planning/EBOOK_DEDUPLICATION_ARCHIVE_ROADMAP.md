@@ -367,7 +367,7 @@ S-EBAR-01 Execution-DTOs
     -> S-EBAR-07 Persistenz, abgeschlossen
     -> FG-A-COLLECTION-ORCHESTRATION Vertragsgate, abgeschlossen
     -> S-EBAR-08A Models/Schema/Store, abgeschlossen
-    -> S-EBAR-08B Plan, abgeschlossen -> 08C Ausführung, als nächstes -> 08D Status
+    -> S-EBAR-08B Plan, abgeschlossen -> 08C Ausführung, abgeschlossen -> 08D Status, als nächstes
     -> EBAR-09 Abschluss und EB-A3-Übergang
 ```
 
