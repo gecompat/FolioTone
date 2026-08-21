@@ -330,6 +330,11 @@ W10-Funktion einführen.
 | S-EBAR-08C | Bounded Provider-/Reuse-Ausführung, Heartbeat und Resume im exakten ADR-0053-Scope. | Konkurrenz, stale Worker, Keeperfehler, Cancellation, executed/reused direkte/Wrapper-Fälle, kein zweiter Toollauf. | Sol `high`; abgeschlossen. |
 | S-EBAR-08D | Read-only Archive-Collection-Status und CLI-Abschluss im exakten ADR-0053-Scope. | Echte SQLite-mode-ro-Tests, vollständige Counts, Determinismus sowie path-/locator-/hash-/secret-freie Ausgabe und generische Fehler. | Terra `medium`; abgeschlossen. |
 | EBAR-09 | Status, Backlog und EB-A2-/EB-A3-Übergang werden nach Gesamtprüfung synchronisiert. Erlaubt: `docs/planning/PROJECT_STATUS.md`, `docs/planning/BACKLOG.md`, Archive-Roadmap und tatsächlich betroffene Referenz. | Link-, Status-, Privacy- und W10-Widerspruchssuche sowie gezielte Archive-Regressionen. | Luna `medium`; abgeschlossen. Kein EB-A3-Start ohne eigenes Gate. |
+| FG-A3-MATCHING | Durch ADR-0054 abgeschlossenes Frontier-Gate für die Trennung belegbarer Archive-Source-Dependencies von noch unbekannter Member-Byte-Identity. | Exakte Ebenenmatrix, Publication-Grenze, `KNOWN_PRESENT`/`UNKNOWN`, kanonischer Fingerprint, Persistence-Revalidierung und blockiertes FG-A3-MEMBER-BYTE; keine Identity- oder W10-Autorisierung. | Sol `high`; abgeschlossen. Kein niedrigeres Fallback für die Matching-Entscheidung. |
+| S-EBA3-01 | Reiner Vertrag `consolidation-archive-dependency/v1`. Erlaubt: neue `src/foliotone/consolidation/archive_dependencies.py`, `src/foliotone/consolidation/__init__.py` und neue fokussierte Unit-Testdatei. | Immutable bounded DTOs, kanonische Source-Bindings, exakte Statusmatrix und domain-separierter Fingerprint; kein I/O. | Spark `high`; 5.4 Mini, danach Terra. Als nächstes. |
+| S-EBA3-02 | Bounded Archive-Source-Query und unabhängige Consolidation-Store-Revalidierung. Erlaubt: `src/foliotone/persistence/archive.py`, `src/foliotone/persistence/consolidation.py` und eine neue Integrationstestdatei. | Höchstens zwei explizite FileObservation-IDs, vorhandene Indizes, `ARCHIVE_OBSERVATION`-Allowlist, Root-/Scan-/Source-/Publication-/Fingerprint-Bindung; keine Migration. | Terra `high`; Fallback 5.4. Stop bei Schema- oder Indexbedarf. |
+| S-EBA3-03 | Nicht ausführbare Planintegration für die zwei Endpunkte eines vorhandenen actionable `EXACT_DUPLICATE`. Erlaubt: neue `src/foliotone/workflows/archive_consolidation.py`, `src/foliotone/consolidation/planner.py` sowie eine Unit- und die S02-Integrationstestdatei. | Candidate-Sourcegraph blockiert, Keeper-Dependency bleibt als Unchanged-Precondition, Publication und fehlende Member-Coverage bleiben `UNKNOWN`; keine neue Relation, Reviewentscheidung oder Ausführung. | Terra `high`; Fallback 5.4. Stop bei Änderung von `consolidation-plan/v1`. |
+| FG-A3-MEMBER-BYTE | Separates späteres Frontier-Gate für vollständige Member-SHA-256 durch bounded Extraction oder einen eigenständig akzeptierten Streaming-Hash-Vertrag. | Keine CRC-/Größen-/Locator-Ersatzidentity; vollständige Execution-/Tool-/Parser-/Formatlock-/Source-Lineage und Coverage-Grenze. | Sol `high`; blockiert, kein niedrigeres Fallback. |
 
 S-EBAR-01 bis S-EBAR-03A, EBAR-04, S-EBAR-02A bis S-EBAR-02C und EBAR-05
 sind abgeschlossen. FG-A-IMAGE, FG-A-RUNTIME-AVAILABILITY,
@@ -345,8 +350,8 @@ FG-A-WRAPPER-PIPELINE sowie S-EBAR-W01 bis S-EBAR-W04 sind abgeschlossen und
 autorisieren unabhängig von der blockierten Extractionstrecke nur read-only
 Listing und Integrity. ADR-0052 legt den exakten Schema- und Writer-Vertrag
 fest; S-EBAR-07 und FG-A-COLLECTION-ORCHESTRATION sind abgeschlossen.
-S-EBAR-08A bis 08D und EBAR-09 sind abgeschlossen. EB-A3 beginnt nicht ohne
-ein eigenes Frontier-Gate.
+S-EBAR-08A bis 08D und EBAR-09 sind abgeschlossen. ADR-0054 schließt
+FG-A3-MATCHING; S-EBA3-01 ist der nächste mechanische Schritt.
 FG-A-SECRET bleibt separat
 blockiert.
 
@@ -436,6 +441,8 @@ FG-A → S-EBA-01..07 → FG-A-RUNTIME → S-EBAR-01..EBAR-05
     → FG-A-PERSISTENCE, abgeschlossen → S-EBAR-07, abgeschlossen
     → FG-A-COLLECTION-ORCHESTRATION, abgeschlossen
     → S-EBAR-08A, abgeschlossen → 08B, abgeschlossen → 08C, abgeschlossen → 08D, abgeschlossen → EBAR-09, abgeschlossen
+    → FG-A3-MATCHING, abgeschlossen → S-EBA3-01 → S-EBA3-02 → S-EBA3-03
+    → FG-A3-MEMBER-BYTE, blockiert
 
 separat und weiterhin blockiert:
 FG-A-SECRET → erst danach sichere Passwortversuche

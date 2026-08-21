@@ -4,7 +4,7 @@ Stand: 2026-08-21
 
 ## Aktuelle Welle
 
-**EBAR-09 abgeschlossen — Archive Collection ist read-only orchestrierbar**
+**FG-A3-MATCHING abgeschlossen — S-EBA3-01 ist der nächste Archive-Schritt**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -191,7 +191,11 @@ S-EBAR-08A ist mit Migration `0020`, geschlossenem Store und Fencing auf
 S-EBAR-08C die bounded Ausführung mit Reuse, Heartbeat und Resume umgesetzt.
 S-EBAR-08D ergänzt den strikt read-only geöffneten, bounded aggregierenden und
 path-/locator-/hash-/secret-freien Statusbericht. EBAR-09 synchronisiert den
-Abschluss und den Übergang: EB-A3 beginnt nicht ohne ein eigenes Frontier-Gate.
+Abschluss und den Übergang. [ADR-0054](../decisions/ADR-0054-archive-aware-matching-frontier.md)
+schließt FG-A3-MATCHING: Die belegbare generische Archive-Source-Beziehung
+wird als Consolidation-Dependency projiziert; Member-/File-Identity bleibt
+ohne vollständige Member-SHA-256 `UNKNOWN`. S-EBA3-01 implementiert als
+nächste kleine Welle ausschließlich den reinen Source-Dependency-Vertrag.
 Extraction, Secretkanal und Source-Mutation bleiben gesperrt.
 
 `archive-tar-stream-frame/v1` validiert den
@@ -1470,9 +1474,9 @@ hält reale Extraction mangels Backend gesperrt. ADR-0051 entscheidet die
 unabhängige read-only Wrapperstrecke; S-EBAR-W01 bis S-EBAR-W04 sind auf
 `main` abgeschlossen. ADR-0052 entscheidet die immutable Archive-Persistenz;
 S-EBAR-07, FG-A-COLLECTION-ORCHESTRATION, S-EBAR-08A bis 08D und EBAR-09 sind
-abgeschlossen. Der nächste Archive-Entwicklungsschritt ist ein eigenes
-Frontier-Gate für EB-A3; daraus wird noch keine Matching- oder
-Source-Operations-Authority abgeleitet. Reale
+abgeschlossen. ADR-0054 schließt das begrenzte FG-A3-MATCHING und gibt
+S-EBA3-01 als reinen Source-Dependency-Vertrag frei. Member-Byte-Identity,
+EA9/EA10-Abschluss und Source-Operations bleiben getrennt. Reale
 Passwortversuche bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert
 gesperrt. Music W4 bleibt bis zur E-Book-Reife zurückgestellt. Die
 Produktoberfläche bleibt ausschließlich die CLI.
