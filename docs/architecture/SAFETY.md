@@ -68,9 +68,15 @@ orthogonal. ADR-0047 akzeptiert ausschließlich darauf den kanonischen
 oder Capabilityabweichung ist stale und fail-closed. Suffixe dürfen keine
 Storage-Familie setzen; 7-Zip-Ausgabe darf sie nicht umklassifizieren. Private
 Linkziele dürfen nie DTO, Manifest, Digest, Log oder Artefakt erreichen.
-gzip, bzip2, xz und zstd bleiben gemäß ADR-0048 bis zu einem separaten
-FG-A-WRAPPER-PIPELINE `OUTER_COMPRESSION_ONLY` ohne produktiven
-Listing-/Integrity-/Extraction-Provider oder Member-Evidence.
+ADR-0051 akzeptiert für gzip, bzip2, xz und zstd ausschließlich eine
+bounded read-only Streamingstrecke nach S-EBAR-W01 bis S-EBAR-W03. Die
+Source-Beobachtung bleibt `OUTER_COMPRESSION_ONLY` und Storage `UNKNOWN`;
+private innere TAR-Evidence darf sie nicht umschreiben. Ein inkrementeller
+512-Byte-Rahmenprüfer muss Headerchecksumme, Größen, Padding, mindestens zwei
+Nullblöcke und ausschließlich nullhaltigen Nachlauf beweisen. Listing und
+Integrity dekomprimieren getrennt und müssen identische innere Bytelänge und
+SHA-256 liefern. Rawstreams werden nie gespeichert. Extraction,
+Extraction-Handoff, Persistenz und Schreiboperationen bleiben gesperrt.
 
 Die unverschlüsselte Runtime setzt die ADR-0038-Limits während der Ausführung
 durch und beendet bei Timeout oder Grenzverletzung den vollständigen
