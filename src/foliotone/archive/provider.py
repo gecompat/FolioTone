@@ -13,10 +13,14 @@ from datetime import UTC, datetime
 from typing import Final, Protocol
 
 from foliotone.archive.container_sandbox import (
+    ARCHIVE_WRAPPER_CONTAINER_RUNNER_PROFILE,
     ArchiveContainerRequest,
     ArchiveContainerRunResult,
     ArchiveContainerRunStatus,
     ArchiveLinuxContainerRunner,
+    ArchiveWrapperContainerRequest,
+    ArchiveWrapperContainerRunResult,
+    ArchiveWrapperOperation,
 )
 from foliotone.archive.process_runner import CancellationProbe
 from foliotone.archive.safety_policy import (
@@ -33,9 +37,13 @@ from foliotone.archive.sevenzip import (
     ARCHIVE_7ZIP_ADAPTER_VERSION,
     ARCHIVE_7ZIP_PROVIDER_ID,
     ARCHIVE_7ZIP_TOOL_VERSION,
+    ARCHIVE_IMAGE_REFERENCE,
     ARCHIVE_LINUX_CONTAINER_RUNNER_PROFILE,
     build_7zzs_integrity_command,
     build_7zzs_listing_command,
+    build_7zzs_tar_stdin_integrity_command,
+    build_7zzs_tar_stdin_listing_command,
+    build_7zzs_wrapper_decode_command,
 )
 from foliotone.archive.sevenzip_slt import (
     ARCHIVE_7ZIP_FORMAT_LOCK_PROFILE,
@@ -50,11 +58,14 @@ from foliotone.archive.sevenzip_slt import (
 from foliotone.archive.signatures import (
     ARCHIVE_PUBLICATION_STORAGE_COMPATIBILITY,
     ARCHIVE_SIGNATURE_PROFILE_V2,
+    ArchiveContainerClass,
     ArchiveListingStatus,
     ArchiveOuterCompressionKind,
+    ArchivePublicationKind,
     ArchiveRecognitionStatus,
     ArchiveSignatureObservationV2,
     ArchiveStorageFamily,
+    ArchiveSuffixKind,
 )
 from foliotone.archive.workflow import (
     ARCHIVE_EXTRACTION_PROFILE,
@@ -70,10 +81,12 @@ from foliotone.archive.workflow import (
     ArchiveReuseKey,
     build_archive_member_identity,
 )
+from foliotone.archive.wrapper_stream import ARCHIVE_TAR_STREAM_FRAME_PROFILE
 from foliotone.core import EntityId, ToolCapability, ToolExecutionStatus
 from foliotone.tooling import ToolExecution
 
 ARCHIVE_PROVIDER_PROFILE: Final = "archive-7zip-provider/v1"
+ARCHIVE_WRAPPER_PROVIDER_PROFILE: Final = "archive-7zip-wrapper-provider/v1"
 _INPUT_DOMAIN: Final = b"archive-7zip-provider-input/v1\x00"
 _VOLUME_GROUP_DOMAIN: Final = b"archive-volume-group/v1\x00"
 _SHA256: Final = re.compile(r"[0-9a-f]{64}\Z")
@@ -81,6 +94,18 @@ _CRC32: Final = re.compile(r"[0-9A-F]{8}\Z")
 _INPUT_IDENTITY: Final = re.compile(r"archive-7zip-provider-input/v1:[0-9a-f]{64}\Z")
 _OPAQUE: Final = re.compile(r"[A-Za-z0-9._@-]{1,256}\Z")
 _SENTINEL: Final = object()
+_WRAPPER_IMAGE_REFERENCE: Final = (
+    f"{ARCHIVE_IMAGE_REFERENCE}@"
+    "sha256:26c9c2fa32f93210a46fcf6b9651006038f9e766a1d791b463ce9875815a8287"
+)
+_WRAPPER_KINDS: Final = frozenset(
+    {
+        ArchiveOuterCompressionKind.GZIP,
+        ArchiveOuterCompressionKind.BZIP2,
+        ArchiveOuterCompressionKind.XZ,
+        ArchiveOuterCompressionKind.ZSTD,
+    }
+)
 _PROVIDER_LISTING_STATUSES: Final = frozenset(
     {
         ArchiveListingStatus.NOT_ATTEMPTED,
@@ -126,6 +151,14 @@ class _Runner(Protocol):
         stderr_classifier: Callable[[bytes], bool],
         cancellation: CancellationProbe | None = None,
     ) -> ArchiveContainerRunResult: ...
+
+    def run_wrapper_pipeline(
+        self,
+        request: ArchiveWrapperContainerRequest,
+        *,
+        stdout_consumer: Callable[[bytes], bool],
+        cancellation: CancellationProbe | None = None,
+    ) -> ArchiveWrapperContainerRunResult: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,6 +246,114 @@ class ArchiveProviderResult:
 
 
 @dataclass(frozen=True, slots=True)
+class _ArchiveWrapperReuseEvidence:
+    """Private locator-free binding for one accepted wrapper composite pair."""
+
+    outcome: ArchiveProviderOutcome = field(repr=False, compare=False)
+    signature: ArchiveSignatureObservationV2 = field(repr=False, compare=False)
+    listing_run: ArchiveWrapperContainerRunResult = field(repr=False, compare=False)
+    integrity_run: ArchiveWrapperContainerRunResult = field(repr=False, compare=False)
+    profile: str
+    archive_full_sha256: str
+    volume_group_fingerprint: str
+    outer_compression_kind: ArchiveOuterCompressionKind
+    signature_profile: str
+    compatibility_profile: str
+    runner_profile: str
+    frame_profile: str
+    parser_profile: str
+    format_lock_profile: str
+    format_lock_sha256: str
+    image_reference: str
+    wrapper_command_identity: str
+    listing_command_identity: str
+    integrity_command_identity: str
+    inner_stream_size_bytes: int
+    inner_stream_sha256: str
+    listing_execution_id: str
+    integrity_execution_id: str
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.outcome, ArchiveProviderOutcome)
+            or not isinstance(self.signature, ArchiveSignatureObservationV2)
+            or not _is_supported_wrapper_signature(self.signature)
+            or self.signature.outer_compression_kind is not self.outer_compression_kind
+            or self.signature.profile != self.signature_profile
+            or self.signature.compatibility != self.compatibility_profile
+            or not isinstance(self.listing_run, ArchiveWrapperContainerRunResult)
+            or not isinstance(self.integrity_run, ArchiveWrapperContainerRunResult)
+            or self.listing_run.status is not ArchiveContainerRunStatus.COMPLETED
+            or self.integrity_run.status is not ArchiveContainerRunStatus.COMPLETED
+            or self.listing_run.inner_stream_size_bytes
+            != self.integrity_run.inner_stream_size_bytes
+            or self.listing_run.inner_stream_sha256
+            != self.integrity_run.inner_stream_sha256
+            or self.inner_stream_size_bytes != self.listing_run.inner_stream_size_bytes
+            or self.inner_stream_sha256 != self.listing_run.inner_stream_sha256
+            or self.outcome.result is None
+            or len(self.outcome.executions) != 2
+            or self.outcome._extraction_handoff is not None
+            or self.outcome.result.listing_status is not ArchiveListingStatus.LISTED
+            or self.outcome.result.integrity_status is not ArchiveIntegrityStatus.PASSED
+            or self.outcome.result.extraction_policy_status
+            is not ArchiveSafetyStatus.POLICY_REJECTED
+            or self.outcome.result.reuse_key.archive_full_sha256
+            != self.archive_full_sha256
+            or self.outcome.result.reuse_key.volume_group_fingerprint
+            != self.volume_group_fingerprint
+            or tuple(str(item.id) for item in self.outcome.executions)
+            != (self.listing_execution_id, self.integrity_execution_id)
+        ):
+            raise ValueError("wrapper reuse outcome lineage is inconsistent")
+        if (
+            self.profile != ARCHIVE_WRAPPER_PROVIDER_PROFILE
+            or self.outer_compression_kind not in _WRAPPER_KINDS
+            or self.signature_profile != ARCHIVE_SIGNATURE_PROFILE_V2
+            or self.compatibility_profile != ARCHIVE_PUBLICATION_STORAGE_COMPATIBILITY
+            or self.runner_profile != ARCHIVE_WRAPPER_CONTAINER_RUNNER_PROFILE
+            or self.frame_profile != ARCHIVE_TAR_STREAM_FRAME_PROFILE
+            or self.parser_profile != ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE
+            or self.format_lock_profile != ARCHIVE_7ZIP_FORMAT_LOCK_PROFILE
+            or self.format_lock_sha256 != ARCHIVE_7ZIP_FORMAT_LOCK_SHA256
+            or self.image_reference != _WRAPPER_IMAGE_REFERENCE
+        ):
+            raise ValueError("wrapper reuse profiles are inconsistent")
+        for value in (
+            self.archive_full_sha256,
+            self.volume_group_fingerprint,
+            self.inner_stream_sha256,
+            self.wrapper_command_identity,
+            self.listing_command_identity,
+            self.integrity_command_identity,
+        ):
+            if not isinstance(value, str) or _SHA256.fullmatch(value) is None:
+                raise ValueError("wrapper reuse material must use lowercase SHA-256")
+        if (
+            isinstance(self.inner_stream_size_bytes, bool)
+            or not isinstance(self.inner_stream_size_bytes, int)
+            or self.inner_stream_size_bytes < 1_024
+        ):
+            raise ValueError("wrapper inner stream size is invalid")
+        if any(
+            not isinstance(value, str) or _OPAQUE.fullmatch(value) is None
+            for value in (self.listing_execution_id, self.integrity_execution_id)
+        ) or self.listing_execution_id == self.integrity_execution_id:
+            raise ValueError("wrapper composite executions must be distinct and opaque")
+        expected_commands = (
+            _command_identity(build_7zzs_wrapper_decode_command()),
+            _command_identity(build_7zzs_tar_stdin_listing_command()),
+            _command_identity(build_7zzs_tar_stdin_integrity_command()),
+        )
+        if (
+            self.wrapper_command_identity,
+            self.listing_command_identity,
+            self.integrity_command_identity,
+        ) != expected_commands:
+            raise ValueError("wrapper command identities are inconsistent")
+
+
+@dataclass(frozen=True, slots=True)
 class ArchiveProviderOutcome:
     profile: str
     result: ArchiveProviderResult | None = field(default=None, repr=False)
@@ -224,6 +365,9 @@ class ArchiveProviderOutcome:
         default=None, init=False, repr=False, compare=False
     )
     _private_parser_result: _ArchiveSevenZipLockedPrivateParseResult | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _wrapper_reuse_evidence: _ArchiveWrapperReuseEvidence | None = field(
         default=None, init=False, repr=False, compare=False
     )
 
@@ -553,6 +697,15 @@ def build_archive_provider_input_identity(
     return "archive-7zip-provider-input/v1:" + hashlib.sha256(_INPUT_DOMAIN + material).hexdigest()
 
 
+def _command_identity(command: tuple[str, ...]) -> str:
+    if not command or any(not isinstance(value, str) or not value for value in command):
+        raise ValueError("wrapper command identity requires fixed arguments")
+    material = json.dumps(command, separators=(",", ":"), ensure_ascii=True).encode(
+        "ascii"
+    )
+    return hashlib.sha256(b"archive-wrapper-command/v1\x00" + material).hexdigest()
+
+
 def build_archive_volume_group_fingerprint(request: ArchiveContainerRequest) -> str:
     """Bind the canonical ordered volume material without exposing locators."""
 
@@ -635,6 +788,19 @@ def _inspect(
         volume_group_fingerprint=volume_group_fingerprint,
     )
     reuse_key = _reuse_key(archive_full_sha256, volume_group_fingerprint)
+    if _is_supported_wrapper_signature(signature):
+        return _inspect_wrapper(
+            runner,
+            request,
+            signature=signature,
+            archive_observation_id=archive_observation_id,
+            archive_full_sha256=archive_full_sha256,
+            volume_group_fingerprint=volume_group_fingerprint,
+            identity=identity,
+            reuse_key=reuse_key,
+            cancellation=cancellation,
+            now=now,
+        )
     if signature.recognition_status is not ArchiveRecognitionStatus.MATCHED:
         return _provider_outcome(
             ArchiveListingResult(
@@ -743,6 +909,145 @@ def _inspect(
             executions,
             signature,
             parsed,
+        )
+    return outcome
+
+
+def _inspect_wrapper(
+    runner: _Runner,
+    request: ArchiveContainerRequest,
+    *,
+    signature: ArchiveSignatureObservationV2,
+    archive_observation_id: str,
+    archive_full_sha256: str,
+    volume_group_fingerprint: str,
+    identity: str,
+    reuse_key: ArchiveReuseKey,
+    cancellation: CancellationProbe | None,
+    now: Callable[[], datetime],
+) -> ArchiveProviderOutcome:
+    inner_signature = _inner_tar_signature()
+    listing_started = now()
+    listing_run, parsed, parser_terminal = _stream_wrapper_listing(
+        runner,
+        request,
+        inner_signature,
+        ArchiveWrapperOperation.LISTING,
+        cancellation,
+    )
+    listing_status = _listing_status(
+        listing_run, parsed.public.status, parser_terminal
+    )
+    listing_execution = _tool_execution(
+        identity,
+        ToolCapability.ARCHIVE_LISTING,
+        listing_started,
+        now(),
+        listing_run,
+        succeeded=listing_status is ArchiveListingStatus.LISTED,
+    )
+    executions: tuple[ToolExecution, ...] = (listing_execution,)
+    if listing_run.status is ArchiveContainerRunStatus.CANCELLED:
+        return ArchiveProviderOutcome(ARCHIVE_PROVIDER_PROFILE, executions=executions)
+    listing_snapshot = ArchiveListingExecution(
+        listing_status, str(listing_execution.id)
+    )
+    if listing_status is not ArchiveListingStatus.LISTED:
+        return _provider_outcome(
+            ArchiveListingResult(
+                listing_snapshot,
+                ArchiveEncryptionStatus.UNKNOWN,
+                reuse_key,
+                extraction_policy_status=_blocked_policy(listing_status),
+            ),
+            executions,
+        )
+
+    raw_members = parsed.members
+    members = _members(
+        raw_members,
+        archive_observation_id,
+        str(listing_execution.id),
+        archive_full_sha256,
+        volume_group_fingerprint,
+    )
+    encryption = _encryption(raw_members)
+    if encryption is not ArchiveEncryptionStatus.NONE:
+        return _provider_outcome(
+            ArchiveListingResult(
+                listing_snapshot,
+                encryption,
+                reuse_key,
+                members=members,
+                password_attempt_status=(
+                    ArchivePasswordAttemptStatus.SECURE_CHANNEL_UNAVAILABLE
+                ),
+                extraction_policy_status=ArchiveSafetyStatus.POLICY_REJECTED,
+            ),
+            executions,
+        )
+
+    integrity_started = now()
+    integrity_run = _run_wrapper_integrity(runner, request, cancellation)
+    integrity_status = _integrity_status(integrity_run)
+    if (
+        integrity_status is ArchiveIntegrityStatus.PASSED
+        and (
+            integrity_run.inner_stream_size_bytes
+            != listing_run.inner_stream_size_bytes
+            or integrity_run.inner_stream_sha256 != listing_run.inner_stream_sha256
+        )
+    ):
+        integrity_status = ArchiveIntegrityStatus.TOOL_FAILED
+    integrity_execution = _tool_execution(
+        identity,
+        ToolCapability.ARCHIVE_INTEGRITY,
+        integrity_started,
+        now(),
+        integrity_run,
+        succeeded=integrity_status is ArchiveIntegrityStatus.PASSED,
+    )
+    executions += (integrity_execution,)
+    if integrity_run.status is ArchiveContainerRunStatus.CANCELLED:
+        return ArchiveProviderOutcome(ARCHIVE_PROVIDER_PROFILE, executions=executions)
+    result = ArchiveListingResult(
+        listing_snapshot,
+        encryption,
+        reuse_key,
+        ArchiveIntegrityExecution(integrity_status, str(integrity_execution.id)),
+        extraction_policy_status=ArchiveSafetyStatus.POLICY_REJECTED,
+        members=members,
+    )
+    outcome = _provider_outcome(result, executions)
+    if integrity_status is ArchiveIntegrityStatus.PASSED:
+        object.__setattr__(
+            outcome,
+            "_wrapper_reuse_evidence",
+            _ArchiveWrapperReuseEvidence(
+                outcome,
+                signature,
+                listing_run,
+                integrity_run,
+                ARCHIVE_WRAPPER_PROVIDER_PROFILE,
+                archive_full_sha256,
+                volume_group_fingerprint,
+                signature.outer_compression_kind,
+                signature.profile,
+                signature.compatibility,
+                ARCHIVE_WRAPPER_CONTAINER_RUNNER_PROFILE,
+                ARCHIVE_TAR_STREAM_FRAME_PROFILE,
+                ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE,
+                ARCHIVE_7ZIP_FORMAT_LOCK_PROFILE,
+                ARCHIVE_7ZIP_FORMAT_LOCK_SHA256,
+                _WRAPPER_IMAGE_REFERENCE,
+                _command_identity(build_7zzs_wrapper_decode_command()),
+                _command_identity(build_7zzs_tar_stdin_listing_command()),
+                _command_identity(build_7zzs_tar_stdin_integrity_command()),
+                listing_run.inner_stream_size_bytes,
+                listing_run.inner_stream_sha256 or "",
+                str(listing_execution.id),
+                str(integrity_execution.id),
+            ),
         )
     return outcome
 
@@ -944,6 +1249,133 @@ def _stream_listing(
     return run, parsed[0], parser_terminal.is_set()
 
 
+def _is_supported_wrapper_signature(signature: ArchiveSignatureObservationV2) -> bool:
+    return (
+        signature.profile == ARCHIVE_SIGNATURE_PROFILE_V2
+        and signature.compatibility == ARCHIVE_PUBLICATION_STORAGE_COMPATIBILITY
+        and signature.recognition_status is ArchiveRecognitionStatus.OUTER_COMPRESSION_ONLY
+        and signature.storage_family is ArchiveStorageFamily.UNKNOWN
+        and signature.outer_compression_kind in _WRAPPER_KINDS
+    )
+
+
+def _inner_tar_signature() -> ArchiveSignatureObservationV2:
+    return ArchiveSignatureObservationV2(
+        ARCHIVE_SIGNATURE_PROFILE_V2,
+        ArchiveContainerClass.GENERIC_ARCHIVE,
+        ArchiveSuffixKind.TAR,
+        ArchivePublicationKind.NONE,
+        ArchiveStorageFamily.TAR,
+        ArchiveOuterCompressionKind.NONE,
+        ArchiveRecognitionStatus.MATCHED,
+        512,
+        False,
+    )
+
+
+def _stream_wrapper_listing(
+    runner: _Runner,
+    request: ArchiveContainerRequest,
+    signature: ArchiveSignatureObservationV2,
+    operation: ArchiveWrapperOperation,
+    cancellation: CancellationProbe | None,
+) -> tuple[
+    ArchiveWrapperContainerRunResult,
+    _ArchiveSevenZipLockedPrivateParseResult,
+    bool,
+]:
+    if operation is not ArchiveWrapperOperation.LISTING:
+        raise ValueError("wrapper parser accepts only listing output")
+    chunks: queue.Queue[bytes | object] = queue.Queue(maxsize=1)
+    parsed: list[_ArchiveSevenZipLockedPrivateParseResult] = []
+    done = threading.Event()
+    runner_active = threading.Event()
+    parser_terminal = threading.Event()
+
+    def iterable() -> Iterable[bytes]:
+        while True:
+            value = chunks.get()
+            if value is _SENTINEL:
+                return
+            assert isinstance(value, bytes)
+            yield value
+
+    def parse() -> None:
+        try:
+            parsed.append(
+                _parse_archive_7zip_slt_members_locked_private(signature, iterable())
+            )
+        finally:
+            if runner_active.is_set():
+                parser_terminal.set()
+            done.set()
+
+    def consume(chunk: bytes) -> bool:
+        if not isinstance(chunk, bytes):
+            return False
+        while not done.is_set():
+            try:
+                chunks.put(chunk, timeout=0.05)
+                return True
+            except queue.Full:
+                continue
+        return False
+
+    worker = threading.Thread(
+        target=parse, name="archive-wrapper-locked-parser", daemon=False
+    )
+    worker.start()
+    runner_active.set()
+    try:
+        try:
+            run = runner.run_wrapper_pipeline(
+                ArchiveWrapperContainerRequest(
+                    request.volumes, operation, request.scan_roots
+                ),
+                stdout_consumer=consume,
+                cancellation=cancellation,
+            )
+        except Exception:
+            run = _failed_wrapper_run()
+    finally:
+        runner_active.clear()
+        if not done.is_set():
+            while not done.is_set():
+                try:
+                    chunks.put(_SENTINEL, timeout=0.05)
+                    break
+                except queue.Full:
+                    continue
+        worker.join(timeout=2.0)
+    if worker.is_alive() or len(parsed) != 1:
+        raise RuntimeError("archive wrapper parser worker did not quiesce")
+    return run, parsed[0], parser_terminal.is_set()
+
+
+def _run_wrapper_integrity(
+    runner: _Runner,
+    request: ArchiveContainerRequest,
+    cancellation: CancellationProbe | None,
+) -> ArchiveWrapperContainerRunResult:
+    try:
+        return runner.run_wrapper_pipeline(
+            ArchiveWrapperContainerRequest(
+                request.volumes, ArchiveWrapperOperation.INTEGRITY, request.scan_roots
+            ),
+            stdout_consumer=_discard,
+            cancellation=cancellation,
+        )
+    except Exception:
+        return _failed_wrapper_run()
+
+
+def _failed_wrapper_run() -> ArchiveWrapperContainerRunResult:
+    return ArchiveWrapperContainerRunResult(
+        ARCHIVE_WRAPPER_CONTAINER_RUNNER_PROFILE,
+        ArchiveContainerRunStatus.TOOL_FAILED,
+    )
+
+
 def _discard(chunk: bytes) -> bool:
     return isinstance(chunk, bytes)
 
@@ -1046,7 +1478,7 @@ def _tool_execution(
     capability: ToolCapability,
     started: datetime,
     finished: datetime,
-    run: ArchiveContainerRunResult,
+    run: ArchiveContainerRunResult | ArchiveWrapperContainerRunResult,
     *,
     succeeded: bool,
 ) -> ToolExecution:
@@ -1067,7 +1499,7 @@ def _tool_execution(
         started,
         status,
         finished,
-        run.exit_code,
+        _execution_exit_code(run),
         config_identity=ARCHIVE_PROVIDER_PROFILE,
         error_summary=(
             None if status is ToolExecutionStatus.SUCCEEDED else "ARCHIVE_PROVIDER_FAILED"
@@ -1075,8 +1507,21 @@ def _tool_execution(
     )
 
 
+def _execution_exit_code(
+    run: ArchiveContainerRunResult | ArchiveWrapperContainerRunResult,
+) -> int | None:
+    if isinstance(run, ArchiveContainerRunResult):
+        return run.exit_code
+    if run.status is ArchiveContainerRunStatus.COMPLETED:
+        return 0
+    for value in (run.producer_exit_code, run.consumer_exit_code):
+        if value not in (None, 0):
+            return value
+    return None
+
+
 def _listing_status(
-    run: ArchiveContainerRunResult,
+    run: ArchiveContainerRunResult | ArchiveWrapperContainerRunResult,
     parsed: ArchiveSevenZipSltParseStatus,
     parser_terminal: bool,
 ) -> ArchiveListingStatus:
@@ -1104,7 +1549,9 @@ def _listing_status(
     return ArchiveListingStatus.TOOL_FAILED
 
 
-def _integrity_status(run: ArchiveContainerRunResult) -> ArchiveIntegrityStatus:
+def _integrity_status(
+    run: ArchiveContainerRunResult | ArchiveWrapperContainerRunResult,
+) -> ArchiveIntegrityStatus:
     if run.status is ArchiveContainerRunStatus.COMPLETED:
         return ArchiveIntegrityStatus.PASSED
     return {
