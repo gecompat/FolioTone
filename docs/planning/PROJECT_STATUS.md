@@ -368,8 +368,9 @@ Source-Media-Mutation.
 **Lokale Verifikation der Agentenstrategie:** Am 2026-08-21 bestanden alle 18
 statischen Vertrags-Tests sowie Ruff für den geänderten Dokumentationstest.
 Die relativen Links aller geänderten Markdown-Dateien und `git diff --check`
-waren ohne Befund. Der vollständige Quality-Gate bleibt dem Pull Request
-vorbehalten und ist für diesen Stand noch nicht als erfolgreich belegt.
+waren ohne Befund. Der vollständige Quality-Gate wird ausschließlich für den
+exakten Pull-Request-Head in GitHub belegt und ist nicht Teil dieses lokalen
+Nachweises.
 
 **Abgeschlossene Voraussetzung: EB-06 — versioniertes E-Book-Matching und Review**
 
