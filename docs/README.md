@@ -17,8 +17,8 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 4. [Backlog](planning/BACKLOG.md) enthält die konkreten Aufgaben und Statuswerte.
 5. [E-Book-Roadmap W3-017 bis W9](planning/W3_017_EBOOK_ROADMAP.md) trennt den privaten Runtime-Cutover, synthetische Entwicklungs-Gates und die langfristige book-only Folgeplanung.
 6. [E-Book-Endgame-Ausführungsplan](planning/EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md) bündelt die bestehenden W-, E- und EA-Aufgaben in umsetzbare EB-Lieferpakete, ohne deren Status- oder ID-Hierarchie zu ersetzen.
-7. [Spark-Arbeitspakete für die E-Book-Endgerade](planning/EBOOK_SPARK_WORK_PACKAGES.md) zerlegen geeignete EB-Teile in 53 begrenzte Pull-Request-Pakete mit Frontier-Gates, Tests und Abbruchbedingungen.
-8. [Ausführungs-Prompt für die E-Book-Roadmap](planning/W3_017_EBOOK_ROADMAP_PROMPT.md) enthält den wiederverwendbaren Auftrag für einen neuen Codex-Thread.
+7. [Atomare Arbeitspakete für die E-Book-Endgerade](planning/EBOOK_SPARK_WORK_PACKAGES.md) zerlegen geeignete EB-Teile in begrenzte Pull-Request-Pakete mit Frontier-Gates, Tests und Abbruchbedingungen; der Dateiname ist historisch, das aktuelle Routing ist vendor-neutral.
+8. [Ausführungs-Prompt für die E-Book-Roadmap](planning/W3_017_EBOOK_ROADMAP_PROMPT.md) enthält den wiederverwendbaren Auftrag für einen neuen Coding-Agent-Task.
 9. [E-Book-Archive und kontrollierte Deduplizierung](planning/EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md) plant read-only Archivanalyse, lokale Passwortkandidaten, archive-aware Matching und die weiterhin gesperrte spätere W10-Ausführung.
 10. [Lokaler W2-Smoke-Test](quality/LOCAL_SMOKE_TEST.md) dokumentiert den abgeschlossenen manuellen Windows-/Docker-Testpunkt mit ausschließlich synthetischen Dateien.
 11. [E-Book-Toolchain unter Windows](operations/WINDOWS_EBOOK_TOOLCHAIN.md) beschreibt das explizite Docker-/WSL2-Provisioning und den formatspezifischen Doctor.
@@ -68,6 +68,10 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 
 ## Qualität, Sprache und Dokumentationsregeln
 
+- [Vendor-neutrale Wave-Orchestrierung](planning/AI_WORKFLOW.md) definiert Inventar, Isolation, Implementierung, Review, Git-Abschluss und Handover je Wave.
+- [Modell- und Agenten-Routing](planning/MODEL_ROUTING_POLICY.md) definiert die Tiers `LOCAL`, `ECONOMICAL`, `BALANCED` und `FRONTIER` ohne dauerhafte Bindung an einen Anbieter oder Modellnamen.
+- [Tool-Adapter für KI-Systeme](planning/AI_TOOL_ADAPTERS.md) beschreibt die dünne Discovery-Schicht für Codex, Copilot, Junie und Databricks Genie Code sowie die getrennte Rolle von Databricks Genie Agents.
+- [Local-first-Teststrategie](quality/TEST_POLICY.md) definiert fokussierte lokale Nachweise und den einmaligen vollständigen PR-Gate.
 - [Verbindlicher Schreibstil](quality/DOCUMENTATION_STYLE.md) regelt fachliche Präzision, Nachvollziehbarkeit und den geschützten README-Lizenzblock.
 - [Sprach- und Terminologierichtlinie](quality/LANGUAGE_AND_TERMINOLOGY.md) definiert Deutsch als kanonische erklärende Dokumentationssprache und schützt technische Literale vor Übersetzung.
 - [Kosten- und kontexteffiziente Entwicklung](quality/COST_EFFICIENT_DEVELOPMENT.md) definiert Local-first-Logauswertung, gestufte Tests, isolierte SQLite-Template-Kopien und begrenzte Agentenübergaben.
@@ -83,7 +87,8 @@ Automatische Dokumentationsprüfungen sind bewusst konservativ. Sie verhindern b
 1. Root-`AGENTS.md` lesen.
 2. `planning/PROJECT_STATUS.md` und `planning/HANDOVER.md` gegen den Repositorystand prüfen.
 3. `quality/DOCUMENTATION_STYLE.md` und `quality/LANGUAGE_AND_TERMINOLOGY.md` lesen, bevor Dokumentationsfreitext geändert wird.
-4. `quality/COST_EFFICIENT_DEVELOPMENT.md` vor Test-, Agenten- oder CI-Planung lesen.
-5. Für die aktuelle Aufgabe die relevanten Architektur- und ADR-Dokumente lesen.
-6. Bei Tool- oder Provider-Arbeit zusätzlich die jeweilige Registry und aktuelle externe Primärdokumentation prüfen.
-7. Code, Tests, Backlog und Projektstatus in einem konsistenten Stand halten.
+4. `planning/AI_WORKFLOW.md`, `planning/MODEL_ROUTING_POLICY.md` und `quality/TEST_POLICY.md` vor Wave-, Modell-, Agenten- oder CI-Planung lesen.
+5. `quality/COST_EFFICIENT_DEVELOPMENT.md` vor umfangreicher Test- oder Logauswertung lesen.
+6. Für die aktuelle Aufgabe die relevanten Architektur- und ADR-Dokumente lesen.
+7. Bei Tool- oder Provider-Arbeit zusätzlich die jeweilige Registry und aktuelle externe Primärdokumentation prüfen.
+8. Code, Tests, Backlog und Projektstatus in einem konsistenten Stand halten.

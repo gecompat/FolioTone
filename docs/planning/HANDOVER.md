@@ -922,14 +922,16 @@ maßgebliche Implementierungsschritt gemäß
 Cache-DTOs und den in ADR-0035 festgelegten Result-/Freshness-Literalen.
 
 EB-00, EB-01/E4, EB-02, EB-05, EB-06, EB-07 und EB-08 sind abgeschlossen. Die
-Reihenfolge, Stop-Gates und zulässigen Spark-Pakete stehen in
-`EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` und
-`EBOOK_SPARK_WORK_PACKAGES.md`. Modell-, Thinking- und Agentenauswahl folgen
-repositoryweit `MODEL_ROUTING_POLICY.md`; insbesondere werden Statusprüfungen
-mit 5.6 Luna, atomare festgelegte Coding-Pakete bevorzugt mit 5.3 Codex Spark
-und Frontier-/Security-Verträge nur mit der dort festgelegten höheren
-Risikoklasse ausgeführt. Private Pfade, Runtime-Daten, Kennzahlen und Berichte
-bleiben außerhalb von Git; Source Media bleibt unverändert.
+Reihenfolge, Stop-Gates und atomaren Pakete stehen in
+`EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` und der historisch benannten Datei
+`EBOOK_SPARK_WORK_PACKAGES.md`. Modell- und Agentenauswahl folgen
+repositoryweit `MODEL_ROUTING_POLICY.md`: Status und deterministische
+Prüfungen beginnen mit `LOCAL`, vollständig festgelegte Pakete verwenden
+`ECONOMICAL`, gewöhnliche Integration `BALANCED` und kritische Architektur-,
+Security-, Privacy-, Nebenläufigkeits- oder W10-Verträge `FRONTIER`.
+`AI_WORKFLOW.md` und `TEST_POLICY.md` regeln die Wave und ihren Local-first-
+Nachweis. Private Pfade, Runtime-Daten, Kennzahlen und Berichte bleiben
+außerhalb von Git; Source Media bleibt unverändert.
 
 Die langfristige Produktvision und Medienfolge stehen als nicht statussetzende
 Entwürfe in `docs/vision/EVIDENCE_DRIVEN_COLLECTION_INTELLIGENCE.md` und

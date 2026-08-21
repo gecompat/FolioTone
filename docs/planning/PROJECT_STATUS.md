@@ -352,11 +352,24 @@ Calibre-Write implementiert. Die aktive E-Book-/Archive-Reihenfolge sowie die
 W10-Sperre bleiben unverändert.
 
 Die repositoryweite Ausführungsrichtlinie
-`docs/planning/MODEL_ROUTING_POLICY.md` ordnet kommende Aufgaben
-ressourcenbewusst 5.3 Codex Spark, 5.6 Luna, 5.6 Terra oder 5.6 Sol zu. Neue
-Wellen müssen Aufgabenklasse, Thinking, Fallback, erlaubte Dateien, Checks und
-Stopbedingungen vor Implementierung festlegen. Die Richtlinie ändert keinen
-fachlichen Wellenstatus und autorisiert keine Source-Media-Mutation.
+`docs/planning/MODEL_ROUTING_POLICY.md` ordnet jeden Arbeitsschritt
+vendor-neutral `LOCAL`, `ECONOMICAL`, `BALANCED` oder `FRONTIER` zu. Konkrete
+Modellnamen, Preise, Kontingente und Reasoning-Bezeichner sind nur
+Runtime-Eigenschaften der dünnen Tool-Adapter. Neue Waves müssen Risikoklasse,
+Tier, erlaubte Dateien, Checks und Stopbedingungen vor der Implementierung
+festlegen. `AI_WORKFLOW.md` definiert Branch-, Worktree-, Review-, PR- und
+Handover-Ablauf; `TEST_POLICY.md` definiert die Local-first-Teststufen und den
+einmaligen vollständigen PR-Gate. Historische Modellnamen in akzeptierten ADRs
+und im Legacy-Dateinamen `EBOOK_SPARK_WORK_PACKAGES.md` bleiben lesbare
+Ausführungsnotizen, sind für neue Läufe aber nicht normativ. Die Richtlinien
+ändern keinen fachlichen Wellenstatus und autorisieren keine
+Source-Media-Mutation.
+
+**Lokale Verifikation der Agentenstrategie:** Am 2026-08-21 bestanden alle 18
+statischen Vertrags-Tests sowie Ruff für den geänderten Dokumentationstest.
+Die relativen Links aller geänderten Markdown-Dateien und `git diff --check`
+waren ohne Befund. Der vollständige Quality-Gate bleibt dem Pull Request
+vorbehalten und ist für diesen Stand noch nicht als erfolgreich belegt.
 
 **Abgeschlossene Voraussetzung: EB-06 — versioniertes E-Book-Matching und Review**
 

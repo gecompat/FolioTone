@@ -1,6 +1,9 @@
 # AGENTS.md — FolioTone working contract
 
-This file is the primary continuation contract for AI coding agents and human contributors. Repository state must be sufficient to continue the project without access to previous chat history.
+This file is the primary, vendor-neutral continuation contract for AI coding
+agents and human contributors. Repository state must be sufficient to continue
+the project without access to previous chat history. Tool-specific instruction
+files are discovery adapters only and may not redefine this contract.
 
 ## 0. Binding documentation governance
 
@@ -26,17 +29,20 @@ Read these files in order:
 2. `docs/planning/HANDOVER.md`
 3. `docs/planning/IMPLEMENTATION_PLAN.md`
 4. `docs/planning/BACKLOG.md`
-5. `docs/planning/MODEL_ROUTING_POLICY.md` before selecting a model or delegating work
-6. `docs/quality/COST_EFFICIENT_DEVELOPMENT.md` before planning tests, CI or agent work
-7. `docs/quality/DOCUMENTATION_STYLE.md` when documentation prose is touched
-8. `docs/quality/LANGUAGE_AND_TERMINOLOGY.md` when documentation prose or terminology is touched
-9. `docs/reference/GLOSSARY.md` when domain terminology is touched
-10. `docs/architecture/OVERVIEW.md`
-11. `docs/architecture/DOMAIN_MODEL.md`
-12. `docs/architecture/AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`
-13. `docs/reference/EXTERNAL_TOOLS.md` when work touches media analysis/tool orchestration
-14. `docs/reference/EXTERNAL_DATA_SOURCES.md` when work touches external knowledge/providers
-15. relevant files under `docs/architecture/` and `docs/decisions/`
+5. `docs/planning/AI_WORKFLOW.md` before starting or handing over a wave
+6. `docs/planning/MODEL_ROUTING_POLICY.md` before selecting a model or delegating work
+7. `docs/quality/TEST_POLICY.md` before selecting local or CI checks
+8. `docs/quality/COST_EFFICIENT_DEVELOPMENT.md` before planning tests, CI or agent work
+9. `docs/planning/AI_TOOL_ADAPTERS.md` when tool-specific discovery or configuration is touched
+10. `docs/quality/DOCUMENTATION_STYLE.md` when documentation prose is touched
+11. `docs/quality/LANGUAGE_AND_TERMINOLOGY.md` when documentation prose or terminology is touched
+12. `docs/reference/GLOSSARY.md` when domain terminology is touched
+13. `docs/architecture/OVERVIEW.md`
+14. `docs/architecture/DOMAIN_MODEL.md`
+15. `docs/architecture/AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`
+16. `docs/reference/EXTERNAL_TOOLS.md` when work touches media analysis/tool orchestration
+17. `docs/reference/EXTERNAL_DATA_SOURCES.md` when work touches external knowledge/providers
+18. relevant files under `docs/architecture/` and `docs/decisions/`
 
 If repository code and documentation disagree, treat the discrepancy as a defect. Determine the actual state, then update code and documentation together.
 
@@ -86,12 +92,15 @@ Outgoing provider requests must not contain absolute local paths. Send only the 
 
 ## 4. Development workflow
 
-Work in the currently active wave unless a blocking dependency requires another documented task.
+Work in the currently active wave unless a blocking dependency requires
+another documented task. Wave definition, isolation, review, Git completion
+and handover follow `docs/planning/AI_WORKFLOW.md`.
 
-Select models, Thinking levels and agent delegation according to
-`docs/planning/MODEL_ROUTING_POLICY.md`. A wave-specific plan may impose a
-stricter model or stop condition, but it may not weaken the repository-wide
-risk classification.
+Select the vendor-neutral tier `LOCAL`, `ECONOMICAL`, `BALANCED` or `FRONTIER`
+for each individual step according to `docs/planning/MODEL_ROUTING_POLICY.md`.
+Concrete model names, prices and reasoning controls are runtime adapter
+details. A wave-specific plan may impose a stricter tier or stop condition,
+but it may not weaken the repository-wide risk classification.
 
 For each coherent change:
 
@@ -105,12 +114,12 @@ For each coherent change:
 8. update architecture/ADR/provider/tool documentation if behavior or a decision changed;
 9. leave the repository in a state where the next task is explicit.
 
-Testauswahl, lokale Logauswertung, Agentenkoordination und vollständige Gates
-folgen zusätzlich dem verbindlichen Vertrag unter
+Testauswahl und vollständige Gates folgen `docs/quality/TEST_POLICY.md`.
+Lokale Logauswertung und Agentenkoordination folgen zusätzlich
 `docs/quality/COST_EFFICIENT_DEVELOPMENT.md`. Vollständige Logs werden lokal
 aggregiert; nur neue Fehlersignaturen und entscheidungsrelevante Ausschnitte
-gelangen in den Modellkontext. Pro konsistenter Welle wird genau ein vollständiger
-PR-CI-Gate ausgeführt.
+gelangen in den Modellkontext. Pro konsistenter Welle wird genau ein
+vollständiger PR-CI-Gate ausgeführt.
 
 Do not silently invent architecture decisions. If a material choice is needed, add an ADR with status `Proposed` or `Accepted` as appropriate.
 
@@ -124,7 +133,9 @@ A backlog item is done only when:
 
 - implementation matches the documented contract;
 - tests cover the new behavior and important failure modes;
-- `ruff check .`, `mypy src/foliotone`, and `pytest` pass, unless a documented environment-specific exception exists;
+- die nach `docs/quality/TEST_POLICY.md` erforderlichen lokalen Checks sind
+  erfolgreich, und der vollständige PR-CI-Gate ist für den exakten stabilen
+  Head grün, sofern keine dokumentierte umgebungsspezifische Ausnahme gilt;
 - public interfaces and data migrations are documented;
 - project status/backlog are synchronized with reality;
 - no private/runtime data has entered Git;
@@ -139,11 +150,26 @@ A backlog item is done only when:
 ## 6. Git discipline
 
 - Prefer small coherent commits tied to backlog items/waves.
+- Use a feature branch and pull request for every `main` change; do not push
+  directly to `main`.
 - Do not force-push shared branches unless explicitly authorized.
 - Do not mix unrelated refactoring with feature work.
 - Keep `main` in a consistent state.
 - Do not claim a test passed unless it was actually executed.
 - If environment-specific verification is pending, record it explicitly in `PROJECT_STATUS.md`.
+
+## 6.1 Tool adapters
+
+- Codex and Databricks Genie Code consume this root `AGENTS.md` directly.
+- GitHub/Visual Studio Copilot uses `.github/copilot-instructions.md` as a
+  thin discovery adapter.
+- JetBrains Junie uses `.junie/AGENTS.md` as a thin discovery adapter; do not
+  introduce the legacy `.junie/guidelines.md` format.
+- Databricks Genie Agents/Spaces are analytics agents configured in
+  Databricks and are not repository coding-agent adapters.
+- Adapter files may add discovery syntax or stricter local runtime limits, but
+  they may not duplicate or weaken architecture, test, Safety, Privacy, W10,
+  model-tier or Git contracts.
 
 ## 7. Architecture boundaries
 

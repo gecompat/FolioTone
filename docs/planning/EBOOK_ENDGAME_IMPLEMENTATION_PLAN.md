@@ -43,11 +43,11 @@ EA11 und EA12 gehören weiterhin zur gesperrten W10-Strecke. Keine EB-Welle
 autorisiert Source-Media-Mutationen, Quarantäne, Löschung oder Verzeichnis-
 bereinigung.
 
-Die für Codex Spark geeigneten Teile dieser Lieferpakete sind im
-[`Spark-Arbeitspaketkatalog`](EBOOK_SPARK_WORK_PACKAGES.md) in 58 atomare
-Pakete zerlegt. Der Katalog enthält verbindliche Frontier-Gates und delegiert
-EB-01, EB-02, EB-05, EB-06, die reale Archive-Extraction sowie W10 nicht
-autonom an Spark.
+Die vollständig festgelegten Teile dieser Lieferpakete sind im
+[`atomaren Arbeitspaketkatalog`](EBOOK_SPARK_WORK_PACKAGES.md) in begrenzte
+Pakete zerlegt. Der Legacy-Dateiname bleibt für stabile Links erhalten. Der
+Katalog enthält verbindliche Frontier-Gates und stuft EB-01, EB-02, EB-05,
+EB-06, die reale Archive-Extraction sowie W10 nicht als `ECONOMICAL` ein.
 
 ---
 

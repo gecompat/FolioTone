@@ -1,6 +1,8 @@
 # Tests
 
 Tests must validate FolioTone-owned behavior rather than re-testing third-party libraries.
+Test selection, local paths, evidence and the full pull-request gate follow
+[`docs/quality/TEST_POLICY.md`](../docs/quality/TEST_POLICY.md).
 
 Planned groups:
 

@@ -17,6 +17,7 @@ Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 | W0-009 | DONE | Install the GitHub Actions workflow at `.github/workflows/ci.yml`. |
 | W0-010 | DONE | Adopt orchestration-first ToolProvider architecture; add ADR-0010, external-tool registry, tooling package boundary, safety and AI handover rules. |
 | W0-011 | DONE | Adopt binding documentation/language/terminology governance, canonical glossary, protected-license regression check, task-oriented docs index and Copilot instructions. |
+| W0-012 | DONE | Adopt vendor-neutral Wave orchestration, `LOCAL`/`ECONOMICAL`/`BALANCED`/`FRONTIER` routing, a local-first test policy and thin discovery adapters for Copilot, Junie, Codex and Databricks Genie Code. |
 
 ## W1 — Core + Persistence
 

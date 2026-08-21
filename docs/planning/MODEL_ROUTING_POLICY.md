@@ -1,189 +1,180 @@
-# Modell- und Agenten-Routing
+# Kosten- und qualitätsbewusstes Modell- und Agenten-Routing
 
-**Status:** Verbindlich
-
-**Stand:** 2026-08-18
-
+**Status:** verbindlich
+**Stand:** 2026-08-21
 **Geltungsbereich:** KI-unterstützte Entwicklungs-, Review-, Planungs- und
 Betriebsaufgaben für FolioTone
 
 ## Zweck und Autorität
 
-Diese Richtlinie legt die repositoryweite Auswahl von Modell, Thinking-Stufe
-und Agenteneinsatz fest. Sie minimiert Ressourcenverbrauch, ohne die für
-Domain-, Persistenz-, Privacy- und Sicherheitsverträge erforderliche Qualität
-abzusenken.
+Diese Richtlinie wählt für jeden Arbeitsschritt die günstigste verfügbare
+Ausführungsform, die dessen Qualitäts-, Zuverlässigkeits- und
+Sicherheitsanforderungen voraussichtlich erfüllt. Die Einstufung ist
+vendor-neutral. Produktnamen, konkrete Modell-IDs, Kontingente und Preise sind
+veränderliche Runtime-Eigenschaften und kein Repositoryvertrag.
 
-Wellen- und paketbezogene Pläne dürfen strengere Grenzen festlegen. Sie dürfen
-ein hier als Frontier- oder Security-Aufgabe eingestuftes Vorhaben jedoch nicht
-an ein schwächeres Modell delegieren. Bei einem Widerspruch gilt die höhere
-Risikoeinstufung.
+Wellen- und paketbezogene Pläne dürfen strengere Grenzen festlegen. Sie
+dürfen eine Aufgabe jedoch nicht unter die repositoryweite Risikoklasse
+abstufen. Datenschutz, Safety, Autorisierung und die W10-Sperre haben Vorrang
+vor Kosten- oder Geschwindigkeitszielen.
 
-Die Modellverfügbarkeit, Kontingente und Abrechnung sind Runtime-Eigenschaften
-und keine Produktverträge. Für die aktuelle Entwicklungsumgebung gilt als
-Budgetannahme, dass 5.3 Codex Spark ein separates Kontingent besitzt. Deshalb
-wird dieses Kontingent für geeignete atomare Coding-Pakete bevorzugt. Exakte
-API-Listenpreise werden hier nicht festgeschrieben, weil sie weder den
-Codex-Credits entsprechen noch dauerhaft stabil sind.
+## Verbindliche Tiers
 
-## Entscheidungsfolge
+| Tier | Einsatzgrenze | Typische Arbeit |
+|---|---|---|
+| `LOCAL` | Kein generatives Modell ist für die Entscheidung erforderlich. Lokale, deterministische Werkzeuge können das Ergebnis vollständig erzeugen oder prüfen. | Suche, Formatierung, Testausführung, Logaggregation, Counts, Diff- und Linkprüfung, Branch-/CI-Status |
+| `ECONOMICAL` | Vertrag, Dateiscope und Abnahme sind eindeutig; Fehler sind lokal und billig erkennbar. | kleine Dokumentationsänderung, Characterization Test, fester DTO/Mapper/Parser, begrenztes Refactoring, Statuszusammenfassung |
+| `BALANCED` | Mehrere bestehende Verträge oder Schichten müssen integriert werden, oder eine reproduzierbare Ursache ist noch zu diagnostizieren. | Store plus Workflow, schichtübergreifender Bugfix, bestehende Regeln konsistent zusammenführen, semantisches Review |
+| `FRONTIER` | Eine neue oder kritische Architektur-, Security-, Privacy-, Nebenläufigkeits-, Identitäts-, Persistenz- oder Datenverlustfrage ist offen. | Lease/Fencing, Secret Handling, Archive-Sandbox, Matching-/Identity-Vertrag, W10, irreversible oder autorisierungsrelevante Entscheidung |
 
-Vor dem Start einer Aufgabe bestimmt der koordinierende Task in dieser
-Reihenfolge:
+`LOCAL` ist kein kleines Sprachmodell, sondern die bevorzugte Ausführung
+durch vorhandene Programme und reproduzierbare Checks. Ein Modell erhält nur
+die lokal aggregierte Evidence, die für den nächsten nichtdeterministischen
+Schritt erforderlich ist.
 
-1. ob eine Architektur-, Sicherheits-, Privacy-, Datenverlust- oder
-   Autorisierungsentscheidung offen ist;
-2. ob alle fachlichen Verträge bereits akzeptiert und die erlaubten Dateien
-   sowie Abnahmetests begrenzt sind;
-3. ob die Aufgabe mehrere Schichten integriert oder einen ungeklärten Fehler
-   diagnostiziert;
-4. ob sie nur read-only Status, Recherche, mechanische Prüfung oder
-   Dokumentationspflege umfasst;
-5. ob ein Agent einen wirklich unabhängigen, konkreten Teilauftrag übernehmen
-   kann.
+## Entscheidungsfolge pro Arbeitsschritt
 
-Eine offene Frontier-Frage wird zuerst mit dem dafür vorgesehenen Modell
-entschieden. Erst danach darf ein kleineres Modell die mechanische Umsetzung
-übernehmen.
+Der koordinierende Task entscheidet vor jedem abgegrenzten Schritt:
 
-## Technische Modell-IDs
+1. Kann ein lokales deterministisches Werkzeug den Schritt vollständig
+   ausführen oder prüfen? Dann gilt `LOCAL`.
+2. Sind Vertrag, Dateien, Negativfälle und Abnahme eindeutig begrenzt? Dann
+   gilt in der Regel `ECONOMICAL`.
+3. Müssen mehrere bestehende Schichten integriert oder widersprüchliche
+   Befunde diagnostiziert werden? Dann gilt mindestens `BALANCED`.
+4. Ist eine Architektur-, Security-, Privacy-, Nebenläufigkeits-, W10- oder
+   realistische Datenverlustfrage offen? Dann gilt `FRONTIER`.
+5. Kann ein wirklich unabhängiger, konkret prüfbarer Teilauftrag delegiert
+   werden, ohne Kontext und Koordination zu duplizieren?
 
-Delegations- und Ausführungsaufträge verwenden die folgenden Modell-IDs, sofern
-die jeweilige Codex-Laufzeit sie anbietet:
+Eine offene `FRONTIER`-Frage wird zuerst entschieden. Erst danach darf ein
+kleineres Tier die mechanische Umsetzung übernehmen. Nach jedem schwierigen
+Schritt wird die verbleibende Arbeit neu eingestuft; eine einmalige Eskalation
+bindet die restliche Welle nicht an das teurere Tier.
 
-| Anzeigename | Modell-ID |
-|---|---|
-| 5.6 Sol | `gpt-5.6-sol` |
-| 5.6 Terra | `gpt-5.6-terra` |
-| 5.6 Luna | `gpt-5.6-luna` |
-| 5.5 | `gpt-5.5` |
-| 5.4 | `gpt-5.4` |
-| 5.4 Mini | `gpt-5.4-mini` |
-| 5.3 Codex Spark | `gpt-5.3-codex-spark` |
+## Auswahl innerhalb eines Tiers
 
-## Modellmatrix
+Der jeweilige Tool-Adapter oder die Laufzeit ordnet dem Tier ein aktuell
+verfügbares Modell und, falls unterstützt, einen Reasoning-/Thinking-Aufwand
+zu. Dabei gelten folgende Regeln:
 
-| Aufgabenklasse | Bevorzugtes Modell | Thinking | Typische Beispiele |
-|---|---|---|---|
-| Atomare Implementierung bei vollständig festgelegtem Vertrag | 5.3 Codex Spark | `high`; `medium` nur für reine Dokumentation oder Characterization-Tests | DTOs, Parser, feste Adapter, Reporter, CLI, fokussierte Tests, exakt spezifizierte Migration |
-| Read-only Status und mechanische Prüfung | 5.6 Luna | `low` oder `medium` | Heartbeat, PR-/CI-Status, Branch-Inventar, Linkprüfung, begrenzte Suche, Diff-Zusammenfassung |
-| Mechanisches Coding ohne Spark-Verfügbarkeit | 5.4 Mini | `medium`, selten `high` | kleine Refactorings, Testergänzungen, feste Mapper und Adapter |
-| Gewöhnliche Integration und komplexere Diagnose | 5.6 Terra | `medium`; `high` nur bei begründetem Qualitätsbedarf | Store plus Workflow, mehrere Module, reproduzierbarer Bugfix, bestehende Verträge zusammenführen |
-| Frontier-Vertrag und kritische Architektur | 5.6 Sol | `medium` für begrenzte Gates, `high` für kritische Verträge | neue Domainmodelle, Identity Resolution, Matching Policy, Privacy, Persistenzgrenzen |
-| Adversarial oder nebenläufigkeitskritische Arbeit | 5.6 Sol | `high`, ausnahmsweise `xhigh` | Lease/Fencing, stale Takeover, Secret Handling, Archive-Sandbox, atomare Writes |
-| W10 oder bestätigte irreversible Datenverlustgefahr | 5.6 Sol | `max` | Mutationsvertrag, Quarantäne/Purge/Undo, bestätigter datenverlustrelevanter Defekt |
+- das günstigste Modell verwenden, das den Tier-Vertrag nachweislich erfüllt;
+- vorhandene separate oder günstigere Kontingente für `ECONOMICAL`-Arbeit
+  bevorzugen;
+- Modellnamen und Preise vor einer kostenrelevanten Runtime-Konfiguration
+  aktuell prüfen, nicht im Repository festschreiben;
+- dieselben lokalen Abnahmetests für alle Anbieter verwenden;
+- keine Berechtigung, kein Dateiscope und keine Safety-Grenze aus einer
+  Modellwahl ableiten;
+- bei fehlender Modellwahlfunktion mit dem verfügbaren Modell weiterarbeiten
+  und den Scope weiterhin nach diesen Tiers begrenzen.
 
-5.4 und 5.5 sind keine Standardziele für neue Aufgaben. 5.4 dient als Ersatz
-für Terra und 5.5 als Ersatz für Sol, wenn das bevorzugte Modell nicht
-verfügbar ist und die unten festgelegte Fallback-Grenze dies zulässt.
+Wenn die Laufzeit Reasoning-/Thinking-Stufen anbietet, ist ein niedriger
+Aufwand für Status- und Inventararbeit, ein mittlerer Aufwand für normale
+Integration und ein hoher Aufwand für kritische Verträge angemessen. Die
+konkreten Bezeichner sind Adapterdetails. Die höchste verfügbare Stufe bleibt
+W10 und bestätigter realistischer Gefahr irreversiblen Datenverlusts
+vorbehalten.
 
-## Thinking-Regel
+## Eskalation und Rückkehr
 
-- `low` ist Status-, Inventar- und Routineprüfungen vorbehalten.
-- `medium` ist der Standard für normale Analyse, Integration und begrenzte
-  Frontier-Gates.
-- `high` wird verwendet, wenn ein öffentlicher Vertrag, mehrere Schichten,
-  schwer reproduzierbare Fehler oder relevante Negativfälle betroffen sind.
-- `xhigh` wird nur für Nebenläufigkeit, Identity-/Matching-Grenzen,
-  adversarial Input, Secret Handling oder vergleichbare kritische
-  Risikoklassen verwendet.
-- `max` bleibt W10 und bestätigter realistischer Gefahr irreversiblen
-  Datenverlusts vorbehalten.
+Eine Eskalation erfolgt, wenn mindestens eine Bedingung eintritt:
 
-Eine höhere Thinking-Stufe erweitert niemals Scope oder Berechtigung. Wenn
-eine Aufgabe eine neue Entscheidung oder Autorisierung benötigt, stoppt sie
-unabhängig vom Modell.
+- das aktuelle Tier liefert wiederholt keine ausreichende Lösung;
+- eine wesentliche Unsicherheit kann nicht lokal oder im aktuellen Tier
+  aufgelöst werden;
+- die notwendige Kontextmenge oder fachliche Tiefe übersteigt den begrenzten
+  Auftrag;
+- ein Fehler könnte erhebliche Kosten, Datenverlust oder ein
+  Sicherheitsproblem verursachen;
+- während der Umsetzung wird eine zuvor nicht entschiedene Architektur-,
+  Privacy-, Security- oder Autorisierungsfrage sichtbar.
+
+Nach der Entscheidung wird der nächste mechanische Schritt wieder auf
+`LOCAL` oder `ECONOMICAL` zurückgestuft, sofern dessen Vertrag dies erlaubt.
+Eine Eskalation erweitert niemals den genehmigten Scope. Fehlt eine
+Benutzerentscheidung oder Autorisierung, stoppt die Arbeit unabhängig vom
+Tier.
 
 ## Agenteneinsatz
 
-Ein Agent wird nur eingesetzt, wenn der Teilauftrag konkret, begrenzt und
-unabhängig prüfbar ist. Einfache sequenzielle Aufgaben werden direkt erledigt,
-weil Delegation zusätzlichen Kontext- und Koordinationsverbrauch erzeugt.
+Eine Wave besitzt genau einen aktiven Implementierungsagenten. Zusätzliche
+Agents sind nur für konkrete, begrenzte und unabhängig prüfbare Teilaufgaben
+zulässig. Parallelität ist auf disjunkte Dateibereiche oder unabhängige
+read-only Analysen begrenzt.
 
-Für delegierte Arbeit gelten folgende Regeln:
+Delegationsaufträge enthalten nur:
 
-- genau ein Implementierungsagent je atomarem Paket;
-- Parallelität nur bei disjunkten Dateibereichen oder unabhängigen read-only
-  Analysen;
-- kein paralleles Implementieren und Editieren derselben Verträge;
-- ein knapper Auftrag mit Ausgangscommit, Abhängigkeiten, erlaubten Dateien,
-  Stopbedingungen und konkreten Checks anstelle unnötiger Chat-Historie;
-- ein zweiter Frontier-Agent nur für eine tatsächlich unabhängige kritische
-  Prüfung;
-- fokussierte lokale Checks während der Arbeit und genau ein vollständiger
-  PR-CI-Gate je konsistenter Welle.
+- Ausgangscommit und erlaubte Dateien;
+- akzeptierten Vertrag und relevante Abhängigkeiten;
+- Tier, Stopbedingungen und konkrete Checks;
+- bereits lokal aggregierte Findings.
 
-Ein nachfolgender Review verwendet Luna oder 5.4 Mini für mechanische
-Prüfungen, Terra für semantische Integration und Sol nur für die kritischen
-Risikoklassen der Modellmatrix.
+Ein semantisches Review beginnt erst bei stabilem Diff. Mehrere Agents
+analysieren oder bearbeiten nicht gleichzeitig denselben beweglichen Vertrag.
 
-## Kontext- und Testkosten
+## Fallback bei Kapazität oder Verfügbarkeit
 
-Die verbindliche Test- und Logstrategie ist in
-[`COST_EFFICIENT_DEVELOPMENT.md`](../quality/COST_EFFICIENT_DEVELOPMENT.md)
-festgelegt. Vor einer Modellübergabe werden vollständige Logs, Diffs, Timings und
-wiederholte Fehler lokal deterministisch ausgewertet. Ein Agent erhält nur
-deduplizierte Findings und die kleinsten für seine Entscheidung erforderlichen
-Ausschnitte.
+Ein Kapazitätsfehler führt nicht zu unbegrenzten Wiederholungen.
 
-Insbesondere gelten folgende Routingregeln:
-
-- kein Frontier-Modell zum Zusammenzählen, Filtern oder Gruppieren lokaler
-  Testergebnisse;
-- kein zusätzlicher Agent nur zum Beobachten eines unveränderten laufenden Tests;
-- kein semantischer Review, solange der Implementierungsdiff noch verändert wird;
-- kein vollständiger lokaler oder PR-Gate nach jedem Zwischenfix;
-- keine Weitergabe vollständiger grüner Logs oder wiederholter identischer
-  Traces;
-- Rückkehr zu Spark, Luna oder 5.4 Mini, sobald eine begrenzte Frontier-Frage
-  entschieden ist.
-
-## Kapazitäts- und Fallback-Regel
-
-Ein Kapazitätsfehler wird nicht in einer unbegrenzten Wiederholungsschleife
-behandelt. Zulässige Fallbacks sind:
-
-| Ausgangsmodell | Fallbackfolge | Grenze |
-|---|---|---|
-| 5.3 Codex Spark | 5.4 Mini, danach 5.6 Terra | nur bei bereits vollständig festgelegtem Vertrag |
-| 5.6 Luna | 5.4 Mini, danach 5.6 Terra | Thinking nicht unnötig erhöhen |
-| 5.6 Terra | 5.4 | gleiche Aufgaben- und Thinking-Klasse beibehalten |
-| 5.6 Sol | 5.5 | nicht für W10 oder bestätigte Datenverlustgefahr |
-
-Für W10, irreversible Datenverlustgefahr oder eine nicht delegierbare
-Security-Entscheidung wird nicht auf ein niedriger eingestuftes Modell
-ausgewichen. Die Aufgabe wartet auf das erforderliche Modell oder wird als
-blockiert gemeldet.
+1. Innerhalb desselben Tiers wird ein anderes ausreichend fähiges Modell
+   verwendet.
+2. `ECONOMICAL` darf auf `BALANCED` eskalieren, wenn der Vertrag feststeht und
+   die Mehrkosten begründet sind.
+3. `BALANCED` darf auf `FRONTIER` eskalieren, wenn die Diagnose oder das Risiko
+   dies verlangt.
+4. Eine `FRONTIER`-Aufgabe wird nicht auf ein niedrigeres Tier abgesenkt, nur
+   weil das vorgesehene Modell nicht verfügbar ist.
+5. W10, irreversible Datenverlustgefahr oder eine nicht delegierbare
+   Security-Entscheidung wartet auf eine ausreichend fähige Laufzeit oder
+   wird als blockiert dokumentiert.
 
 ## Vertrag für neue Wellen und Pakete
 
 Jedes neue Frontier-Gate und jedes neue atomare Arbeitspaket dokumentiert vor
 Ausführung mindestens:
 
-1. Aufgabenklasse und Risikoklasse;
-2. bevorzugtes Modell und Thinking-Stufe;
-3. zulässigen Fallback;
-4. akzeptierten Vertrag oder vorausgehendes Gate;
-5. erlaubte Dateien und explizite Ausschlüsse;
-6. fokussierte Checks und vollständigen PR-CI-Gate;
-7. Stopbedingungen für Architektur, Security, Privacy, W10 und fehlende
+1. Aufgaben- und Risikoklasse;
+2. erforderliches Tier;
+3. akzeptierten Vertrag oder vorausgehendes Gate;
+4. erlaubte Dateien und explizite Ausschlüsse;
+5. fokussierte Checks und vollständigen PR-CI-Gate;
+6. Stopbedingungen für Architektur, Security, Privacy, W10 und fehlende
    Autorisierung.
 
-Fehlen diese Angaben, darf eine zukünftige Welle nur read-only untersucht und
-für ein Frontier-Gate vorbereitet werden. Sie darf nicht stillschweigend mit
-einer geschätzten Modellwahl implementiert werden.
+Fehlen diese Angaben, darf eine Wave nur read-only untersucht und für ein
+Gate vorbereitet werden. Sie darf nicht mit einer geschätzten Modellwahl
+implementiert werden.
+
+## Legacy-Zuordnung bestehender Pläne
+
+Bestehende akzeptierte ADRs und der historisch benannte
+`EBOOK_SPARK_WORK_PACKAGES.md` enthalten konkrete Codex-Modellnamen. Diese
+Angaben bleiben als historische Ausführungsnotizen lesbar, sind für neue
+Läufe aber nicht mehr normativ. Sie werden wie folgt interpretiert:
+
+| Historische Bezeichnung | Vendor-neutrale Einstufung |
+|---|---|
+| Spark, Mini oder Luna für klar begrenzte Arbeit | `ECONOMICAL` |
+| Luna für reine lokale Status-/Logarbeit | zuerst `LOCAL`, sonst `ECONOMICAL` |
+| Terra | `BALANCED` |
+| Sol oder ein ausdrückliches Frontier-/Security-Gate | `FRONTIER` |
+
+Die sachliche Risikoklasse hat Vorrang vor dieser Übersetzung. Ein historisch
+als kleines Paket bezeichneter Task wird zu `FRONTIER`, sobald eine kritische
+Frage offen ist.
 
 ## Aktuelle FolioTone-Zuordnung
 
-- Die verbleibenden atomaren EB-07- und späteren freigegebenen Spark-Pakete
-  verwenden 5.3 Codex Spark mit `high`.
-- Status-, CI- und Merge-Prüfungen verwenden grundsätzlich 5.6 Luna.
-- FG-08 und vergleichbare begrenzte Produktverträge beginnen mit 5.6 Sol
-  `medium` und eskalieren nur anhand der Thinking-Regel.
-- Reale Archive-Extraktion, Secret-Übergabe und Prozessisolation verwenden
-  5.6 Sol `high`; adversarial Sicherheitslücken können `xhigh` rechtfertigen.
-- Neue Medienidentitäten, `CollectionState`, Query-AST und Content-Privacy
-  benötigen zuerst ein Frontier-Gate. Die anschließenden mechanischen Pakete
-  werden erneut auf Spark-Tauglichkeit zerlegt.
-- Jede Source-Media-Mutation bleibt durch W10 blockiert und wird durch diese
-  Richtlinie nicht autorisiert.
+- Status-, CI-, Link- und Mergeprüfungen beginnen mit `LOCAL`.
+- Vollständig spezifizierte atomare Pakete verwenden `ECONOMICAL`.
+- Gewöhnliche schichtübergreifende Integration und schwierige, aber
+  nichtkritische Diagnose verwenden `BALANCED`.
+- Neue Medienidentitäten, Matching, Persistenzgrenzen, Archive-Security,
+  Secret Handling, Lease/Fencing und W10 benötigen `FRONTIER`.
+- Jede Source-Media-Mutation bleibt durch die geltenden W10-Verträge
+  blockiert; diese Richtlinie autorisiert sie nicht.
+
+Testauswahl, lokale Evidence und der einmalige vollständige PR-Gate folgen
+[`TEST_POLICY.md`](../quality/TEST_POLICY.md). Kontext- und Logkosten folgen
+[`COST_EFFICIENT_DEVELOPMENT.md`](../quality/COST_EFFICIENT_DEVELOPMENT.md).
