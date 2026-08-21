@@ -19,6 +19,8 @@ def test_archive_sidecar_inventory_contract_is_closed_and_non_executing() -> Non
         "40d517c3-c650-5760-8b8b-6e8e6665989b",
         "ix_file_observations_run_path",
         "keine vom Caller behauptete Sidecar-Liste",
+        "OwnedScanRootWriteLease",
+        "keinen unfenced Write-Pfad",
         "`list_all()`-, Offset-",
         "freie 7-Zip-Prosa oder grobe Exitcodes",
         "keine Dateiöffnung",
