@@ -164,24 +164,24 @@ harten Cap; vorläufige Hashes werden erst nach Cleanup, leerer
 Slot-Revalidierung und erfolgreichem Return freigegeben. Unsichere Slots werden
 quarantänisiert. EBAR-06 bleibt auf direkte
 unverschlüsselte ZIP-/RAR4-/RAR5-/7z-/TAR-Fälle beschränkt. gzip, bzip2, xz
-und zstd erhalten bis S-EBAR-W03 keinen Providerlauf und unabhängig davon
-keinen Extraction-Lauf.
+und zstd besitzen nach S-EBAR-W03 einen getrennten read-only Providerlauf,
+erhalten aber weiterhin keinen Extraction-Lauf.
 
-FG-A-WRAPPER-PIPELINE ist durch ADR-0051 entschieden. S-EBAR-W01 bis
-S-EBAR-W03 implementieren danach ausschließlich read-only TAR-Streaming ohne
+FG-A-WRAPPER-PIPELINE und S-EBAR-W01 bis S-EBAR-W04 sind abgeschlossen. Die
+vier Wrapper verwenden ausschließlich read-only TAR-Streaming ohne
 Zwischen-Datei: feste äußere Dekompression, bounded TAR-Rahmenprüfung und
 getrennte innere Listing-/Integrity-Läufe mit identischer Bytelänge und
-SHA-256. S-EBAR-W04 schließt die Welle. Bis W03 abgeschlossen ist, starten
-Wrapper weiterhin keinen Lauf; Extraction-Handoff, Persistenz und Writes
-bleiben auch danach gesperrt.
+SHA-256. Extraction-Handoff, Persistenz und Writes bleiben gesperrt.
 
-S-EBAR-W01 ist umgesetzt. `archive-tar-stream-frame/v1` validiert den
+`archive-tar-stream-frame/v1` validiert den
 inneren TAR-Strom inkrementell in 512-Byte-Blöcken, begrenzt Chunk-, Stream-,
 Header- und Payloadmengen, verlangt gültige Headerchecksummen sowie mindestens
 zwei Endblöcke und weist partielle, verkettete oder nichtnull nachlaufende
 Streams ab. Drei feste no-shell Commands definieren äußere stdout-
-Dekompression und innere TAR-Listing-/Integrity-Läufe über stdin. Der Code
-führt noch keinen Prozess aus; S-EBAR-W02 ist der nächste Schritt.
+Dekompression und innere TAR-Listing-/Integrity-Läufe über stdin. Der bounded
+Duplex-Broker führt die getrennten Containerläufe mit Backpressure und
+vollständigem Cleanup aus; der Provider bindet beide Ergebnisse an dieselbe
+innere Bytelänge und denselben SHA-256.
 
 S-EBAR-05A und S-EBAR-06A sind auf `main` umgesetzt. Der private Handoff
 bindet Locator, CRC und Memberidentität an denselben EBAR-05-Lauf; der reine
@@ -1446,8 +1446,8 @@ FG-A-RUNTIME-AVAILABILITY, EBAR-04, S-EBAR-02A und S-EBAR-02B abgeschlossen.
 FG-A-STORAGE-FAMILY und FG-A-FORMAT-LOCK sind abgeschlossen; S-EBAR-02C,
 EBAR-05, S-EBAR-05A, S-EBAR-06A und S-EBAR-04Q sind auf `main`. ADR-0050
 hält reale Extraction mangels Backend gesperrt. ADR-0051 entscheidet die
-unabhängige read-only Wrapperstrecke. S-EBAR-W01 ist umgesetzt; als nächstes
-folgt S-EBAR-W02. Reale
+unabhängige read-only Wrapperstrecke; S-EBAR-W01 bis S-EBAR-W04 sind auf
+`main` abgeschlossen. Reale
 Passwortversuche bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert
 gesperrt. Music W4 bleibt bis zur E-Book-Reife zurückgestellt. Die
 Produktoberfläche bleibt ausschließlich die CLI.

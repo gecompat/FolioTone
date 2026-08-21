@@ -90,11 +90,10 @@ Conformancehost; es autorisiert selbst noch keine Implementierung.
 
 [ADR-0051](../decisions/ADR-0051-bounded-archive-wrapper-streaming.md)
 schließt FG-A-WRAPPER-PIPELINE für eine unabhängige read-only Strecke ab.
-S-EBAR-W01 bis S-EBAR-W03 implementieren TAR-Rahmenprüfung, bounded
-Duplex-Containerstreaming und Providerintegration; S-EBAR-W04 schließt die
-Welle. S-EBAR-W01 ist umgesetzt; als nächstes folgt der private bounded
-Duplex-Broker S-EBAR-W02. Bis W03 starten Wrapper keinen Lauf. Auch danach
-entstehen weder Extraction-Handoff noch Persistenz oder Schreiboperationen.
+S-EBAR-W01 bis S-EBAR-W04 sind abgeschlossen und implementieren
+TAR-Rahmenprüfung, bounded Duplex-Containerstreaming, Providerintegration und
+den fokussierten Abschluss. Die Wrapperstrecke erzeugt weder
+Extraction-Handoff noch Persistenz oder Schreiboperationen.
 
 ### `W3-017` (E5 synthetischer Performance-/Restart-Vertrag)
 

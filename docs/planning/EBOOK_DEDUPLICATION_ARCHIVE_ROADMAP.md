@@ -293,7 +293,8 @@ FG-A-WRAPPER-PIPELINE ist durch
 [ADR-0051](../decisions/ADR-0051-bounded-archive-wrapper-streaming.md)
 unabhängig davon entschieden. Die Folge S-EBAR-W01 bis S-EBAR-W04 erlaubt
 nur bounded Listing und Integrity der vier äußeren TAR-Kompressionsformen.
-Sie erzeugt keine Zwischen-Datei, keinen Extraction-Handoff und keinen Write.
+Sie ist abgeschlossen und erzeugt keine Zwischen-Datei, keinen
+Extraction-Handoff und keinen Write.
 
 **Ziel:** Ein technisch zulässiges Archiv kann in einem ephemeren privaten
 Workspace vollständig geprüft werden.
@@ -351,10 +352,10 @@ S-EBAR-01 Execution-DTOs
     -> S-EBAR-04A privater Workspace-Consumer-Lifecycle, derzeit blockiert
     -> EBAR-06 direkte private Extraction-Sandbox, derzeit blockiert
     -> FG-A-WRAPPER-PIPELINE durch ADR-0051 entschieden
-    -> S-EBAR-W01 TAR-Rahmen und feste Commands
-    -> S-EBAR-W02 bounded Duplex-Containerbroker
-    -> S-EBAR-W03 read-only Wrapper-Provider
-    -> S-EBAR-W04 fokussierter Wrapper-Abschluss
+    -> S-EBAR-W01 TAR-Rahmen und feste Commands, abgeschlossen
+    -> S-EBAR-W02 bounded Duplex-Containerbroker, abgeschlossen
+    -> S-EBAR-W03 read-only Wrapper-Provider, abgeschlossen
+    -> S-EBAR-W04 fokussierter Wrapper-Abschluss, abgeschlossen
     -> FG-A-PERSISTENCE Schema-, Reuse- und Writer-Gate
     -> S-EBAR-07 Persistenz
     -> EBAR-08 Collection-Orchestrierung

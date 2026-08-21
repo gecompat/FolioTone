@@ -68,8 +68,8 @@ orthogonal. ADR-0047 akzeptiert ausschließlich darauf den kanonischen
 oder Capabilityabweichung ist stale und fail-closed. Suffixe dürfen keine
 Storage-Familie setzen; 7-Zip-Ausgabe darf sie nicht umklassifizieren. Private
 Linkziele dürfen nie DTO, Manifest, Digest, Log oder Artefakt erreichen.
-ADR-0051 akzeptiert für gzip, bzip2, xz und zstd ausschließlich eine
-bounded read-only Streamingstrecke nach S-EBAR-W01 bis S-EBAR-W03. Die
+ADR-0051 und S-EBAR-W01 bis S-EBAR-W04 schließen für gzip, bzip2, xz und zstd
+ausschließlich eine bounded read-only Streamingstrecke ab. Die
 Source-Beobachtung bleibt `OUTER_COMPRESSION_ONLY` und Storage `UNKNOWN`;
 private innere TAR-Evidence darf sie nicht umschreiben. Ein inkrementeller
 512-Byte-Rahmenprüfer muss Headerchecksumme, Größen, Padding, mindestens zwei
