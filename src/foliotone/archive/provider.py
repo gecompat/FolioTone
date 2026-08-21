@@ -354,6 +354,106 @@ class _ArchiveWrapperReuseEvidence:
 
 
 @dataclass(frozen=True, slots=True)
+class _ArchivePersistenceHandoff:
+    """Private same-run listing material for immutable persistence only."""
+
+    outcome: ArchiveProviderOutcome = field(repr=False, compare=False)
+    signature: ArchiveSignatureObservationV2 = field(repr=False, compare=False)
+    listing_result: ArchiveListingResult = field(repr=False, compare=False)
+    parser_result: _ArchiveSevenZipLockedPrivateParseResult = field(
+        repr=False, compare=False
+    )
+    executions: tuple[ToolExecution, ...] = field(repr=False, compare=False)
+    wrapper_listing_run: ArchiveWrapperContainerRunResult | None = field(
+        default=None, repr=False, compare=False
+    )
+    wrapper_integrity_run: ArchiveWrapperContainerRunResult | None = field(
+        default=None, repr=False, compare=False
+    )
+
+    def __post_init__(self) -> None:
+        public = self.outcome.result
+        if (
+            public is None
+            or self.outcome._persistence_handoff is not None
+            or self.executions is not self.outcome.executions
+            or tuple(str(item.id) for item in self.executions)
+            != tuple(
+                value
+                for value in (
+                    public.listing_execution.execution_id,
+                    public.integrity_execution.execution_id,
+                )
+                if value is not None
+            )
+            or self.listing_result.listing_execution is not public.listing_execution
+            or self.listing_result.integrity_execution is not public.integrity_execution
+            or self.listing_result.reuse_key is not public.reuse_key
+            or self.parser_result.public.signature_profile != self.signature.profile
+        ):
+            raise ValueError("archive persistence handoff lineage is inconsistent")
+        wrapper = _is_supported_wrapper_signature(self.signature)
+        if wrapper is not (self.wrapper_listing_run is not None):
+            raise ValueError("archive persistence wrapper lineage is inconsistent")
+        if self.wrapper_integrity_run is not None and self.wrapper_listing_run is None:
+            raise ValueError("archive persistence integrity lineage is inconsistent")
+        if self.wrapper_listing_run is not None:
+            has_size = self.wrapper_listing_run.inner_stream_size_bytes > 0
+            has_hash = self.wrapper_listing_run.inner_stream_sha256 is not None
+            if has_size is not has_hash:
+                raise ValueError("archive persistence wrapper listing is incomplete")
+            if self.listing_result.listing_status is ArchiveListingStatus.LISTED and not has_size:
+                raise ValueError("listed wrapper persistence material is incomplete")
+        parser_public = self.parser_result.public
+        expected_storage = (
+            ArchiveStorageFamily.TAR if wrapper else self.signature.storage_family
+        )
+        if (
+            parser_public.profile != ARCHIVE_7ZIP_LOCKED_MEMBER_PARSER_PROFILE
+            or parser_public.lock_profile != ARCHIVE_7ZIP_FORMAT_LOCK_PROFILE
+            or parser_public.lock_sha256 != ARCHIVE_7ZIP_FORMAT_LOCK_SHA256
+            or parser_public.compatibility
+            != ARCHIVE_PUBLICATION_STORAGE_COMPATIBILITY
+            or parser_public.storage_family is not expected_storage
+            or len(self.listing_result.members) != len(self.parser_result.members)
+            or len(self.listing_result.members) != public.member_count
+        ):
+            raise ValueError("archive persistence parser lineage is inconsistent")
+        for ordinal, (listed, parsed) in enumerate(
+            zip(
+                self.listing_result.members,
+                self.parser_result.members,
+                strict=True,
+            )
+        ):
+            expected_identity = build_archive_member_identity(
+                archive_full_sha256=self.listing_result.reuse_key.archive_full_sha256,
+                volume_group_fingerprint=(
+                    self.listing_result.reuse_key.volume_group_fingerprint
+                ),
+                member_path_safe=parsed.locator,
+                member_ordinal=listed.member_ordinal,
+            )
+            if (
+                listed.member_path_safe != parsed.locator
+                or listed.member_ordinal != ordinal
+                or listed.member_kind is not _member_kind(parsed)
+                or listed.declared_compressed_bytes
+                != parsed.declared_compressed_bytes
+                or listed.declared_uncompressed_bytes
+                != parsed.declared_uncompressed_bytes
+                or listed.encryption_status
+                is not (
+                    ArchiveEncryptionStatus.DATA_ENCRYPTED
+                    if parsed.encrypted
+                    else ArchiveEncryptionStatus.NONE
+                )
+                or listed.member_identity != expected_identity
+            ):
+                raise ValueError("archive persistence member lineage is inconsistent")
+
+
+@dataclass(frozen=True, slots=True)
 class ArchiveProviderOutcome:
     profile: str
     result: ArchiveProviderResult | None = field(default=None, repr=False)
@@ -368,6 +468,9 @@ class ArchiveProviderOutcome:
         default=None, init=False, repr=False, compare=False
     )
     _wrapper_reuse_evidence: _ArchiveWrapperReuseEvidence | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _persistence_handoff: _ArchivePersistenceHandoff | None = field(
         default=None, init=False, repr=False, compare=False
     )
 
@@ -827,15 +930,15 @@ def _inspect(
         return ArchiveProviderOutcome(ARCHIVE_PROVIDER_PROFILE, executions=executions)
     listing_snapshot = ArchiveListingExecution(listing_status, str(listing_execution.id))
     if listing_status is not ArchiveListingStatus.LISTED:
-        return _provider_outcome(
-            ArchiveListingResult(
-                listing_snapshot,
-                ArchiveEncryptionStatus.UNKNOWN,
-                reuse_key,
-                extraction_policy_status=_blocked_policy(listing_status),
-            ),
-            executions,
+        result = ArchiveListingResult(
+            listing_snapshot,
+            ArchiveEncryptionStatus.UNKNOWN,
+            reuse_key,
+            extraction_policy_status=_blocked_policy(listing_status),
         )
+        outcome = _provider_outcome(result, executions)
+        _attach_persistence_handoff(outcome, signature, parsed, result)
+        return outcome
 
     raw_members = parsed.members
     descriptors = tuple(_descriptor(member) for member in raw_members)
@@ -849,17 +952,17 @@ def _inspect(
         volume_group_fingerprint,
     )
     if encryption is not ArchiveEncryptionStatus.NONE:
-        return _provider_outcome(
-            ArchiveListingResult(
-                listing_snapshot,
-                encryption,
-                reuse_key,
-                members=members,
-                password_attempt_status=(ArchivePasswordAttemptStatus.SECURE_CHANNEL_UNAVAILABLE),
-                extraction_policy_status=ArchiveSafetyStatus.POLICY_REJECTED,
-            ),
-            executions,
+        result = ArchiveListingResult(
+            listing_snapshot,
+            encryption,
+            reuse_key,
+            members=members,
+            password_attempt_status=(ArchivePasswordAttemptStatus.SECURE_CHANNEL_UNAVAILABLE),
+            extraction_policy_status=ArchiveSafetyStatus.POLICY_REJECTED,
         )
+        outcome = _provider_outcome(result, executions)
+        _attach_persistence_handoff(outcome, signature, parsed, result)
+        return outcome
 
     integrity_started = now()
     integrity_request = ArchiveContainerRequest(
@@ -897,6 +1000,7 @@ def _inspect(
         members=members,
     )
     outcome = _provider_outcome(result, executions)
+    _attach_persistence_handoff(outcome, signature, parsed, result)
     if (
         integrity_status is ArchiveIntegrityStatus.PASSED
         and safety.status is ArchiveSafetyStatus.ACCEPTED
@@ -953,15 +1057,21 @@ def _inspect_wrapper(
         listing_status, str(listing_execution.id)
     )
     if listing_status is not ArchiveListingStatus.LISTED:
-        return _provider_outcome(
-            ArchiveListingResult(
-                listing_snapshot,
-                ArchiveEncryptionStatus.UNKNOWN,
-                reuse_key,
-                extraction_policy_status=_blocked_policy(listing_status),
-            ),
-            executions,
+        result = ArchiveListingResult(
+            listing_snapshot,
+            ArchiveEncryptionStatus.UNKNOWN,
+            reuse_key,
+            extraction_policy_status=_blocked_policy(listing_status),
         )
+        outcome = _provider_outcome(result, executions)
+        _attach_persistence_handoff(
+            outcome,
+            signature,
+            parsed,
+            result,
+            wrapper_listing_run=listing_run,
+        )
+        return outcome
 
     raw_members = parsed.members
     members = _members(
@@ -973,19 +1083,25 @@ def _inspect_wrapper(
     )
     encryption = _encryption(raw_members)
     if encryption is not ArchiveEncryptionStatus.NONE:
-        return _provider_outcome(
-            ArchiveListingResult(
-                listing_snapshot,
-                encryption,
-                reuse_key,
-                members=members,
-                password_attempt_status=(
-                    ArchivePasswordAttemptStatus.SECURE_CHANNEL_UNAVAILABLE
-                ),
-                extraction_policy_status=ArchiveSafetyStatus.POLICY_REJECTED,
+        result = ArchiveListingResult(
+            listing_snapshot,
+            encryption,
+            reuse_key,
+            members=members,
+            password_attempt_status=(
+                ArchivePasswordAttemptStatus.SECURE_CHANNEL_UNAVAILABLE
             ),
-            executions,
+            extraction_policy_status=ArchiveSafetyStatus.POLICY_REJECTED,
         )
+        outcome = _provider_outcome(result, executions)
+        _attach_persistence_handoff(
+            outcome,
+            signature,
+            parsed,
+            result,
+            wrapper_listing_run=listing_run,
+        )
+        return outcome
 
     integrity_started = now()
     integrity_run = _run_wrapper_integrity(runner, request, cancellation)
@@ -1019,6 +1135,14 @@ def _inspect_wrapper(
         members=members,
     )
     outcome = _provider_outcome(result, executions)
+    _attach_persistence_handoff(
+        outcome,
+        signature,
+        parsed,
+        result,
+        wrapper_listing_run=listing_run,
+        wrapper_integrity_run=integrity_run,
+    )
     if integrity_status is ArchiveIntegrityStatus.PASSED:
         object.__setattr__(
             outcome,
@@ -1067,6 +1191,30 @@ def _provider_outcome(
         len(result.members),
     )
     return ArchiveProviderOutcome(ARCHIVE_PROVIDER_PROFILE, public, executions)
+
+
+def _attach_persistence_handoff(
+    outcome: ArchiveProviderOutcome,
+    signature: ArchiveSignatureObservationV2,
+    parsed: _ArchiveSevenZipLockedPrivateParseResult,
+    listing: ArchiveListingResult,
+    *,
+    wrapper_listing_run: ArchiveWrapperContainerRunResult | None = None,
+    wrapper_integrity_run: ArchiveWrapperContainerRunResult | None = None,
+) -> None:
+    result = outcome.result
+    if result is None:
+        raise ValueError("archive persistence handoff requires a terminal result")
+    handoff = _ArchivePersistenceHandoff(
+        outcome,
+        signature,
+        listing,
+        parsed,
+        outcome.executions,
+        wrapper_listing_run,
+        wrapper_integrity_run,
+    )
+    object.__setattr__(outcome, "_persistence_handoff", handoff)
 
 
 def _attach_extraction_handoff(

@@ -2,6 +2,14 @@
 
 from typing import TYPE_CHECKING, Any
 
+from foliotone.persistence.archive import (
+    ArchiveEvidenceCompatibility,
+    ArchiveEvidenceSnapshot,
+    ArchiveEvidenceSource,
+    ArchiveEvidenceStoreError,
+    PersistedArchiveEvidence,
+    SQLiteArchiveEvidenceStore,
+)
 from foliotone.persistence.calibre_library import (
     CalibreLibraryStoreError,
     SQLiteCalibreLibraryStore,
@@ -125,6 +133,12 @@ def __getattr__(name: str) -> Any:
 
 __all__ = [
     "Repository",
+    "ArchiveEvidenceSnapshot",
+    "ArchiveEvidenceCompatibility",
+    "ArchiveEvidenceSource",
+    "ArchiveEvidenceStoreError",
+    "PersistedArchiveEvidence",
+    "SQLiteArchiveEvidenceStore",
     "CalibreLibraryStoreError",
     "ConsolidationStoreError",
     "CALIBRE_RECONCILIATION_FINDING_CODES",

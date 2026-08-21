@@ -97,7 +97,7 @@ def test_migration_0018_upgrades_0017_without_reprofiling_legacy_assertions(
         ).scalar_one()
     upgraded.dispose()
 
-    assert revision == "0018_book_classification_projection"
+    assert revision == "0019_archive_evidence"
     assert legacy_count == 1
     assert lineage_count == 0
 
