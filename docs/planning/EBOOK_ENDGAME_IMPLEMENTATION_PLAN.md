@@ -2340,8 +2340,9 @@ Backend fail-closed gesperrt. ADR-0051 entscheidet die davon unabhängige
 read-only Wrapperstrecke; S-EBAR-W01 bis S-EBAR-W04 sind abgeschlossen.
 ADR-0052 entscheidet FG-A-PERSISTENCE mit Migration
 `0019_archive_evidence`, dedizierten insert-only Snapshottabellen, gebundenem
-Reuse und ScanRoot-Fencing. S-EBAR-07 ist der nächste mechanische Schritt;
-EBAR-08 bleibt ein getrenntes Orchestrierungspaket.
+Reuse und ScanRoot-Fencing. S-EBAR-07 ist umgesetzt. Vor EBAR-08 schließt
+FG-A-COLLECTION-ORCHESTRATION den noch fehlenden Planungs-, Lease-, Resume-
+und Reportvertrag; EBAR-08 bleibt ein getrenntes mechanisches Paket.
 Die Tabelle bleibt als Abhängigkeitsfolge maßgeblich; sie ist keine zweite
 Statusquelle.
 
