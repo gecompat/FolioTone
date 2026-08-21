@@ -23,7 +23,7 @@ from foliotone.quarantine import (
     QuarantineRunStatus,
     build_quarantine_authorization,
 )
-from tests.unit.test_consolidation_planner import (
+from test_consolidation_planner import (
     _clock,
     _inputs,
     _with_candidate_review,
