@@ -310,11 +310,12 @@ trennt ZIP/RAR4/RAR5/7z/TAR von den Publication-Kinds EPUB/CBZ/CBR und bindet
 äußere Kompression separat. Suffixe setzen keine Storage-Familie; Tooloutput
 klassifiziert sie nicht neu. [ADR-0047](../decisions/ADR-0047-final-archive-7zip-format-lock.md)
 akzeptiert den maschinenlesbaren `archive-7zip-format-lock/v1` mit getrenntem
-SHA-256 und strikt verify-only Workflowprüfung. ADR-0051 entscheidet
-FG-A-WRAPPER-PIPELINE für gzip, bzip2, xz und zstd. Erst S-EBAR-W01 bis
-S-EBAR-W03 dürfen eine feste no-shell `7zzs x -so`-Dekompression über einen
-bounded TAR-Rahmenprüfer an feste `-si -ttar`-Listing-/Integrity-Container
-streamen. Listing und Integrity laufen getrennt und müssen dieselbe innere
+SHA-256 und strikt verify-only Workflowprüfung. ADR-0051 sowie S-EBAR-W01 bis
+S-EBAR-W04 schließen FG-A-WRAPPER-PIPELINE für gzip, bzip2, xz und zstd ab.
+Die Implementierung streamt eine feste no-shell `7zzs x -so`-Dekompression
+über einen bounded TAR-Rahmenprüfer an feste
+`-si -ttar`-Listing-/Integrity-Container. Listing und Integrity laufen
+getrennt und müssen dieselbe innere
 Bytelänge und denselben SHA-256 liefern. Die Source bleibt
 `OUTER_COMPRESSION_ONLY` mit Storage `UNKNOWN`; ein Extraction-Lauf,
 Extraction-Handoff oder Persistenz sind nicht autorisiert.
