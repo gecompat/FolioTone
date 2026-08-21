@@ -4,7 +4,7 @@ Stand: 2026-08-21
 
 ## Aktuelle Welle
 
-**EBA3-Source-Dependency-Welle abgeschlossen — Member-Byte-Identity bleibt blockiert**
+**W3-019 Sidecar-Inventar abgegrenzt — S-EBAR-07A ist der nächste Schritt**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -1482,6 +1482,13 @@ EA9/EA10-Abschluss und Source-Operations bleiben getrennt. Reale
 Passwortversuche bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert
 gesperrt. Music W4 bleibt bis zur E-Book-Reife zurückgestellt. Die
 Produktoberfläche bleibt ausschließlich die CLI.
+
+ADR-0055 gleicht den historischen W3-019-Vertrag mit diesem Stand ab.
+Archive-/Volume-Evidence, Missing-Volume-Findings und der pfadfreie
+Collection-Bericht sind umgesetzt. Als einzige Restlücke folgt S-EBAR-07A mit
+einem insert-only, scan- und archivegebundenen Sidecar-Inventarsnapshot. Das
+Paket speichert weder Basename/Pfad noch Inhalt oder Secret und erweitert
+weder Toolstatus noch CLI-Profil oder Ausführungsauthority.
 
 ## Nicht implementiert
 
