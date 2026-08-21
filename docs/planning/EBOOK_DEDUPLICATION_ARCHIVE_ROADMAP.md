@@ -375,7 +375,10 @@ S-EBAR-01 Execution-DTOs
     -> FG-A3-MEMBER-BYTE, bis vollständige Member-SHA-256 blockiert
     -> FG-A-SIDECAR-PERSISTENCE durch ADR-0055 abgeschlossen
     -> S-EBAR-07A Sidecar-Inventar-Persistenz, abgeschlossen
-    -> FG-W10-QUARANTINE nächstes docs-only Vertragsgate
+    -> FG-W10-QUARANTINE durch ADR-0056 abgeschlossen
+    -> S-W10-01 reine Authorization-/Execution-Verträge, als nächstes
+    -> S-W10-02 Persistenz ohne Source-Mutation
+    -> FG-W10-MOVE-BACKEND vor jeder realen Mutation
 ```
 
 Die mechanischen S-EBAR-Pakete verwenden das im Spark-Katalog jeweils

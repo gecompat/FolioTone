@@ -231,9 +231,18 @@ Rules:
 - generic web/AI research creates candidates/evidence, not automatic destructive authority;
 - ordinary local scanning/analysis must remain useful with external providers disabled.
 
-## Future W10 requirements
+## W10 requirements
 
-A future executable consolidation engine must not be enabled merely by adding a CLI flag. It requires an explicit accepted ADR and must include at least:
+ADR-0056 öffnet ausschließlich die Vertragsschicht für eine gefencete
+Ein-Datei-Quarantäne. S-W10-01 und S-W10-02 bleiben mutationsfrei; eine reale
+Operation setzt zusätzlich ein akzeptiertes `FG-W10-MOVE-BACKEND` voraus.
+Dieses Gate beweist einen atomaren No-Replace-Move im selben Volume-Kontext,
+ohne ein konkretes Dateisystem vorauszusetzen und ohne Copy+Delete-Fallback.
+Purge, Metadatenwrite, Calibrewrite und Verzeichnisbereinigung bleiben
+blockiert.
+
+Ein ausführbarer Consolidation-Teil darf nicht lediglich durch einen CLI-
+Schalter aktiviert werden. Er benötigt weiterhin mindestens:
 
 1. dry-run/plan representation;
 2. explicit operation approval;

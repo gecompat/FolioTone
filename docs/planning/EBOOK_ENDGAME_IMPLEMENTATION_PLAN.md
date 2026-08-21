@@ -2590,9 +2590,10 @@ ADR-0055 und S-EBAR-07A schließen den W3-019-Abgleich einschließlich eines
 additiven insert-only Sidecar-Inventarsnapshots für höchstens 32 bereits
 indexierte direkte Nachbardateien je ArchiveObservation ab. Er speichert keine
 Namen, Pfade, Inhalte oder Secrets und ändert weder Toolruntime noch
-öffentliches Reportprofil. Als nächstes folgt ein enges W10-Vertragsgate für
-eine restartbare Quarantäne; Implementierung und Source-Mutation bleiben bis
-zu dessen Annahme gesperrt.
+öffentliches Reportprofil. ADR-0056 entscheidet nun das enge W10-Vertragsgate
+für eine restartbare Ein-Datei-Quarantäne. Als nächstes folgt S-W10-01 mit
+reinen DTOs und Reducern. Persistenz folgt getrennt; reale Source-Mutation
+bleibt bis zum akzeptierten `FG-W10-MOVE-BACKEND` gesperrt.
 FG-A3-MEMBER-BYTE bleibt bis vollständiger Member-SHA-256-Evidence blockiert.
 Passwortversuche bleiben bis FG-A-SECRET blockiert. Jede
 Filesystem-Mutation, mutierende Calibre-Operation und ausführbare W10-Strecke

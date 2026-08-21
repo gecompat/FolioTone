@@ -4,7 +4,14 @@ Stand: 2026-08-21
 
 ## Aktuelle Welle
 
-**W3-019 einschließlich Sidecar-Inventar abgeschlossen — W10-Vertragsgate folgt**
+**W3 abgeschlossen — ADR-0056 öffnet nur die W10-Vertragsstrecke**
+
+ADR-0056 akzeptiert als erste W10-Grenze ausschließlich reine Quarantäne-
+DTOs, insert-only Authorization-/Run-Persistenz und read-only Status. Als
+nächstes folgt S-W10-01 ohne I/O. Es gibt weiterhin keine reale Mutation; sie
+bleibt bis zum
+separaten `FG-W10-MOVE-BACKEND` blockiert; der Vertrag verlangt kein
+bestimmtes Dateisystem und besitzt keinen Copy+Delete-Fallback.
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -1488,8 +1495,8 @@ Archive-/Volume-Evidence, Missing-Volume-Findings, der pfadfreie
 Collection-Bericht und ein insert-only, scan- und archivegebundener
 Sidecar-Inventarsnapshot sind umgesetzt. Das Inventar speichert weder
 Basename/Pfad noch Inhalt oder Secret und erweitert weder Toolstatus noch
-CLI-Profil oder Ausführungsauthority. Als nächste E-Book-Entscheidung folgt
-ein enges W10-Vertragsgate für Quarantäne; es autorisiert noch keine Mutation.
+CLI-Profil oder Ausführungsauthority. ADR-0056 entscheidet inzwischen das
+enge W10-Vertragsgate für Quarantäne; S-W10-01 folgt ohne Mutation.
 
 ## Nicht implementiert
 
@@ -1504,8 +1511,8 @@ Noch nicht vorhanden sind unter anderem:
   Matching für `EXACT_DUPLICATE`, `SAME_EDITION` und `SAME_WORK` ist
   implementiert;
 - vollständiger realer Sammlungslauf und zusätzliche qpdf-Struktur-Evidence;
-- reale Archive-Runtime, Archive-Persistenz und Collection-Orchestrierung; die
-  synthetischen S-EBA-01 bis S-EBA-07 sowie FG-A-RUNTIME sind abgeschlossen;
+- reale Archive-Extraction und Secretübergabe; read-only Runtime,
+  Archive-Persistenz und Collection-Orchestrierung sind abgeschlossen;
 - medienübergreifende Classification- und kanonische Relation-Projektion über
   den book-only EB-04-Vertrag hinaus;
 - portable Knoten-/Objektreferenzen, Austauschpakete, Multi-Instanz-Merge,
@@ -1513,8 +1520,9 @@ Noch nicht vorhanden sind unter anderem:
   Bibliothekskennzeichnung; ADR-0042 ist nur `Proposed`;
 - externe Knowledge Provider und Provider Cache über den synthetischen Vertrag
   hinaus;
-- jede W10-Ausführung einschließlich Quarantäne, Purge und
-  Verzeichnisbereinigung;
+- jede reale W10-Ausführung einschließlich Quarantäne, Purge,
+  Metadatenwrite und Verzeichnisbereinigung; ADR-0056 autorisiert zunächst
+  nur mutationsfreie Vorpakete;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 
 ## Sicherheitsgrenze
