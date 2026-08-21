@@ -320,6 +320,14 @@ Bytelänge und denselben SHA-256 liefern. Die Source bleibt
 `OUTER_COMPRESSION_ONLY` mit Storage `UNKNOWN`; ein Extraction-Lauf,
 Extraction-Handoff oder Persistenz sind nicht autorisiert.
 
+ADR-0052 trennt Toolausführung und Archive-Persistenz strikt. Die additive
+Migration `0019_archive_evidence` speichert nur normalisierte Snapshot-,
+Source-, Execution-, Member- und Wrapper-Lineage. Raw-stdout/-stderr und
+`ToolArtifact`-Ausgaben werden nicht übernommen. Reuse verlangt dieselben
+Tool-, Adapter-, Parser-, Runner- und Formatlockidentitäten und bei Wrappern
+zusätzlich dieselben inneren Stream-/Commandidentitäten. Ein persistierter
+Snapshot kann keinen neuen Toollauf oder eine Extraction autorisieren.
+
 Der erste freigegebene Backendvertrag heißt
 `archive-linux-container-runner/v1` für die primäre Docker/Linux-Runtime. Er
 verwendet nur ein lokal vorhandenes, per Digest gepinntes Image. FG-A-IMAGE

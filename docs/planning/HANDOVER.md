@@ -95,6 +95,13 @@ TAR-Rahmenprüfung, bounded Duplex-Containerstreaming, Providerintegration und
 den fokussierten Abschluss. Die Wrapperstrecke erzeugt weder
 Extraction-Handoff noch Persistenz oder Schreiboperationen.
 
+[ADR-0052](../decisions/ADR-0052-immutable-archive-evidence-persistence.md)
+schließt FG-A-PERSISTENCE ab. Als nächstes setzt S-EBAR-07 die additive
+Migration `0019_archive_evidence` und den dedizierten insert-only Archive-
+Store um. Das Paket bindet Source-, Tool-, Profil-, Formatlock-, Wrapper- und
+Fence-Lineage, erweitert aber weder Extraction noch Secret- oder
+Source-Mutationsauthority.
+
 ### `W3-017` (E5 synthetischer Performance-/Restart-Vertrag)
 
 Die E5-Verifikation wurde auf Testebene ergänzt: neue synthetische

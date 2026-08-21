@@ -4,7 +4,7 @@ Stand: 2026-08-21
 
 ## Aktuelle Welle
 
-**FG-A-WORKSPACE-BACKEND abgeschlossen — reales Backend bleibt `TOOL_UNAVAILABLE`**
+**FG-A-PERSISTENCE abgeschlossen — S-EBAR-07 ist der nächste Archive-Schritt**
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -172,6 +172,16 @@ vier Wrapper verwenden ausschließlich read-only TAR-Streaming ohne
 Zwischen-Datei: feste äußere Dekompression, bounded TAR-Rahmenprüfung und
 getrennte innere Listing-/Integrity-Läufe mit identischer Bytelänge und
 SHA-256. Extraction-Handoff, Persistenz und Writes bleiben gesperrt.
+
+FG-A-PERSISTENCE ist durch ADR-0052 abgeschlossen. Die additive Migration
+`0019_archive_evidence` erhält fünf dedizierte insert-only Tabellen für
+Archive-, Source-, Execution-, Member- und optionale Wrapper-Lineage. Der
+Store bindet vollständige Sourcehashes, Tool-/Parser-/Formatlockprofile,
+Wrapper-Innenstream und bestehendes ScanRoot-Fencing. Fehler-Snapshots bleiben
+auditierbar, maskieren aber keinen älteren exakt kompatiblen Erfolg. S-EBAR-07
+ist der nächste mechanische Archive-Schritt; Extraction, Secretkanal,
+Source-Mutation und Collection-Orchestrierung werden dadurch nicht
+freigeschaltet.
 
 `archive-tar-stream-frame/v1` validiert den
 inneren TAR-Strom inkrementell in 512-Byte-Blöcken, begrenzt Chunk-, Stream-,
@@ -1447,7 +1457,8 @@ FG-A-STORAGE-FAMILY und FG-A-FORMAT-LOCK sind abgeschlossen; S-EBAR-02C,
 EBAR-05, S-EBAR-05A, S-EBAR-06A und S-EBAR-04Q sind auf `main`. ADR-0050
 hält reale Extraction mangels Backend gesperrt. ADR-0051 entscheidet die
 unabhängige read-only Wrapperstrecke; S-EBAR-W01 bis S-EBAR-W04 sind auf
-`main` abgeschlossen. Reale
+`main` abgeschlossen. ADR-0052 entscheidet die immutable Archive-Persistenz;
+S-EBAR-07 folgt als nächstes. Reale
 Passwortversuche bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert
 gesperrt. Music W4 bleibt bis zur E-Book-Reife zurückgestellt. Die
 Produktoberfläche bleibt ausschließlich die CLI.
