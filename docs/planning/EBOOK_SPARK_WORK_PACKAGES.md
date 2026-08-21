@@ -328,8 +328,8 @@ W10-Funktion einführen.
 | S-EBAR-08A | Models, Migration `0020_archive_collection_runs`, `ARCHIVE_COLLECTION_RUN` und gefenceter Store im exakten ADR-0053-Scope. | Migration, DDL-Sum-Types, atomare Planzeilen, Claim/Complete, Fencing, stale Takeover, Indexpläne und zentrale Head-Erwartungen. | Terra `high`; abgeschlossen. |
 | S-EBAR-08B | Reine Volume-Partition und restartbare bounded Planversiegelung im exakten ADR-0053-Scope. | Vollständiger Inputverbrauch, direkte/mehrteilige Gruppen, Findings, Prefix-/Signature-Bindung, 500er-Batches, Planresume und Contenthash-Drift. | Terra `high`; abgeschlossen. |
 | S-EBAR-08C | Bounded Provider-/Reuse-Ausführung, Heartbeat und Resume im exakten ADR-0053-Scope. | Konkurrenz, stale Worker, Keeperfehler, Cancellation, executed/reused direkte/Wrapper-Fälle, kein zweiter Toollauf. | Sol `high`; abgeschlossen. |
-| S-EBAR-08D | Read-only Archive-Collection-Status und CLI-Abschluss im exakten ADR-0053-Scope. | Echte SQLite-mode-ro-Tests, vollständige Counts, Determinismus sowie path-/locator-/hash-/secret-freie Ausgabe und generische Fehler. | Terra `medium`; als nächstes. Bei Privacyabweichung Sol `high`. |
-| EBAR-09 | Status, Backlog und EB-A2-/EB-A3-Übergang werden nach Gesamtprüfung synchronisiert. Erlaubt: `docs/planning/PROJECT_STATUS.md`, `docs/planning/BACKLOG.md`, Archive-Roadmap und tatsächlich betroffene Referenz. | Link-, Status-, Privacy- und W10-Widerspruchssuche sowie gezielte Archive-Regressionen. | Luna `medium`; semantische Integration Terra `medium`. Kein EB-A3-Start ohne eigenes Gate. |
+| S-EBAR-08D | Read-only Archive-Collection-Status und CLI-Abschluss im exakten ADR-0053-Scope. | Echte SQLite-mode-ro-Tests, vollständige Counts, Determinismus sowie path-/locator-/hash-/secret-freie Ausgabe und generische Fehler. | Terra `medium`; abgeschlossen. |
+| EBAR-09 | Status, Backlog und EB-A2-/EB-A3-Übergang werden nach Gesamtprüfung synchronisiert. Erlaubt: `docs/planning/PROJECT_STATUS.md`, `docs/planning/BACKLOG.md`, Archive-Roadmap und tatsächlich betroffene Referenz. | Link-, Status-, Privacy- und W10-Widerspruchssuche sowie gezielte Archive-Regressionen. | Luna `medium`; abgeschlossen. Kein EB-A3-Start ohne eigenes Gate. |
 
 S-EBAR-01 bis S-EBAR-03A, EBAR-04, S-EBAR-02A bis S-EBAR-02C und EBAR-05
 sind abgeschlossen. FG-A-IMAGE, FG-A-RUNTIME-AVAILABILITY,
@@ -345,8 +345,8 @@ FG-A-WRAPPER-PIPELINE sowie S-EBAR-W01 bis S-EBAR-W04 sind abgeschlossen und
 autorisieren unabhängig von der blockierten Extractionstrecke nur read-only
 Listing und Integrity. ADR-0052 legt den exakten Schema- und Writer-Vertrag
 fest; S-EBAR-07 und FG-A-COLLECTION-ORCHESTRATION sind abgeschlossen.
-S-EBAR-08A bis 08C sind abgeschlossen; S-EBAR-08D ist der nächste mechanische
-Schritt.
+S-EBAR-08A bis 08D und EBAR-09 sind abgeschlossen. EB-A3 beginnt nicht ohne
+ein eigenes Frontier-Gate.
 FG-A-SECRET bleibt separat
 blockiert.
 
@@ -435,7 +435,7 @@ FG-A → S-EBA-01..07 → FG-A-RUNTIME → S-EBAR-01..EBAR-05
     → S-EBAR-04A → EBAR-06
     → FG-A-PERSISTENCE, abgeschlossen → S-EBAR-07, abgeschlossen
     → FG-A-COLLECTION-ORCHESTRATION, abgeschlossen
-    → S-EBAR-08A, abgeschlossen → 08B, abgeschlossen → 08C, abgeschlossen → 08D als nächstes → EBAR-09
+    → S-EBAR-08A, abgeschlossen → 08B, abgeschlossen → 08C, abgeschlossen → 08D, abgeschlossen → EBAR-09, abgeschlossen
 
 separat und weiterhin blockiert:
 FG-A-SECRET → erst danach sichere Passwortversuche
