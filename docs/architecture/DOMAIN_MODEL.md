@@ -499,6 +499,13 @@ a W9 plan. Only a new W10 Authorization under the accepted technical contract
 may open one concrete operation; `APPROVED_NON_EXECUTABLE` is not such an
 Authorization.
 
+ADR-0063 resolves the first such technical contract only for EPUB 3,
+`SOURCE_METADATA` and one reviewed `title` `REPLACE`. The W10 layer binds the
+existing plan to a concrete writer/version, a deterministic technical
+`dcterms:modified` value, a local capability and a single-use authorization.
+It does not add a writer command, path or tool identity to the W9 domain
+record. Other fields, formats and target carriers remain separate contracts.
+
 ## Related decisions
 
 - `ADR-0006-authority-entity-resolution-provenance.md`
@@ -506,6 +513,7 @@ Authorization.
 - `ADR-0008-multidimensional-classification.md`
 - `ADR-0037-book-classification-assertions-and-projections.md`
 - `ADR-0062-non-executable-metadata-correction-plans.md`
+- `ADR-0063-bounded-epub-title-source-metadata-writer.md`
 - `ADR-0009-external-enrichment-and-privacy.md`
 - `ADR-0010-tool-provider-orchestration.md`
 - `AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`

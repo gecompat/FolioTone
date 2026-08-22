@@ -4,6 +4,52 @@ Stand: 2026-08-22
 
 ## Aktuelle Welle
 
+**FG-W10-METADATA-WRITE entschieden — nächster Slice ist ein reiner EPUB-3-Titelpatch**
+
+ADR-0063 akzeptiert ausschließlich
+`ebook-source-metadata-write/epub3-title-replace/v1`: Zielträger
+`SOURCE_METADATA`, Format EPUB 3, genau eine reviewte `title`-Korrektur mit
+`REPLACE` und genau einem ausgewählten Wert. Calibre-, Sidecar- und Archive-
+Dependencies müssen für v1 nachweislich fehlen. EPUB 2, KEPUB, MOBI, AZW,
+AZW3, PDF, weitere Felder, `REMOVE`, Sidecar- und externe Librarywrites bleiben
+geschlossen.
+
+Die Primärquellenprüfung von calibre 9.13.0 hat den CLI-Setter als zu breit
+bewertet: `ebook-meta --title` lädt das vollständige Metadatenobjekt, setzt
+weitere nichtleere Felder erneut, erzeugt `title_sort`, serialisiert das OPF
+neu und schreibt in-place. `ebook-polish --opf` übernimmt ebenfalls einen
+vollständigen OPF-Metadatensatz. Der erste Writer verwendet deshalb einen
+FolioTone-eigenen lexikalischen Patch, der im Package Document nur
+`dc:title` und das durch EPUB 3 bedingte `dcterms:modified` verändert.
+`ebook-meta-opf/2` und EPUBCheck 5.3.0 bleiben unabhängige read-only
+Validatoren.
+
+Der spätere Linux/Docker-Commit verwendet ausschließlich
+`renameat2(RENAME_EXCHANGE)` zwischen Source und vollständig verifiziertem
+Same-Directory-Output. Das herausgetauschte Original wird danach per
+`RENAME_NOREPLACE` in einen capability-gebundenen Recoverybereich desselben
+Filesystems verschoben. Unsupported Flags, `EXDEV`, NFS, native Windows-
+Ausführung und unklare Hashzustände schlagen fail-closed fehl. Es gibt keinen
+Copy+Delete-, Overwrite- oder Cross-Volume-Fallback.
+
+`S-W10-MW01` ist der nächste reguläre Slice. Er implementiert nur bounded
+EPUB-3-Preflight, den lexikalischen Zwei-Spannen-Patch und den memberweisen
+Byte-/Semantik-Diff mit synthetischen Fixtures. Privates Staging,
+Authorization/Persistenz, Capability, Linux-Executor, Crash-Recovery, CLI und
+Reconciliation folgen getrennt in `S-W10-MW02` bis `S-W10-MW05`. Bis deren
+vollständigem Abschluss bleibt reale Source-Metadata-Mutation operativ nicht
+verfügbar. Reale private E-Books wurden nicht verwendet.
+
+Die Gate-Wave enthält nur Verträge und Dokumentation. Ein lokaler Linux-
+Filesystem- oder Writerlauf ist daher noch kein behaupteter Nachweis; die
+synthetische Runtime-Konformität entsteht in den jeweiligen
+Implementierungswaves. Lokal bestanden 17 fokussierte Planungs- und
+Dokumentationsvertragstests in 0,11 Sekunden. Ruff prüfte den geänderten
+statischen Test ohne Befund; `git diff --check` war erfolgreich. Die
+vollständige lokale Suite und Toolchain-/Containerläufe wurden
+ressourcenschonend nicht ausgeführt; der stabile Pull-Request-Head erhält
+genau einen vollständigen CI-Gate.
+
 **S-W9-006C abgeschlossen — Metadatenkorrekturpläne sind read-only berichtbar**
 
 Das neue Paket `foliotone.metadata_correction` implementiert immutable,
@@ -64,14 +110,15 @@ Reviewprüfung auf: Ein korrekt persistierter `MISSING`-Snapshot besitzt kein
 nun ausdrücklich; andere Reviewzustände bleiben an ihre persistierten
 `ReviewItem`-/`ReviewDecision`-Lineage gebunden.
 
-`W9-006` ist abgeschlossen. `FG-W10-METADATA-WRITE` ist die nächste reguläre
-`FRONTIER`-Wave und muss genau einen Format-/Zielträgervertrag entscheiden,
-bevor Writer-Code beginnt. `W10-005` bleibt parallel `READY`; reale Mutation,
+`W9-006` ist abgeschlossen. ADR-0063 hat `FG-W10-METADATA-WRITE` anschließend
+für den begrenzten EPUB-3-Titelwriter entschieden; `S-W10-MW01` ist der nächste
+reguläre reine Patch-Slice. `W10-005` bleibt parallel `READY`; reale Mutation,
 Music, Bilder, REST-API und grafische Oberfläche werden durch diesen Abschluss
-nicht aktiviert. Am finalen lokalen Stand bestanden 41 fokussierte Report-,
-Privacy-, Schema-, Bootstrap-, Store-, Consolidation-Regression- und statische
-Tests in 26,36 Sekunden. Ruff war für alle geänderten Python-Dateien und Mypy
-für die drei betroffenen Source-Module grün; `git diff --check` war ohne
+nicht aktiviert. Am finalen lokalen Stand von S-W9-006C bestanden 41
+fokussierte Report-, Privacy-, Schema-, Bootstrap-, Store-, Consolidation-
+Regression- und statische Tests in 26,36 Sekunden. Ruff war für alle
+geänderten Python-Dateien und Mypy für die drei betroffenen Source-Module grün;
+`git diff --check` war ohne
 Befund. Eine vollständige lokale Suite wurde ressourcenschonend nicht
 dupliziert; der stabile Pull-Request-Head erhält genau einen vollständigen
 CI-Gate.
@@ -1782,9 +1829,10 @@ Noch nicht vorhanden sind unter anderem:
 - weitere externe Knowledge Provider über den implementierten Open-Library-
   Slice und den persistierten Provider Cache hinaus;
 - die vollständige W10-Authorize-/Execute-/Recovery-Bedienkette, atomarer
-  No-Replace-Move, Rollback, Purge, Metadatenwrite und
-  Verzeichnisbereinigung; ihre Entwicklung ist durch ADR-0061 freigegeben,
-  operativ vorhanden ist weiterhin nur der enge Interim-Executor;
+  No-Replace-Move, Rollback, Purge, operativer Metadatenwrite und
+  Verzeichnisbereinigung; ihre Entwicklung ist durch ADR-0061 freigegeben und
+  der erste EPUB-Titelvertrag durch ADR-0063 entschieden, operativ vorhanden
+  ist weiterhin nur der enge Interim-Executor;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 
 ## Sicherheitsgrenze

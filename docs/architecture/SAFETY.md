@@ -251,8 +251,20 @@ gemeldeten Filesystem nach Ziel-Abwesenheitsprüfung und vollständiger SHA-256-
 Revalidierung verwenden. Er behauptet keine atomare No-Replace-Semantik.
 `FG-W10-MOVE-BACKEND` bleibt verpflichtend für den späteren atomaren
 No-Replace-Move, no-follow sowie Race-/Crash-Nachweise ohne Copy+Delete-
-Fallback. Purge, Metadatenwrite, Calibrewrite und Verzeichnisbereinigung
-bleiben blockiert.
+Fallback. Purge, Calibrewrite und Verzeichnisbereinigung bleiben blockiert.
+
+ADR-0063 entscheidet die technische Grenze des ersten Source-Metadata-Writers
+ausschließlich für EPUB 3, `SOURCE_METADATA` und genau einen reviewten
+`title`-`REPLACE`. Der Writer patcht im privaten Staging nur `dc:title` und
+das formatbedingt aktualisierte `dcterms:modified`; alle übrigen Package-
+Document-Bytes und alle Nicht-Package-Entry-Inhalte müssen erhalten bleiben.
+Der spätere Linux-Commit tauscht vorbereiteten Output und Source nur über
+`renameat2(RENAME_EXCHANGE)` und bewahrt das herausgetauschte Original per
+`RENAME_NOREPLACE` im capability-gebundenen Same-Filesystem-Recoverybereich.
+Es gibt keinen Copy+Delete-, Overwrite- oder Cross-Volume-Fallback. Bis
+Staging, Capability, Authorization, Journal, Executor, Recovery, CLI und
+Reconciliation vollständig implementiert und synthetisch belegt sind, bleibt
+auch dieser Metadatenwrite operativ nicht verfügbar.
 
 Ein ausführbarer Consolidation-Teil darf nicht lediglich durch einen CLI-
 Schalter aktiviert werden. Er benötigt weiterhin mindestens:

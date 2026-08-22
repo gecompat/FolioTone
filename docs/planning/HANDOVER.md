@@ -20,6 +20,44 @@ append-only Reviews. Erst die neueste kompatible Review Decision wird in einen
 separaten, content-addressed `MetadataCorrectionPlan` gebunden. Candidate und
 Plan bleiben bounded, path-free und dauerhaft `NOT_EXECUTABLE`.
 
+ADR-0063 schließt `FG-W10-METADATA-WRITE` für genau
+`ebook-source-metadata-write/epub3-title-replace/v1`. Der einzige kompatible
+Plan verwendet EPUB 3, `SOURCE_METADATA`, einen `title`-`REPLACE` und genau
+einen ausgewählten Wert; Calibre-, Sidecar- und Archive-Dependencies müssen
+nachweislich fehlen. Der FolioTone-eigene lexikalische Patch darf im Package
+Document nur `dc:title` und `dcterms:modified` ändern. Alle anderen Package-
+Document-Bytes und alle Nicht-Package-Entry-Inhalte bleiben erhalten.
+
+calibre 9.13.0 wurde nicht als Writer gewählt. Sein `ebook-meta`-Setter wendet
+das vollständige nichtleere Metadatenobjekt erneut an, erzeugt bei `--title`
+zusätzlich `title_sort`, serialisiert das OPF neu und schreibt in-place;
+`ebook-polish --opf` übernimmt ebenfalls einen vollständigen OPF-
+Metadatensatz. `ebook-meta-opf/2` und EPUBCheck 5.3.0 bleiben unabhängige
+read-only Validatoren.
+
+Der spätere Source-Commit ist Linux/Docker-only und tauscht den vollständig
+verifizierten Same-Directory-Output über
+`renameat2(RENAME_EXCHANGE)` atomar mit der Source. Das Original wird danach
+per `RENAME_NOREPLACE` in den capability-gebundenen Recoverybereich desselben
+Filesystems verschoben. Fehlende Flag-/Filesystemunterstützung, NFS, `EXDEV`,
+native Windows-Ausführung oder unklare Crashzustände bleiben fail-closed. Die
+reale Mutation ist bis zum Abschluss von `S-W10-MW01` bis `S-W10-MW05`
+weiterhin nicht verfügbar.
+
+`S-W10-MW01` ist die nächste reguläre Wave und bleibt rein: bounded EPUB-3-
+Preflight, lexikalischer Zwei-Spannen-Patch und Byte-/Semantik-Diff mit
+synthetischen Fixtures, ohne Source-Commit, Persistenz, Capability oder CLI.
+Reale private E-Books sind kein Entwicklungs- oder CI-Gate und wurden für die
+Gate-Entscheidung nicht verwendet.
+
+Für den lokalen ADR-0063-Gate bestanden 17 fokussierte Planungs- und
+Dokumentationsvertragstests in 0,11 Sekunden. Ruff prüfte den geänderten
+statischen Test ohne Befund; `git diff --check` war erfolgreich. Die
+vollständige lokale Suite und Toolchain-/Containerläufe wurden nicht
+dupliziert. Der stabile Pull-Request-Head benötigt genau einen vollständigen
+CI-Gate. Ein Linux-`renameat2`- oder Writer-Konformitätslauf ist ausdrücklich
+noch nicht erfolgt und gehört zu den Implementierungswaves.
+
 `S-W9-006A` ist umgesetzt. `foliotone.metadata_correction` enthält die reinen
 Candidate-/Plan-DTOs, fünf getrennte Zielträger, drei vollständige Dependency-
 Achsen, eine bounded E-Book-Feldgrammatik, private mehrwertige Feldselektionen,
@@ -62,10 +100,10 @@ grün; `git diff --check` war ohne Befund. Die vollständige lokale Suite wird
 nicht dupliziert; genau ein vollständiger PR-CI-Gate bleibt
 Merge-Voraussetzung.
 
-`FG-W10-METADATA-WRITE` ist als nächste reguläre `FRONTIER`-Wave `DECISION`
-und wählt genau einen Format-/Zielträgervertrag vor dem ersten Writer-Slice.
-`W10-005` bleibt parallel `READY`. Reale Source-Media-Mutation, Music, Bilder,
-REST-API und grafische Oberfläche werden durch W9-006 nicht aktiviert.
+`FG-W10-METADATA-WRITE` ist durch ADR-0063 entschieden; `S-W10-MW01` ist die
+nächste reguläre Wave. `W10-005` bleibt parallel `READY`. Reale Source-Media-
+Mutation, Music, Bilder, REST-API und grafische Oberfläche werden weder durch
+W9-006 noch durch den reinen ersten Patch-Slice aktiviert.
 
 W0 bis W2 sind abgeschlossen. Der W2-Slice umfasst Incremental Index, Hashing, Filename-/Path-Kandidaten, konfigurierbare Parsing-Profile und eine generische read-only ToolProvider Runtime. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
 

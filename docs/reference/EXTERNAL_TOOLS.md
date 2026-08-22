@@ -97,6 +97,19 @@ artifact and rejects unknown versions or calibre versions below 9.10.0 before
 opening Source Media. This minimum follows `GHSA-2j4m-2q7x-2c47` /
 `CVE-2026-53511`; versions through 9.9.0 are affected.
 
+ADR-0063 bewertet den Setterpfad von calibre 9.13.0 zusätzlich für den ersten
+Source-Metadata-Writer. `ebook-meta --title` ist dafür zu breit: Die
+versionierte Implementierung liest das vollständige Metadatenobjekt, setzt
+weitere nichtleere Felder erneut, erzeugt `title_sort`, serialisiert das OPF
+neu und öffnet die Datei `r+b`. `ebook-polish --opf` kann zwar einen getrennten
+Output erzeugen, übernimmt aber ebenfalls einen vollständigen OPF-
+Metadatensatz. Der begrenzte Writer
+`ebook-source-metadata-write/epub3-title-replace/v1` verwendet deshalb einen
+FolioTone-eigenen lexikalischen Zwei-Spannen-Patch im privaten Staging.
+`ebook-meta-opf/2` bleibt eine unabhängige read-only Read-back-Evidence und
+EPUBCheck 5.3.0 die unabhängige Formatprüfung. Diese Entscheidung öffnet weder
+allgemeine calibre-Setter noch `ebook-polish` als `ToolProvider`-Writer.
+
 Metadata adapter version `ebook-meta-opf/2` retains provider-shaped raw OPF
 observations and additionally projects OPF 2 attributes plus OPF 3 refinements
 under `ebook-metadata-candidate/v1`. Grouped candidates cover identifier
@@ -133,6 +146,7 @@ Official references:
 
 - https://manual.calibre-ebook.com/en/generated/en/cli-index.html
 - https://manual.calibre-ebook.com/generated/en/ebook-meta.html
+- https://manual.calibre-ebook.com/generated/en/ebook-polish.html
 - https://manual.calibre-ebook.com/generated/en/ebook-convert.html
 - https://manual.calibre-ebook.com/generated/en/calibre-debug.html
 - https://manual.calibre-ebook.com/drm.html
