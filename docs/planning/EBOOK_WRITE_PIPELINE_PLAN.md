@@ -14,8 +14,10 @@ liefert content-addressed Preparation/Authorization, einmaligen Run,
 append-only Journal, private Capability-Auflösung, Root-Fencing und read-only
 Status. `S-W10-MW04` liefert inzwischen das interne feste Linux-`renameat2`-
 Backend, den gefenceten Ein-Datei-Executor und idempotente Exact-State-
-Recovery. Die reale Source-Mutation bleibt bis zum Abschluss von
-`S-W10-MW05` geschlossen.
+Recovery. ADR-0064 und `S-W10-MW05` schließen genau dieses Profil mit fester
+CLI, zweiter Bestätigung, unmittelbarer Verifikation, neuem Scan,
+`CollectionState` und immutable Reconciliation ab. Alle anderen Writer
+bleiben operation-spezifisch geschlossen.
 
 ## Zweck und Autorität
 
@@ -234,7 +236,7 @@ Capability und Authorization.
 | nicht ausführbarer Duplicate-Plan | vorhanden | W9-Vertrag unverändert lassen |
 | eine reguläre Same-Filesystem-Datei quarantänisieren | enger Interim-Executor vorhanden; Bedienkette unvollständig | `W10-005`, danach optional `FG-W10-MOVE-BACKEND` |
 | atomarer/generalisierter Quarantäne-Move | nicht autorisiert | `FG-W10-MOVE-BACKEND` mit No-Replace, no-follow, Race- und Crash-Nachweis |
-| Metadaten in Source Media schreiben | ADR-0063 entscheidet nur EPUB 3 plus einen `title`-`REPLACE`; Preflight/Patch/Diff, privates Staging/Verifikation, Authorization/Journal/Capability/Fencing/read-only Status sowie interner Linux-Exchange/Recovery vorhanden, operativ nicht verfügbar | `S-W10-MW05` mit CLI, zweiter Bestätigung, Post-write-Verifikation, neuem Scan und Reconciliation |
+| Metadaten in Source Media schreiben | ADR-0063/ADR-0064 erlauben operativ nur EPUB 3 plus einen `title`-`REPLACE`; vollständige Bedien-, Verifikations-, Scan-, Reconciliation- und Recoverykette vorhanden | jedes weitere Feld, Format oder jeder andere Zielträger benötigt ein eigenes Gate |
 | Sidecar erzeugen oder ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-SIDECAR-WRITE` |
 | Calibre oder anderes externes System ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-EXTERNAL-LIBRARY-WRITE` |
 | Datei umbenennen oder reorganisieren | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-RENAME` |
@@ -321,7 +323,7 @@ ADR-0061, ADR-0062 und ADR-0063 aktivieren die folgenden getrennt prüfbaren Wav
    Persistenz mit vollständiger Lineage- und Idempotenzprüfung ergänzt.
 3. `S-W9-006C` hat den privacy-begrenzten SQLite-Read-only-Report und die CLI
    ergänzt und damit `W9-006` abgeschlossen.
-4. `W10-005` vervollständigt parallel die vorhandene Ein-Datei-Quarantäne in
+4. `W10-005` vervollständigt als nächste Wave die vorhandene Ein-Datei-Quarantäne in
    eigenen Authorize-, Execute-/Bestätigungs- und Recovery-Paketen, ohne den
    Mutationstyp zu erweitern.
 5. ADR-0063 hat `FG-W10-METADATA-WRITE` für genau EPUB 3,
@@ -333,8 +335,8 @@ ADR-0061, ADR-0062 und ADR-0063 aktivieren die folgenden getrennt prüfbaren Wav
    `S-W10-MW02` ergänzt Staging und unabhängige Verifikation. `S-W10-MW03`
    ergänzt Preparation/Authorization, Persistenz, Capability/Fencing und
    read-only Status. `S-W10-MW04` ergänzt Linux-Executor und Recovery;
-   `S-W10-MW05` ergänzt CLI, zweite Bestätigung, unmittelbare Verifikation,
-   neuen Scan und Reconciliation.
+   `S-W10-MW05` schließt CLI, zweite Bestätigung, unmittelbare Verifikation,
+   neuen Scan, `CollectionState` und Reconciliation ab.
 
 `W9-007` und die übrigen operation-spezifischen Gates folgen danach in
 getrennten Waves. Read-only REST/API- und UI-Shell beginnen erst nach der

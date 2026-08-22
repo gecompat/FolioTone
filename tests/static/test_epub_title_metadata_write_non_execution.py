@@ -130,12 +130,20 @@ def test_private_validator_invokes_processes_without_a_shell() -> None:
     assert shell_keywords[0].value.value is False
 
 
-def test_metadata_write_contract_is_not_wired_to_cli_and_persistence_is_allowlisted() -> None:
+def test_metadata_write_cli_uses_only_the_fixed_application_boundary() -> None:
     cli = (ROOT / "src/foliotone/cli/main.py").read_text(encoding="utf-8")
     persistence_files = tuple((ROOT / "src/foliotone/persistence").rglob("*.py"))
 
     assert "foliotone.metadata_write" not in cli
     assert "epub-title-write" not in cli
+    assert "foliotone.workflows.metadata_write_operation" in cli
+    assert "metadata-write-authorize" in cli
+    assert "metadata-write-execute" in cli
+    assert "metadata-write-recover" in cli
+    assert "metadata-write-status" in cli
+    assert "LinuxMetadataWriteBackend" not in cli
+    assert "RENAME_EXCHANGE" not in cli
+    assert "RENAME_NOREPLACE" not in cli
     assert {
         path.relative_to(ROOT).as_posix()
         for path in persistence_files

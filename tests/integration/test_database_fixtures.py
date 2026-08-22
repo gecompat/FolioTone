@@ -29,7 +29,7 @@ def test_head_database_factory_returns_isolated_schema_copies(
     right_engine.dispose()
 
     assert marker is None
-    assert revision == "0028_metadata_write_backend"
+    assert revision == "0029_metadata_write_reconciliation"
 
 
 def test_head_database_factory_rejects_reuse_and_nested_names(

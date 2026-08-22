@@ -577,8 +577,26 @@ Wiederherstellung bereits ausgetauschter Originalbytes aufzugeben.
 Die physischen Pfade und Hashes bleiben auch in diesen DTOs aus
 Standardrepräsentationen und Statusreports ausgeschlossen. Nur feste
 Confirmation-Digests und Zustände werden in das gapless Eventjournal
-übernommen. `VERIFIED` wird in MW04 nicht erzeugt; Post-write-Scan und
-Reconciliation bleiben `S-W10-MW05`.
+übernommen. MW04 erzeugt noch kein `VERIFIED`.
+
+### Metadata-Write-Reconciliation
+
+Migration `0029_metadata_write_reconciliation` ergänzt genau eine immutable
+`metadata_write_reconciliations`-Zeile je Run. Sie bindet das Outcome
+`VERIFIED` oder `RECOVERED` an einen nach der Operation abgeschlossenen neuen
+`ScanRun`, dessen neue `FileObservation`, den dazugehörigen Full-SHA-256 und
+einen immutable `CollectionState`. Ein privater Physical-Confirmation-Digest,
+der Reconciliation-Digest und der Zeitpunkt vervollständigen den
+content-addressed Snapshot; Pfade und Metadatenwerte werden nicht gespeichert.
+
+Der Store verlangt unter einer frischen `METADATA_WRITE_RUN`-Fence dieselbe
+Root-/File-Lineage, einen passenden terminalen Journalzustand, einen
+abgeschlossenen nicht älteren Scan, die erwartete aktuelle Observation samt
+Fingerprint und den exakt daraus gebauten `CollectionState`. Für Erfolg
+entstehen Reconciliation-Insert und `VERIFIED`-Event atomar. Recovery
+persistiert stattdessen Outcome `RECOVERED` und erzeugt kein `VERIFIED`.
+Update und Delete sind per Trigger gesperrt; vorhandene Reconciliations oder
+andere Metadata-Write-Daten blockieren einen verlustbehafteten Downgrade.
 
 ## Current constraints and deferred integrity
 

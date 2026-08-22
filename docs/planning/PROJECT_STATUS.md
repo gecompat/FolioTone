@@ -4,6 +4,72 @@ Stand: 2026-08-23
 
 ## Aktuelle Welle
 
+**S-W10-MW05 implementiert — EPUB-Titelwriter besitzt Bedienung und Reconciliation**
+
+ADR-0064 schließt die Bedien- und Reconciliation-Grenze des einzigen durch
+ADR-0063 erlaubten Source-Metadata-Writers. Die vier festen Kommandos
+`metadata-write-authorize`, `metadata-write-execute`,
+`metadata-write-recover` und `metadata-write-status` akzeptieren nur opaque
+IDs, den gebundenen Plan-Content-Hash und die Darstellungswahl. Datenbank,
+privater Stagingbereich, Capability-Konfiguration und feste Toolpfade stammen
+aus lokaler Runtime-Konfiguration. Source-, Recovery- und Stagingpfade sowie
+Titelwerte erscheinen weder als Argument noch in Standardausgaben.
+
+Authorize benötigt einen vorhandenen aktuellen, reviewten
+`MetadataCorrectionPlan`. Unter einer kurzen Preparation-Lease liest der
+Operator die Source no-follow und bounded, erzeugt den deterministischen
+privaten Output und verlangt EPUBCheck-Konformität sowie die festen Metadaten-,
+Text-, Cover- und Preserved-Field-Read-backs. Execute fordert unmittelbar vor
+der einmaligen Runerzeugung exakt `CONFIRM METADATA WRITE <Authorization-ID>`
+als eine nicht geloggte `stdin`-Zeile. Der persistierte domänengetrennte Digest
+bindet Authorization, Plan-ID, Plan-Content-Hash und Capability-ID; eine
+abweichende Eingabe erzeugt keinen Run.
+
+Der MW04-Executor liest nach Exchange und Originalerhalt die tatsächliche
+Source erneut no-follow, verlangt exakte Outputbytes und führt die festen
+Validatoren ein zweites Mal aus. Bei eindeutigem Verifikationsfehler stellt er
+das Original wieder her; unklare Hashverteilungen bleiben ohne weitere
+Mutation `MANUAL_RECOVERY_REQUIRED`. Nach `ORIGINAL_PRESERVED` gibt der
+Operator die Run-Lease explizit frei, startet genau einen vollständigen,
+inkrementell wiederverwendenden Scan mit einem Hash-Worker und baut aus dessen
+neuer Observation einen `collection-state/v1`-Snapshot. Unter einer neuen
+Run-Fence werden physischer Zustand, Scan, Observation, Full-SHA-256 und
+`CollectionState` erneut geprüft.
+
+Migration `0029_metadata_write_reconciliation` speichert genau eine immutable
+Reconciliation je Run. Insert und `VERIFIED`-Event entstehen atomar; ein
+Recovery bindet den wiederhergestellten Originalhash durch dieselbe Scanfolge
+und endet ausschließlich bei `RECOVERED`. Status bleibt SQLite-read-only und
+pfadfrei. Es gibt weiterhin keinen Delete-, Copy+Delete-, Overwrite-,
+Cross-Volume-, Purge-, Sidecar-, Calibre-, Rename- oder Archivewrite-Fallback.
+REST-API und grafische Oberfläche bleiben hinter ihrer eigenen
+Produktoberflächenentscheidung.
+
+Der zusammengefasste lokale MW05-Lauf bestand 46 fokussierte Unit-, SQLite-,
+Migrations-, Privacy-, Operator-, Reconciliation-, Recovery- und statische
+Tests in 30,07 Sekunden; sieben echte Linux-/tmpfs-Fälle wurden auf Windows
+erwartungsgemäß ausgelassen und 14 nicht zum Fokus gehörende Fälle
+abgewählt. Zwei ergänzende Composition-Tests für Runtime-Toolkonfiguration und
+Engine-Freigabe nach fehlgeschlagener Erzeugung bestanden separat.
+Nach der strikten Scan-Zeitgrenze bestanden außerdem der betroffene
+Persistenzfall sowie beide vollständigen synthetischen Operatorpfade zu
+`VERIFIED` und `RECOVERED` erneut. Der vollständige Head-Tabelleninventarfall
+bestätigte danach Revision und neue Reconciliation-Tabelle.
+Ruff war für den gesamten geänderten Python-Scope sowie nach dieser Ergänzung
+für CLI und CLI-Test grün; Mypy prüfte zunächst zehn betroffene Source-Dateien
+und danach erneut CLI und Operator-Workflow ohne Befund. `compileall` war für
+den geänderten Source-Scope auch nach den Härtungen erfolgreich. Verwendet
+wurden ausschließlich synthetische EPUBs, temporäre SQLite-Datenbanken und
+synthetische Dateisysteme; reale E-Books und produktive Runtime-Datenbanken
+wurden nicht geöffnet. Der stabile Pull-Request-Head erhält
+ressourcenschonend genau einen vollständigen Linux-PR-CI-Gate.
+
+`W10-005` ist der nächste reguläre Slice. Er vervollständigt ausschließlich
+die bereits durch ADR-0056 erlaubte Interim-Ein-Datei-Quarantäne mit fester
+Authorize-/Execute-/Recovery-Bedienung. Die separate
+`FG-W10-MOVE-BACKEND`-Härtung und alle weiteren Mutationstypen bleiben davon
+unberührt.
+
 **S-W10-MW04 implementiert — Linux-Exchange und Recovery bleiben ohne Bedienpfad**
 
 `foliotone.metadata_write.linux_backend` implementiert ausschließlich
@@ -52,11 +118,11 @@ grün werden. Verwendet wurden ausschließlich synthetische EPUBs und temporäre
 Datenbanken im vorgesehenen Projekt-Tempbereich; reale E-Books und produktive
 Runtime-Datenbanken wurden nicht geöffnet.
 
-`S-W10-MW05` ist der nächste reguläre Slice: feste Authorize-/Execute-/
-Recover-CLI, zweite Bestätigung über nicht geloggtes `stdin`, unmittelbare
-Post-write-Verifikation, neuer Scan und Collection-Reconciliation. Bis zu
-diesem Abschluss gibt es keinen operativen Metadata-Write-Einstiegspunkt;
-REST-API, grafische Oberfläche, Music und Bilder bleiben ebenfalls geschlossen.
+Zum Abschluss von MW04 war `S-W10-MW05` der nächste reguläre Slice: feste
+Authorize-/Execute-/Recover-CLI, zweite Bestätigung über nicht geloggtes
+`stdin`, unmittelbare Post-write-Verifikation, neuer Scan und Collection-
+Reconciliation. Diese Lücke ist inzwischen geschlossen; REST-API, grafische
+Oberfläche, Music und Bilder bleiben weiterhin außerhalb dieses Writers.
 
 **S-W10-MW03 abgeschlossen — Authorization und Journal bleiben nicht ausführbar**
 
@@ -111,8 +177,8 @@ CI-Gate.
 
 `S-W10-MW04` implementiert inzwischen das interne Linux-`renameat2`-Backend,
 den Ein-Datei-Executor und idempotente Crash-Recovery auf synthetischen
-Filesystemen. CLI und Reconciliation bleiben `S-W10-MW05` vorbehalten; reale
-Source-Metadata-Mutation bleibt operativ nicht verfügbar.
+Filesystemen. `S-W10-MW05` ergänzt inzwischen die begrenzte CLI und
+Reconciliation; diese Aussage ändert den historischen MW03-Scope nicht.
 
 **S-W10-MW02 abgeschlossen — privates EPUB-Staging ist unabhängig verifizierbar**
 
@@ -168,8 +234,8 @@ vollständigen CI-Gate.
 `S-W10-MW03` ergänzt inzwischen immutable Authorization-/Run-/
 Eventpersistenz, private Capability-Auflösung, `ScanRootWriteLease`-/
 Fence-Vertrag und privacy-begrenzten read-only Status. `S-W10-MW04` ergänzt
-Linux-Commit und Recovery; CLI/Reconciliation bleiben `S-W10-MW05`
-vorbehalten. Reale Source-Metadata-Mutation bleibt operativ nicht verfügbar.
+Linux-Commit und Recovery; `S-W10-MW05` ergänzt inzwischen die begrenzte CLI
+und Reconciliation. Die älteren Slices bleiben für sich nicht ausführbar.
 
 **S-W9-006C abgeschlossen — Metadatenkorrekturpläne sind read-only berichtbar**
 
@@ -236,8 +302,8 @@ für den begrenzten EPUB-3-Titelwriter entschieden; `S-W10-MW01` und
 `S-W10-MW02` liefern Patch, privates Staging und unabhängige Verifikation;
 `S-W10-MW03` liefert Authorization, Journal, Capability/Fencing und read-only
 Status. `S-W10-MW04` liefert den internen Linux-Executor und Recovery;
-`S-W10-MW05` ist der nächste reguläre Slice.
-`W10-005` bleibt parallel `READY`; reale Mutation,
+`S-W10-MW05` schließt Bedienung und Reconciliation ab.
+`W10-005` ist der nächste reguläre Slice; allgemeine reale Mutation,
 Music, Bilder, REST-API und grafische Oberfläche werden durch diesen Abschluss
 nicht aktiviert. Am finalen lokalen Stand von S-W9-006C bestanden 41
 fokussierte Report-, Privacy-, Schema-, Bootstrap-, Store-, Consolidation-

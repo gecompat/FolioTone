@@ -64,7 +64,7 @@ def test_migration_0021_adds_exact_sidecar_schema_and_safe_empty_downgrade(
                 {"run": str(RUN_ID), "low": "books/", "high": "books/\U0010ffff"},
             )
         )
-    assert revision == "0028_metadata_write_backend"
+    assert revision == "0029_metadata_write_reconciliation"
     assert {table.name for table in archive_schema.ARCHIVE_SIDECAR_TABLES} <= set(
         inspector.get_table_names()
     )

@@ -31,6 +31,7 @@ from foliotone.core import EntityId
 from foliotone.metadata_write.contracts import (
     EPUB_TITLE_PATCHER_VERSION,
     EPUB_TITLE_WRITE_PROFILE,
+    MAX_EPUB_ARCHIVE_BYTES,
     EpubTitlePackagePatch,
     EpubTitleWritePreflight,
 )
@@ -45,8 +46,7 @@ from foliotone.tooling.structured import StructuredOutputError, parse_json_outpu
 EPUB_TITLE_VALIDATION_PROFILE = "epub3-title-staged-validation/v1"
 EPUB_TITLE_VERIFIED_STAGE_PROFILE = "epub3-title-verified-private-stage/v1"
 EPUB_TITLE_VALIDATOR_SET = (
-    "ebook-meta-opf/2+epubcheck-json/1+ebook-convert-text/2+"
-    "calibre-debug-cover/1"
+    "ebook-meta-opf/2+epubcheck-json/1+ebook-convert-text/2+calibre-debug-cover/1"
 )
 
 _PROCESS_OUTPUT_LIMIT = 1024 * 1024
@@ -175,13 +175,9 @@ class EpubTitleValidationToolOutcome:
             raise ValueError("invalid staged validation outcome")
 
     def artifact(self, artifact_type: str) -> bytes | None:
-        matches = tuple(
-            item.data for item in self.artifacts if item.artifact_type == artifact_type
-        )
+        matches = tuple(item.data for item in self.artifacts if item.artifact_type == artifact_type)
         if len(matches) > 1:
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
         return matches[0] if matches else None
 
 
@@ -242,15 +238,11 @@ class EpubTitleStagedValidation:
             or self.cover_status not in {"COVER_EXTRACTED", "NO_EMBEDDED_COVER"}
             or any(not _is_sha256(value) for value in hashes)
             or any(
-                not isinstance(value, str)
-                or not value.strip()
-                or len(value) > 256
+                not isinstance(value, str) or not value.strip() or len(value) > 256
                 for value in versions
             )
         ):
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
 
 
 @dataclass(frozen=True, slots=True)
@@ -270,9 +262,7 @@ class EpubTitleVerifiedStage:
             or self.staged_files.input_sha256 != self.validation.input_sha256
             or self.staged_files.output_sha256 != self.validation.output_sha256
         ):
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
 
 
 @dataclass(frozen=True, slots=True)
@@ -319,11 +309,7 @@ class FixedEpubTitleStagingValidator:
         if any(not value.strip() for value in executables):
             raise ValueError("validator executable must not be empty")
         script = cover_script or (
-            Path(__file__).parents[1]
-            / "adapters"
-            / "calibre"
-            / "scripts"
-            / "extract_cover.py"
+            Path(__file__).parents[1] / "adapters" / "calibre" / "scripts" / "extract_cover.py"
         )
         try:
             self._cover_script = script.resolve(strict=True)
@@ -341,6 +327,8 @@ class FixedEpubTitleStagingValidator:
         stage: EpubTitleStagedFiles,
         preflight: EpubTitleWritePreflight,
         patch: EpubTitlePackagePatch,
+        *,
+        validation_directory_name: str = "validators",
     ) -> EpubTitleStagedValidation:
         """Require read-back agreement while keeping all artifacts private."""
         if (
@@ -353,12 +341,9 @@ class FixedEpubTitleStagingValidator:
             or stage.plan_content_hash != preflight.plan_content_hash
             or stage.input_sha256 != patch.source_sha256
             or stage.input_sha256 != preflight.source_sha256
-            or stage.archive_diff.patched_package_sha256
-            != patch.patched_package_sha256
+            or stage.archive_diff.patched_package_sha256 != patch.patched_package_sha256
         ):
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
         if _file_identity(stage.input_path) != (
             stage.input_sha256,
             stage.input_size_bytes,
@@ -366,10 +351,11 @@ class FixedEpubTitleStagingValidator:
             stage.output_sha256,
             stage.output_size_bytes,
         ):
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-            )
-        validation_root = _create_validation_root(stage)
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
+        validation_root = _create_validation_root(
+            stage,
+            validation_directory_name,
+        )
         metadata_before = self._metadata(
             stage.input_path,
             validation_root,
@@ -381,20 +367,14 @@ class FixedEpubTitleStagingValidator:
             "metadata-output",
         )
         if metadata_before.title != _normalized_value(preflight.original_title):
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.METADATA_READBACK_MISMATCH
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.METADATA_READBACK_MISMATCH)
         if metadata_after.title != _normalized_value(patch.selected_title):
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.METADATA_READBACK_MISMATCH
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.METADATA_READBACK_MISMATCH)
         if (
             metadata_before.tool_version != metadata_after.tool_version
             or metadata_before.preserved_sha256 != metadata_after.preserved_sha256
         ):
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.PRESERVED_FIELDS_MISMATCH
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.PRESERVED_FIELDS_MISMATCH)
 
         epubcheck_version = self._epubcheck(stage.output_path, validation_root)
         text_before = self._text(stage.input_path, validation_root, "text-input")
@@ -404,9 +384,7 @@ class FixedEpubTitleStagingValidator:
             or text_before.sha256 != text_after.sha256
             or text_before.character_count != text_after.character_count
         ):
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.TEXT_READBACK_MISMATCH
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.TEXT_READBACK_MISMATCH)
 
         cover_before = self._cover(
             stage.input_path,
@@ -427,9 +405,7 @@ class FixedEpubTitleStagingValidator:
             or cover_before.status != cover_after.status
             or cover_before.identity_sha256 != cover_after.identity_sha256
         ):
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.COVER_READBACK_MISMATCH
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.COVER_READBACK_MISMATCH)
 
         if _file_identity(stage.input_path) != (
             stage.input_sha256,
@@ -438,9 +414,7 @@ class FixedEpubTitleStagingValidator:
             stage.output_sha256,
             stage.output_size_bytes,
         ):
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
 
         versions = (
             metadata_before.tool_version,
@@ -476,6 +450,26 @@ class FixedEpubTitleStagingValidator:
             validator_set_fingerprint=validator_fingerprint,
         )
 
+    def validate_input_conformance(
+        self,
+        stage: EpubTitleStagedFiles,
+    ) -> str:
+        """Run the pinned EPUBCheck against the unchanged staged input."""
+
+        if not isinstance(stage, EpubTitleStagedFiles) or _file_identity(stage.input_path) != (
+            stage.input_sha256,
+            stage.input_size_bytes,
+        ):
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
+        validation_root = _create_validation_root(stage, "input-conformance")
+        version = self._epubcheck(stage.input_path, validation_root)
+        if _file_identity(stage.input_path) != (
+            stage.input_sha256,
+            stage.input_size_bytes,
+        ):
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
+        return version
+
     def _metadata(
         self,
         source: Path,
@@ -489,9 +483,7 @@ class FixedEpubTitleStagingValidator:
                 args=(str(source), "--to-opf", "metadata.opf"),
                 version_args=("--version",),
                 version_policy=calibre_version_policy,
-                outputs=(
-                    EpubTitleValidationOutput("CALIBRE_OPF", "metadata.opf", MAX_OPF_BYTES),
-                ),
+                outputs=(EpubTitleValidationOutput("CALIBRE_OPF", "metadata.opf", MAX_OPF_BYTES),),
                 environment={"CALIBRE_ALLOW_PYTHON_TEMPLATES": "0"},
                 workspace_environment=_calibre_workspace_environment(),
             ),
@@ -500,9 +492,7 @@ class FixedEpubTitleStagingValidator:
         _require_outcome_step(outcome, step)
         data = outcome.artifact("CALIBRE_OPF")
         if data is None:
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
         try:
             projection = project_calibre_opf(
                 data,
@@ -517,9 +507,7 @@ class FixedEpubTitleStagingValidator:
         candidates = tuple((item.key, item.value) for item in projection.candidates)
         titles = tuple(value for key, value in observations if key == "title")
         if len(titles) != 1:
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.METADATA_READBACK_MISMATCH
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.METADATA_READBACK_MISMATCH)
         preserved = _preserved_calibre_projection(observations, candidates)
         return _MetadataProjection(
             title=titles[0],
@@ -559,9 +547,7 @@ class FixedEpubTitleStagingValidator:
         _require_outcome_step(outcome, "epubcheck-output")
         data = outcome.artifact("EPUBCHECK_JSON")
         if data is None:
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
         try:
             report = parse_json_output(data, max_bytes=MAX_EPUBCHECK_REPORT_BYTES)
             results = parse_epubcheck_report(
@@ -603,9 +589,7 @@ class FixedEpubTitleStagingValidator:
                 ),
                 version_args=("--version",),
                 version_policy=calibre_version_policy,
-                outputs=(
-                    EpubTitleValidationOutput("CALIBRE_TEXT", "content.txt", MAX_TEXT_BYTES),
-                ),
+                outputs=(EpubTitleValidationOutput("CALIBRE_TEXT", "content.txt", MAX_TEXT_BYTES),),
                 environment={"CALIBRE_ALLOW_PYTHON_TEMPLATES": "0"},
                 workspace_environment=_calibre_workspace_environment(),
             ),
@@ -614,9 +598,7 @@ class FixedEpubTitleStagingValidator:
         _require_outcome_step(outcome, step)
         data = outcome.artifact("CALIBRE_TEXT")
         if data is None:
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
         try:
             normalized = normalize_ebook_text(data)
         except (TypeError, ValueError) as error:
@@ -675,9 +657,7 @@ class FixedEpubTitleStagingValidator:
         result_data = outcome.artifact("CALIBRE_COVER_RESULT")
         cover_data = outcome.artifact("CALIBRE_EMBEDDED_COVER")
         if result_data is None:
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
         try:
             result = parse_calibre_cover_result(
                 parse_json_output(result_data, max_bytes=MAX_COVER_RESULT_BYTES)
@@ -687,20 +667,14 @@ class FixedEpubTitleStagingValidator:
                 EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
             ) from error
         if result.source_sha256 != expected_sha256:
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
         if result.status == "NO_EMBEDDED_COVER":
             if result.cover_bytes != 0 or cover_data is not None:
-                raise EpubTitleStagingError(
-                    EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-                )
+                raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
             identity = _canonical_sha256({"status": result.status})
         elif result.status == "COVER_EXTRACTED":
             if cover_data is None or result.cover_bytes != len(cover_data):
-                raise EpubTitleStagingError(
-                    EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-                )
+                raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
             try:
                 cover = fingerprint_ebook_cover(cover_data, max_bytes=MAX_COVER_BYTES)
             except EbookCoverError as error:
@@ -717,9 +691,7 @@ class FixedEpubTitleStagingValidator:
                 }
             )
         else:
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
         return _CoverProjection(
             status=result.status,
             identity_sha256=identity,
@@ -740,15 +712,11 @@ class _BoundedLocalValidationRunner:
     ) -> EpubTitleValidationToolOutcome:
         try:
             if workspace.exists() or not workspace.parent.is_dir():
-                raise EpubTitleStagingError(
-                    EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-                )
+                raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
             workspace.mkdir(mode=0o700)
             executable = shutil.which(command.executable)
             if executable is None:
-                raise EpubTitleStagingError(
-                    EpubTitleStagingErrorCode.VALIDATION_TOOL_UNAVAILABLE
-                )
+                raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_TOOL_UNAVAILABLE)
             environment = os.environ.copy()
             if command.environment:
                 environment.update(command.environment)
@@ -779,9 +747,7 @@ class _BoundedLocalValidationRunner:
                 _PROCESS_OUTPUT_LIMIT,
             )
             if return_code not in command.accepted_exit_codes:
-                raise EpubTitleStagingError(
-                    EpubTitleStagingErrorCode.VALIDATION_TOOL_FAILED
-                )
+                raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_TOOL_FAILED)
             artifacts: list[EpubTitleValidationArtifact] = []
             for output in command.outputs:
                 path = (workspace / output.relative_path).resolve()
@@ -805,9 +771,7 @@ class _BoundedLocalValidationRunner:
                     raise EpubTitleStagingError(
                         EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
                     )
-                artifacts.append(
-                    EpubTitleValidationArtifact(output.artifact_type, data)
-                )
+                artifacts.append(EpubTitleValidationArtifact(output.artifact_type, data))
             return EpubTitleValidationToolOutcome(
                 step=command.step,
                 tool_version=version,
@@ -816,9 +780,7 @@ class _BoundedLocalValidationRunner:
         except EpubTitleStagingError:
             raise
         except (OSError, ValueError, subprocess.SubprocessError) as error:
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.VALIDATION_TOOL_FAILED
-            ) from error
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_TOOL_FAILED) from error
 
 
 def build_and_verify_private_epub3_title_stage(
@@ -844,13 +806,49 @@ def build_and_verify_private_epub3_title_stage(
     return EpubTitleVerifiedStage(stage, validation)
 
 
-def _create_validation_root(stage: EpubTitleStagedFiles) -> Path:
-    root = stage.private_directory / "validators"
+def verify_postwrite_epub3_title_source(
+    source_bytes: bytes,
+    verified_stage: EpubTitleVerifiedStage,
+    preflight: EpubTitleWritePreflight,
+    patch: EpubTitlePackagePatch,
+    *,
+    validator: FixedEpubTitleStagingValidator | None = None,
+) -> EpubTitleStagedValidation:
+    """Re-run every validator after exact read-back of the exchanged Source."""
+
+    if (
+        not isinstance(source_bytes, bytes)
+        or not isinstance(verified_stage, EpubTitleVerifiedStage)
+        or hashlib.sha256(source_bytes).hexdigest() != verified_stage.staged_files.output_sha256
+        or len(source_bytes) != verified_stage.staged_files.output_size_bytes
+        or _read_file_bounded(verified_stage.staged_files.output_path) != source_bytes
+    ):
+        raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
+    validation = (validator or FixedEpubTitleStagingValidator()).validate(
+        verified_stage.staged_files,
+        preflight,
+        patch,
+        validation_directory_name="postwrite-validators",
+    )
+    if validation != verified_stage.validation:
+        raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
+    return validation
+
+
+def _create_validation_root(
+    stage: EpubTitleStagedFiles,
+    directory_name: str,
+) -> Path:
+    if directory_name not in {
+        "validators",
+        "input-conformance",
+        "postwrite-validators",
+    }:
+        raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
+    root = stage.private_directory / directory_name
     try:
         if root.exists() or _is_link_or_reparse(stage.private_directory):
-            raise EpubTitleStagingError(
-                EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-            )
+            raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
         root.mkdir(mode=0o700)
         resolved = root.resolve(strict=True)
     except EpubTitleStagingError:
@@ -860,10 +858,18 @@ def _create_validation_root(stage: EpubTitleStagedFiles) -> Path:
             EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
         ) from error
     if resolved.parent != stage.private_directory or _is_link_or_reparse(resolved):
-        raise EpubTitleStagingError(
-            EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-        )
+        raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
     return resolved
+
+
+def _read_file_bounded(path: Path) -> bytes:
+    if _is_link_or_reparse(path) or not path.is_file():
+        raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
+    with path.open("rb") as stream:
+        data = stream.read(MAX_EPUB_ARCHIVE_BYTES + 1)
+    if len(data) > MAX_EPUB_ARCHIVE_BYTES:
+        raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
+    return data
 
 
 def _normalized_value(value: str) -> str:
@@ -885,8 +891,7 @@ def _preserved_calibre_projection(
     def preserved_candidate(item: tuple[str, str]) -> bool:
         key, _value = item
         return key != "title" and not any(
-            key == prefix or key.startswith(f"{prefix}.")
-            for prefix in volatile_identifier_prefixes
+            key == prefix or key.startswith(f"{prefix}.") for prefix in volatile_identifier_prefixes
         )
 
     return {
@@ -914,9 +919,7 @@ def _require_outcome_step(
     expected_step: str,
 ) -> None:
     if not isinstance(outcome, EpubTitleValidationToolOutcome) or outcome.step != expected_step:
-        raise EpubTitleStagingError(
-            EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-        )
+        raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
 
 
 def _apply_workspace_environment(
@@ -958,14 +961,10 @@ def _detect_version(
         _VERSION_OUTPUT_LIMIT,
     )
     if return_code != 0:
-        raise EpubTitleStagingError(
-            EpubTitleStagingErrorCode.VALIDATION_TOOL_UNAVAILABLE
-        )
+        raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_TOOL_UNAVAILABLE)
     text = bytes(stdout or stderr).decode(errors="replace").strip()
     if not text:
-        raise EpubTitleStagingError(
-            EpubTitleStagingErrorCode.VALIDATION_TOOL_UNAVAILABLE
-        )
+        raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_TOOL_UNAVAILABLE)
     return text.splitlines()[0][:256]
 
 
@@ -1022,9 +1021,7 @@ def _run_bounded_process(
     except subprocess.TimeoutExpired as error:
         process.kill()
         process.wait()
-        raise EpubTitleStagingError(
-            EpubTitleStagingErrorCode.VALIDATION_TOOL_FAILED
-        ) from error
+        raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_TOOL_FAILED) from error
     finally:
         for reader in readers:
             reader.join()
@@ -1035,9 +1032,7 @@ def _run_bounded_process(
 
 def _file_identity(path: Path) -> tuple[str, int]:
     if _is_link_or_reparse(path) or not path.is_file():
-        raise EpubTitleStagingError(
-            EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID
-        )
+        raise EpubTitleStagingError(EpubTitleStagingErrorCode.VALIDATION_EVIDENCE_INVALID)
     digest = hashlib.sha256()
     size = 0
     with path.open("rb") as stream:
@@ -1084,4 +1079,5 @@ __all__ = [
     "EpubTitleVerifiedStage",
     "FixedEpubTitleStagingValidator",
     "build_and_verify_private_epub3_title_stage",
+    "verify_postwrite_epub3_title_source",
 ]

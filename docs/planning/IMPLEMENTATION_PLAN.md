@@ -78,11 +78,12 @@ Preparation/Authorization, einmaligen Run, insert-only Eventjournal, private
 Capability-Auflösung, Root-Lease/Fencing und read-only Status. `S-W10-MW04`
 implementiert das feste Linux-x86_64-glibc-`renameat2`-Backend, immutable
 Backend-Binding, den gefenceten Ein-Datei-Executor und idempotente Exact-State-
-Recovery mit synthetischen Filesystemen. `S-W10-MW05` ist der nächste Slice;
-CLI, zweite Bestätigung, unmittelbare Verifikation, neuer Scan und
-Reconciliation bleiben ihm vorbehalten.
+Recovery mit synthetischen Filesystemen. `S-W10-MW05` schließt den Writer mit
+festen Authorize-/Execute-/Recover-/Status-Kommandos, zweiter Bestätigung über
+`stdin`, unmittelbarer Verifikation, explizitem Lease-Handoff, neuem Scan,
+`CollectionState` und immutable Reconciliation ab.
 
-`W10-005` ist eine unabhängige parallele `FRONTIER`-Wave. Sie vervollständigt
+`W10-005` ist die nächste getrennte `FRONTIER`-Wave. Sie vervollständigt
 Capability-Auflösung, Authorize, Execute und Recovery für die bereits durch
 ADR-0056 erlaubte Interim-Ein-Datei-Quarantäne, ohne einen weiteren
 Mutationstyp oder atomare No-Replace-Semantik zu behaupten.
@@ -517,17 +518,18 @@ entscheidet `FG-W10-METADATA-WRITE` ausschließlich für
 `dc:title` und das formatbedingt aktualisierte `dcterms:modified`, verlangt
 einen memberweisen Byte-/Semantik-Diff und verwendet für den späteren Linux-
 Commit ausschließlich atomaren `renameat2`-Exchange mit
-Same-Filesystem-Recovery. Die Implementierung bleibt bis zum Abschluss von
-`S-W10-MW05` operativ geschlossen. `S-W10-MW04` stellt den internen
-Exchange-/Recovery-Pfad bereit, aber weder CLI noch `VERIFIED`-/
-Reconciliation-Abschluss. Sidecar-, externe
+Same-Filesystem-Recovery. ADR-0064 und `S-W10-MW05` ergänzen die feste CLI,
+zweite Bestätigung, unmittelbare Verifikation, einen expliziten Lease-Handoff,
+neuen Scan, `CollectionState` sowie den atomaren `VERIFIED`-/Reconciliation-
+Abschluss. Damit ist genau dieser EPUB-Titelwriter operativ erreichbar.
+Sidecar-, externe
 Library-, Rename- und Archivewrites bleiben an
 `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME`
 beziehungsweise `FG-W10-ARCHIVE-REWRITE` gebunden. W10-003 und W10-004
 halten Rollback/Purge und Verzeichnisbereinigung weiterhin getrennt.
 
-Der vorhandene Executor ist noch keine vollständige Bedienkette. `W10-005`
-ergänzt einen privaten `QuarantineCapabilityResolver`,
+Die Quarantäne besitzt noch keine vollständige Bedienkette. `W10-005` ergänzt
+auf Basis des vorhandenen privaten `QuarantineCapabilityResolver`
 `quarantine-authorize`, `quarantine-execute` mit zweiter Bestätigung über
 nicht geloggtes `stdin` und `quarantine-recover`. CLI-Argumente enthalten nur
 opaque IDs und Content Hashes. Der bestehende `quarantine-status` bleibt die

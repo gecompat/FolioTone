@@ -124,6 +124,9 @@ class _Session:
     def read_source_bytes(self) -> bytes:
         return SOURCE
 
+    def read_output_bytes(self) -> bytes:
+        return OUTPUT
+
     def prepare_output(self, _staged_output: Path):
         self.state = LinuxMetadataWritePhysicalState.SOURCE_ORIGINAL_WITH_OUTPUT_DRAFT
         return self.classify()
@@ -276,6 +279,14 @@ def _patch_staging(
     monkeypatch.setattr(
         "foliotone.metadata_write.executor.build_and_verify_private_epub3_title_stage",
         build,
+    )
+
+    def verify_postwrite(source_bytes, *_args, **_kwargs):
+        assert source_bytes == OUTPUT
+
+    monkeypatch.setattr(
+        "foliotone.metadata_write.executor.verify_postwrite_epub3_title_source",
+        verify_postwrite,
     )
 
 

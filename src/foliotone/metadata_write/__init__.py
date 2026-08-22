@@ -25,6 +25,12 @@ from foliotone.metadata_write.capabilities import (
     MetadataWriteCapabilityUnavailable,
     ResolvedMetadataWriteCapability,
 )
+from foliotone.metadata_write.confirmation import (
+    METADATA_WRITE_CONFIRMATION_PROFILE,
+    MetadataWriteConfirmationError,
+    metadata_write_confirmation_digest,
+    metadata_write_confirmation_text,
+)
 from foliotone.metadata_write.contracts import *  # noqa: F403
 from foliotone.metadata_write.epub_title import (
     build_epub3_title_package_patch,
@@ -32,6 +38,12 @@ from foliotone.metadata_write.epub_title import (
     validate_epub3_title_package_patch,
     validate_epub3_title_write_plan,
     verify_epub3_title_archive_diff,
+)
+from foliotone.metadata_write.reconciliation import (
+    METADATA_WRITE_RECONCILIATION_PROFILE,
+    MetadataWriteReconciliationOutcome,
+    MetadataWriteReconciliationSnapshot,
+    build_metadata_write_reconciliation,
 )
 from foliotone.metadata_write.staging import (
     EPUB_TITLE_STAGING_PROFILE,
@@ -56,6 +68,7 @@ from foliotone.metadata_write.validation import (
     EpubTitleVerifiedStage,
     FixedEpubTitleStagingValidator,
     build_and_verify_private_epub3_title_stage,
+    verify_postwrite_epub3_title_source,
 )
 
 __all__ = [
@@ -64,6 +77,7 @@ __all__ = [
     "build_and_verify_private_epub3_title_stage",
     "build_epub3_title_write_preparation",
     "build_metadata_write_authorization",
+    "build_metadata_write_reconciliation",
     "build_metadata_write_run",
     "build_private_epub3_title_stage",
     "preflight_epub3_title_write",
@@ -71,10 +85,18 @@ __all__ = [
     "validate_epub3_title_write_plan",
     "verify_epub3_title_archive_diff",
     "verify_private_epub3_title_stage",
+    "verify_postwrite_epub3_title_source",
     "EPUB_TITLE_STAGING_PROFILE",
     "EPUB_TITLE_VALIDATION_PROFILE",
     "EPUB_TITLE_VALIDATOR_SET",
     "EPUB_TITLE_VERIFIED_STAGE_PROFILE",
+    "METADATA_WRITE_CONFIRMATION_PROFILE",
+    "METADATA_WRITE_RECONCILIATION_PROFILE",
+    "MetadataWriteConfirmationError",
+    "MetadataWriteReconciliationOutcome",
+    "MetadataWriteReconciliationSnapshot",
+    "metadata_write_confirmation_digest",
+    "metadata_write_confirmation_text",
     "PRIVATE_STAGE_INPUT_NAME",
     "PRIVATE_STAGE_OUTPUT_NAME",
     "EpubTitleStagedFiles",

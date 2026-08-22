@@ -73,6 +73,8 @@ from foliotone.metadata_write import (
     build_metadata_write_authorization,
     build_metadata_write_run,
     build_private_epub3_title_stage,
+    metadata_write_confirmation_digest,
+    metadata_write_confirmation_text,
     preflight_epub3_title_write,
 )
 from foliotone.metadata_write.authorization import (
@@ -82,6 +84,16 @@ from foliotone.metadata_write.authorization import (
 from foliotone.metadata_write.executor import (
     execute_epub3_title_metadata_write,
     recover_epub3_title_metadata_write,
+)
+from foliotone.metadata_write.linux_backend import (
+    LinuxMetadataWriteBackendError,
+    LinuxMetadataWriteBackendErrorCode,
+    LinuxMetadataWritePhysicalSnapshot,
+    LinuxMetadataWritePhysicalState,
+)
+from foliotone.metadata_write.reconciliation import (
+    MetadataWriteReconciliationOutcome,
+    build_metadata_write_reconciliation,
 )
 from foliotone.persistence import (
     MetadataCorrectionStoreError,
@@ -105,10 +117,17 @@ from foliotone.persistence.metadata_write import (
 )
 from foliotone.persistence.metadata_write_schema import (
     metadata_write_backend_bindings,
+    metadata_write_reconciliations,
 )
 from foliotone.persistence.scan_root_lease import (
     ScanRootWriteOwnerKind,
     SQLiteScanRootWriteLeaseStore,
+)
+from foliotone.workflows.collection_state import CollectionStateBuildService
+from foliotone.workflows.metadata_write_operation import (
+    MetadataWriteOperatorError,
+    MetadataWriteOperatorErrorCode,
+    MetadataWriteOperatorService,
 )
 from foliotone.workflows.metadata_write_report import (
     MetadataWriteStatusReportError,
@@ -506,7 +525,7 @@ def test_migration_0026_preserves_review_history_and_downgrades_when_empty(
         review_ddl = connection.execute(
             text("SELECT sql FROM sqlite_master WHERE type='table' AND name='review_items'")
         ).scalar_one()
-    assert revision == "0028_metadata_write_backend"
+    assert revision == "0029_metadata_write_reconciliation"
     assert retained == str(decision_id)
     assert retained_plan_review == str(plan_id)
     assert "METADATA_CORRECTION" in review_ddl
@@ -1085,8 +1104,244 @@ def _persist_metadata_write_run(database: Path):
         run_id=METADATA_WRITE_RUN_ID,
         created_at=run_created_at,
     )
-    assert store.create_run(run, authorization, plan, run_lease) == run
+    assert (
+        store.create_run(
+            run,
+            authorization,
+            plan,
+            run_lease,
+            confirmation_digest=metadata_write_confirmation_digest(
+                authorization,
+                metadata_write_confirmation_text(authorization),
+            ),
+        )
+        == run
+    )
     return engine, plan, authorization, run, run_lease
+
+
+def test_metadata_write_retry_requires_the_original_second_confirmation(
+    head_database: Path,
+) -> None:
+    engine, _plan, authorization, run, run_lease = _persist_metadata_write_run(
+        head_database
+    )
+    store = SQLiteMetadataWriteStore(engine)
+    prompt = metadata_write_confirmation_text(authorization)
+    confirmation_digest = metadata_write_confirmation_digest(authorization, prompt)
+
+    assert prompt == f"CONFIRM METADATA WRITE {authorization.id}"
+    store.require_execution_confirmation(
+        run,
+        authorization,
+        run_lease,
+        confirmation_digest=confirmation_digest,
+        checked_at=run.created_at + timedelta(seconds=1),
+    )
+    with pytest.raises(MetadataWriteStoreError, match="CREATED event differs"):
+        store.require_execution_confirmation(
+            run,
+            authorization,
+            run_lease,
+            confirmation_digest=_sha("0"),
+            checked_at=run.created_at + timedelta(seconds=2),
+        )
+    assert store.events_for_run(run.id)[0].confirmation_digest == confirmation_digest
+    engine.dispose()
+
+
+def test_metadata_write_reconciliation_atomically_verifies_one_new_collection_state(
+    head_database: Path,
+) -> None:
+    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(
+        head_database
+    )
+    store = SQLiteMetadataWriteStore(engine)
+    lease_store = SQLiteScanRootWriteLeaseStore(engine)
+    store.bind_backend(
+        run,
+        authorization,
+        plan,
+        run_lease,
+        bound_at=run.created_at + timedelta(seconds=1),
+    )
+    for sequence_no, status in enumerate(
+        (
+            MetadataWriteRunStatus.PREPARED,
+            MetadataWriteRunStatus.EXCHANGED,
+            MetadataWriteRunStatus.ORIGINAL_PRESERVED,
+        ),
+        start=2,
+    ):
+        store.append_event(
+            MetadataWriteExecutionEvent(
+                run.id,
+                sequence_no,
+                status,
+                run.created_at + timedelta(seconds=sequence_no),
+                run_lease.fence_epoch,
+                confirmation_digest=_sha(str(sequence_no)),
+            ),
+            run_lease,
+        )
+    preserved_at = run.created_at + timedelta(seconds=4)
+    lease_store.release(
+        run_lease,
+        released_at=preserved_at + timedelta(seconds=1),
+    )
+
+    scan_run_id = EntityId.new()
+    observation_id = EntityId.new()
+    scan_started_at = preserved_at + timedelta(seconds=2)
+    scan_completed_at = scan_started_at + timedelta(seconds=1)
+    with engine.begin() as connection:
+        connection.execute(
+            insert(schema.scan_runs),
+            {
+                "id": str(scan_run_id),
+                "scan_root_id": str(ROOT_ID),
+                "started_at": scan_started_at.isoformat(),
+                "status": ScanRunStatus.COMPLETED.value,
+                "completed_at": scan_completed_at.isoformat(),
+            },
+        )
+        connection.execute(
+            schema.file_records.update()
+            .where(schema.file_records.c.id == str(FILE_ID))
+            .values(
+                size_bytes=authorization.expected_output_size_bytes,
+                modified_at=NOW.isoformat(),
+                last_seen_at=scan_completed_at.isoformat(),
+                presence_state=PresenceState.PRESENT.value,
+                missing_since_at=None,
+                consecutive_missing_scans=0,
+            )
+        )
+        connection.execute(
+            insert(schema.file_observations),
+            {
+                "id": str(observation_id),
+                "file_id": str(FILE_ID),
+                "scan_run_id": str(scan_run_id),
+                "relative_path": PRIVATE_PATH,
+                "size_bytes": authorization.expected_output_size_bytes,
+                "modified_at": NOW.isoformat(),
+                "observed_at": scan_completed_at.isoformat(),
+            },
+        )
+        connection.execute(
+            insert(schema.fingerprints),
+            {
+                "id": str(EntityId.new()),
+                "target_kind": "FILE_OBSERVATION",
+                "target_id": str(observation_id),
+                "kind": "FILE_SHA256",
+                "algorithm": "sha256",
+                "algorithm_version": "1",
+                "value": authorization.expected_output_sha256,
+                "created_at": scan_completed_at.isoformat(),
+                "tool_execution_id": None,
+            },
+        )
+
+    collection_report = CollectionStateBuildService(engine).build(
+        scan_run_id,
+        scan_completed_at + timedelta(seconds=1),
+    )
+    fresh_lease_at = collection_report.snapshot.created_at + timedelta(seconds=1)
+    fresh_lease = lease_store.acquire(
+        ROOT_ID,
+        ScanRootWriteOwnerKind.METADATA_WRITE_RUN,
+        run.id,
+        lease_token="synthetic-metadata-write-reconciliation",
+        acquired_at=fresh_lease_at,
+        lease_expires_at=fresh_lease_at + timedelta(minutes=5),
+    )
+    reconciliation = build_metadata_write_reconciliation(
+        run_id=run.id,
+        authorization_id=authorization.id,
+        authorization_content_hash=authorization.content_hash,
+        outcome=MetadataWriteReconciliationOutcome.VERIFIED,
+        scan_run_id=scan_run_id,
+        observation_id=observation_id,
+        collection_state_snapshot_id=collection_report.snapshot.id,
+        collection_state_content_digest=collection_report.snapshot.content_digest,
+        physical_confirmation_digest=_sha("f"),
+        reconciled_at=fresh_lease_at + timedelta(seconds=1),
+    )
+
+    with engine.begin() as connection:
+        connection.execute(
+            schema.scan_runs.update()
+            .where(schema.scan_runs.c.id == str(scan_run_id))
+            .values(started_at=preserved_at.isoformat())
+        )
+    with pytest.raises(MetadataWriteStoreError, match="evidence differs"):
+        store.record_reconciliation(
+            reconciliation,
+            run,
+            authorization,
+            fresh_lease,
+        )
+    with engine.begin() as connection:
+        connection.execute(
+            schema.scan_runs.update()
+            .where(schema.scan_runs.c.id == str(scan_run_id))
+            .values(started_at=scan_started_at.isoformat())
+        )
+
+    assert (
+        store.record_reconciliation(
+            reconciliation,
+            run,
+            authorization,
+            fresh_lease,
+        )
+        == reconciliation
+    )
+    assert (
+        store.record_reconciliation(
+            reconciliation,
+            run,
+            authorization,
+            fresh_lease,
+        )
+        == reconciliation
+    )
+    assert [event.status for event in store.events_for_run(run.id)] == [
+        MetadataWriteRunStatus.CREATED,
+        MetadataWriteRunStatus.PREPARED,
+        MetadataWriteRunStatus.EXCHANGED,
+        MetadataWriteRunStatus.ORIGINAL_PRESERVED,
+        MetadataWriteRunStatus.VERIFIED,
+    ]
+    payload = SQLiteMetadataWriteStatusReportReader(store).read(run.id).payload()
+    assert payload["status"] == "VERIFIED"
+    assert payload["reconciliation"] == {
+        "outcome": "VERIFIED",
+        "scan_run_id": str(scan_run_id),
+        "observation_id": str(observation_id),
+        "collection_state_snapshot_id": str(collection_report.snapshot.id),
+        "reconciled_at": reconciliation.reconciled_at.isoformat(),
+    }
+    encoded = json.dumps(payload, sort_keys=True)
+    assert authorization.expected_output_sha256 not in encoded
+    assert reconciliation.physical_confirmation_digest not in encoded
+    assert reconciliation.content_hash not in encoded
+    with engine.begin() as connection:
+        with pytest.raises(IntegrityError, match="immutable metadata write reconciliation"):
+            connection.execute(
+                metadata_write_reconciliations.update().values(outcome_status="RECOVERED")
+            )
+    with engine.begin() as connection:
+        with pytest.raises(IntegrityError, match="immutable metadata write reconciliation"):
+            connection.execute(metadata_write_reconciliations.delete())
+    engine.dispose()
+    with pytest.raises(RuntimeError, match="reconciliation prevents migration downgrade"):
+        command.downgrade(
+            alembic_config(head_database),
+            "0028_metadata_write_backend",
+        )
 
 
 def _synthetic_epub() -> bytes:
@@ -1156,8 +1411,306 @@ def _synthetic_stage_validation(stage) -> EpubTitleStagedValidation:
 
 
 class _SyntheticBoundStageValidator:
-    def validate(self, stage, _preflight, _patch) -> EpubTitleStagedValidation:
+    def validate(
+        self,
+        stage,
+        _preflight,
+        _patch,
+        *,
+        validation_directory_name: str = "validators",
+    ) -> EpubTitleStagedValidation:
+        assert validation_directory_name in {"validators", "postwrite-validators"}
         return _synthetic_stage_validation(stage)
+
+    def validate_input_conformance(self, _stage) -> str:
+        return "EPUBCheck v5.3.0"
+
+
+class _SyntheticCapabilityResolver:
+    def __init__(self, capability: ResolvedMetadataWriteCapability) -> None:
+        self._capability = capability
+
+    def resolve(self, capability_id: EntityId) -> ResolvedMetadataWriteCapability:
+        assert capability_id == self._capability.metadata_write_capability_id
+        return self._capability
+
+
+class _SyntheticPreparationSourceReader:
+    def __init__(self, source_path: Path) -> None:
+        self._source_path = source_path
+
+    def read_source(
+        self,
+        *,
+        expected_sha256: str,
+        expected_size_bytes: int,
+        **_kwargs,
+    ) -> bytes:
+        value = self._source_path.read_bytes()
+        assert hashlib.sha256(value).hexdigest() == expected_sha256
+        assert len(value) == expected_size_bytes
+        return value
+
+
+class _SyntheticMetadataWriteSession:
+    def __init__(
+        self,
+        source_path: Path,
+        original: bytes,
+        *,
+        fail_preserve: bool = False,
+    ) -> None:
+        self._source_path = source_path
+        self._original = original
+        self._output: bytes | None = None
+        self._fail_preserve = fail_preserve
+        self.state = LinuxMetadataWritePhysicalState.SOURCE_ORIGINAL_ONLY
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        self.close()
+
+    def close(self) -> None:
+        return None
+
+    def read_source_bytes(self) -> bytes:
+        value = self._source_path.read_bytes()
+        assert hashlib.sha256(value).hexdigest() == hashlib.sha256(self._original).hexdigest()
+        return value
+
+    def read_output_bytes(self) -> bytes:
+        assert self._output is not None
+        value = self._source_path.read_bytes()
+        assert value == self._output
+        return value
+
+    def prepare_output(self, staged_output: Path) -> LinuxMetadataWritePhysicalSnapshot:
+        self._output = staged_output.read_bytes()
+        self.state = LinuxMetadataWritePhysicalState.SOURCE_ORIGINAL_WITH_OUTPUT_DRAFT
+        return self.classify()
+
+    def revalidate_prepared(self) -> LinuxMetadataWritePhysicalSnapshot:
+        return self.classify()
+
+    def exchange(self) -> LinuxMetadataWritePhysicalSnapshot:
+        assert self._output is not None
+        self._source_path.write_bytes(self._output)
+        os.utime(self._source_path, (NOW.timestamp(), NOW.timestamp()))
+        self.state = LinuxMetadataWritePhysicalState.SOURCE_OUTPUT_WITH_ORIGINAL_DRAFT
+        return self.classify()
+
+    def preserve_original(self) -> LinuxMetadataWritePhysicalSnapshot:
+        if self._fail_preserve:
+            raise LinuxMetadataWriteBackendError(
+                LinuxMetadataWriteBackendErrorCode.IO_FAILED,
+                mutation_may_have_occurred=True,
+            )
+        self.state = LinuxMetadataWritePhysicalState.SOURCE_OUTPUT_WITH_PRESERVED_ORIGINAL
+        return self.classify()
+
+    def restore_original(self) -> LinuxMetadataWritePhysicalSnapshot:
+        self._source_path.write_bytes(self._original)
+        os.utime(self._source_path, (NOW.timestamp(), NOW.timestamp()))
+        self.state = LinuxMetadataWritePhysicalState.SOURCE_ORIGINAL_WITH_OUTPUT_DRAFT
+        return self.classify()
+
+    def classify(self) -> LinuxMetadataWritePhysicalSnapshot:
+        return self.confirmation_for(self.state)
+
+    def confirmation_for(
+        self,
+        state: LinuxMetadataWritePhysicalState,
+    ) -> LinuxMetadataWritePhysicalSnapshot:
+        return LinuxMetadataWritePhysicalSnapshot(
+            state,
+            hashlib.sha256(f"synthetic:{state.value}".encode()).hexdigest(),
+        )
+
+
+class _SyntheticMetadataWriteBackend:
+    def __init__(self, session: _SyntheticMetadataWriteSession) -> None:
+        self._session = session
+
+    def open_session(self, **_kwargs) -> _SyntheticMetadataWriteSession:
+        return self._session
+
+
+class _OperatorClock:
+    def __init__(self) -> None:
+        self._next = NOW + timedelta(minutes=3)
+
+    def __call__(self) -> datetime:
+        value = self._next
+        self._next += timedelta(seconds=1)
+        return value
+
+
+def _metadata_write_operator_context(
+    head_database: Path,
+    *,
+    label: str,
+    fail_preserve: bool = False,
+):
+    source = _synthetic_epub()
+    source_sha256 = hashlib.sha256(source).hexdigest()
+    source_root = head_database.parent / f"{label}-source"
+    recovery_root = head_database.parent / f"{label}-recovery"
+    stage_root = head_database.parent / f"{label}-stage"
+    for directory in (source_root, recovery_root, stage_root):
+        directory.mkdir(mode=0o700)
+    source_path = source_root / PRIVATE_PATH
+    source_path.parent.mkdir(mode=0o700)
+    source_path.write_bytes(source)
+    os.utime(source_path, (NOW.timestamp(), NOW.timestamp()))
+
+    engine = create_sqlite_engine(head_database)
+    plan = _approved_plan_for_metadata_write(
+        engine,
+        source_sha256=source_sha256,
+        source_size_bytes=len(source),
+    )
+    capability = ResolvedMetadataWriteCapability(
+        METADATA_WRITE_CAPABILITY_ID,
+        ROOT_ID,
+        source_root,
+        recovery_root,
+    )
+    session = _SyntheticMetadataWriteSession(
+        source_path,
+        source,
+        fail_preserve=fail_preserve,
+    )
+    service = MetadataWriteOperatorService(
+        engine,
+        stage_root,
+        capability_resolver=_SyntheticCapabilityResolver(capability),  # type: ignore[arg-type]
+        source_reader=_SyntheticPreparationSourceReader(source_path),  # type: ignore[arg-type]
+        validator=_SyntheticBoundStageValidator(),  # type: ignore[arg-type]
+        backend=_SyntheticMetadataWriteBackend(session),
+        clock=_OperatorClock(),
+    )
+    return engine, plan, capability, source_path, source, service
+
+
+def test_metadata_write_operator_completes_authorize_execute_scan_and_reconciliation(
+    head_database: Path,
+) -> None:
+    engine, plan, capability, source_path, _source, service = (
+        _metadata_write_operator_context(
+            head_database,
+            label="operator-success",
+        )
+    )
+
+    authorized = service.authorize(
+        plan_id=plan.id,
+        plan_content_hash=plan.content_hash,
+        capability_id=capability.metadata_write_capability_id,
+    )
+    with pytest.raises(MetadataWriteOperatorError) as invalid_confirmation:
+        service.execute(
+            plan_id=plan.id,
+            plan_content_hash=plan.content_hash,
+            capability_id=capability.metadata_write_capability_id,
+            authorization_id=authorized.authorization_id,
+            confirmation_text="CONFIRM METADATA WRITE invalid",
+        )
+    assert invalid_confirmation.value.code is MetadataWriteOperatorErrorCode.CONFIRMATION_INVALID
+    assert (
+        SQLiteMetadataWriteStore(engine).get_run_for_authorization(
+            authorized.authorization_id
+        )
+        is None
+    )
+    prompt = service.confirmation_prompt(
+        plan_id=plan.id,
+        plan_content_hash=plan.content_hash,
+        capability_id=capability.metadata_write_capability_id,
+        authorization_id=authorized.authorization_id,
+    )
+    result = service.execute(
+        plan_id=plan.id,
+        plan_content_hash=plan.content_hash,
+        capability_id=capability.metadata_write_capability_id,
+        authorization_id=authorized.authorization_id,
+        confirmation_text=prompt,
+    )
+
+    assert result.status is MetadataWriteRunStatus.VERIFIED
+    assert result.scan_run_id is not None
+    assert result.observation_id is not None
+    assert result.collection_state_snapshot_id is not None
+    authorization = SQLiteMetadataWriteStore(engine).get_authorization(
+        authorized.authorization_id
+    )
+    assert authorization is not None
+    assert hashlib.sha256(source_path.read_bytes()).hexdigest() == (
+        authorization.expected_output_sha256
+    )
+    report = SQLiteMetadataWriteStatusReportReader(
+        SQLiteMetadataWriteStore(engine)
+    ).read(result.run_id)
+    assert report.status is MetadataWriteRunStatus.VERIFIED
+    assert report.reconciliation is not None
+    assert report.reconciliation.scan_run_id == result.scan_run_id
+    assert SQLiteScanRootWriteLeaseStore(engine).current(ROOT_ID) is None
+    engine.dispose()
+
+
+def test_metadata_write_operator_reconciles_an_automatically_restored_original(
+    head_database: Path,
+) -> None:
+    engine, plan, capability, source_path, source, service = (
+        _metadata_write_operator_context(
+            head_database,
+            label="operator-recovery",
+            fail_preserve=True,
+        )
+    )
+    authorized = service.authorize(
+        plan_id=plan.id,
+        plan_content_hash=plan.content_hash,
+        capability_id=capability.metadata_write_capability_id,
+    )
+    prompt = service.confirmation_prompt(
+        plan_id=plan.id,
+        plan_content_hash=plan.content_hash,
+        capability_id=capability.metadata_write_capability_id,
+        authorization_id=authorized.authorization_id,
+    )
+    with pytest.raises(MetadataWriteOperatorError) as raised:
+        service.execute(
+            plan_id=plan.id,
+            plan_content_hash=plan.content_hash,
+            capability_id=capability.metadata_write_capability_id,
+            authorization_id=authorized.authorization_id,
+            confirmation_text=prompt,
+        )
+    assert raised.value.code is MetadataWriteOperatorErrorCode.VALIDATION_FAILED
+    assert source_path.read_bytes() == source
+
+    recovered = service.recover(
+        plan_id=plan.id,
+        plan_content_hash=plan.content_hash,
+        capability_id=capability.metadata_write_capability_id,
+        authorization_id=authorized.authorization_id,
+    )
+
+    assert recovered.status is MetadataWriteRunStatus.RECOVERED
+    assert recovered.scan_run_id is not None
+    report = SQLiteMetadataWriteStatusReportReader(
+        SQLiteMetadataWriteStore(engine)
+    ).read(recovered.run_id)
+    assert report.status is MetadataWriteRunStatus.RECOVERED
+    assert report.reconciliation is not None
+    assert report.reconciliation.outcome is MetadataWriteReconciliationOutcome.RECOVERED
+    assert all(
+        event.status is not MetadataWriteRunStatus.VERIFIED for event in report.events
+    )
+    assert SQLiteScanRootWriteLeaseStore(engine).current(ROOT_ID) is None
+    engine.dispose()
 
 
 def test_linux_tmpfs_metadata_write_execution_and_recovery_end_to_end(
@@ -1277,7 +1830,16 @@ def test_linux_tmpfs_metadata_write_execution_and_recovery_end_to_end(
             run_id=METADATA_WRITE_RUN_ID,
             created_at=run_created_at,
         )
-        store.create_run(run, authorization, plan, run_lease)
+        store.create_run(
+            run,
+            authorization,
+            plan,
+            run_lease,
+            confirmation_digest=metadata_write_confirmation_digest(
+                authorization,
+                metadata_write_confirmation_text(authorization),
+            ),
+        )
 
         result = execute_epub3_title_metadata_write(
             store=store,
@@ -1677,7 +2239,16 @@ def test_migration_0027_persists_one_use_fenced_metadata_write_journal(
         created_at=second_created,
     )
     with pytest.raises(MetadataWriteStoreError, match="already consumed"):
-        store.create_run(second_run, authorization, plan, second_lease)
+        store.create_run(
+            second_run,
+            authorization,
+            plan,
+            second_lease,
+            confirmation_digest=metadata_write_confirmation_digest(
+                authorization,
+                metadata_write_confirmation_text(authorization),
+            ),
+        )
     engine.dispose()
 
     with pytest.raises(RuntimeError, match="metadata write state prevents"):
@@ -1904,7 +2475,16 @@ def test_metadata_write_run_revalidates_the_latest_approved_review(
     )
 
     with pytest.raises(MetadataWriteStoreError, match="could not be created"):
-        store.create_run(run, authorization, plan, run_lease)
+        store.create_run(
+            run,
+            authorization,
+            plan,
+            run_lease,
+            confirmation_digest=metadata_write_confirmation_digest(
+                authorization,
+                metadata_write_confirmation_text(authorization),
+            ),
+        )
     assert store.get_run(run.id) is None
     assert store.events_for_run(run.id) == ()
     engine.dispose()
@@ -1925,7 +2505,7 @@ def test_migration_0027_empty_downgrade_restores_previous_lease_contract(
                 "WHERE type='table' AND name='scan_root_write_leases'"
             )
         ).scalar_one()
-    assert version == "0028_metadata_write_backend"
+    assert version == "0029_metadata_write_reconciliation"
     assert "METADATA_WRITE_PREPARATION" in lease_sql
     assert "METADATA_WRITE_RUN" in lease_sql
     engine.dispose()

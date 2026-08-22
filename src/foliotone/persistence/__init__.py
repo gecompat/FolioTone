@@ -154,6 +154,7 @@ if TYPE_CHECKING:
     )
     from foliotone.persistence.metadata_write import (
         MetadataWriteStatusEventSnapshot,
+        MetadataWriteStatusReconciliationSnapshot,
         MetadataWriteStatusSnapshot,
         MetadataWriteStoreError,
         SQLiteMetadataWriteStore,
@@ -189,6 +190,7 @@ def __getattr__(name: str) -> Any:
         return getattr(quarantine, name)
     if name in {
         "MetadataWriteStatusEventSnapshot",
+        "MetadataWriteStatusReconciliationSnapshot",
         "MetadataWriteStatusSnapshot",
         "MetadataWriteStoreError",
         "SQLiteMetadataWriteStore",
@@ -288,6 +290,7 @@ __all__ = [
     "MetadataCorrectionStoreError",
     "SQLiteMetadataCorrectionStore",
     "MetadataWriteStatusEventSnapshot",
+    "MetadataWriteStatusReconciliationSnapshot",
     "MetadataWriteStatusSnapshot",
     "MetadataWriteStoreError",
     "SQLiteMetadataWriteStore",

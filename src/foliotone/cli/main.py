@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hmac
 import json
 import os
 import sys
@@ -105,6 +106,7 @@ from foliotone.persistence.metadata_correction_report import (
     MetadataCorrectionPlanReportReaderError,
     SQLiteMetadataCorrectionPlanReportReader,
 )
+from foliotone.persistence.metadata_write import SQLiteMetadataWriteStore
 from foliotone.persistence.quarantine import SQLiteQuarantineStore
 from foliotone.tooling.ebook_readiness import inspect_ebook_toolchain
 from foliotone.tooling.runtime import ToolRuntime
@@ -156,6 +158,19 @@ from foliotone.workflows.archive_collection_report import (
 from foliotone.workflows.classification import (
     ClassificationReportError,
     read_book_classification_report,
+)
+from foliotone.workflows.metadata_write_operation import (
+    METADATA_WRITE_STAGE_ROOT_ENV,
+    MetadataWriteAuthorizationResult,
+    MetadataWriteOperationResult,
+    MetadataWriteOperatorError,
+    MetadataWriteOperatorService,
+    create_metadata_write_operator_service,
+)
+from foliotone.workflows.metadata_write_report import (
+    MetadataWriteStatusReport,
+    MetadataWriteStatusReportError,
+    SQLiteMetadataWriteStatusReportReader,
 )
 from foliotone.workflows.quarantine_report import (
     QuarantineStatusReport,
@@ -237,9 +252,7 @@ class _ScanConsoleProgress:
 
     def report(
         self,
-        progress: (
-            ScanProgress | HashProgress | DiscoveryProgress | ReconciliationProgress
-        ),
+        progress: (ScanProgress | HashProgress | DiscoveryProgress | ReconciliationProgress),
     ) -> None:
         if not self._enabled:
             return
@@ -388,6 +401,50 @@ def _library_health_sample_limit(value: str) -> int:
             f"sample limit must be between 0 and {MAX_LIBRARY_HEALTH_SAMPLES_PER_FINDING}"
         )
     return limit
+
+
+def _metadata_write_sha256(value: str) -> str:
+    if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
+        raise argparse.ArgumentTypeError("expected one lowercase SHA-256 digest")
+    return value
+
+
+def _add_metadata_write_binders(
+    parser: argparse.ArgumentParser,
+    *,
+    include_authorization: bool,
+) -> None:
+    parser.add_argument(
+        "--plan-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque approved metadata correction plan identifier.",
+    )
+    parser.add_argument(
+        "--plan-content-hash",
+        required=True,
+        type=_metadata_write_sha256,
+        help="Exact lowercase content hash of the approved plan.",
+    )
+    parser.add_argument(
+        "--capability-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque locally configured metadata-write capability identifier.",
+    )
+    if include_authorization:
+        parser.add_argument(
+            "--authorization-id",
+            required=True,
+            type=EntityId.parse,
+            help="Opaque short-lived metadata-write authorization identifier.",
+        )
+    parser.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Path- and metadata-value-free output format; defaults to text.",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1239,28 +1296,39 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show one bounded, read-only classification projection summary.",
     )
     ebook_classification_report.add_argument(
-        "--target-kind", required=True, choices=("WORK", "EDITION"),
+        "--target-kind",
+        required=True,
+        choices=("WORK", "EDITION"),
         help="Classification target kind.",
     )
     ebook_classification_report.add_argument(
-        "--target-id", required=True, type=EntityId.parse,
+        "--target-id",
+        required=True,
+        type=EntityId.parse,
         help="Opaque internal target ID.",
     )
     ebook_classification_report.add_argument(
-        "--projection-id", type=EntityId.parse, default=None,
+        "--projection-id",
+        type=EntityId.parse,
+        default=None,
         help="Optional opaque projection ID; otherwise the latest bounded snapshot is read.",
     )
     ebook_classification_report.add_argument(
-        "--profile", dest="projection_profile", default="book-classification-projection/v1",
+        "--profile",
+        dest="projection_profile",
+        default="book-classification-projection/v1",
         help="Projection profile literal.",
     )
     ebook_classification_report.add_argument(
-        "--database", type=Path,
+        "--database",
+        type=Path,
         default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
         help="SQLite database path; opened read-only.",
     )
     ebook_classification_report.add_argument(
-        "--output", choices=("text", "json"), default="text",
+        "--output",
+        choices=("text", "json"),
+        default="text",
         help="Output format.",
     )
     ebook_inventory_report.add_argument(
@@ -1615,6 +1683,50 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format; both variants remain path- and metadata-value-free.",
     )
 
+    metadata_write_authorize = subparsers.add_parser(
+        "metadata-write-authorize",
+        help="Prepare and authorize one exact reviewed EPUB title replacement.",
+    )
+    _add_metadata_write_binders(
+        metadata_write_authorize,
+        include_authorization=False,
+    )
+
+    metadata_write_execute = subparsers.add_parser(
+        "metadata-write-execute",
+        help="Execute one authorized EPUB title replacement after an exact stdin confirmation.",
+    )
+    _add_metadata_write_binders(
+        metadata_write_execute,
+        include_authorization=True,
+    )
+
+    metadata_write_recover = subparsers.add_parser(
+        "metadata-write-recover",
+        help="Recover one exact pre-VERIFIED EPUB title write state.",
+    )
+    _add_metadata_write_binders(
+        metadata_write_recover,
+        include_authorization=True,
+    )
+
+    metadata_write_status = subparsers.add_parser(
+        "metadata-write-status",
+        help="Read one persisted metadata-write run without source access.",
+    )
+    metadata_write_status.add_argument(
+        "--run-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque persisted metadata-write run identifier.",
+    )
+    metadata_write_status.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Path- and metadata-value-free output format; defaults to text.",
+    )
+
     archive_collection_status = subparsers.add_parser(
         "archive-collection-status",
         help="Read one persisted archive collection run without source access.",
@@ -1859,10 +1971,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print("Read-only PDF metadata and text analysis is available through pdf-analyze.")
         print("Read-only EPUB conformance evidence is available through epub-validate.")
+        print("Explicit e-book specialist readiness is available through ebook-tools-doctor.")
         print(
-            "Explicit e-book specialist readiness is available through ebook-tools-doctor."
+            "The bounded reviewed EPUB title writer is available through "
+            "metadata-write-authorize, metadata-write-execute, metadata-write-recover, "
+            "and metadata-write-status."
         )
-        print("Source-media and external-tool mutation commands are not implemented.")
+        print("Other source-media and external-tool mutation commands remain unavailable.")
         return 0
 
     if args.command == "ebook-tools-doctor":
@@ -1935,6 +2050,18 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-metadata-correction-report":
         return _run_ebook_metadata_correction_report(args)
+
+    if args.command == "metadata-write-authorize":
+        return _run_metadata_write_authorize(args)
+
+    if args.command == "metadata-write-execute":
+        return _run_metadata_write_execute(args)
+
+    if args.command == "metadata-write-recover":
+        return _run_metadata_write_recover(args)
+
+    if args.command == "metadata-write-status":
+        return _run_metadata_write_status(args)
 
     if args.command == "archive-collection-status":
         return _run_archive_collection_status(args)
@@ -3445,6 +3572,286 @@ def _ebook_metadata_correction_report_error(args: argparse.Namespace, code: str)
     return 2
 
 
+def _metadata_write_database() -> Path:
+    return Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db"))
+
+
+def _metadata_write_stage_root() -> Path:
+    return Path(
+        os.environ.get(
+            METADATA_WRITE_STAGE_ROOT_ENV,
+            "/data/foliotone-metadata-write-stage",
+        )
+    )
+
+
+def _open_metadata_write_operator() -> tuple[Engine, MetadataWriteOperatorService]:
+    database = _metadata_write_database()
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    try:
+        service = create_metadata_write_operator_service(
+            engine,
+            _metadata_write_stage_root(),
+            metadata_executable=os.environ.get("FOLIOTONE_EBOOK_META", "ebook-meta"),
+            text_executable=os.environ.get(
+                "FOLIOTONE_EBOOK_CONVERT", "ebook-convert"
+            ),
+            cover_executable=os.environ.get(
+                "FOLIOTONE_CALIBRE_DEBUG", "calibre-debug"
+            ),
+            java_executable=os.environ.get("FOLIOTONE_JAVA", "java"),
+            epubcheck_jar=Path(
+                os.environ.get("FOLIOTONE_EPUBCHECK_JAR", "epubcheck.jar")
+            ),
+        )
+    except Exception:
+        engine.dispose()
+        raise
+    return engine, service
+
+
+def _run_metadata_write_authorize(args: argparse.Namespace) -> int:
+    engine: Engine | None = None
+    try:
+        engine, service = _open_metadata_write_operator()
+        result = service.authorize(
+            plan_id=args.plan_id,
+            plan_content_hash=args.plan_content_hash,
+            capability_id=args.capability_id,
+        )
+    except MetadataWriteOperatorError as error:
+        return _metadata_write_error(args, "metadata-write-authorize", error.code.value)
+    except (OperationalError, OSError, ValueError):
+        return _metadata_write_error(args, "metadata-write-authorize", "RUNTIME_UNAVAILABLE")
+    except Exception:
+        return _metadata_write_error(args, "metadata-write-authorize", "INTERNAL_ERROR")
+    finally:
+        if engine is not None:
+            engine.dispose()
+    _emit_metadata_write_authorization(args, result)
+    return 0
+
+
+def _run_metadata_write_execute(args: argparse.Namespace) -> int:
+    engine: Engine | None = None
+    try:
+        engine, service = _open_metadata_write_operator()
+        prompt = service.confirmation_prompt(
+            plan_id=args.plan_id,
+            plan_content_hash=args.plan_content_hash,
+            capability_id=args.capability_id,
+            authorization_id=args.authorization_id,
+        )
+        confirmation = _read_metadata_write_confirmation(prompt)
+        if confirmation is None:
+            return _metadata_write_error(
+                args,
+                "metadata-write-execute",
+                "CONFIRMATION_INVALID",
+            )
+        result = service.execute(
+            plan_id=args.plan_id,
+            plan_content_hash=args.plan_content_hash,
+            capability_id=args.capability_id,
+            authorization_id=args.authorization_id,
+            confirmation_text=confirmation,
+        )
+    except MetadataWriteOperatorError as error:
+        return _metadata_write_error(args, "metadata-write-execute", error.code.value)
+    except KeyboardInterrupt:
+        return _metadata_write_error(args, "metadata-write-execute", "CONFIRMATION_INVALID")
+    except (OperationalError, OSError, ValueError):
+        return _metadata_write_error(args, "metadata-write-execute", "RUNTIME_UNAVAILABLE")
+    except Exception:
+        return _metadata_write_error(args, "metadata-write-execute", "INTERNAL_ERROR")
+    finally:
+        if engine is not None:
+            engine.dispose()
+    _emit_metadata_write_operation(args, "metadata-write-execute", result)
+    return 0
+
+
+def _run_metadata_write_recover(args: argparse.Namespace) -> int:
+    engine: Engine | None = None
+    try:
+        engine, service = _open_metadata_write_operator()
+        result = service.recover(
+            plan_id=args.plan_id,
+            plan_content_hash=args.plan_content_hash,
+            capability_id=args.capability_id,
+            authorization_id=args.authorization_id,
+        )
+    except MetadataWriteOperatorError as error:
+        return _metadata_write_error(args, "metadata-write-recover", error.code.value)
+    except (OperationalError, OSError, ValueError):
+        return _metadata_write_error(args, "metadata-write-recover", "RUNTIME_UNAVAILABLE")
+    except Exception:
+        return _metadata_write_error(args, "metadata-write-recover", "INTERNAL_ERROR")
+    finally:
+        if engine is not None:
+            engine.dispose()
+    _emit_metadata_write_operation(args, "metadata-write-recover", result)
+    return 0
+
+
+def _run_metadata_write_status(args: argparse.Namespace) -> int:
+    database = _metadata_write_database()
+    if not database.is_file():
+        return _metadata_write_error(args, "metadata-write-status", "DATABASE_UNAVAILABLE")
+    try:
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            report = SQLiteMetadataWriteStatusReportReader(SQLiteMetadataWriteStore(engine)).read(
+                args.run_id
+            )
+        finally:
+            engine.dispose()
+    except MetadataWriteStatusReportError:
+        return _metadata_write_error(args, "metadata-write-status", "RUN_UNAVAILABLE")
+    except OperationalError:
+        return _metadata_write_error(args, "metadata-write-status", "SCHEMA_UNAVAILABLE")
+    except (OSError, ValueError):
+        return _metadata_write_error(args, "metadata-write-status", "DATABASE_UNAVAILABLE")
+    except Exception:
+        return _metadata_write_error(args, "metadata-write-status", "INTERNAL_READ_ERROR")
+    if args.output == "json":
+        _emit_json(report.payload())
+    else:
+        _print_metadata_write_status(report)
+    return 0
+
+
+def _read_metadata_write_confirmation(prompt: str) -> str | None:
+    prefix = "CONFIRM METADATA WRITE "
+    if not isinstance(prompt, str) or not prompt.startswith(prefix):
+        return None
+    try:
+        authorization_id = EntityId.parse(prompt.removeprefix(prefix))
+    except (TypeError, ValueError):
+        return None
+    if prompt != f"{prefix}{authorization_id}":
+        return None
+    sys.stderr.write(f"{prompt}\n")
+    sys.stderr.flush()
+    supplied = sys.stdin.readline(257)
+    if not supplied.endswith("\n") or len(supplied) > 256:
+        return None
+    supplied = supplied[:-1]
+    if supplied.endswith("\r"):
+        supplied = supplied[:-1]
+    if "\r" in supplied or "\n" in supplied:
+        return None
+    return supplied if hmac.compare_digest(supplied, prompt) else None
+
+
+def _emit_metadata_write_authorization(
+    args: argparse.Namespace,
+    result: MetadataWriteAuthorizationResult,
+) -> None:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": "metadata-write-authorize",
+                "ok": True,
+                "profile": result.profile,
+                "authorization_id": str(result.authorization_id),
+                "plan_id": str(result.plan_id),
+                "scan_root_id": str(result.scan_root_id),
+                "authorized_at": result.authorized_at.isoformat(),
+                "expires_at": result.expires_at.isoformat(),
+                "status": result.status,
+            }
+        )
+        return
+    print(f"Authorization: {result.authorization_id}")
+    print(f"Plan: {result.plan_id}")
+    print(f"ScanRoot: {result.scan_root_id}")
+    print(f"Profile: {result.profile}")
+    print(f"Status: {result.status}")
+    print(f"Authorized: {result.authorized_at.isoformat()}")
+    print(f"Expires: {result.expires_at.isoformat()}")
+
+
+def _emit_metadata_write_operation(
+    args: argparse.Namespace,
+    command: str,
+    result: MetadataWriteOperationResult,
+) -> None:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": command,
+                "ok": True,
+                "profile": result.profile,
+                "authorization_id": str(result.authorization_id),
+                "run_id": str(result.run_id),
+                "plan_id": str(result.plan_id),
+                "scan_root_id": str(result.scan_root_id),
+                "status": result.status.value,
+                "scan_run_id": (None if result.scan_run_id is None else str(result.scan_run_id)),
+                "observation_id": (
+                    None if result.observation_id is None else str(result.observation_id)
+                ),
+                "collection_state_snapshot_id": (
+                    None
+                    if result.collection_state_snapshot_id is None
+                    else str(result.collection_state_snapshot_id)
+                ),
+            }
+        )
+        return
+    print(f"Run: {result.run_id}")
+    print(f"Authorization: {result.authorization_id}")
+    print(f"Plan: {result.plan_id}")
+    print(f"ScanRoot: {result.scan_root_id}")
+    print(f"Profile: {result.profile}")
+    print(f"Status: {result.status.value}")
+    if result.scan_run_id is not None:
+        print(f"Reconciliation scan: {result.scan_run_id}")
+    if result.observation_id is not None:
+        print(f"Reconciliation observation: {result.observation_id}")
+    if result.collection_state_snapshot_id is not None:
+        print(f"CollectionState: {result.collection_state_snapshot_id}")
+
+
+def _print_metadata_write_status(report: MetadataWriteStatusReport) -> None:
+    print(f"Run: {report.run_id}")
+    print(f"Authorization: {report.authorization_id}")
+    print(f"Plan: {report.plan_id}")
+    print(f"ScanRoot: {report.scan_root_id}")
+    print(f"Profile: {report.profile}")
+    print(f"Status: {report.status.value}")
+    print(f"Created: {report.created_at.isoformat()}")
+    print(f"Authorized: {report.authorized_at.isoformat()}")
+    print(f"Expires: {report.expires_at.isoformat()}")
+    for event in report.events:
+        print(f"Event: {event.sequence_no} {event.status.value} {event.occurred_at.isoformat()}")
+    if report.reconciliation is not None:
+        print(f"Reconciliation outcome: {report.reconciliation.outcome.value}")
+        print(f"Reconciliation scan: {report.reconciliation.scan_run_id}")
+        print(f"Reconciliation observation: {report.reconciliation.observation_id}")
+        print(f"CollectionState: {report.reconciliation.collection_state_snapshot_id}")
+        print(f"Reconciled: {report.reconciliation.reconciled_at.isoformat()}")
+
+
+def _metadata_write_error(args: argparse.Namespace, command: str, code: str) -> int:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": command,
+                "ok": False,
+                "error": {"code": code},
+            }
+        )
+    else:
+        print(f"Metadata write failed: {code}.")
+    return 2
+
+
 def _run_archive_collection_status(args: argparse.Namespace) -> int:
     database: Path = args.database
     if not database.is_file():
@@ -3452,9 +3859,9 @@ def _run_archive_collection_status(args: argparse.Namespace) -> int:
     try:
         engine = create_sqlite_read_only_engine(database)
         try:
-            report = SQLiteArchiveCollectionReportReader(
-                SQLiteArchiveCollectionStore(engine)
-            ).read(args.run_id)
+            report = SQLiteArchiveCollectionReportReader(SQLiteArchiveCollectionStore(engine)).read(
+                args.run_id
+            )
         finally:
             engine.dispose()
     except ArchiveCollectionReportError:
@@ -3523,9 +3930,9 @@ def _run_quarantine_status(args: argparse.Namespace) -> int:
     try:
         engine = create_sqlite_read_only_engine(database)
         try:
-            report = SQLiteQuarantineStatusReportReader(
-                SQLiteQuarantineStore(engine)
-            ).read(args.run_id)
+            report = SQLiteQuarantineStatusReportReader(SQLiteQuarantineStore(engine)).read(
+                args.run_id
+            )
         finally:
             engine.dispose()
     except QuarantineStatusReportError:
@@ -3554,10 +3961,7 @@ def _print_quarantine_status(report: QuarantineStatusReport) -> None:
     print(f"Authorized: {report.authorized_at.isoformat()}")
     print(f"Expires: {report.expires_at.isoformat()}")
     for event in report.events:
-        print(
-            f"Event: {event.sequence_no} {event.status.value} "
-            f"{event.occurred_at.isoformat()}"
-        )
+        print(f"Event: {event.sequence_no} {event.status.value} {event.occurred_at.isoformat()}")
 
 
 def _quarantine_status_error(args: argparse.Namespace, code: str) -> int:
@@ -3661,11 +4065,7 @@ def _run_ebook_match_review_list(args: argparse.Namespace) -> int:
     try:
         if (args.after_created_at is None) != (args.after_id is None):
             raise ValueError("both review cursor fields are required")
-        after = (
-            None
-            if args.after_created_at is None
-            else (args.after_created_at, args.after_id)
-        )
+        after = None if args.after_created_at is None else (args.after_created_at, args.after_id)
         engine = create_sqlite_read_only_engine(database)
         try:
             review_store = SQLiteResolutionReviewStore(engine)
