@@ -266,6 +266,24 @@ einen Snapshot. Die Projektion erzeugt keine kanonischen Metadaten und
 speichert keine Query-History. `CollectionQuery` und sein Index bleiben
 book-only; eine spätere medienübergreifende Abstraktion wird nicht vorweggenommen.
 
+### LibraryHealthSnapshot
+
+`LibraryHealthSnapshot` ist eine immutable, content-addressed book-only
+Projektion über genau einen `CollectionStateSnapshot` und dessen gebundenen
+Query-Index. Sie bewertet sieben unabhängige Bereiche: Scan/Fixity,
+Analyseabdeckung, Metadaten/Authority/Classification, offene Reviews,
+Duplicate-/Varianten-Evidence, Dependencies und blockierte Operationen.
+
+Jede Dimension besitzt eigene Coverage, eigenen Status, vollständige
+Finding-Counts und begrenzte opaque File-/Observation-Samples. Der Status
+reduziert nur die Severity innerhalb derselben Dimension; es existiert kein
+dimensionsübergreifender Score. Ein Finding ist Evidence für einen Zustand,
+keine Identity-, Keep-, Quarantäne- oder andere Mutationsentscheidung.
+
+`LibraryHealthComparison` stellt Counts, Coverage und Status zweier
+verschiedener Health-Snapshots desselben `ScanRoot` gegenüber. Er behauptet
+keine Kausalität und verändert keine persistierte Evidence.
+
 ## Music layer
 
 ### MusicWork

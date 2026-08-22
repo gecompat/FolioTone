@@ -403,14 +403,22 @@ class SQLiteCollectionStateStore:
             CollectionQueryStoreError,
             SQLiteCollectionQueryStore,
         )
+        from foliotone.persistence.library_health import (
+            LibraryHealthStoreError,
+            SQLiteLibraryHealthStore,
+        )
 
         try:
-            SQLiteCollectionQueryStore(
+            query_index, _created = SQLiteCollectionQueryStore(
                 self._engine,
                 batch_size=self._batch_size,
             ).ensure_for_snapshot(connection, snapshot)
-        except CollectionQueryStoreError as error:
-            raise CollectionStateStoreError("Collection query index build failed") from error
+            SQLiteLibraryHealthStore(
+                self._engine,
+                batch_size=self._batch_size,
+            ).ensure_for_snapshot(connection, snapshot, query_index)
+        except (CollectionQueryStoreError, LibraryHealthStoreError) as error:
+            raise CollectionStateStoreError("Collection derived projection build failed") from error
 
     @staticmethod
     def _source_scan(connection: Connection, scan_run_id: EntityId) -> _SourceScan:

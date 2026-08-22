@@ -35,6 +35,7 @@ from foliotone.persistence.collection_query_schema import (
 from foliotone.persistence.collection_state import SQLiteCollectionStateStore
 from foliotone.persistence.collection_state_diff import SQLiteCollectionStateDiffReader
 from foliotone.persistence.collection_state_schema import collection_state_snapshots
+from foliotone.persistence.library_health import SQLiteLibraryHealthStore
 from foliotone.workflows.collection_state_query import CollectionQueryReport, CollectionQueryService
 
 NOW = datetime(2026, 8, 22, 14, 0, tzinfo=UTC)
@@ -237,10 +238,17 @@ def _query(value: dict[str, object]) -> CollectionQuerySpec:
     return parse_collection_query_spec(value)
 
 
-def test_migration_0024_adds_insert_only_query_index_and_fts(tmp_path: Path) -> None:
+def test_migration_0024_adds_insert_only_query_index_and_fts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     database = tmp_path / "collection-query-migration.db"
     migrate(database, "0023_collection_state")
-    migrate(database)
+    migrate(database, "0024_collection_state_diff_query")
+    monkeypatch.setattr(
+        SQLiteLibraryHealthStore,
+        "ensure_for_snapshot",
+        lambda *_args, **_kwargs: None,
+    )
     engine = create_sqlite_engine(database)
     with engine.connect() as connection:
         assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
@@ -313,7 +321,7 @@ def test_migration_0024_adds_insert_only_query_index_and_fts(tmp_path: Path) -> 
 def test_empty_0024_migration_downgrade_and_reupgrade_are_clean(tmp_path: Path) -> None:
     database = tmp_path / "empty-query-migration.db"
     migrate(database, "0023_collection_state")
-    migrate(database)
+    migrate(database, "0024_collection_state_diff_query")
     command.downgrade(alembic_config(database), "0023_collection_state")
     engine = create_sqlite_engine(database)
     with engine.connect() as connection:
@@ -323,7 +331,7 @@ def test_empty_0024_migration_downgrade_and_reupgrade_are_clean(tmp_path: Path) 
         names = {str(row[0]) for row in connection.execute(text("SELECT name FROM sqlite_master"))}
     assert not any(name.startswith("collection_query_") for name in names)
     engine.dispose()
-    migrate(database)
+    migrate(database, "0024_collection_state_diff_query")
     engine = create_sqlite_engine(database)
     with engine.connect() as connection:
         assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (

@@ -27,7 +27,9 @@ from foliotone.adapters.calibre import (
 from foliotone.adapters.epubcheck import EpubCheckAnalyzer, EpubCheckError
 from foliotone.adapters.poppler import PopplerPdfAnalyzer, PopplerPdfError
 from foliotone.collection_state import (
+    DEFAULT_LIBRARY_HEALTH_DETAIL_LIMIT,
     MAX_COLLECTION_STATE_DIFF_LIMIT,
+    MAX_LIBRARY_HEALTH_SAMPLES_PER_FINDING,
     CollectionQuerySpec,
     CollectionStateDiffRequest,
     parse_collection_query_spec,
@@ -133,8 +135,11 @@ from foliotone.workflows import (
     EbookInventoryReportService,
     EbookMatchingError,
     EbookMatchingService,
+    LibraryHealthReport,
+    LibraryHealthWorkflowError,
     PostscanCompletionVerifier,
     SQLiteCollectionStateReportReader,
+    SQLiteLibraryHealthReportReader,
     candidate_hash_status_payload,
     ebook_analysis_format,
 )
@@ -366,6 +371,18 @@ def _collection_query_spec(value: str) -> CollectionQuerySpec:
         return parse_collection_query_spec(value)
     except ValueError as error:
         raise argparse.ArgumentTypeError("query must match collection-query/v1") from error
+
+
+def _library_health_sample_limit(value: str) -> int:
+    try:
+        limit = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("expected a bounded nonnegative integer") from error
+    if not 0 <= limit <= MAX_LIBRARY_HEALTH_SAMPLES_PER_FINDING:
+        raise argparse.ArgumentTypeError(
+            f"sample limit must be between 0 and {MAX_LIBRARY_HEALTH_SAMPLES_PER_FINDING}"
+        )
+    return limit
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1509,6 +1526,44 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format; JSON remains private-detail-free.",
     )
 
+    library_health_report = subparsers.add_parser(
+        "library-health-report",
+        help="Read the multidimensional book-only Health projection strictly read-only.",
+    )
+    library_health_report.add_argument(
+        "--snapshot",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque CollectionState snapshot identifier.",
+    )
+    library_health_report.add_argument(
+        "--baseline",
+        type=EntityId.parse,
+        help="Optional earlier CollectionState snapshot of the same ScanRoot.",
+    )
+    library_health_report.add_argument(
+        "--sample-limit",
+        type=_library_health_sample_limit,
+        default=DEFAULT_LIBRARY_HEALTH_DETAIL_LIMIT,
+        help=(
+            "Opaque samples per finding; defaults to "
+            f"{DEFAULT_LIBRARY_HEALTH_DETAIL_LIMIT}, maximum "
+            f"{MAX_LIBRARY_HEALTH_SAMPLES_PER_FINDING}."
+        ),
+    )
+    library_health_report.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="Existing SQLite database path; opened strictly read-only.",
+    )
+    library_health_report.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format; both variants remain path- and metadata-value-free.",
+    )
+
     consolidation_plan_report = subparsers.add_parser(
         "ebook-consolidation-report",
         help="Read one persisted non-executable consolidation plan without source access.",
@@ -1839,6 +1894,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "collection-search":
         return _run_collection_search(args)
+
+    if args.command == "library-health-report":
+        return _run_library_health_report(args)
 
     if args.command == "ebook-consolidation-report":
         return _run_ebook_consolidation_report(args)
@@ -3130,6 +3188,65 @@ def _emit_collection_query(report: CollectionQueryReport, args: argparse.Namespa
     print(f"Truncated: {str(payload['truncated']).casefold()}")
     if payload["next_after_file_id"] is not None:
         print(f"Next after file: {payload['next_after_file_id']}")
+
+
+def _run_library_health_report(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    if not database.is_file():
+        return _collection_projection_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            report = SQLiteLibraryHealthReportReader(engine).read(
+                args.snapshot,
+                baseline_snapshot_id=args.baseline,
+                sample_limit=args.sample_limit,
+            )
+        finally:
+            engine.dispose()
+    except LibraryHealthWorkflowError:
+        return _collection_projection_error(args, "HEALTH_PROJECTION_UNAVAILABLE")
+    except OperationalError:
+        return _collection_projection_error(args, "SCHEMA_UNAVAILABLE")
+    except (OSError, ValueError):
+        return _collection_projection_error(args, "REQUEST_OR_DATABASE_INVALID")
+    except Exception:
+        return _collection_projection_error(args, "INTERNAL_HEALTH_ERROR")
+    _emit_library_health(report, args)
+    return 0
+
+
+def _emit_library_health(report: LibraryHealthReport, args: argparse.Namespace) -> None:
+    payload = report.payload()
+    if args.output == "json":
+        _emit_json(payload)
+        return
+    print(f"Health snapshot: {payload['health_snapshot_id']}")
+    print(f"CollectionState snapshot: {payload['collection_state_snapshot_id']}")
+    print(f"Items: {payload['item_count']}")
+    for dimension in report.snapshot.dimensions:
+        print(
+            f"Dimension: {dimension.dimension.value} "
+            f"status={dimension.status.value} "
+            f"coverage={dimension.coverage_state.value} "
+            f"affected={dimension.affected_item_count}"
+        )
+        for finding in dimension.findings:
+            print(
+                f"Finding: {finding.code.value} severity={finding.severity.value} "
+                f"items={finding.item_count}"
+            )
+            for sample in finding.samples[: report.sample_limit]:
+                print(f"Sample: file={sample.file_id} observation={sample.observation_id}")
+    if report.comparison is not None:
+        print(f"Baseline Health snapshot: {report.comparison.before_health_snapshot_id}")
+        for value in report.comparison.dimension_deltas:
+            print(
+                f"Dimension delta: {value.dimension.value} "
+                f"affected={value.affected_item_delta} "
+                f"status={value.before_status.value}->{value.after_status.value}"
+            )
+    print(f"Truncated: {str(payload['truncated']).casefold()}")
 
 
 def _collection_projection_error(args: argparse.Namespace, code: str) -> int:

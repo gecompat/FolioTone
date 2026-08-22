@@ -9,6 +9,7 @@ STATUS = PLANNING / "PROJECT_STATUS.md"
 HANDOVER = PLANNING / "HANDOVER.md"
 IMPLEMENTATION = PLANNING / "IMPLEMENTATION_PLAN.md"
 FUTURE_MAP = PLANNING / "FUTURE_CAPABILITY_MAP.md"
+WRITE_PIPELINE = PLANNING / "EBOOK_WRITE_PIPELINE_PLAN.md"
 ADR = ROOT / "docs/decisions/ADR-0058-book-collection-state-and-local-projections.md"
 
 
@@ -21,7 +22,9 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
 
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
-    assert backlog.count("| CS-03 | NEXT |") == 1
+    assert backlog.count("| CS-03 | DONE |") == 1
+    assert "| NOW | E-Book-Produktlinie |" in backlog
+    assert "Keine weitere Medienlinie" in backlog
     assert "| W10-005 | READY |" in backlog
     assert "| OPS-001 | READY |" in backlog
     assert "Andere Planungsdokumente erläutern diese Aufgaben" in backlog
@@ -85,3 +88,26 @@ def test_current_status_does_not_reintroduce_superseded_w10_claims() -> None:
     assert "nicht atomar" in status
     assert "FG-W10-MOVE-BACKEND" in status
     assert "Capability-Auflösung" in handover
+
+
+def test_ebook_write_pipeline_is_discoverable_and_remains_gate_bound() -> None:
+    plan = _text(WRITE_PIPELINE)
+    documentation_index = _text(ROOT / "docs/README.md")
+    backlog = _text(BACKLOG)
+
+    required = (
+        "Read-only erfassen",
+        "MetadataCorrectionPlan",
+        "FG-W10-METADATA-WRITE",
+        "FG-W10-SIDECAR-WRITE",
+        "FG-W10-EXTERNAL-LIBRARY-WRITE",
+        "FG-W10-RENAME",
+        "FG-W10-ARCHIVE-REWRITE",
+        "REST-API und grafische Oberfläche",
+        "Anfangs ist nur `E-Books` aktiv",
+        "autorisiert keine neue Mutation",
+    )
+    assert all(marker in plan for marker in required)
+    assert "EBOOK_WRITE_PIPELINE_PLAN.md" in documentation_index
+    assert "| W9-006 | PLANNED |" in backlog
+    assert "| W9-007 | PLANNED |" in backlog

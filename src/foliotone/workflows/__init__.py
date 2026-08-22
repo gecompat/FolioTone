@@ -103,6 +103,12 @@ from foliotone.workflows.ebook_matching import (
     EbookMatchingOutcome,
     EbookMatchingService,
 )
+from foliotone.workflows.library_health import (
+    LIBRARY_HEALTH_REPORT_PROFILE,
+    LibraryHealthReport,
+    LibraryHealthWorkflowError,
+    SQLiteLibraryHealthReportReader,
+)
 from foliotone.workflows.postscan_verify import (
     POSTSCAN_SCHEMA_REVISION,
     PostscanCompletionVerifier,
@@ -185,6 +191,10 @@ __all__ = [
     "CollectionStateDiffReport",
     "CollectionStateDiffService",
     "CollectionStateDiffWorkflowError",
+    "LIBRARY_HEALTH_REPORT_PROFILE",
+    "LibraryHealthReport",
+    "LibraryHealthWorkflowError",
+    "SQLiteLibraryHealthReportReader",
     "EbookInventoryReportError",
     "EbookInventoryReportLimits",
     "EbookInventoryReportMissingError",

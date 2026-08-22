@@ -18,9 +18,11 @@ Maßgeblich bleiben:
 3. `IMPLEMENTATION_PLAN.md` für die W0-bis-W10-Folge;
 4. `EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` und
    `EBOOK_SPARK_WORK_PACKAGES.md` für die E-Book-Pakete;
-5. `MODEL_ROUTING_POLICY.md` für Modell-, Thinking- und Agentenauswahl;
-6. `EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md` für Archive;
-7. akzeptierte ADRs für Architektur- und Sicherheitsverträge.
+5. `EBOOK_WRITE_PIPELINE_PLAN.md` für die zusammenhängende, weiterhin
+   gate-gebundene E-Book-Schreibstrecke;
+6. `MODEL_ROUTING_POLICY.md` für Modell-, Thinking- und Agentenauswahl;
+7. `EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md` für Archive;
+8. akzeptierte ADRs für Architektur- und Sicherheitsverträge.
 
 Die Einordnungen in diesem Dokument unterscheiden:
 
@@ -57,9 +59,9 @@ Statusachse und keine öffentlichen Runtime-Literale.
 
 EB-07, EB-08, die read-only Archive-Strecke und S-W10-01 bis S-W10-04 sind
 abgeschlossen. ADR-0058 und der kanonische Backlog haben die zuvor nur
-strategisch skizzierten book-only Produktprojektionen übernommen. `CS-01` ist
-abgeschlossen, `CS-02` ist abgeschlossen und `CS-03` ist der nächste reguläre
-Slice; `W10-005` ist parallel `READY`. Der genaue
+strategisch skizzierten book-only Produktprojektionen übernommen. `CS-01`,
+`CS-02` und `CS-03` sind abgeschlossen; `W10-005` ist unabhängig `READY`.
+Eine weitere Medienlinie ist nicht automatisch aktiviert. Der genaue
 Paketstatus wird hier nicht dupliziert.
 
 ## Empfohlene Entwicklungsfolge
@@ -216,9 +218,28 @@ API, MCP, Web- oder Desktop-Oberfläche und ein Watcher/Daemon folgen erst,
 wenn Query-, Policy-, Review- und Plan-Application-Verträge stabil sind.
 Die CLI bleibt bis dahin Referenzadapter.
 
+Die erste Produktoberflächen-ADR muss eine medienneutrale Shell mit einer
+expliziten Registry fachlicher Linien definieren. E-Books, Musik, Bilder und
+jede spätere Linie erhalten eigene Navigationseinstiege, Capability-Sets und
+Application-Routen; gemeinsam bleiben nur Identity-, Evidence-, Review-,
+Policy- und Persistenzinfrastruktur. Anfangs ist ausschließlich der
+E-Book-Einstieg aktiv. Deaktivierte oder noch nicht implementierte Linien
+werden als solche ausgewiesen und nicht durch leere generische Ansichten
+vorgetäuscht.
+
+Eine REST-API ist ein versionierter Adapter über dieselben Application-
+Commands und -Queries, keine zweite Domainlogik. Vor Implementierung sind
+OpenAPI-Schema, Authentisierung, rollen- und capability-basierte
+Autorisierung, Keyset-Pagination, Request-/Response-Limits, Idempotenz,
+Fehlerliterale, Privacy-Redaction, Audit und lokale Deployment-Grenzen zu
+entscheiden. Die grafische Oberfläche bleibt ein dünner Client dieses
+Vertrags und muss Planvorschau, Evidence-Erklärung, Review und explizite
+Bestätigungen getrennt darstellen.
+
 Eine ausführende Ebene ist davon getrennt. W10 benötigt eine eigene
 Sicherheitsentscheidung und darf nicht aus einem UI- oder API-Bedarf
-abgeleitet werden.
+abgeleitet werden. Solange eine konkrete Write-Capability nicht akzeptiert
+ist, existiert dafür weder REST-Endpunkt noch aktivierbares UI-Control.
 
 ## Capability-Matrix
 
@@ -230,14 +251,14 @@ abgeleitet werden.
 | Archive Matching/Planung | Secret-, Member-, Matching- und Planungs-Evidence verbinden | bestehender Plan, abhängigkeitsgebunden | W5B-011, W6-007, W9-004/W9-005; EB-A2/EB-A3 | bestehende Archive-Gates |
 | Provider Cache/Book Provider | externe Evidence kontrolliert und offline wiederverwendbar machen | bestehender Plan, abhängigkeitsgebunden | EB-03A/B, W5B | vorhandene Provider-Gates |
 | Classification Projection | widersprüchliche Facets getrennt und rebuildbar projizieren | bestehender Plan, abhängigkeitsgebunden | EB-04, W5C | FG-04 und atomare Pakete |
-| `CollectionState` | physische Beobachtungen, bestätigte Identitäten und offene Candidates getrennt verstehen | implementiert | ADR-0058, `CS-01`, `CS-02` | in `CS-03` für unabhängige Health-Dimensionen nutzen |
+| `CollectionState` | physische Beobachtungen, bestätigte Identitäten und offene Candidates getrennt verstehen | implementiert | ADR-0058, `CS-01`, `CS-02` | immutable Basis für `CS-03` und spätere read-only Adapter beibehalten |
 | Portable Identität und föderierter Austausch | Datensatz-Lineage über externe Kopien sowie zwischen FolioTone-Systemen nachvollziehen und konfliktbewusst fusionieren | strategischer Vorschlag, danach; Writes W10-blockiert | FUT-010, ADR-0011, ADR-0014 und ADR-0042 Proposed | FG-FED-IDENTITY, FG-FED-BUNDLE, FG-FED-MERGE und FG-FED-CARRIER |
 | Snapshot Diff | Veränderungen zwischen zwei konsistenten Zuständen erklären | implementiert | ADR-0058, ADR-0059, `CS-02` | in `CS-03` nur als belegte Zustandsänderung verwenden |
 | Sichere lokale Suche | ausgewählte Metadaten lokal über einen bounded Query-AST durchsuchen | implementiert | ADR-0058, ADR-0059, `CS-02` | Content, OCR und Query-History bleiben ausgeschlossen |
 | Preference Policy | Empfehlungen anhand expliziter Nutzerpräferenzen erzeugen | strategischer Vorschlag, danach | EB-08 teilweise | Profil-, Versionierungs- und Explanation-Vertrag |
 | Inbox und Importplanung | neue Objekte gegen den Bestand prüfen | strategischer Vorschlag, danach | neu | eigener Root-/Plan-Vertrag |
 | Acquisition/Desired Set | vorhandene Erwerbskandidaten und Lücken gegenüber einem expliziten Sollbestand erkennen | strategischer Vorschlag, später | FUT-007 teilweise | Sollbestand-, Provider- und Rechte-Evidence |
-| Library Health | unabhängige Zustandsdimensionen zusammenfassen | bestehender Plan, abhängigkeitsgebunden | ADR-0058, `CS-03`, FUT-006 | nach `CS-01` und `CS-02` |
+| Library Health | unabhängige Zustandsdimensionen zusammenfassen | book-only implementiert | ADR-0058, ADR-0060, `CS-03`, FUT-006 | medienübergreifende Generalisierung erst nach eigener Music-Dimensionierung |
 | Fixity/Backup-Reconciliation | unerwartete Änderungen und Replica-Lücken erkennen | bestehender Plan, bewusst zurückgestellt | FUT-009 teilweise | Root-Rollen und Restore-Evidence |
 | Music Vertical Slice | Musik auf Work-/Recording-/Release-Ebene verstehen | bestehender Plan, bewusst zurückgestellt | W4, W5, W6, W7 | nach reifer E-Book-Linie |
 | Hörbücher | Buch- und Audioidentität verbinden | strategischer Vorschlag, später | neu | Frontier-Gate für Narration/Edition/Recording |
@@ -248,8 +269,8 @@ abgeleitet werden.
 | Video | technische und später fachliche audiovisuelle Evidence | Forschungsfrage | keine kanonische Welle | Tool-/Domain-/Provider-Gate |
 | Confidence-Kalibrierung | profilgebundene Scores an geprüfter Ground Truth bewerten | Forschungsfrage | FUT-005 berührt Review-Lernen | relationstypbezogener Korpus und Eval-Vertrag |
 | KI-Query/Explanation | natürliche Sprache sicher übersetzen und Evidence erklären | Forschungsfrage | keine | gleicher Query-AST; keine Decision Authority |
-| API/MCP/UI | stabile Application-Verträge außerhalb der CLI anbieten | Forschungsfrage | ADR-0016 stellt zurück | neue Produktoberflächen-ADR |
-| kontrollierte Mutation | geprüfte Pläne entsprechend ihrer Reversibilitätsklasse ausführen | eng begrenzte Interim-Ausnahme; sonst blockiert | ADR-0056, `W10-005`, `FG-W10-MOVE-BACKEND` | Bedienkette vervollständigen; atomare Härtung bleibt getrennt |
+| API/MCP/UI | stabile Application-Verträge außerhalb der CLI mit eigenen Einstiegen je Medienlinie anbieten | Forschungsfrage | ADR-0016 stellt zurück; FUT-011; `EBOOK_WRITE_PIPELINE_PLAN.md` | neue Produktoberflächen-ADR einschließlich REST/OpenAPI, Auth, Privacy, Audit und strikt getrennten W10-Capabilities |
+| kontrollierte Mutation | geprüfte Pläne entsprechend ihrer Reversibilitätsklasse ausführen | eng begrenzte Interim-Ausnahme; sonst blockiert | ADR-0056, `W10-005`, `FG-W10-MOVE-BACKEND` und operation-spezifische Write-Gates | Bedienkette vervollständigen; Metadata-, Sidecar-, externe Library-, Rename-, Archive-, Rollback-, Purge- und Cleanup-Verträge getrennt entscheiden |
 
 ## Medienabdeckung
 

@@ -912,8 +912,13 @@ Content, OCR, Netzwerk, API und UI bleiben ausgeschlossen. Maschinenreports
 bleiben metadatenwertfrei; private Werte sind nur mit `--private-details` in
 interaktiver Textausgabe sichtbar und absolute Pfade werden ausgefiltert.
 
-Aktuell ist `CS-03` der nächste reguläre Produkt-Slice. Er ergänzt
-mehrdimensionale `Library Health` ohne Gesamtscore oder Mutation Authority.
+`CS-03` ist ebenfalls abgeschlossen. ADR-0060 und Migration `0025` ergänzen
+`library-health/v1` als immutable, content-addressed Projektion über den
+exakten `CollectionState` und Query-Index. Sie besitzt sieben unabhängige
+Dimensionen mit eigener Coverage und eigenem Status, vollständige Finding-
+Counts, höchstens 64 opaque Samples je Finding und keinen Gesamtscore.
+`library-health-report` liest SQLite tatsächlich read-only und kann einen
+älteren kompatiblen Snapshot ohne Kausalitätsbehauptung vergleichen.
 
 Für CS-01 bestanden 16 dedizierte Tests und ein betroffener 60-Test-Verbund.
 Nach dem vollständigen lokalen Lauf bestanden die 32 direkt relevanten
@@ -939,6 +944,16 @@ waren ohne Befund. Der vollständige lokale Lauf bestand 1.788 Tests,
 Long-Path-Baselinefehler; keine CS-02-Datei und keine neue Fehlersignatur war
 betroffen. Der vollständige PR-CI-Gate ist vor dem Git-Abschluss für den
 stabilen Head zu vervollständigen.
+
+Für CS-03 wurden elf neue synthetische Contract-, Migrations-, Persistenz-,
+Rollback-, Vergleichs-, Privacy-, Read-only- und Sicherheitsfälle sowie sechs
+direkt betroffene Regressionen grün nachgewiesen. Der fokussierte Ruff-Lauf
+war ohne Befund; Mypy prüfte die vier neuen Source-Module erfolgreich. Nach
+Aufnahme des kanonischen Schreibplans bestanden zusätzlich 15 betroffene
+Planungs-/Dokumentationsverträge. Gemäß Test Policy und ausdrücklicher
+Ressourcenanforderung wurde keine weitere vollständige lokale Suite gestartet.
+Der vollständige PR-CI-Gate läuft genau einmal auf dem stabilen Head und ist
+Merge-Voraussetzung.
 
 `W10-005` darf parallel als getrennte `FRONTIER`-Wave bearbeitet werden. Der
 Slice ergänzt Capability-Auflösung sowie `quarantine-authorize`,
@@ -981,6 +996,14 @@ Security-, Privacy-, Nebenläufigkeits- oder W10-Verträge `FRONTIER`.
 Nachweis. Private Pfade, Runtime-Daten, Kennzahlen und Berichte bleiben
 außerhalb von Git; Source Media bleibt unverändert.
 
+`EBOOK_WRITE_PIPELINE_PLAN.md` ist die kanonische End-to-End-Leserichtung für
+die spätere book-only Schreibstrecke. Sie verbindet den implementierten
+read-only Pfad mit `W9-006`/`W9-007`, den getrennten Metadata-, Sidecar-,
+externen Library-, Rename- und Archive-Write-Gates sowie Rescan,
+Verifikation, Recovery, Rollback/Purge und FUT-011. Das Dokument setzt keine
+zweite Statusachse und autorisiert keinen neuen Writer; die aktuelle Front
+bleibt ausschließlich im Backlog.
+
 Die langfristige Produktvision und Medienfolge stehen als nicht statussetzende
 Entwürfe in `docs/vision/EVIDENCE_DRIVEN_COLLECTION_INTELLIGENCE.md` und
 `docs/planning/FUTURE_CAPABILITY_MAP.md`. Sie ersetzen weder Backlog noch
@@ -999,11 +1022,17 @@ Export-/Import-/Sync-Workflow noch ein Kennzeichnungs- oder External-Library-
 Write. ADR-0042 bleibt `Proposed` und blockiert die lokale book-only
 `CollectionState`-Projektion nicht.
 
-Music W4 bleibt geplant und wird nach `CS-03` als nächste
-vollständige Mediendomäne fortgesetzt. Book-only Leistungen und offene
-Music-Anteile besitzen im Backlog getrennte IDs und Statuswerte.
+Music W4 bleibt die nächste geplante vollständige Mediendomäne, wird nach
+Abschluss von `CS-03` aber nicht automatisch aktiviert. Book-only Leistungen
+und offene Music-Anteile besitzen im Backlog getrennte IDs und Statuswerte.
+Bilder und weitere Linien bleiben ebenfalls getrennt geplant.
 
-Die Produktoberfläche bleibt dabei ausschließlich die CLI. Externe Tool-Ergebnisse werden weiterhin als Evidence behandelt und nicht direkt zu kanonischen Metadaten.
+Die Produktoberfläche bleibt ausschließlich die CLI. FUT-011 verlangt vor
+REST-API oder grafischer Oberfläche eine eigene ADR mit stabilen Application-
+Verträgen, getrennten Einstiegen je Medienlinie, Authentisierung,
+Autorisierung, Privacy und Audit. UI- oder API-Bedarf öffnet keine W10-
+Capability. Externe Tool-Ergebnisse werden weiterhin als Evidence behandelt
+und nicht direkt zu kanonischen Metadaten.
 
 ## Verbindliche Sicherheitsgrenzen
 

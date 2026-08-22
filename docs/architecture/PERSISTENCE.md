@@ -463,6 +463,25 @@ eines validierten Query-AST gelesen. Die Suche öffnet SQLite mit `mode=ro` und
 `query_only=ON`; absolute Pfadwerte werden auch bei expliziter privater
 Textausgabe unterdrückt.
 
+### Immutable Library-Health-Projektion
+
+Migration `0025_library_health` ergänzt `library_health_snapshots`,
+`library_health_dimensions`, `library_health_findings` und
+`library_health_samples`. Alle vier Tabellen sind insert-only; deklarierte
+Parent-Counts und bounded Insert-Trigger versiegeln die gültigen Child-
+Ordinale. Ein Downgrade wird verweigert, sobald eine der Tabellen Daten
+enthält.
+
+Der Health-Parent bindet exakt den `CollectionState`-Content-Digest und den
+Content-Digest des snapshotgebundenen Query-Indexes. Dimension-, Finding- und
+Sample-Digests werden bei jedem Read vollständig rekonstruiert und geprüft.
+Die Projektion speichert vollständige Counts, aber je Finding höchstens 64
+opaque File-/Observation-ID-Paare; Pfade, Metadatenwerte, Fingerprints,
+Query-Werte und Evidence-Digests werden nicht als Sample übernommen. Ein vor
+Migration `0025` vorhandener Snapshot erhält Health nur durch einen erneuten
+`collection-state-build`, der zuerst die zugrunde liegende Evidence
+revalidiert.
+
 ## Current constraints and deferred integrity
 
 Implemented SQL constraints include:

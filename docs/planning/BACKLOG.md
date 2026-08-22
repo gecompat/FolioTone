@@ -2,7 +2,8 @@
 
 Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 
-`NEXT` bezeichnet genau den nächsten regulären Produkt-Slice. `READY`
+`NEXT` bezeichnet genau den nächsten regulären Produkt-Slice, sofern eine
+solche Wave ausdrücklich freigegeben ist. `READY`
 bezeichnet einen unabhängig startbaren Vertrag mit erfüllten Voraussetzungen.
 `PLANNED` ist später eingeordnet. `BLOCKED` nennt eine noch nicht erfüllte
 Voraussetzung. `DECISION` bezeichnet ein offenes Architektur- oder
@@ -12,11 +13,11 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | `CS-03` | `Library Health` baut auf `CS-01` und `CS-02` auf, ohne einen Gesamtscore oder Mutation Authority einzuführen. |
+| NOW | E-Book-Produktlinie | `CS-01` bis `CS-03` sind abgeschlossen. Keine weitere Medienlinie oder Produktoberfläche ist dadurch automatisch aktiviert. |
 | PARALLEL READY | `W10-005` | Die von ADR-0056 erlaubte Ein-Datei-Quarantäne erhält eine vollständige Authorize-/Execute-/Recovery-Bedienkette, ohne den Mutationstyp zu erweitern. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
 | LATER | W4 sowie die Music-Anteile aus W5 bis W7 | Music bleibt die nächste vollständige Mediendomäne nach den drei Produktprojektionen. |
-| BLOCKED | `FG-W10-MOVE-BACKEND`, W10-003, W10-004, `FG-A-SECRET`, `FG-A3-MEMBER-BYTE` | Atomare Mutation, Rollback/Purge, Cleanup, Secrets und Member-Byte-Identity benötigen ihre getrennten Gates. |
+| BLOCKED | `FG-W10-MOVE-BACKEND`, `FG-W10-METADATA-WRITE`, `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004, `FG-A-SECRET`, `FG-A3-MEMBER-BYTE` | Atomare Mutation, getrennte Writer, Rollback/Purge, Cleanup, Secrets und Member-Byte-Identity benötigen ihre eigenen Gates. |
 
 Andere Planungsdokumente erläutern diese Aufgaben, setzen aber keine eigene
 Ausführungsreihenfolge oder konkurrierende Statusachse.
@@ -248,6 +249,8 @@ Interim-Quarantäneexecutor öffnen.
 | W9-003 | DONE | Represent changed-since-analysis checks needed by future execution. |
 | W9-004 | DONE | Produce a complete non-executable, content-addressed e-book deduplication plan with Keeper, quarantine, verification, rollback, purge, Calibre, sidecar, archive and empty-directory preconditions. |
 | W9-005 | DONE | Require Review approval for Keep preference and every future mutation candidate; keep exact duplicate identity, quality ranking and physical operation separate. |
+| W9-006 | PLANNED | Implement a non-executable, content-addressed `MetadataCorrectionPlan` that binds observed values, reviewed canonical candidates, one explicit target carrier, dependencies, writer profile, changed-since-analysis preconditions and post-write verification without exposing a writer. |
+| W9-007 | PLANNED | Implement non-executable, reproducible recipes for rename, reorganization, import/export, transformation and archive/container changes; keep every operation behind its own W10 gate. |
 
 ## W10 — Controlled Consolidation
 
@@ -259,6 +262,11 @@ Interim-Quarantäneexecutor öffnen.
 | W10-005 | READY | Vervollständige die ADR-0056-Bedienkette in getrennten, kleinen Folgepaketen. CLI-Argumente enthalten nur opaque IDs und Content Hashes; die zweite Bestätigung läuft ausschließlich über nicht geloggtes `stdin`. Der Slice bleibt bei genau einer regulären Same-Filesystem-Datei und behauptet keine atomare No-Replace-Garantie. |
 | S-W10-05A | DONE | Privater, bounded und fail-closed `QuarantineCapabilityResolver`: `FOLIOTONE_QUARANTINE_CAPABILITIES_FILE` löst nur eine opaque Capability-ID zu ScanRoot-ID und privaten absoluten Verzeichnissen auf. Fehlende/unsichere Konfiguration, Schema-/Duplikat-/Pfad-/Reparse-/Berechtigungsfehler ergeben ausschließlich `TOOL_UNAVAILABLE`. Keine CLI, Persistenz, Reports oder Executor-Aufrufe. |
 | FG-W10-MOVE-BACKEND | PLANNED | Spätere Frontier-Härtung für einen atomaren No-Replace-Move, no-follow Elternverzeichnisse sowie reproduzierbare Cross-Device-, Race- und Crash-/Recovery-Nachweise. Der Interim-Executor ist bewusst nicht atomar; seine Zielprüfung kann eine konkurrierende Race nicht ausschließen. |
+| FG-W10-METADATA-WRITE | BLOCKED | Entscheide und belege Source-Metadata-Write je Format mit exaktem Writerprofil, Rohwerterhalt, Byte-/Semantik-Diff, Backup-/Recoverygrenze und unmittelbarer Revalidierung. Keine Sidecar- oder externe Library-Freigabe. |
+| FG-W10-SIDECAR-WRITE | BLOCKED | Entscheide Sidecar Create/Update separat mit Ownership, Kollisions-, No-Follow-, Atomizitäts-, Dependency-, Recovery- und Reconciliation-Vertrag. |
+| FG-W10-EXTERNAL-LIBRARY-WRITE | BLOCKED | Entscheide mutierendes Calibre oder andere externe Systeme je Adapter und fester Operation mit eigenem Snapshot, Idempotenz, Konflikt-, Recovery- und Auditvertrag. |
+| FG-W10-RENAME | BLOCKED | Entscheide Datei-Rename/Reorganisation separat mit Root-Grenze, No-Replace, no-follow, Dependency-, Collision-, Rollback- und Scan-Reconciliation-Nachweis. |
+| FG-W10-ARCHIVE-REWRITE | BLOCKED | Entscheide Archive-/Container-Rewrite separat; erfolgreiche Extraction oder Transformation darf keine Source-Löschung implizieren. |
 | W10-003 | BLOCKED | Implement verified rollback and separately approved purge after a retention period; never make successful extraction imply archive deletion. |
 | W10-004 | BLOCKED | Implement bottom-up empty-directory cleanup as a separate approved operation with fresh enumeration, root/reparse/Calibre/sidecar guards and an auditable reconstruction record. |
 
@@ -276,6 +284,7 @@ Interim-Quarantäneexecutor öffnen.
 | FUT-008 | PLANNED | Reproducible transformation/normalization recipes with versioning, dry-run and replay semantics. |
 | FUT-009 | PLANNED | Integrity/fixity monitoring for unexpected file changes/bit rot independent of duplicate detection. |
 | FUT-010 | DECISION | Decide ADR-0042 and the staged FG-FED-IDENTITY/BUNDLE/MERGE/CARRIER contracts for portable object lineage and bounded, idempotent exchange between FolioTone systems. The first slice uses only synthetic packages and read-only carrier detection; it must define node clone/restore semantics, privacy, trust, replay/conflict handling and Decision Compatibility without introducing a universal Asset type. Embedded metadata, Sidecar and external-library writes remain separate W10-blocked work. |
+| FUT-011 | DECISION | Plane vor API/UI-Code eine eigene Produktoberflächen-ADR: versionierte Application-Commands/-Queries, getrennte Einstiegspunkte für E-Books, Musik, Bilder und spätere Linien, REST-/OpenAPI-Vertrag, Authentisierung/Autorisierung, Pagination, Privacy, Audit sowie strikt getrennte Read- und W10-Write-Capabilities. `EBOOK_WRITE_PIPELINE_PLAN.md` hält die Zielgrenze fest; bis zur ADR bleibt ausschließlich die CLI aktiv. |
 
 ## Book-only Produktprojektionen
 
@@ -287,7 +296,7 @@ ADR-0058 bindet die folgende Reihenfolge. Die drei Aufgaben sind read-only und
 | FG-CS-01 | DONE | Accept ADR-0058 for book-only `CollectionState`, deterministic Diff, bounded local metadata query and multidimensional `Library Health` with explicit private-detail opt-in. |
 | CS-01 | DONE | Implemented immutable, rebuildable `collection-state/v1`, additive insert-only persistence, `collection-state-build` and true SQLite-read-only `collection-state-report` over exactly one completed `ScanRun`. |
 | CS-02 | DONE | Implemented deterministic `collection-state-diff/v1` and bounded `collection-query/v1` with fixed AST allowlist, keyset pagination, snapshot-bound metadata-only FTS index, `collection-state-diff` and `collection-search`. |
-| CS-03 | NEXT | Implement `library-health/v1` and `library-health-report` with independent Scan/Fixity, analysis coverage, metadata/authority/classification, review, duplicate/variant, dependency and blocked-operation dimensions; no scalar score or mutation authority. |
+| CS-03 | DONE | Implemented immutable `library-health/v1`, additive Migration `0025`, atomare Bindung an `CollectionState` und Query-Index sowie das echte SQLite-read-only `library-health-report`. Sieben unabhängige Dimensionen, vollständige Finding-Counts, begrenzte opaque Samples und reproduzierbarer Baseline-Vergleich verwenden weder Gesamtscore noch Mutation Authority. |
 
 ## Operativer Collection-Abschluss
 

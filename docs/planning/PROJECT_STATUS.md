@@ -4,7 +4,7 @@ Stand: 2026-08-22
 
 ## Aktuelle Welle
 
-**CS-02 abgeschlossen — Snapshot-Diff und lokale Metadatensuche sind vorhanden**
+**CS-03 abgeschlossen — die book-only Produktprojektionen sind vollständig**
 
 `collection-state-build` erzeugt `collection-state/v1` deterministisch aus
 der bereits persistierten Evidence genau eines abgeschlossenen book-only
@@ -33,12 +33,34 @@ bleiben ausgeschlossen. JSON bleibt metadatenwertfrei. Private Metadatenwerte
 benötigen ausdrücklich `--private-details` mit interaktiver Textausgabe;
 absolute Pfade werden auch dort unterdrückt.
 
-**Nächster regulärer Produkt-Slice: `CS-03`**
+ADR-0060 und Migration `0025` ergänzen `library-health/v1`. Die immutable,
+content-addressed Projektion bindet genau einen `CollectionState` und dessen
+Query-Index. Sie trennt Scan/Fixity, Analyseabdeckung,
+Metadaten/Authority/Classification, offene Reviews, Duplicate-/Varianten-
+Evidence, Dependencies und blockierte Operationen. Jede Dimension besitzt
+eigene Coverage und eigenen Status; es gibt keinen Gesamtscore.
 
-ADR-0058 legt als Fortsetzung eine mehrdimensionale `Library Health` fest.
-`CS-03` ist im kanonischen Backlog `NEXT` und führt weder Gesamtscore noch
-Mutation Authority ein. ADR-0059 dokumentiert den abgeschlossenen Diff- und
-Query-Vertrag.
+`collection-state-build` erzeugt oder verifiziert State, Query-Index und
+Health atomar. Findings behalten vollständige Counts und höchstens 64 nach
+opaque `File`-ID sortierte File-/Observation-Samples. `library-health-report`
+öffnet SQLite tatsächlich read-only, gibt keine Pfade, Metadatenwerte,
+Fingerprints oder Evidence-Digests aus und kann zwei kompatible Snapshots
+desselben `ScanRoot` ohne Kausalitätsbehauptung vergleichen. Weder Projektion
+noch Report erzeugen Identity-, Keep- oder Mutationsentscheidungen.
+
+Nach Abschluss von `CS-01` bis `CS-03` ist keine weitere Medienlinie
+automatisch aktiviert. Music W4 und Bilder bleiben geplant. FUT-011 verlangt
+vor REST-API oder grafischer Oberfläche eine eigene Produktoberflächen-ADR
+mit getrennten Einstiegspunkten je Medienlinie und strikt separaten W10-
+Capabilities; die aktive Oberfläche bleibt die CLI.
+
+`EBOOK_WRITE_PIPELINE_PLAN.md` dokumentiert nun zusätzlich die vollständige
+book-only Leserichtung von Scan, Analyse, Quality, Resolution, Matching und
+Review über nicht ausführbare Metadatenkorrektur-/Konsolidierungspläne bis zu
+operation-spezifischen W10-Gates, Revalidierung, Fencing, Verifikation,
+Recovery und der späteren REST-/UI-Grenze. Der Plan autorisiert keinen neuen
+Writer. `W9-006`, `W9-007` sowie die Metadata-, Sidecar-, externe Library-,
+Rename- und Archive-Write-Gates bleiben geplant beziehungsweise blockiert.
 
 **W10-Interim abgeschlossen — Executor und read-only Quarantänestatus sind vorhanden**
 
@@ -1588,9 +1610,11 @@ Basename/Pfad noch Inhalt oder Secret und erweitert weder Toolstatus noch
 CLI-Profil oder Ausführungsauthority. ADR-0056 entscheidet inzwischen das
 enge W10-Vertragsgate für Quarantäne. S-W10-01 bis S-W10-04 sind
 abgeschlossen: reine Authorization-/Eligibility-Verträge, immutable
-Persistenz, Interim-Executor und read-only Status sind vorhanden. Es fehlen
-die vollständige Capability-Auflösung sowie Authorize-/Execute-/Recovery-CLI;
-`W10-005` plant diese Bedienkette ohne einen weiteren Mutationstyp zu öffnen.
+Persistenz, Interim-Executor und read-only Status sind vorhanden. Der
+Capability Resolver aus S-W10-05A ist ebenfalls umgesetzt. Es fehlen die
+Authorize-/Execute-/Recovery-CLI und deren synthetische Crash-/Recovery-
+Abnahme; `W10-005` plant diese Bedienkette ohne einen weiteren Mutationstyp zu
+öffnen.
 
 ADR-0058 legt die aktuelle reguläre Produktfolge fest. `CS-01` ist
 abgeschlossen und erzeugt `collection-state/v1` als immutable, rebuildbare
@@ -1601,9 +1625,12 @@ deterministische Keyset-Pässe erkennen zwischenzeitlich veränderte Evidence;
 Persistenz und idempotente Wiederverwendung erfolgen atomar. `CS-02` ist
 ebenfalls abgeschlossen. ADR-0059 bindet den deterministischen Snapshot-Diff,
 den festen Query-AST und den durch Migration `0024` insert-only persistierten
-Metadata-FTS-Index. `CS-03` ist `NEXT` und ergänzt eine mehrdimensionale
-`Library Health`-Projektion ohne Gesamtscore oder Mutation Authority. Die
-kanonische Reihenfolge steht ausschließlich in `BACKLOG.md`.
+Metadata-FTS-Index. `CS-03` ist ebenfalls abgeschlossen. ADR-0060 bindet
+sieben feste Health-Dimensionen, Finding-Literale, Coverage-/Statusreduktion,
+bounded opaque Samples und einen reproduzierbaren Baseline-Vergleich.
+Migration `0025` persistiert die Projektion insert-only; der Report bleibt
+echte SQLite-Read-only-Ausführung. Die kanonische Ausführungsfront steht
+ausschließlich in `BACKLOG.md`.
 
 **Empirisch für CS-01:** Die 16 dedizierten Contract-, Migrations-,
 Persistenz-, Rollback-, Retry-, Collision-, Idempotenz-, Staleness-, Read-only-,
@@ -1644,6 +1671,19 @@ Evidence und die Windows-Laufzeit ergänzt erwarteten Toolpfaden den `\\?\`-
 Präfix. Keine CS-02-Datei und keine neue Fehlersignatur war betroffen. Der
 vollständige PR-CI-Gate wird für den stabilen Head getrennt nachgewiesen.
 
+**Empirisch für CS-03:** Die elf neuen Contract-, Migrations-, Persistenz-,
+Rollback-, Idempotenz-, Vergleichs-, CLI-, Privacy-, Read-only- und statischen
+Sicherheitsfälle wurden mit ausschließlich synthetischen Daten grün
+nachgewiesen. Sechs unmittelbar betroffene Regressionen für Migrations-Head,
+`CollectionState`, Migration `0024`, Backfill und Query-Index-Bindung sind
+ebenfalls grün. Der fokussierte Ruff-Lauf war ohne Befund; Mypy prüfte die vier
+neuen Source-Module erfolgreich. Nach Aufnahme des kanonischen Schreibplans
+bestanden zusätzlich 15 betroffene Planungs-/Dokumentationsverträge.
+Entsprechend `TEST_POLICY.md` und der ausdrücklichen Ressourcenanforderung
+wurde keine weitere vollständige lokale Suite gestartet. Der vollständige
+PR-CI-Gate bleibt genau ein Lauf auf dem stabilen Head und ist Voraussetzung
+für den Merge.
+
 ## Nicht implementiert
 
 Noch nicht vorhanden sind unter anderem:
@@ -1670,8 +1710,6 @@ Noch nicht vorhanden sind unter anderem:
 - die vollständige W10-Authorize-/Execute-/Recovery-Bedienkette, atomarer
   No-Replace-Move, Rollback, Purge, Metadatenwrite und
   Verzeichnisbereinigung; nur der enge Interim-Executor ist vorhanden;
-- `library-health/v1`; `collection-state/v1`, Snapshot-Diff und begrenzte
-  lokale Metadatensuche sind umgesetzt;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 
 ## Sicherheitsgrenze

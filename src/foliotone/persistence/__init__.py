@@ -94,6 +94,11 @@ from foliotone.persistence.evidence_queries import (
     ObservationEvidenceRecords,
     load_observation_evidence,
 )
+from foliotone.persistence.library_health import (
+    LibraryHealthBuildResult,
+    LibraryHealthStoreError,
+    SQLiteLibraryHealthStore,
+)
 from foliotone.persistence.provider_cache_store import (
     ProviderCacheStoreCandidate,
     ProviderCacheStoreCapacityError,
@@ -171,6 +176,7 @@ def __getattr__(name: str) -> Any:
 
         return getattr(quarantine, name)
     raise AttributeError(name)
+
 
 __all__ = [
     "Repository",
@@ -253,6 +259,9 @@ __all__ = [
     "SQLiteCollectionQueryStore",
     "CollectionStateDiffStoreError",
     "SQLiteCollectionStateDiffReader",
+    "LibraryHealthBuildResult",
+    "LibraryHealthStoreError",
+    "SQLiteLibraryHealthStore",
     "SQLiteEbookCandidateHashRunStore",
     "SQLiteEbookInventoryReportStore",
     "SQLiteEbookCollectionReportStore",
