@@ -62,7 +62,8 @@ Halte die Reihenfolge und Stop-Gates des Plans ein. E4 benötigt eine eigene
 ADR und Migration; implementiere keine bloße Startprüfung ohne vollständiges
 Fencing. Prüfe vor E7 die dann aktuellen offiziellen Providerregeln und
 verwende nur privacy-minimierte strukturierte DTOs. W9 bleibt nicht
-ausführbar. W10 und jede Source-Media-Mutation bleiben blockiert.
+ausführbar. Außer der engen ADR-0056-Interim-Quarantäne bleiben W10 und jede
+Source-Media-Mutation blockiert.
 
 Aktualisiere BACKLOG.md, PROJECT_STATUS.md, HANDOVER.md und relevante ADR-/
 Architekturdokumente pro gemergter Welle mit ausschließlich tatsächlich

@@ -30,8 +30,9 @@ nicht durch eine undokumentierte stdin-, PTY- oder Environment-Lösung
 
 ## Entscheidung
 
-FolioTone führt Archive bis zu einer späteren W10-Entscheidung ausschließlich
-als read-only Container-Evidence. Normale Scans extrahieren nichts. Listing,
+FolioTone führt Archive außerhalb eines eigenen späteren W10-Archivadapters
+ausschließlich als read-only Container-Evidence. Die ADR-0056-
+Interim-Quarantäne erweitert diesen Archivvertrag nicht. Normale Scans extrahieren nichts. Listing,
 Integritätstest und eine spätere Extraktion sind getrennte, explizite Schritte.
 Jeder Schritt prüft seine eigenen Preconditions und Budgets erneut.
 

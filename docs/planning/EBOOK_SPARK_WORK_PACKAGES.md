@@ -2,7 +2,8 @@
 
 **Status:** In Ausführung; die read-only Archive-Strecke bis EBAR-09 sowie
 FG-A3-MATCHING und S-EBA3-01 bis S-EBA3-03 sind abgeschlossen.
-Member-Byte-Identity, Extraction, Secrets und W10 bleiben getrennt blockiert;
+Member-Byte-Identity, Extraction und Secrets bleiben getrennt blockiert; W10
+erlaubt ausschließlich die enge ADR-0056-Interim-Quarantäne;
 ADR-0055 und S-EBAR-07A schließen W3-019 vollständig ab.
 
 **Stand:** 2026-08-20
@@ -95,7 +96,7 @@ die nachstehenden Pakete ersetzt:
 | EB-06 | Scoring, automatische Bestätigung und Review-Status sind fachlich und sicherheitskritisch. |
 | EB-A2 Extraction Runtime | Toolauswahl, Prozessisolation, Secret Channel und Archivbomben-Abwehr benötigen ein Security Gate. |
 | EB-A3 | Archive-aware Matching und Deduplizierungsplanung hängen von EB-05, EB-06 und EB-07 ab. |
-| W10/EA11/EA12 | Jede Mutation, Quarantäne, Löschung oder Verzeichnisbereinigung bleibt gesperrt. |
+| W10/EA11/EA12 | Nur die abgeschlossene ADR-0056-Interim-Quarantäne darf einen einzelnen autorisierten Candidate per `os.rename` bewegen. Atomarer No-Replace, Rollback, Löschung und Verzeichnisbereinigung bleiben gesperrt. |
 
 Ein `ECONOMICAL`-Agent darf nach einem Frontier-Gate mechanische Folgearbeiten
 für diese Wellen übernehmen, beispielsweise Fixture-Erweiterungen oder einen bereits exakt
@@ -130,7 +131,7 @@ Für jedes Paket gelten zusätzlich folgende Grenzen:
   öffentlichen Vertrags, sofern das Paket dies nicht ausdrücklich erlaubt;
 - keine Live-Netzwerktests, privaten Pfade, realen Sammlungsdaten, Secrets oder
   Runtime-Berichte im Repository;
-- keine Source-Media-Mutation und keine ausführbare W10-Operation;
+- keine Source-Media-Mutation und keine ausführbare W10-Operation außerhalb der ausdrücklich erlaubten ADR-0056-Interim-Quarantäne;
 - keine unaufgeforderte Bereinigung angrenzender Module;
 - gezielte Tests während der Arbeit und genau ein vollständiger PR-CI-Gate;
 - Merge nur bei grünem Gate und konsistentem Diff.
@@ -264,7 +265,7 @@ einführen.
 | S-EB08-06 | Additive Persistenz speichert Plan, Lineage, Content Hash, Blocker und Reviews. | genau eine Migration, festgelegte Schemadatei, neuer Store, Migration-/Store-Test | Insert/read, idempotente Wiederholung und atomarer Rollback sind geprüft. |
 | S-EB08-07 | Der Planner verbindet bestätigte Relation, Quality Evidence, Keep Preference und Preconditions. | Consolidation Planner, Integrationstest | Unresolved oder unreviewed Inputs erzeugen nur blockierte Pläne; keine Operation wird ausgeführt. |
 | S-EB08-08 | Deterministischer, pfadfreier Reporter und read-only CLI werden ergänzt. | Reporter/Workflow, `src/foliotone/cli/main.py`, CLI-Test | Ausgabe enthält Plan-ID, Status, Counts und Blocker, aber keine absoluten Pfade oder privaten Evidence-Werte. |
-| S-EB08-09 | Ein statischer Non-Execution-Test verbietet Mutations-APIs und schließt W9 ab. | neue statische Testdatei, Planungsdokumente | `unlink`, `remove`, `rename`, `replace`, `move`, mutierendes Calibre und Shell-Löschbefehle fehlen im Package; W10 bleibt blockiert. |
+| S-EB08-09 | Ein statischer Non-Execution-Test verbietet Mutations-APIs und schließt W9 ab. | neue statische Testdatei, Planungsdokumente | `unlink`, `remove`, `rename`, `replace`, `move`, mutierendes Calibre und Shell-Löschbefehle fehlen im Package; nur der getrennte ADR-0056-Executor darf W10-Quarantäne ausführen. |
 
 ## Abgeschlossene Spark-Vorarbeiten für EB-A1 und EB-A2
 

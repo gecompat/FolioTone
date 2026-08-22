@@ -46,9 +46,9 @@ Statusachse und keine öffentlichen Runtime-Literale.
 - Eine Fähigkeit wird erst dann in `BACKLOG.md` übernommen, wenn ihr
   Nutzerergebnis, Scope, Preconditions, Privacy-Grenze, Abnahmekriterium und
   Modellwahl gemäß `MODEL_ROUTING_POLICY.md` feststehen.
-- Source-Media-Mutation, Quarantäne, Purge, Retagging und
-  Verzeichnisbereinigung bleiben unabhängig von dieser Map durch W10
-  blockiert.
+- Außer der engen ADR-0056-Interim-Quarantäne bleiben Source-Media-Mutation,
+  Purge, Retagging und Verzeichnisbereinigung unabhängig von dieser Map durch
+  W10 blockiert.
 - Eine geplante Fähigkeit darf den aktiven E-Book-Endgame-Pfad nicht durch
   eine vorzeitige generische Neuarchitektur unterbrechen.
 
@@ -78,7 +78,9 @@ Strecke nicht neu.
 Die Archive-Strecke folgt ihrer eigenen EA-/EB-A-Zuordnung. W3-018 bis
 W3-022 decken nur Discovery, Inventory, Listing und Member-Evidence ab;
 EB-A2 und EB-A3 umfassen zusätzlich die in W5B, W6 und W9 zugeordneten
-Secret-, Matching- und Planungsaufgaben. W10 bleibt unverändert blockiert.
+Secret-, Matching- und Planungsaufgaben. Nur die enge ADR-0056-
+Interim-Quarantäne ist umgesetzt; weitergehende W10-Operationen bleiben
+blockiert.
 
 Diese Phase wird nicht zugunsten einer neuen Medienlinie abgebrochen.
 
@@ -207,7 +209,8 @@ Korpusentscheidungen unnötig koppeln.
 
 ### Phase 7: Oberflächen und kontrollierte Ausführung
 
-**Einordnung:** Forschungsfrage; ausführende Teile W10-blockiert
+**Einordnung:** Forschungsfrage; ausführende Teile außerhalb der engen
+ADR-0056-Interim-Quarantäne W10-blockiert
 
 API, MCP, Web- oder Desktop-Oberfläche und ein Watcher/Daemon folgen erst,
 wenn Query-, Policy-, Review- und Plan-Application-Verträge stabil sind.
@@ -246,7 +249,7 @@ abgeleitet werden.
 | Confidence-Kalibrierung | profilgebundene Scores an geprüfter Ground Truth bewerten | Forschungsfrage | FUT-005 berührt Review-Lernen | relationstypbezogener Korpus und Eval-Vertrag |
 | KI-Query/Explanation | natürliche Sprache sicher übersetzen und Evidence erklären | Forschungsfrage | keine | gleicher Query-AST; keine Decision Authority |
 | API/MCP/UI | stabile Application-Verträge außerhalb der CLI anbieten | Forschungsfrage | ADR-0016 stellt zurück | neue Produktoberflächen-ADR |
-| kontrollierte Mutation | geprüfte Pläne entsprechend ihrer Reversibilitätsklasse ausführen | W10-blockiert | W10 | ausdrückliche W10-ADR und Benutzerfreigabe |
+| kontrollierte Mutation | geprüfte Pläne entsprechend ihrer Reversibilitätsklasse ausführen | nur enge Interim-Quarantäne umgesetzt; sonst W10-blockiert | W10 | `FG-W10-MOVE-BACKEND` sowie operationseigene ADR und Benutzerfreigabe |
 
 ## Medienabdeckung
 

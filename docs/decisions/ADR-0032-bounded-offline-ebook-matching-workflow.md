@@ -69,7 +69,9 @@ bekannte False Positives im erweiterten Korpus.
 - Es wird keine `Relation`-Projektion und keine Keep-Präferenz erzeugt.
 - Source Media, Calibre und private Runtime-Artefakte bleiben unverändert.
 - Der Workflow verwendet kein Netzwerk und keinen Knowledge Provider.
-- W10, Quarantäne, Löschung und sonstige Konsolidierung bleiben blockiert.
+- Dieser Workflow öffnet keinen eigenen W10-Pfad. Außer der getrennten
+  ADR-0056-Interim-Quarantäne bleiben Löschung und sonstige Konsolidierung
+  blockiert.
 - Music-Matching bleibt eine spätere eigene Welle.
 
 ## Verifikation

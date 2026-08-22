@@ -91,8 +91,9 @@ Noch nicht vorhanden bzw. nicht vollständig:
 und Workflows aus EB-05/EB-06. ADR-0034 ist mit S-EB08-01 bis S-EB08-09
 vollständig umgesetzt: `foliotone.consolidation` enthält ausschließlich
 immutable DTOs, reine Planung und Validierung, insert-only Persistenz sowie
-pfadfreie read-only Projektionen. Bis zu einer späteren akzeptierten W10-ADR
-bleibt jeder Plan `NOT_EXECUTABLE` und es existiert kein Mutationspfad.
+pfadfreie read-only Projektionen. Jeder Plan bleibt dauerhaft
+`NOT_EXECUTABLE`; nur die getrennte, kurzlebig autorisierte ADR-0056-
+Interim-Quarantäne besitzt einen Mutationspfad.
 
 ---
 
@@ -1816,7 +1817,9 @@ dynamische und injizierte Mutationsformen, gegen öffentliche Ausführungs- oder
 Passthrough-Surfaces sowie gegen mutierende Calibre-Command-Shapes. Er ist ein
 zusätzlicher Regressionstest und ersetzt keine W10-Autorisierung.
 
-W10 bleibt ausdrücklich blockiert.
+Die W9-Non-Execution-Grenze bleibt ausdrücklich bestehen. Nur die getrennte,
+kurzlebig autorisierte ADR-0056-Interim-Quarantäne darf einen einzelnen
+Candidate ausführen; alle übrigen W10-Operationen bleiben blockiert.
 
 ---
 

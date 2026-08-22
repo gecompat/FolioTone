@@ -968,7 +968,9 @@ Die Produktoberfläche bleibt dabei ausschließlich die CLI. Externe Tool-Ergebn
 - Keine write-capable externe Tooloperation.
 - Externe Tool-/Provider-Ergebnisse sind Evidence, nicht kanonische Wahrheit.
 - Absolute private Pfade werden nicht als persistierte Tool-Input-Identität gespeichert.
-- W10 bleibt bis zu einer späteren expliziten ADR blockiert.
+- Nur die enge ADR-0056-Interim-Quarantäne ist in W10 erlaubt;
+  weitergehende W10-Operationen bleiben bis zu ihrer eigenen expliziten ADR
+  blockiert.
 
 ## Dokumentations- und Lizenzregeln
 

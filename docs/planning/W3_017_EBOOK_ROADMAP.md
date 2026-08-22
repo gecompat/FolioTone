@@ -397,9 +397,10 @@ noch kanonische Datenbank.
 
 Die Pläne sind technisch nicht ausführbar. Identität und Keep-Präferenz
 bleiben getrennt. Jede mögliche spätere Operation enthält eine
-changed-since-analysis-Precondition. W10 bleibt blockiert, bis eine neue
-ausdrücklich akzeptierte ADR Sicherheits-, Audit-, Recovery- und
-Benutzerbestätigungsregeln festlegt.
+changed-since-analysis-Precondition. ADR-0056 erlaubt ausschließlich die
+enge Ein-Datei-Interim-Quarantäne; alle weitergehenden W10-Operationen bleiben
+blockiert, bis eigene akzeptierte ADRs Sicherheits-, Audit-, Recovery- und
+Benutzerbestätigungsregeln festlegen.
 
 ## Parallelisierung
 

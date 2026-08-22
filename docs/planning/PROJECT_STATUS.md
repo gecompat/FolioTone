@@ -1540,9 +1540,12 @@ Collection-Bericht und ein insert-only, scan- und archivegebundener
 Sidecar-Inventarsnapshot sind umgesetzt. Das Inventar speichert weder
 Basename/Pfad noch Inhalt oder Secret und erweitert weder Toolstatus noch
 CLI-Profil oder Ausführungsauthority. ADR-0056 entscheidet inzwischen das
-enge W10-Vertragsgate für Quarantäne. S-W10-01 liefert die reinen, path-free
-Authorization-/Eligibility-Verträge und ist abgeschlossen; S-W10-02 folgt
-mit Persistenz, aber weiterhin ohne Mutation.
+enge W10-Vertragsgate für Quarantäne. S-W10-01 bis S-W10-04 sind abgeschlossen:
+path-free Authorization-/Eligibility-Verträge, immutable Persistenz, der enge
+`os.rename`-Interim-Executor und ein pfadfreier read-only Status. Die
+Ziel-Abwesenheitsprüfung des Executors ist nicht atomar;
+`FG-W10-MOVE-BACKEND` bleibt die geplante Frontier-Härtung für atomaren
+No-Replace, no-follow und Race-/Crash-Nachweise.
 
 ## Nicht implementiert
 
@@ -1566,13 +1569,16 @@ Noch nicht vorhanden sind unter anderem:
   Bibliothekskennzeichnung; ADR-0042 ist nur `Proposed`;
 - externe Knowledge Provider und Provider Cache über den synthetischen Vertrag
   hinaus;
-- jede reale W10-Ausführung einschließlich Quarantäne, Purge,
-  Metadatenwrite und Verzeichnisbereinigung; ADR-0056 autorisiert zunächst
-  nur mutationsfreie Vorpakete;
+- Purge, Metadatenwrite, Calibre-/Sidecar-/Archive-Writes und
+  Verzeichnisbereinigung; die einzige reale W10-Ausführung ist die enge,
+  autorisierte ADR-0056-Ein-Datei-Quarantäne;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 
 ## Sicherheitsgrenze
 
-W10 bleibt ausdrücklich blockiert. Es gibt keine FolioTone-native oder externe Tool-Operation zum Löschen, Verschieben, Umbenennen oder Retaggen von Source Media.
+Außer der engen, autorisierten ADR-0056-Ein-Datei-Quarantäne bleibt W10
+ausdrücklich blockiert. Es gibt keine FolioTone-native oder externe
+Tool-Operation zum Löschen, Purge, Retaggen, Rollback oder zur
+Verzeichnisbereinigung von Source Media.
 
-`DELETED`, `FileRelocationCandidate` und Scan-Resume sind ausschließlich Analyse-/Orchestrierungszustände. W9 erzeugt ausschließlich nicht ausführbare `ConsolidationPlan`-Einträge; W10 bleibt für jede Mutation, Quarantäne-, Purge- und Verzeichnisoperation blockiert.
+`DELETED`, `FileRelocationCandidate` und Scan-Resume sind ausschließlich Analyse-/Orchestrierungszustände. W9 erzeugt ausschließlich nicht ausführbare `ConsolidationPlan`-Einträge; nur eine neue kurzlebige W10-Authorization darf den dokumentierten Interim-Executor öffnen. `FG-W10-MOVE-BACKEND`, Quarantäne mehrerer Dateien, Purge und Verzeichnisoperationen bleiben blockiert.
