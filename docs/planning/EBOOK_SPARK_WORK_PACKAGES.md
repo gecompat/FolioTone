@@ -343,7 +343,7 @@ W10-Funktion einführen.
 | S-W10-02 | Additive immutable Authorization-/Run-Parents, append-only Eventpersistenz und neue Root-Lease-Owner-Klasse, weiterhin ohne Source-Mutation. | Bounded Read, Fencing, einmalige Authorization, PREPARED-/Recovery-Zustände, Collision und path-free Reportmaterial. | Terra `high`; abgeschlossen. |
 | FG-W10-MOVE-BACKEND | Spätere atomare No-Replace-Härtung des Interim-Executors. | no-follow Elternverzeichnisse sowie Crash-/Race-/Collision-/Cross-Device-Nachweis auf einem echten Host; kein fest vorausgesetztes Dateisystem. | Sol `high`; geplant als eigenständige Frontier-Wave. |
 | S-W10-03 | Gefenceter Interim-Ein-Datei-Quarantäneexecutor über `os.rename`. | PREPARED vor Move, Same-Filesystem-/Ziel-Abwesenheitsprüfung, Full-SHA-256-Revalidierung, Manual-Review nach unklarer Nachprüfung, keine Löschung. | Sol `high`; abgeschlossen, aber bewusst ohne atomare No-Replace-Garantie. |
-| S-W10-04 | Read-only Quarantänestatus und fokussierter Abschluss. | Nur opaque IDs, feste Status/Findings und Zeitpunkte; keine Pfade, Namen, Bestätigungseingaben oder Materialhashes. | Luna `medium`; nach S-W10-03. |
+| S-W10-04 | DONE: Read-only Quarantänestatus und fokussierter Abschluss. | `quarantine-status-report/v1` liest den exakten Run nur über SQLite read-only und zeigt opaque IDs, feste Status und Zeitpunkte; keine Pfade, Namen, Bestätigungseingaben, Materialhashes, `target_token`, `confirmation_digest` oder Finding-Eingaben. | Luna `medium`; abgeschlossen nach S-W10-03. |
 
 S-EBAR-01 bis S-EBAR-03A, EBAR-04, S-EBAR-02A bis S-EBAR-02C und EBAR-05
 sind abgeschlossen. FG-A-IMAGE, FG-A-RUNTIME-AVAILABILITY,

@@ -92,6 +92,7 @@ from foliotone.persistence.consolidation_report import (
     ConsolidationPlanReportReaderError,
     SQLiteConsolidationPlanReportReader,
 )
+from foliotone.persistence.quarantine import SQLiteQuarantineStore
 from foliotone.tooling.ebook_readiness import inspect_ebook_toolchain
 from foliotone.tooling.runtime import ToolRuntime
 from foliotone.workflows import (
@@ -129,6 +130,11 @@ from foliotone.workflows.archive_collection_report import (
 from foliotone.workflows.classification import (
     ClassificationReportError,
     read_book_classification_report,
+)
+from foliotone.workflows.quarantine_report import (
+    QuarantineStatusReport,
+    QuarantineStatusReportError,
+    SQLiteQuarantineStatusReportReader,
 )
 
 _MEDIA_TYPES = {
@@ -1394,6 +1400,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format; defaults to text.",
     )
 
+    quarantine_status = subparsers.add_parser(
+        "quarantine-status",
+        help="Read one persisted W10 quarantine run without source access.",
+    )
+    quarantine_status.add_argument(
+        "--run-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque persisted quarantine run identifier.",
+    )
+    quarantine_status.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="Existing SQLite database path; opened strictly read-only.",
+    )
+    quarantine_status.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format; defaults to text.",
+    )
+
     ebook_compare = subparsers.add_parser(
         "ebook-compare",
         help=(
@@ -1641,6 +1670,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "archive-collection-status":
         return _run_archive_collection_status(args)
+
+    if args.command == "quarantine-status":
+        return _run_quarantine_status(args)
 
     if args.command == "ebook-match":
         return _run_ebook_match(args)
@@ -2851,6 +2883,65 @@ def _archive_collection_status_error(args: argparse.Namespace, code: str) -> int
         )
     else:
         print("Archive collection status failed: read-only state is unavailable.")
+    return 2
+
+
+def _run_quarantine_status(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    if not database.is_file():
+        return _quarantine_status_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            report = SQLiteQuarantineStatusReportReader(
+                SQLiteQuarantineStore(engine)
+            ).read(args.run_id)
+        finally:
+            engine.dispose()
+    except QuarantineStatusReportError:
+        return _quarantine_status_error(args, "RUN_UNAVAILABLE")
+    except OperationalError:
+        return _quarantine_status_error(args, "SCHEMA_UNAVAILABLE")
+    except (OSError, ValueError):
+        return _quarantine_status_error(args, "DATABASE_UNAVAILABLE")
+    except Exception:
+        return _quarantine_status_error(args, "INTERNAL_READ_ERROR")
+    if args.output == "json":
+        _emit_json(report.payload())
+    else:
+        _print_quarantine_status(report)
+    return 0
+
+
+def _print_quarantine_status(report: QuarantineStatusReport) -> None:
+    print(f"Run: {report.run_id}")
+    print(f"Authorization: {report.authorization_id}")
+    print(f"Plan: {report.plan_id}")
+    print(f"ScanRoot: {report.scan_root_id}")
+    print(f"Profile: {report.profile}")
+    print(f"Status: {report.status.value}")
+    print(f"Created: {report.created_at.isoformat()}")
+    print(f"Authorized: {report.authorized_at.isoformat()}")
+    print(f"Expires: {report.expires_at.isoformat()}")
+    for event in report.events:
+        print(
+            f"Event: {event.sequence_no} {event.status.value} "
+            f"{event.occurred_at.isoformat()}"
+        )
+
+
+def _quarantine_status_error(args: argparse.Namespace, code: str) -> int:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": "quarantine-status",
+                "ok": False,
+                "error": {"code": code},
+            }
+        )
+    else:
+        print("Quarantine status failed: read-only state is unavailable.")
     return 2
 
 
