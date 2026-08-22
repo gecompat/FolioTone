@@ -14,6 +14,9 @@ ADR = ROOT / "docs/decisions/ADR-0058-book-collection-state-and-local-projection
 WRITE_AUTHORIZATION_ADR = (
     ROOT / "docs/decisions/ADR-0061-controlled-ebook-write-development.md"
 )
+METADATA_CORRECTION_ADR = (
+    ROOT / "docs/decisions/ADR-0062-non-executable-metadata-correction-plans.md"
+)
 
 
 def _text(path: Path) -> str:
@@ -26,9 +29,13 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `W9-006` |" in backlog
+    assert "| NOW | `S-W9-006A` |" in backlog
     assert "Keine weitere Medienlinie" in backlog
     assert "| W9-006 | NEXT |" in backlog
+    assert "| FG-W9-006 | DONE |" in backlog
+    assert "| S-W9-006A | READY |" in backlog
+    assert "| S-W9-006B | PLANNED |" in backlog
+    assert "| S-W9-006C | PLANNED |" in backlog
     assert "| W10-005 | READY |" in backlog
     assert "| OPS-001 | READY |" in backlog
     assert "Andere Planungsdokumente erläutern diese Aufgaben" in backlog
@@ -139,3 +146,30 @@ def test_ebook_write_pipeline_is_development_authorized_and_remains_gate_bound()
         "nur die E-Book-Linie",
     )
     assert all(marker in authorization_adr for marker in required_adr_markers)
+
+
+def test_metadata_correction_gate_is_reviewed_bounded_and_non_executable() -> None:
+    adr = _text(METADATA_CORRECTION_ADR)
+    documentation_index = _text(ROOT / "docs/README.md")
+    backlog = _text(BACKLOG)
+
+    required = (
+        "- Status: Accepted",
+        "metadata-correction-candidate/v1",
+        "metadata-correction-plan/v1",
+        "MetadataCorrectionCandidate",
+        "ReviewType.METADATA_CORRECTION",
+        "ReviewCandidateKind.METADATA_CORRECTION_CANDIDATE",
+        "FOLIOTONE_PROJECTION",
+        "SOURCE_METADATA",
+        "CALIBRE_LIBRARY",
+        "FULL_SHA256_MATCHES",
+        "metadata-correction-verification/v1",
+        "NOT_EXECUTABLE",
+        "S-W9-006A",
+        "S-W9-006B",
+        "S-W9-006C",
+    )
+    assert all(marker in adr for marker in required)
+    assert "ADR-0062" in documentation_index
+    assert "| FG-W9-006 | DONE |" in backlog

@@ -70,6 +70,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0059](decisions/ADR-0059-collection-state-diff-and-metadata-query.md) definiert die festen Diff-Kategorien, den begrenzten Query-AST, den snapshotgebundenen Metadata-FTS-Index und das private Ausgabeprofil von `CS-02`.
 - [ADR-0060](decisions/ADR-0060-multidimensional-library-health.md) definiert sieben unabhängige book-only Health-Dimensionen, feste Findings, insert-only Persistenz, bounded opaque Samples und den reproduzierbaren read-only Vergleich von `CS-03`.
 - [ADR-0061](decisions/ADR-0061-controlled-ebook-write-development.md) hält die Owner-Freigabe für kontrollierte E-Book-Writer-Entwicklung mit synthetischen Fixtures fest und trennt sie von operation-spezifischer technischer und operativer Authorization.
+- [ADR-0062](decisions/ADR-0062-non-executable-metadata-correction-plans.md) definiert immutable, content-addressed und reviewte `MetadataCorrectionCandidate`- und `MetadataCorrectionPlan`-Snapshots mit permanenter `NOT_EXECUTABLE`-Grenze.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

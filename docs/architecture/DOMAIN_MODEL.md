@@ -486,11 +486,18 @@ Review may also create durable local authority knowledge such as a confirmed ali
 
 ## Consolidation layer
 
-W9 introduces `ConsolidationPlan` only. Plans describe candidate actions and
-preconditions and remain permanently non-executable. ADR-0061 enables
-operation-specific W10 development but does not reinterpret a W9 plan; only a
-new W10 Authorization under the accepted technical contract may open one
-concrete operation.
+W9 introduces permanently non-executable planning records. `ConsolidationPlan`
+describes reviewed duplicate handling. ADR-0062 adds a separate immutable
+`MetadataCorrectionCandidate` as review subject and derives a
+`MetadataCorrectionPlan` only from the newest compatible Review Decision.
+Candidate and Plan preserve observed and selected values, one target carrier,
+Dependencies, Preconditions and post-write Verification without exposing a
+Writer.
+
+ADR-0061 enables operation-specific W10 development but does not reinterpret
+a W9 plan. Only a new W10 Authorization under the accepted technical contract
+may open one concrete operation; `APPROVED_NON_EXECUTABLE` is not such an
+Authorization.
 
 ## Related decisions
 
@@ -498,6 +505,7 @@ concrete operation.
 - `ADR-0007-music-work-and-release-group.md`
 - `ADR-0008-multidimensional-classification.md`
 - `ADR-0037-book-classification-assertions-and-projections.md`
+- `ADR-0062-non-executable-metadata-correction-plans.md`
 - `ADR-0009-external-enrichment-and-privacy.md`
 - `ADR-0010-tool-provider-orchestration.md`
 - `AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`

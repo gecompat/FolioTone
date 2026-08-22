@@ -17,7 +17,8 @@ Capability und eine kurzlebige Authorization gebunden.
 - no Calibre write adapter exists;
 - external enrichment does not write back to source media;
 - external ToolProviders may use only analysis-safe operations against source media;
-- W9 consolidation plans are data records only and cannot execute.
+- W9 consolidation and metadata-correction plans are data records only and
+  remain permanently `NOT_EXECUTABLE`.
 
 ## External tool safety
 

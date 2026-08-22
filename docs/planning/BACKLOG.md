@@ -13,7 +13,7 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | `W9-006` | ADR-0061 aktiviert den nicht ausführbaren `MetadataCorrectionPlan` als nächsten regulären E-Book-Produktslice. Keine weitere Medienlinie oder Produktoberfläche ist dadurch aktiviert. |
+| NOW | `S-W9-006A` | ADR-0062 ist akzeptiert. Der erste begrenzte Slice implementiert ausschließlich immutable DTOs, reine Reducer, kanonische Serialisierung und den Non-Execution-Vertrag des `MetadataCorrectionCandidate` und `MetadataCorrectionPlan`. Keine weitere Medienlinie oder Produktoberfläche ist dadurch aktiviert. |
 | PARALLEL READY | `W10-005` | Die von ADR-0056 erlaubte Ein-Datei-Quarantäne erhält eine vollständige Authorize-/Execute-/Recovery-Bedienkette, ohne den Mutationstyp zu erweitern. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
 | NEXT WAVES | `FG-W10-METADATA-WRITE`, danach kleinster Metadata-Writer | Die Entwicklungsfreigabe ist vorhanden; Format, Zielträger und technische Safety-Grenze werden vor Writer-Code in einer eigenen ADR entschieden. |
@@ -252,6 +252,10 @@ Interim-Quarantäneexecutor öffnen.
 | W9-004 | DONE | Produce a complete non-executable, content-addressed e-book deduplication plan with Keeper, quarantine, verification, rollback, purge, Calibre, sidecar, archive and empty-directory preconditions. |
 | W9-005 | DONE | Require Review approval for Keep preference and every future mutation candidate; keep exact duplicate identity, quality ranking and physical operation separate. |
 | W9-006 | NEXT | Implement a non-executable, content-addressed `MetadataCorrectionPlan` that binds observed values, reviewed canonical candidates, one explicit target carrier, dependencies, writer profile, changed-since-analysis preconditions and post-write verification without exposing a writer. |
+| FG-W9-006 | DONE | ADR-0062 definiert den separaten immutable `MetadataCorrectionCandidate`, den append-only Reviewvertrag, content-addressed Candidate und Plan, fünf getrennte Zielträger, feste Preconditions, Post-write-Verifikation, Privacy und die permanente `NOT_EXECUTABLE`-Grenze. |
+| S-W9-006A | READY | Implementiere reine DTOs, Reducer, kanonische Serialisierung, Golden Values und den statischen Non-Execution-Vertrag ohne Datenbank, CLI, Source-Zugriff oder Writer. |
+| S-W9-006B | PLANNED | Ergänze Migration `0026`, die neuen Review-Literale und einen insert-only Store mit bounded Rehydration, Hash-/Lineage-/Idempotenzprüfung. |
+| S-W9-006C | PLANNED | Ergänze den echten SQLite-Read-only-Report `ebook-metadata-correction-report`, die CLI-Adaptergrenze sowie Privacy-, Bootstrap- und Abschlussverträge. |
 | W9-007 | PLANNED | Implement non-executable, reproducible recipes for rename, reorganization, import/export, transformation and archive/container changes; keep every operation behind its own W10 gate. |
 
 ## W10 — Controlled Consolidation

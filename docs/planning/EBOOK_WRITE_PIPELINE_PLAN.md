@@ -125,8 +125,11 @@ Dependencies, erwarteten Source-Zustand und eine feste Operationsreihenfolge.
 
 ### 4.1 Metadatenkorrekturen
 
-`W9-006` plant einen `MetadataCorrectionPlan`, bevor ein Writer existieren
-darf. Der Plan muss je Feld unterscheiden:
+ADR-0062 trennt zuerst einen immutable `MetadataCorrectionCandidate` als
+Reviewgegenstand vom daraus abgeleiteten `MetadataCorrectionPlan`. Das
+verhindert einen zyklischen Hash zwischen Plan und Review. Beide Snapshots
+sind content-addressed; der Plan bleibt selbst nach einem kompatiblen
+`ACCEPT` dauerhaft `NOT_EXECUTABLE`. Je Feld unterscheiden sie:
 
 - beobachteter Rohwert;
 - abgeleitete oder externe Kandidaten;
@@ -136,6 +139,12 @@ darf. Der Plan muss je Feld unterscheiden:
 - unveränderte Felder und explizit zu bewahrende Rohwerte;
 - Konflikte, Dependencies und Reviewentscheidung;
 - post-write erwartete technische und fachliche Verifikation.
+
+Die Lieferfolge bleibt ebenfalls getrennt: `S-W9-006A` enthält nur DTOs,
+Reducer und kanonische Serialisierung, `S-W9-006B` die insert-only Persistenz
+und Review-Integration und `S-W9-006C` einen privacy-begrenzten echten
+SQLite-Read-only-Report samt CLI. Keines der drei Pakete öffnet Source Media
+oder stellt eine Write-/Execute-/Apply-Operation bereit.
 
 Die Zielträger bleiben getrennte Operationstypen:
 
@@ -274,18 +283,22 @@ zusammenziehen.
 
 ## 8. Lieferfolge in kleinen Waves
 
-ADR-0061 aktiviert die folgenden vier nächsten, jeweils getrennt prüfbaren
-Waves. `BACKLOG.md` bleibt für ihren Status maßgeblich:
+ADR-0061 und ADR-0062 aktivieren die folgenden getrennt prüfbaren Waves.
+`BACKLOG.md` bleibt für ihren Status maßgeblich:
 
-1. `W9-006` implementiert den nicht ausführbaren `MetadataCorrectionPlan`
-   samt Zielträgern, Dependencies, Writerprofil und Post-write-Verifikation.
-2. `W10-005` vervollständigt parallel die vorhandene Ein-Datei-Quarantäne in
+1. `S-W9-006A` implementiert die reinen Candidate-/Plan-Verträge und ihre
+   kanonische content-addressed Serialisierung.
+2. `S-W9-006B` ergänzt Review-Literale, Migration `0026` und insert-only
+   Persistenz mit vollständiger Lineage- und Idempotenzprüfung.
+3. `S-W9-006C` ergänzt den privacy-begrenzten SQLite-Read-only-Report und die
+   CLI; damit wird `W9-006` abgeschlossen.
+4. `W10-005` vervollständigt parallel die vorhandene Ein-Datei-Quarantäne in
    eigenen Authorize-, Execute-/Bestätigungs- und Recovery-Paketen, ohne den
    Mutationstyp zu erweitern.
-3. `FG-W10-METADATA-WRITE` entscheidet anhand des fertigen Plans genau einen
+5. `FG-W10-METADATA-WRITE` entscheidet anhand des fertigen Plans genau einen
    Format-/Zielträgervertrag, seine Byte-/Semantik-Diffs, Recovery-Grenze und
    synthetische Conformance-Matrix.
-4. Erst die akzeptierte Gate-ADR aktiviert den kleinsten vertikalen Metadata-
+6. Erst die akzeptierte Gate-ADR aktiviert den kleinsten vertikalen Metadata-
    Writer mit synthetischer End-to-End-Verifikation, Revalidierung, Fencing,
    Journal und Recovery.
 
