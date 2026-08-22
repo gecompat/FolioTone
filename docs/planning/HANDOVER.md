@@ -5,19 +5,34 @@
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
 ADR-0061 hält seit 2026-08-22 die ausdrückliche Owner-Freigabe für die
-kontrollierte Entwicklung der E-Book-Schreibstrecke fest. Writer-Code und
-End-to-End-Tests dürfen ausschließlich synthetische temporäre Dateien
-mutieren. Die Entscheidung ist keine globale Runtime-Freigabe: Für reale
-Source Media bleiben eine eigene technische Operations-ADR, vollständige
-Capability-/Authorize-/Execute-/Recovery-Kette und eine konkrete lokale
-Authorization verpflichtend. `W9-006` ist dadurch `NEXT`; `W10-005` bleibt
-parallel `READY`.
+kontrollierte Entwicklung der E-Book-Schreibstrecke fest. Die Gate-Wave ist
+über PR #228 auf `main` integriert; der exakte PR-Head und der anschließende
+Merge-Head bestanden ihre CI-Gates. Writer-Code und End-to-End-Tests dürfen
+ausschließlich synthetische temporäre Dateien mutieren. Für reale Source Media
+bleiben eine eigene technische Operations-ADR, die vollständige Capability-/
+Authorize-/Execute-/Recovery-Kette und eine konkrete lokale Authorization
+verpflichtend.
 
-Die ADR-0061-Gate-Wave änderte keinen Python-Writer und berührte keine reale
-Sammlung. 17 fokussierte Planungs-, W10- und Dokumentationsvertragstests
-bestanden; eine vollständige lokale Suite wurde ressourcenschonend nicht
-dupliziert. Der Pull Request muss den einmaligen vollständigen CI-Gate auf
-seinem stabilen Head bestehen.
+ADR-0062 schließt jetzt `FG-W9-006`: Vor jedem Metadata-Writer entsteht zuerst
+ein immutable `MetadataCorrectionCandidate` als Gegenstand eines append-only
+Reviews. Erst die neueste kompatible Review Decision wird in einen separaten,
+content-addressed `MetadataCorrectionPlan` gebunden. Candidate und Plan bleiben
+bounded, path-free und dauerhaft `NOT_EXECUTABLE`; ein akzeptiertes Review ist
+keine W10-Authorization.
+
+Die Umsetzung folgt in drei kleinen Waves. `S-W9-006A` ist `READY` und enthält
+nur DTOs, Reducer, kanonische Serialisierung, Golden Values und den statischen
+Non-Execution-Vertrag. `S-W9-006B` ergänzt Migration `0026`, Review-Literale
+und insert-only Persistenz. `S-W9-006C` liefert den echten SQLite-Read-only-
+Report samt CLI und schließt `W9-006`. `W10-005` bleibt parallel `READY`.
+
+Der ADR-0062-Gate-Slice ändert keinen Python-Writer, öffnet keine Source Media
+und berührt keine reale Sammlung. Sieben fokussierte Planungs- und neun
+Dokumentationsvertragstests bestanden; eine anfängliche veraltete Text-
+Assertion wurde korrigiert und nur die betroffene Testdatei wiederholt.
+`git diff --check` war ohne Befund. Eine vollständige lokale Suite wurde
+ressourcenschonend nicht dupliziert; der einmalige vollständige PR-CI-Gate
+bleibt Merge-Voraussetzung.
 
 W0 bis W2 sind abgeschlossen. Der W2-Slice umfasst Incremental Index, Hashing, Filename-/Path-Kandidaten, konfigurierbare Parsing-Profile und eine generische read-only ToolProvider Runtime. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
 

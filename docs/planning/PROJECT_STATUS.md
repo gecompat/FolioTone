@@ -4,29 +4,36 @@ Stand: 2026-08-22
 
 ## Aktuelle Welle
 
-**FG-W10-WRITE-DEVELOPMENT abgeschlossen — kontrollierte Writer-Entwicklung ist freigegeben**
+**FG-W9-006 abgeschlossen — Metadatenkorrekturplanung ist entscheidungsreif**
 
-ADR-0061 hält die ausdrückliche Owner-Entscheidung fest, die E-Book-
-Schreibstrecke weiterzuentwickeln. Alle Writer-Waves dürfen ihre konkreten
-Operationen mit ausschließlich synthetischen temporären Dateien und isolierten
-Runtime-Datenbanken implementieren und prüfen. Es existiert kein globaler
-Write-Schalter: Reale Source-Media-Mutation erfordert weiterhin je
-Operationstyp eine akzeptierte technische ADR, eine vollständige
-Capability-/Authorize-/Execute-/Recovery-Kette und die unmittelbar
-revalidierte lokale Authorization.
+ADR-0062 definiert den nicht ausführbaren W9-Vertrag vor jedem Metadata-
+Writer. Ein immutable, content-addressed `MetadataCorrectionCandidate` bindet
+die aktuelle E-Book-Observation, beobachtete und ausgewählte Werte, genau einen
+Zielträger, Dependencies und Writeranforderung. Der append-only Review bezieht
+sich auf diesen Candidate; erst die neueste kompatible Decision wird in einen
+neuen content-addressed `MetadataCorrectionPlan` übernommen. Damit entsteht
+kein zyklischer Hash zwischen Review und Plan.
 
-`W9-006` ist der nächste reguläre E-Book-Produktslice und liefert zuerst den
-nicht ausführbaren `MetadataCorrectionPlan`. `W10-005` bleibt parallel
-`READY` und vervollständigt ausschließlich die bereits durch ADR-0056 eng
-erlaubte Quarantänekette. Danach folgen `FG-W10-METADATA-WRITE` und erst nach
-dessen Annahme der kleinste konkrete Metadata-Writer. Music, Bilder, REST-API
-und grafische Oberfläche sind dadurch nicht aktiviert.
+Candidate und Plan bleiben path-free, bounded und dauerhaft
+`NOT_EXECUTABLE`. Selbst `APPROVED_NON_EXECUTABLE` öffnet weder Source-
+Metadaten noch Sidecar, Calibre, ein externes Tool oder eine interne Projektion
+zum Schreiben. `S-W9-006A` ist jetzt der kleinste reguläre Code-Slice;
+`S-W9-006B` und `S-W9-006C` folgen getrennt für Persistenz/Review und den
+echten SQLite-Read-only-Report. `W10-005` bleibt parallel `READY`.
 
-Für diese reine Gate-/Dokumentations-Wave bestanden 17 fokussierte
-Planungs-, W10- und Dokumentationsvertragstests. `git diff --check` war ohne
-Befund. Entsprechend `TEST_POLICY.md` wurde keine vollständige lokale Suite
-gestartet; der stabile Pull-Request-Head erhält genau einen vollständigen
-CI-Gate als Merge-Voraussetzung.
+Die bereits auf `main` integrierte ADR-0061 gibt die kontrollierte Entwicklung
+mit ausschließlich synthetischen temporären Dateien frei. Reale Source-Media-
+Mutation benötigt weiterhin je Operationstyp eine akzeptierte technische ADR,
+die vollständige Capability-/Authorize-/Execute-/Recovery-Kette und eine
+unmittelbar revalidierte lokale Authorization. Music, Bilder, REST-API und
+grafische Oberfläche sind nicht aktiviert.
+
+Der ADR-0062-Gate-Slice ändert keinen Python-Writer, öffnet keine Source Media
+und berührt keine reale Sammlung. Sieben fokussierte Planungs- und neun
+Dokumentationsvertragstests bestanden; eine anfängliche veraltete Text-
+Assertion wurde korrigiert und nur die betroffene Testdatei wiederholt.
+`git diff --check` war ohne Befund. Eine vollständige lokale Suite wurde nicht
+dupliziert; der einmalige vollständige PR-CI-Gate bleibt Merge-Voraussetzung.
 
 **CS-03 abgeschlossen — die book-only Produktprojektionen sind vollständig**
 
