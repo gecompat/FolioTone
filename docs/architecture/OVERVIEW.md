@@ -306,6 +306,16 @@ diese Metadatenwerte, nie Content oder OCR. Maschinenreports bleiben
 metadatenwertfrei; private Werte benötigen interaktive Textausgabe mit
 `--private-details`. ADR-0059 dokumentiert den ausführbaren Vertrag.
 
+`library-health/v1` reduziert den gebundenen Snapshot anschließend in sieben
+unabhängige, content-addressed Dimensionen. Migration `0025` persistiert
+Snapshot, Dimensionen, Findings und höchstens 64 nach opaque `File`-ID
+sortierte Samples je Finding insert-only. `collection-state-build` erzeugt
+oder verifiziert State, Query-Index und Health atomar; eine fehlende oder
+inkonsistente Teilprojektion bricht den Build ab. `library-health-report`
+öffnet SQLite mit `mode=ro` und `query_only=ON`, gibt keine privaten Werte oder
+Evidence-Digests aus und kann zwei kompatible Snapshots ohne
+Kausalitätsbehauptung vergleichen. ADR-0060 dokumentiert diesen Vertrag.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.

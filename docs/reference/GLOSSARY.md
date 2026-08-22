@@ -69,10 +69,11 @@ Dieses Glossar definiert die kanonischen fachlichen Kernbegriffe des Projekts. E
 | `Review Queue` | Menge unsicherer oder entscheidungsbedürftiger Fälle für menschliche Prüfung. | ManualFixList |
 | `KeepPreferenceOutcome` | Versionierte, reine und reviewpflichtige Auswahl eines bevorzugten `FileRecord` aus bereits bestätigter File-Identity und getrennter Quality Evidence. Das Outcome beweist keine Identity und autorisiert keine physische Operation. | QualityScore, Löschentscheidung |
 | `ConsolidationPlan` | Insert-only, content-addressed und dauerhaft `NOT_EXECUTABLE` bleibender Snapshot einer möglichen späteren Konsolidierung. Er trennt Identity, Quality Evidence, reviewte Keep Preference, Preconditions, Dependencies und Future Operation Intents. | DeletePlan, CleanupScript |
+| `MetadataCorrectionPlan` | Geplanter nicht ausführbarer, content-addressed Snapshot einer reviewten Metadatenkorrektur. Er bindet beobachtete und ausgewählte Werte, genau einen Zielträger, Dependencies, Writerprofil, changed-since-analysis-Preconditions und Post-write-Verifikation, stellt aber keinen Writer bereit. | Retag-Befehl, kanonischer Wert als Schreibfreigabe |
 | `CollectionState` | Immutable, rebuildbare book-only Projektion persistierter Evidence für genau einen abgeschlossenen `ScanRun`. Sie bindet Coverage, Staleness, Profile und Lineage, trifft aber keine neue Identity- oder Mutationsentscheidung. | globale Mutable Library, kanonische Wahrheit, universeller Asset-Zustand |
 | `CollectionStateDiff` | Deterministische, pfadfreie Projektion direkt belegter Zustandsunterschiede zwischen genau zwei kompatiblen `CollectionState`-Snapshots. | Kausalitätsanalyse, Dateisystemmutation, Identity-Entscheidung |
 | `CollectionQuery` | Validierter und hart begrenzter book-only Query-AST über einen snapshotgebundenen lokalen Metadata-FTS-Index. | freies SQL, Content-Suche, Query-History, kanonische Metadatenabfrage |
-| `Library Health` | Zusammengefasste Bewertung des Sammlungszustands anhand mehrerer unabhängiger Analysebereiche. | Quality Score, wenn nur eine einzelne Dimension gemeint ist |
+| `Library Health` | Immutable, snapshotgebundene Bewertung des book-only Sammlungszustands anhand sieben unabhängiger Dimensionen mit eigener Coverage, eigenem Status, vollständigen Finding-Counts und bounded opaque Samples. Sie besitzt keinen Gesamtscore und keine Mutation Authority. | Quality Score, Duplicate-Verdict, Ausführungsfreigabe |
 
 ## Wichtige Abgrenzungen
 

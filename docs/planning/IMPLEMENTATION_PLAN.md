@@ -7,6 +7,12 @@ packages existing W, E and EA work into executable EB pull-request waves. Its
 EB labels do not replace this W0-W10 program sequence or the canonical backlog
 IDs.
 
+`EBOOK_WRITE_PIPELINE_PLAN.md` verbindet diese Implementierungsfolge mit der
+vollständigen späteren Schreibstrecke von Scan und Review über nicht
+ausführbare Metadatenkorrektur-/Konsolidierungspläne bis zu getrennten
+W10-Gates, Verifikation, Recovery sowie REST-/UI-Grenzen. Das Dokument
+autorisiert keine neue Mutation und erzeugt keine konkurrierende Statusachse.
+
 Under ADR-0016, the initial product surface remains CLI-only. W3 and the following early vertical slices do not add a web API, desktop interface or dashboard layer. The CLI stays a thin adapter to application/core contracts.
 
 ## Aktuelle Lieferfolge nach dem E-Book-Endgame
@@ -37,12 +43,21 @@ Metadatenwerte werden lokal über FTS5 gesucht. Diff und Suche verwenden echte
 SQLite-Read-only-Verbindungen. JSON bleibt metadatenwertfrei, während
 `--private-details` ausschließlich interaktive Textausgabe öffnet.
 
-`CS-03` ist der nächste reguläre Produkt-Slice.
+`CS-03` ist ebenfalls umgesetzt. ADR-0060 legt sieben unabhängige
+Health-Dimensionen, feste Finding-Codes, Coverage und Status ohne
+dimensionsübergreifenden Score fest. Migration `0025` speichert die
+content-addressed Projektion, ihre Dimensionen, Findings und höchstens 64
+opaque Samples je Finding insert-only. `collection-state-build` erzeugt oder
+verifiziert `CollectionState`, Query-Index und Health in derselben
+Transaktion. `library-health-report` liest die Projektion tatsächlich
+SQLite-read-only und kann sie reproduzierbar mit einem älteren Snapshot
+desselben `ScanRoot` vergleichen.
 
 Maschinenlesbare Vertragsreports bleiben pfadfrei. Lokale interaktive
 Metadatenwerte benötigen ausdrücklich `--private-details`; absolute Pfade
-bleiben ausgeschlossen. Music W4 folgt als nächste vollständige Mediendomäne
-nach diesen drei Waves.
+bleiben ausgeschlossen. Nach Abschluss der drei Waves wird keine andere
+Medienlinie automatisch gestartet. Music W4 bleibt die nächste geplante
+vollständige Mediendomäne, benötigt aber eine ausdrückliche Aktivierung.
 
 `W10-005` ist eine unabhängige parallele `FRONTIER`-Wave. Sie vervollständigt
 Capability-Auflösung, Authorize, Execute und Recovery für die bereits durch
@@ -440,6 +455,12 @@ Build on the W3 calibre ToolProvider and implement read-only library integration
 
 Create non-executable `ConsolidationPlan` data from confirmed/reviewed relations. Plans may describe KEEP and candidate operations but must be marked non-executable.
 
+Die abgeschlossene Duplicate-/Keep-Planung wird später um `W9-006` für einen
+nicht ausführbaren `MetadataCorrectionPlan` und `W9-007` für reproduzierbare
+Rename-, Reorganisations-, Import-/Export-, Transformations- und
+Containerrezepte ergänzt. Ein Zielträger oder Rezept öffnet keinen Writer.
+Die vollständige Reihenfolge steht in `EBOOK_WRITE_PIPELINE_PLAN.md`.
+
 Identity and quality are separate inputs: a future quality evaluator may rank which equivalent representation is preferable only after identity is established.
 
 Acceptance:
@@ -461,6 +482,13 @@ SHA-256-Revalidierung verwenden. Diese Zielprüfung ist nicht atomar.
 atomaren No-Replace, no-follow sowie Race-/Crash-Nachweise. Cross-Volume-
 Copy+Delete und Überschreiben sind kein Fallback.
 
+Metadaten-, Sidecar-, externe Library-, Rename- und Archive-/Containerwrites
+bleiben an `FG-W10-METADATA-WRITE`, `FG-W10-SIDECAR-WRITE`,
+`FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME` beziehungsweise
+`FG-W10-ARCHIVE-REWRITE` gebunden. Kein Gate autorisiert einen anderen
+Operationstyp. W10-003 und W10-004 halten Rollback/Purge und
+Verzeichnisbereinigung weiterhin getrennt.
+
 Der vorhandene Executor ist noch keine vollständige Bedienkette. `W10-005`
 ergänzt einen privaten `QuarantineCapabilityResolver`,
 `quarantine-authorize`, `quarantine-execute` mit zweiter Bestätigung über
@@ -479,6 +507,11 @@ Diese späteren Erweiterungen blockieren die aktuelle Lieferfolge nicht:
 
 - medienübergreifende Generalisierung der durch `CS-03` zunächst book-only
   implementierten `Library Health`-Projektion;
+- eine Produktoberflächen-ADR vor REST-API, MCP, Web- oder Desktop-UI. Sie
+  muss stabile Application-Commands/-Queries, getrennte Einstiegspunkte für
+  E-Books, Musik, Bilder und spätere Linien, Authentisierung/Autorisierung,
+  Pagination, Privacy und Audit festlegen. Schreibende Endpunkte bleiben von
+  read-only Oberflächen getrennt und benötigen weiterhin eigene W10-Gates;
 - completeness/gap detection for series/albums/classical works;
 - cover/image perceptual fingerprints for editions/releases;
 - e-book structural/quality/content-diff analysis using mature tools where suitable;
