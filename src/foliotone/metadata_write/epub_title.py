@@ -245,6 +245,12 @@ def _validate_plan(plan: MetadataCorrectionPlan) -> str:
     return correction.selected_values[0].value
 
 
+def validate_epub3_title_write_plan(plan: MetadataCorrectionPlan) -> None:
+    """Require the exact approved W9 plan shape owned by the v1 writer."""
+
+    _validate_plan(plan)
+
+
 def preflight_epub3_title_write(
     plan: MetadataCorrectionPlan,
     epub_bytes: bytes,
@@ -1342,5 +1348,6 @@ __all__ = [
     "build_epub3_title_package_patch",
     "preflight_epub3_title_write",
     "validate_epub3_title_package_patch",
+    "validate_epub3_title_write_plan",
     "verify_epub3_title_archive_diff",
 ]

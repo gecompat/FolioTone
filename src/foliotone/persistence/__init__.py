@@ -152,6 +152,12 @@ if TYPE_CHECKING:
         ConsolidationStoreError,
         SQLiteConsolidationStore,
     )
+    from foliotone.persistence.metadata_write import (
+        MetadataWriteStatusEventSnapshot,
+        MetadataWriteStatusSnapshot,
+        MetadataWriteStoreError,
+        SQLiteMetadataWriteStore,
+    )
     from foliotone.persistence.quarantine import (
         QuarantineExecutionEvent,
         QuarantineExecutionRun,
@@ -161,7 +167,7 @@ if TYPE_CHECKING:
 
 
 def __getattr__(name: str) -> Any:
-    """Load consolidation persistence lazily to avoid workflow import cycles."""
+    """Load cycle-prone persistence modules lazily."""
     if name in {"ConsolidationStoreError", "SQLiteConsolidationStore"}:
         from foliotone.persistence.consolidation import (
             ConsolidationStoreError,
@@ -181,6 +187,15 @@ def __getattr__(name: str) -> Any:
         from foliotone.persistence import quarantine
 
         return getattr(quarantine, name)
+    if name in {
+        "MetadataWriteStatusEventSnapshot",
+        "MetadataWriteStatusSnapshot",
+        "MetadataWriteStoreError",
+        "SQLiteMetadataWriteStore",
+    }:
+        from foliotone.persistence import metadata_write
+
+        return getattr(metadata_write, name)
     raise AttributeError(name)
 
 
@@ -272,6 +287,10 @@ __all__ = [
     "MAX_METADATA_CORRECTION_PRECONDITIONS",
     "MetadataCorrectionStoreError",
     "SQLiteMetadataCorrectionStore",
+    "MetadataWriteStatusEventSnapshot",
+    "MetadataWriteStatusSnapshot",
+    "MetadataWriteStoreError",
+    "SQLiteMetadataWriteStore",
     "SQLiteEbookCandidateHashRunStore",
     "SQLiteEbookInventoryReportStore",
     "SQLiteEbookCollectionReportStore",

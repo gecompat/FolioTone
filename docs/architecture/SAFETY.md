@@ -13,7 +13,7 @@ Capability und eine kurzlebige Authorization gebunden.
 - source media mounts are read-only in the standard container configuration;
 - no source-media delete command exists;
 - no source-media move or rename command exists;
-- no metadata writer exists for source media;
+- no executable metadata-write command exists for source media;
 - no Calibre write adapter exists;
 - external enrichment does not write back to source media;
 - external ToolProviders may use only analysis-safe operations against source media;
@@ -273,6 +273,15 @@ immutable DTOs und Bytes, besitzt aber keine Pfad-, Dateischreib-,
 Persistenz-, Tool-, Netzwerk-, CLI-, Capability-, Authorization- oder
 Execute-Schnittstelle. Ein erfolgreicher `EpubTitleArchiveDiff` ist deshalb
 nur Staging-Evidence und keine Mutationsfreigabe.
+
+`S-W10-MW02` ergänzt ausschließlich private Staging-Dateien und unabhängige
+Validatoren. `S-W10-MW03` ergänzt die content-addressed Preparation/
+Authorization, private Capability-Auflösung, gefencete insert-only Run-/
+Eventpersistenz und einen read-only Status. Die Capability-Pfade bleiben
+außerhalb von SQLite und Standardreports; Authorization und Journal besitzen
+weiterhin weder Source-I/O noch Executor- oder CLI-Anbindung. Erst
+`S-W10-MW04` darf den eng begrenzten Linux-Commit und dessen Recovery auf
+synthetischen Filesystemen implementieren.
 
 Ein ausführbarer Consolidation-Teil darf nicht lediglich durch einen CLI-
 Schalter aktiviert werden. Er benötigt weiterhin mindestens:

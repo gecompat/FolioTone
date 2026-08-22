@@ -370,9 +370,12 @@ einen EPUB-3-`SOURCE_METADATA`-Writer für genau einen
 lexikalischen Zwei-Spannen-Patch und den memberweisen Diff als reines Bytes-
 API. `S-W10-MW02` ergänzt exklusives privates Streaming-Staging sowie feste
 nicht persistierende Metadaten-, EPUBCheck-, Text-, Cover- und Preserved-
-Field-Validatoren. Authorization/Persistenz, Linux-`renameat2`-Exchange und
-Same-Filesystem-Recovery bleiben in drei getrennten Folgewaves. Bis zu deren
-Abschluss entsteht keine neue operative Mutation Authority.
+Field-Validatoren. `S-W10-MW03` ergänzt content-addressed Preparation und
+Authorization, einmalige gefencete Runs, append-only Events, private
+Capability-Auflösung und einen read-only Status. Linux-`renameat2`-Exchange/
+Recovery sowie CLI/Reconciliation bleiben `S-W10-MW04` und `S-W10-MW05`
+vorbehalten. Bis zu deren Abschluss entsteht keine neue operative Mutation
+Authority.
 
 ### Adapters
 

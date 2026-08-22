@@ -51,6 +51,18 @@ from foliotone.metadata_correction import (
     metadata_correction_plan_content_hash,
     metadata_correction_plan_id,
 )
+from foliotone.metadata_write import (
+    EpubTitleWritePreparationSnapshot,
+    MetadataWriteExecutionEvent,
+    MetadataWriteRunStatus,
+    ResolvedMetadataWriteCapability,
+    build_metadata_write_authorization,
+    build_metadata_write_run,
+)
+from foliotone.metadata_write.authorization import (
+    _preparation_hash_from_material,
+    _preparation_id,
+)
 from foliotone.persistence import (
     MetadataCorrectionStoreError,
     SQLiteMetadataCorrectionStore,
@@ -58,6 +70,7 @@ from foliotone.persistence import (
     alembic_config,
     consolidation_schema,
     create_sqlite_engine,
+    create_sqlite_read_only_engine,
     migrate,
     schema,
 )
@@ -65,6 +78,18 @@ from foliotone.persistence import metadata_correction_schema as mc_schema
 from foliotone.persistence import resolution_review_schema as review_schema
 from foliotone.persistence.metadata_correction_report import (
     SQLiteMetadataCorrectionPlanReportReader,
+)
+from foliotone.persistence.metadata_write import (
+    MetadataWriteStoreError,
+    SQLiteMetadataWriteStore,
+)
+from foliotone.persistence.scan_root_lease import (
+    ScanRootWriteOwnerKind,
+    SQLiteScanRootWriteLeaseStore,
+)
+from foliotone.workflows.metadata_write_report import (
+    MetadataWriteStatusReportError,
+    SQLiteMetadataWriteStatusReportReader,
 )
 
 NOW = datetime(2026, 8, 22, 18, 0, tzinfo=UTC)
@@ -80,6 +105,12 @@ FULL_HASH = "a" * 64
 PRIVATE_PATH = "private/synthetic-secret-title.epub"
 OBSERVED_TITLE = "Observed synthetic private title"
 SELECTED_TITLE = "Confirmed synthetic private title"
+PREPARATION_OWNER_ID = EntityId.parse("98000000-0000-0000-0000-000000000001")
+METADATA_WRITE_CAPABILITY_ID = EntityId.parse(
+    "98000000-0000-0000-0000-000000000002"
+)
+METADATA_WRITE_RUN_ID = EntityId.parse("98000000-0000-0000-0000-000000000003")
+EXPECTED_OUTPUT_HASH = "e" * 64
 
 
 def _sha(character: str) -> str:
@@ -441,7 +472,7 @@ def test_migration_0026_preserves_review_history_and_downgrades_when_empty(
         review_ddl = connection.execute(
             text("SELECT sql FROM sqlite_master WHERE type='table' AND name='review_items'")
         ).scalar_one()
-    assert revision == "0026_metadata_correction_plans"
+    assert revision == "0027_metadata_write_operations"
     assert retained == str(decision_id)
     assert retained_plan_review == str(plan_id)
     assert "METADATA_CORRECTION" in review_ddl
@@ -883,3 +914,495 @@ def test_metadata_correction_report_internal_failure_does_not_leak_details(
         "ok": False,
         "error": {"code": "INTERNAL_READ_ERROR"},
     }
+
+
+def _approved_plan_for_metadata_write(engine):
+    _seed_source(engine)
+    correction_store = SQLiteMetadataCorrectionStore(engine)
+    candidate = correction_store.create_or_get_candidate(_candidate())
+    review_store = SQLiteResolutionReviewStore(engine)
+    item = review_store.enqueue_or_get_review(_review_item(candidate))
+    review_store.append_decision(
+        ReviewDecision(
+            id=EntityId.new(),
+            review_item_id=item.id,
+            sequence_no=1,
+            decision=ReviewDecisionValue.ACCEPT,
+            decision_reason="USER_CONFIRMED",
+            evidence_fingerprint=candidate.evidence_fingerprint,
+            candidate_set_fingerprint=candidate.content_hash,
+            decision_compatibility_version=METADATA_CORRECTION_DECISION_COMPATIBILITY,
+            actor_kind=ReviewActorKind.USER,
+            decided_at=NOW + timedelta(minutes=1),
+        ),
+        expected_latest_decision_id=None,
+    )
+    review = correction_store.get_latest_review(candidate.id)
+    plan = _plan(candidate, review, created_at=NOW + timedelta(minutes=2))
+    return correction_store.create_or_get_plan(plan)
+
+
+def _metadata_write_authorization(engine, plan):
+    authorized_at = NOW + timedelta(minutes=3)
+    prepared_at = authorized_at + timedelta(seconds=1)
+    lease_store = SQLiteScanRootWriteLeaseStore(engine)
+    lease = lease_store.acquire(
+        ROOT_ID,
+        ScanRootWriteOwnerKind.METADATA_WRITE_PREPARATION,
+        PREPARATION_OWNER_ID,
+        lease_token="synthetic-metadata-write-preparation",
+        acquired_at=authorized_at - timedelta(seconds=1),
+        lease_expires_at=authorized_at + timedelta(minutes=5),
+    )
+    material = {
+        "preparation_owner_id": PREPARATION_OWNER_ID,
+        "preparation_fence_epoch": lease.fence_epoch,
+        "plan_id": plan.id,
+        "plan_content_hash": plan.content_hash,
+        "scan_root_id": ROOT_ID,
+        "file_id": FILE_ID,
+        "observation_id": OBSERVATION_ID,
+        "source_sha256": FULL_HASH,
+        "source_size_bytes": 4096,
+        "expected_output_sha256": EXPECTED_OUTPUT_HASH,
+        "expected_output_size_bytes": 4097,
+        "metadata_write_capability_id": METADATA_WRITE_CAPABILITY_ID,
+        "dcterms_modified": "2026-08-22T18:03:01Z",
+        "authorized_at": authorized_at,
+        "prepared_at": prepared_at,
+        "metadata_tool_version": "ebook-meta calibre 9.13",
+        "epubcheck_tool_version": "EPUBCheck v5.3.0",
+        "text_tool_version": "ebook-convert calibre 9.13.0",
+        "cover_tool_version": "calibre-debug calibre 9.13",
+        "validator_set_fingerprint": _sha("d"),
+    }
+    content_hash = _preparation_hash_from_material(material)
+    preparation = EpubTitleWritePreparationSnapshot(
+        id=_preparation_id(content_hash),
+        content_hash=content_hash,
+        **material,
+    )
+    authorization = build_metadata_write_authorization(
+        preparation,
+        expires_at=authorized_at + timedelta(minutes=10),
+    )
+    return authorization, lease, prepared_at
+
+
+def _persist_metadata_write_run(database: Path):
+    engine = create_sqlite_engine(database)
+    plan = _approved_plan_for_metadata_write(engine)
+    authorization, preparation_lease, prepared_at = _metadata_write_authorization(
+        engine,
+        plan,
+    )
+    store = SQLiteMetadataWriteStore(engine)
+    assert (
+        store.create_or_get_authorization(
+            authorization,
+            plan,
+            preparation_lease,
+            persisted_at=prepared_at + timedelta(seconds=1),
+        )
+        == authorization
+    )
+    lease_store = SQLiteScanRootWriteLeaseStore(engine)
+    lease_store.release(
+        preparation_lease,
+        released_at=prepared_at + timedelta(seconds=2),
+    )
+    run_created_at = prepared_at + timedelta(seconds=3)
+    run_lease = lease_store.acquire(
+        ROOT_ID,
+        ScanRootWriteOwnerKind.METADATA_WRITE_RUN,
+        METADATA_WRITE_RUN_ID,
+        lease_token="synthetic-metadata-write-run",
+        acquired_at=run_created_at,
+        lease_expires_at=run_created_at + timedelta(minutes=5),
+    )
+    source_root = database.parent / "synthetic-source-root"
+    recovery = database.parent / "synthetic-recovery"
+    source_root.mkdir(exist_ok=True)
+    recovery.mkdir(exist_ok=True)
+    capability = ResolvedMetadataWriteCapability(
+        METADATA_WRITE_CAPABILITY_ID,
+        ROOT_ID,
+        source_root,
+        recovery,
+    )
+    run = build_metadata_write_run(
+        authorization,
+        capability,
+        run_lease,
+        run_id=METADATA_WRITE_RUN_ID,
+        created_at=run_created_at,
+    )
+    assert store.create_run(run, authorization, plan, run_lease) == run
+    return engine, plan, authorization, run, run_lease
+
+
+def test_migration_0027_persists_one_use_fenced_metadata_write_journal(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "metadata-write.db"
+    migrate(database, "0026_metadata_correction_plans")
+    migrate(database)
+    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(database)
+    store = SQLiteMetadataWriteStore(engine)
+    lease_store = SQLiteScanRootWriteLeaseStore(engine)
+    lease_store.release(run_lease, released_at=run.created_at + timedelta(seconds=1))
+    refreshed_lease = lease_store.acquire(
+        ROOT_ID,
+        ScanRootWriteOwnerKind.METADATA_WRITE_RUN,
+        run.id,
+        lease_token="synthetic-refreshed-metadata-write-run",
+        acquired_at=run.created_at + timedelta(seconds=2),
+        lease_expires_at=run.created_at + timedelta(minutes=5),
+    )
+    with pytest.raises(MetadataWriteStoreError):
+        store.append_event(
+            MetadataWriteExecutionEvent(
+                run.id,
+                2,
+                MetadataWriteRunStatus.PREPARED,
+                run.created_at + timedelta(seconds=3),
+                run_lease.fence_epoch,
+            ),
+            run_lease,
+        )
+    with pytest.raises(MetadataWriteStoreError, match="requires its run lease"):
+        store.append_event(
+            MetadataWriteExecutionEvent(
+                run.id,
+                2,
+                MetadataWriteRunStatus.PREPARED,
+                run.created_at + timedelta(seconds=1, milliseconds=500),
+                refreshed_lease.fence_epoch,
+            ),
+            refreshed_lease,
+        )
+    run_lease = refreshed_lease
+    for sequence, status in enumerate(
+        (
+            MetadataWriteRunStatus.PREPARED,
+            MetadataWriteRunStatus.EXCHANGED,
+            MetadataWriteRunStatus.ORIGINAL_PRESERVED,
+            MetadataWriteRunStatus.VERIFIED,
+        ),
+        start=2,
+    ):
+        store.append_event(
+            MetadataWriteExecutionEvent(
+                run_id=run.id,
+                sequence_no=sequence,
+                status=status,
+                occurred_at=run.created_at + timedelta(seconds=sequence + 2),
+                fence_epoch=run_lease.fence_epoch,
+                confirmation_digest=(None if sequence == 2 else _sha(str(sequence))),
+            ),
+            run_lease,
+        )
+
+    assert store.get_authorization(authorization.id) == authorization
+    assert store.get_run(run.id) == run
+    assert [event.status for event in store.events_for_run(run.id)] == [
+        MetadataWriteRunStatus.CREATED,
+        MetadataWriteRunStatus.PREPARED,
+        MetadataWriteRunStatus.EXCHANGED,
+        MetadataWriteRunStatus.ORIGINAL_PRESERVED,
+        MetadataWriteRunStatus.VERIFIED,
+    ]
+    with pytest.raises(MetadataWriteStoreError, match="transition"):
+        store.append_event(
+            MetadataWriteExecutionEvent(
+                run.id,
+                6,
+                MetadataWriteRunStatus.CANCELLED,
+                run.created_at + timedelta(seconds=6),
+                run_lease.fence_epoch,
+            ),
+            run_lease,
+        )
+    with engine.begin() as connection:
+        with pytest.raises(IntegrityError, match="immutable metadata write record"):
+            connection.execute(
+                text(
+                    "UPDATE metadata_write_authorizations SET source_size_bytes=1"
+                )
+            )
+        with pytest.raises(IntegrityError, match="immutable metadata write event"):
+            connection.execute(text("DELETE FROM metadata_write_events"))
+        with pytest.raises(IntegrityError, match="gapless"):
+            connection.execute(
+                text(
+                    "INSERT INTO metadata_write_events "
+                    "(run_id, sequence_no, status, occurred_at, fence_epoch) "
+                    "VALUES (:run, 7, 'CANCELLED', :at, :fence)"
+                ),
+                {
+                    "run": str(run.id),
+                    "at": run.created_at.isoformat(),
+                    "fence": run_lease.fence_epoch,
+                },
+            )
+
+    lease_store.release(
+        run_lease,
+        released_at=run.created_at + timedelta(seconds=10),
+    )
+    second_run_id = EntityId.new()
+    second_created = run.created_at + timedelta(seconds=11)
+    second_lease = lease_store.acquire(
+        ROOT_ID,
+        ScanRootWriteOwnerKind.METADATA_WRITE_RUN,
+        second_run_id,
+        lease_token="synthetic-second-run",
+        acquired_at=second_created,
+        lease_expires_at=second_created + timedelta(minutes=2),
+    )
+    capability = ResolvedMetadataWriteCapability(
+        METADATA_WRITE_CAPABILITY_ID,
+        ROOT_ID,
+        tmp_path / "synthetic-source-root",
+        tmp_path / "synthetic-recovery",
+    )
+    second_run = build_metadata_write_run(
+        authorization,
+        capability,
+        second_lease,
+        run_id=second_run_id,
+        created_at=second_created,
+    )
+    with pytest.raises(MetadataWriteStoreError, match="already consumed"):
+        store.create_run(second_run, authorization, plan, second_lease)
+    engine.dispose()
+
+    with pytest.raises(RuntimeError, match="metadata write state prevents"):
+        command.downgrade(alembic_config(database), "0026_metadata_correction_plans")
+
+
+def test_metadata_write_status_uses_true_read_only_private_projection(
+    head_database: Path,
+) -> None:
+    database = head_database
+    engine, _plan_value, authorization, run, run_lease = _persist_metadata_write_run(
+        database
+    )
+    store = SQLiteMetadataWriteStore(engine)
+    store.append_event(
+        MetadataWriteExecutionEvent(
+            run.id,
+            2,
+            MetadataWriteRunStatus.PREPARED,
+            run.created_at + timedelta(seconds=2),
+            run_lease.fence_epoch,
+            "PRIVATE_SYNTHETIC_FINDING",
+            _sha("f"),
+        ),
+        run_lease,
+    )
+    engine.dispose()
+    before = database.read_bytes()
+
+    read_only_engine = create_sqlite_read_only_engine(database)
+    with read_only_engine.connect() as connection:
+        assert connection.execute(text("PRAGMA query_only")).scalar_one() == 1
+    report = SQLiteMetadataWriteStatusReportReader(
+        SQLiteMetadataWriteStore(read_only_engine)
+    ).read(run.id)
+    payload = report.payload()
+    read_only_engine.dispose()
+
+    assert database.read_bytes() == before
+    assert payload["command"] == "metadata-write-status"
+    assert payload["status"] == "PREPARED"
+    assert [event["status"] for event in payload["events"]] == [
+        "CREATED",
+        "PREPARED",
+    ]
+    encoded = json.dumps(payload, sort_keys=True)
+    for private_material in (
+        PRIVATE_PATH,
+        OBSERVED_TITLE,
+        SELECTED_TITLE,
+        FULL_HASH,
+        EXPECTED_OUTPUT_HASH,
+        str(FILE_ID),
+        str(OBSERVATION_ID),
+        str(METADATA_WRITE_CAPABILITY_ID),
+        "PRIVATE_SYNTHETIC_FINDING",
+        _sha("f"),
+        authorization.dcterms_modified,
+    ):
+        assert private_material not in encoded
+    assert "fence_epoch" not in encoded
+
+
+def test_metadata_write_status_rejects_an_invalid_persisted_transition(
+    head_database: Path,
+) -> None:
+    database = head_database
+    engine, _plan_value, _authorization, run, run_lease = _persist_metadata_write_run(
+        database
+    )
+    store = SQLiteMetadataWriteStore(engine)
+    store.append_event(
+        MetadataWriteExecutionEvent(
+            run.id,
+            2,
+            MetadataWriteRunStatus.VALIDATION_FAILED,
+            run.created_at + timedelta(seconds=2),
+            run_lease.fence_epoch,
+        ),
+        run_lease,
+    )
+    with pytest.raises(MetadataWriteStoreError, match="transition"):
+        store.append_event(
+            MetadataWriteExecutionEvent(
+                run.id,
+                3,
+                MetadataWriteRunStatus.RECOVERED,
+                run.created_at + timedelta(seconds=3),
+                run_lease.fence_epoch,
+            ),
+            run_lease,
+        )
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO metadata_write_events "
+                "(run_id, sequence_no, status, occurred_at, fence_epoch) "
+                "VALUES (:run, 3, 'RECOVERED', :at, :fence)"
+            ),
+            {
+                "run": str(run.id),
+                "at": (run.created_at + timedelta(seconds=3)).isoformat(),
+                "fence": run_lease.fence_epoch,
+            },
+        )
+    engine.dispose()
+
+    read_only_engine = create_sqlite_read_only_engine(database)
+    reader = SQLiteMetadataWriteStatusReportReader(
+        SQLiteMetadataWriteStore(read_only_engine)
+    )
+    with pytest.raises(
+        MetadataWriteStatusReportError,
+        match="^METADATA_WRITE_STATUS_UNAVAILABLE$",
+    ):
+        reader.read(run.id)
+    read_only_engine.dispose()
+
+
+def test_metadata_write_run_revalidates_the_latest_approved_review(
+    head_database: Path,
+) -> None:
+    database = head_database
+    engine = create_sqlite_engine(database)
+    plan = _approved_plan_for_metadata_write(engine)
+    assert plan.review is not None
+    assert plan.review.review_item_id is not None
+    assert plan.review.decision_id is not None
+    assert plan.review.decision_sequence_no is not None
+    authorization, preparation_lease, prepared_at = _metadata_write_authorization(
+        engine,
+        plan,
+    )
+    store = SQLiteMetadataWriteStore(engine)
+    store.create_or_get_authorization(
+        authorization,
+        plan,
+        preparation_lease,
+        persisted_at=prepared_at + timedelta(seconds=1),
+    )
+    lease_store = SQLiteScanRootWriteLeaseStore(engine)
+    lease_store.release(
+        preparation_lease,
+        released_at=prepared_at + timedelta(seconds=2),
+    )
+    SQLiteResolutionReviewStore(engine).append_decision(
+        ReviewDecision(
+            id=EntityId.new(),
+            review_item_id=plan.review.review_item_id,
+            sequence_no=plan.review.decision_sequence_no + 1,
+            decision=ReviewDecisionValue.REJECT,
+            decision_reason="USER_REJECTED_AFTER_AUTHORIZATION",
+            evidence_fingerprint=plan.candidate.evidence_fingerprint,
+            candidate_set_fingerprint=plan.candidate.content_hash,
+            decision_compatibility_version=METADATA_CORRECTION_DECISION_COMPATIBILITY,
+            actor_kind=ReviewActorKind.USER,
+            decided_at=prepared_at + timedelta(seconds=3),
+        ),
+        expected_latest_decision_id=plan.review.decision_id,
+    )
+    run_created_at = prepared_at + timedelta(seconds=4)
+    run_id = EntityId.new()
+    run_lease = lease_store.acquire(
+        ROOT_ID,
+        ScanRootWriteOwnerKind.METADATA_WRITE_RUN,
+        run_id,
+        lease_token="synthetic-stale-review-run",
+        acquired_at=run_created_at,
+        lease_expires_at=run_created_at + timedelta(minutes=2),
+    )
+    source_root = database.parent / "synthetic-source-root"
+    recovery = database.parent / "synthetic-recovery"
+    source_root.mkdir()
+    recovery.mkdir()
+    run = build_metadata_write_run(
+        authorization,
+        ResolvedMetadataWriteCapability(
+            METADATA_WRITE_CAPABILITY_ID,
+            ROOT_ID,
+            source_root,
+            recovery,
+        ),
+        run_lease,
+        run_id=run_id,
+        created_at=run_created_at,
+    )
+
+    with pytest.raises(MetadataWriteStoreError, match="could not be created"):
+        store.create_run(run, authorization, plan, run_lease)
+    assert store.get_run(run.id) is None
+    assert store.events_for_run(run.id) == ()
+    engine.dispose()
+
+
+def test_migration_0027_empty_downgrade_restores_previous_lease_contract(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "metadata-write-empty-downgrade.db"
+    migrate(database, "0026_metadata_correction_plans")
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    with engine.connect() as connection:
+        version = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+        lease_sql = connection.execute(
+            text(
+                "SELECT sql FROM sqlite_master "
+                "WHERE type='table' AND name='scan_root_write_leases'"
+            )
+        ).scalar_one()
+    assert version == "0027_metadata_write_operations"
+    assert "METADATA_WRITE_PREPARATION" in lease_sql
+    assert "METADATA_WRITE_RUN" in lease_sql
+    engine.dispose()
+
+    command.downgrade(alembic_config(database), "0026_metadata_correction_plans")
+    engine = create_sqlite_engine(database)
+    with engine.connect() as connection:
+        tables = set(inspect(connection).get_table_names())
+        lease_sql = connection.execute(
+            text(
+                "SELECT sql FROM sqlite_master "
+                "WHERE type='table' AND name='scan_root_write_leases'"
+            )
+        ).scalar_one()
+    assert "metadata_write_authorizations" not in tables
+    assert "metadata_write_runs" not in tables
+    assert "metadata_write_events" not in tables
+    assert "CONSOLIDATION_QUARANTINE_RUN" in lease_sql
+    assert "METADATA_WRITE_PREPARATION" not in lease_sql
+    assert "METADATA_WRITE_RUN" not in lease_sql
+    engine.dispose()

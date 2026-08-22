@@ -522,6 +522,17 @@ cover read-backs and EPUBCheck conformance through path-free fingerprints and
 tool versions. `EpubTitleVerifiedStage` combines both results but is still not
 an Authorization, Run, Event, Capability, executable plan or source commit.
 
+`S-W10-MW03` adds the non-executing W10 authority layer.
+`EpubTitleWritePreparationSnapshot` binds the verified private output and the
+exact current W9 plan to a short-lived preparation fence.
+`MetadataWriteAuthorizationSnapshot` is content-addressed, valid for at most
+15 minutes and consumable by only one `MetadataWriteExecutionRun`. Each
+`MetadataWriteExecutionEvent` is append-only, gapless and bound to the fresh
+`ScanRootWriteLease` fence actually held for that event. The private capability
+maps an opaque ID to one `ScanRoot`, recovery directory and writer profile;
+paths remain outside persistence and status projections. These contracts do
+not open a source file and provide no executor or CLI write operation.
+
 ## Related decisions
 
 - `ADR-0006-authority-entity-resolution-provenance.md`

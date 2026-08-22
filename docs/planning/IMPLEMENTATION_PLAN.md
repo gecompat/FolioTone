@@ -73,10 +73,12 @@ EPUB 3, `SOURCE_METADATA` und einen einzelnen `title`-`REPLACE`.
 `S-W10-MW01` implementiert die reinen Preflight-, lexikalischen Zwei-Spannen-
 Patch- und Byte-/Semantik-Diff-Verträge. `S-W10-MW02` ergänzt privates
 Streaming-Staging und feste unabhängige Metadaten-, EPUBCheck-, Text-, Cover-
-und Preserved-Field-Validatoren. `S-W10-MW03` ergänzt als nächster Slice
-ausschließlich Authorization-/Run-/Eventpersistenz, Capability-Auflösung,
-Root-Lease/Fencing und read-only Status. Source-Commit und CLI bleiben den
-späteren Waves vorbehalten.
+und Preserved-Field-Validatoren. `S-W10-MW03` ergänzt content-addressed
+Preparation/Authorization, einmaligen Run, insert-only Eventjournal, private
+Capability-Auflösung, Root-Lease/Fencing und read-only Status. `S-W10-MW04`
+ist der nächste Slice und bleibt auf Linux-`renameat2`-Backend, Ein-Datei-
+Executor und idempotente Crash-Recovery mit synthetischen Filesystemen
+begrenzt. CLI und Reconciliation bleiben `S-W10-MW05` vorbehalten.
 
 `W10-005` ist eine unabhängige parallele `FRONTIER`-Wave. Sie vervollständigt
 Capability-Auflösung, Authorize, Execute und Recovery für die bereits durch
