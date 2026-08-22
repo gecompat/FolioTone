@@ -2,6 +2,26 @@
 
 Statuses: `DONE`, `NEXT`, `READY`, `PLANNED`, `BLOCKED`, `DECISION`.
 
+`NEXT` bezeichnet genau den nächsten regulären Produkt-Slice. `READY`
+bezeichnet einen unabhängig startbaren Vertrag mit erfüllten Voraussetzungen.
+`PLANNED` ist später eingeordnet. `BLOCKED` nennt eine noch nicht erfüllte
+Voraussetzung. `DECISION` bezeichnet ein offenes Architektur- oder
+Produktgate und keine Implementierungsfreigabe.
+
+## Kanonische Ausführungsfront
+
+| Horizont | Aufgabe | Begründung |
+|---|---|---|
+| NOW | `CS-01` | Die vorhandene book-only Evidence wird als rebuildbarer `CollectionState` unmittelbar nutzbar. |
+| NEXT | `CS-02`, danach `CS-03` | Snapshot-Diff, sichere Metadatensuche und `Library Health` bauen auf `CS-01` auf. |
+| PARALLEL READY | `W10-005` | Die von ADR-0056 erlaubte Ein-Datei-Quarantäne erhält eine vollständige Authorize-/Execute-/Recovery-Bedienkette, ohne den Mutationstyp zu erweitern. |
+| OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
+| LATER | W4 sowie die Music-Anteile aus W5 bis W7 | Music bleibt die nächste vollständige Mediendomäne nach den drei Produktprojektionen. |
+| BLOCKED | `FG-W10-MOVE-BACKEND`, W10-003, W10-004, `FG-A-SECRET`, `FG-A3-MEMBER-BYTE` | Atomare Mutation, Rollback/Purge, Cleanup, Secrets und Member-Byte-Identity benötigen ihre getrennten Gates. |
+
+Andere Planungsdokumente erläutern diese Aufgaben, setzen aber keine eigene
+Ausführungsreihenfolge oder konkurrierende Statusachse.
+
 ## W0 — Foundation
 
 | ID | Status | Item |
@@ -110,8 +130,9 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 | W5A-001 | DONE | Implement versioned Unicode/name normalization without destructive overwrite. |
 | W5A-002 | DONE | Generate local Agent candidates using aliases, pseudonyms, sort names and credited-as forms with versioned confidence/provenance. |
 | W5A-003 | DONE | Implement homonym protection; equal normalized names must not auto-merge Agents. |
-| W5A-004 | PLANNED | Book-only Agent/Work/Edition/Series resolution candidates are persisted by EB-02; MusicWork/Recording/ReleaseGroup/Release candidates with explanations/confidence remain planned. |
+| W5A-004 | DONE | Persist book-only Agent/Work/Edition/Series resolution candidates with explanations, confidence and provenance through EB-02. |
 | W5A-005 | DONE | Persist confirmed/rejected local authority mappings as append-only review decisions separately from source observations. |
+| W5A-006 | PLANNED | Extend resolution candidates and explanations to MusicWork/Recording/ReleaseGroup/Release without collapsing their identity levels. |
 
 ### W5B — External enrichment infrastructure/providers
 
@@ -142,21 +163,25 @@ e-book completion track and the book-only slices of W5 through W8 are active.
 
 | ID | Status | Item |
 |---|---|---|
-| W6-001 | PLANNED | Book-only Endpoint-, Identity- und Evidence-Verträge sind durch EB-05 abgeschlossen; MusicWork/Recording/ReleaseGroup/Release bleiben offen. |
-| W6-002 | PLANNED | EB-05 implementiert bounded read-only E-Book-Blocking für Hashes, Identifier, Resolution, Agent/Titel, Text und Series-Kontext; Music-, Audio- und weitere Kontextblöcke bleiben offen. |
-| W6-003 | PLANNED | EB-06 schließt versionierte book-only Profile und den persistierten bounded Workflow für Exact Duplicate, Same Edition und Same Work ab; Music-Profile bleiben offen. |
-| W6-004 | PLANNED | EB-06B/EB-06C persistieren book-only Relation-Candidate-Feature-Links und projizieren eine path-freie Explanation; Music-Fälle bleiben offen. |
-| W6-005 | PLANNED | EB-06 kalibriert die konservative book-only Grenze am kontrollierten adversarial Korpus; bibliografische Auto-Confirmation und Music-Kalibrierung bleiben offen. |
-| W6-006 | PLANNED | EB-06A schützt book-only Profile gegen das Überstimmen harter lokaler Contradictions; Recording-/Music-Fälle bleiben offen. |
+| W6-001 | DONE | Implement book-only Endpoint-, Identity- and Evidence contracts through EB-05. |
+| W6-002 | DONE | Implement bounded read-only book blocking for hashes, identifiers, resolution, Agent/title, text and Series context through EB-05. |
+| W6-003 | DONE | Implement versioned book-only profiles and the persisted bounded workflow for `EXACT_DUPLICATE`, `SAME_EDITION` and `SAME_WORK` through EB-06. |
+| W6-004 | DONE | Persist book-only Relation-Candidate feature links and project a path-free Explanation through EB-06B/EB-06C. |
+| W6-005 | DONE | Calibrate the conservative book-only boundary on the controlled adversarial corpus; bibliographic auto-confirmation remains excluded. |
+| W6-006 | DONE | Prevent hard local Contradictions from being outvoted in book-only profiles through EB-06A. |
 | W6-007 | PLANNED | Match archive members, physical files and publication containers at separate file/content/Edition levels; an online password result or equal filename is never sufficient identity Evidence. |
+| W6-008 | PLANNED | Define MusicWork/Recording/ReleaseGroup/Release Endpoint-, Identity- and Evidence contracts. |
+| W6-009 | PLANNED | Add Music-/Audio-Candidate Blocks and relation-specific matcher profiles without reusing book-only thresholds. |
+| W6-010 | PLANNED | Persist and calibrate Music Relation Candidates, feature links and Explanations against a dedicated adversarial corpus. |
 
 ## W7 — Review
 
 | ID | Status | Item |
 |---|---|---|
 | W7-001 | DONE | Persist the generic review queue and append-only accept/reject/defer decision history with optimistic snapshot fencing. |
-| W7-002 | PLANNED | EB-06 integriert CLI-basiertes ACCEPT/REJECT/DEFER und kompatible Wiederverwendung für book-only Relation Candidates; Authority-CLI, Alias- und Music-Fälle bleiben offen. |
+| W7-002 | DONE | Provide CLI-based `ACCEPT`/`REJECT`/`DEFER` and compatible decision reuse for book-only Relation Candidates through EB-06. |
 | W7-003 | DONE | Reuse compatible ACCEPT/REJECT authority decisions while keeping DEFER reviewable; material or compatibility changes create a new case. |
+| W7-004 | PLANNED | Add bounded Authority-/Alias-Review CLI flows and Music Relation-Candidate review without weakening snapshot fencing. |
 
 ## EB-07 — Read-only Calibre Library Reconciliation
 
@@ -191,7 +216,9 @@ insert-only Persistenz, den deterministischen pfadfreien Report
 `ebook-consolidation-report` sowie einen statischen Non-Execution-Gate-Test
 gegen Filesystem-Mutationen, mutierende Calibre-Command-Shapes und
 öffentliche Ausführungssurfaces. Jeder Plan bleibt dauerhaft
-`NOT_EXECUTABLE`; W10 bleibt unverändert blockiert.
+`NOT_EXECUTABLE`. ADR-0056 deutet diese W9-Pläne nicht um; ausschließlich ein
+neuer, kurzlebiger W10-Authorization-Snapshot darf den separaten
+Interim-Quarantäneexecutor öffnen.
 
 | ID | Status | Item |
 |---|---|---|
@@ -209,9 +236,9 @@ gegen Filesystem-Mutationen, mutierende Calibre-Command-Shapes und
 
 | ID | Status | Item |
 |---|---|---|
-| W8-001 | PLANNED | Build on the earlier calibre ToolProvider and implement read-only Calibre library integration with provenance-preserving observations. |
-| W8-002 | PLANNED | Analyze Calibre/filesystem consistency, duplicates and metadata/authority conflicts without modifying Calibre. |
-| W8-003 | PLANNED | Model read-only ownership and dependency Evidence for Calibre records, formats, `metadata.opf`, covers, archive containers and other sidecars before any Keep preference. |
+| W8-001 | DONE | Implement read-only Calibre library integration with provenance-preserving observations through EB-07. |
+| W8-002 | DONE | Analyze Calibre/filesystem consistency, duplicates and metadata/authority conflicts without modifying Calibre. |
+| W8-003 | DONE | Model read-only ownership and dependency Evidence for Calibre records, formats, `metadata.opf`, covers, archive containers and other sidecars before any Keep preference. |
 
 ## W9 — Consolidation Planning
 
@@ -229,6 +256,7 @@ gegen Filesystem-Mutationen, mutierende Calibre-Command-Shapes und
 |---|---|---|
 | W10-001 | DECISION | ADR-0056 bindet Vertrag, Persistenz und Status einer gefenceten Ein-Datei-Quarantäne. W9-Pläne bleiben nicht ausführbar; nur eine neue, kurzlebige W10-Authorization darf den Interim-Executor öffnen. |
 | W10-002 | DONE | S-W10-01 bis S-W10-04 liefern path-freie Verträge, immutable Authorization-/Run-/Eventpersistenz, einen engen Interim-Executor und `quarantine-status` als echte SQLite-Read-only-Projektion: gleicher vom OS gemeldeter Filesystem-Kontext, Ziel-Abwesenheitsprüfung, `os.rename`, Full-SHA-256-Revalidierung sowie ausschließlich opaque Statusausgabe. Kein Copy+Delete oder Cross-Volume-Fallback. |
+| W10-005 | READY | Ergänze `QuarantineCapabilityResolver`, `quarantine-authorize`, `quarantine-execute` und `quarantine-recover` als vollständige ADR-0056-Bedienkette. CLI-Argumente enthalten nur opaque IDs und Content Hashes; die zweite Bestätigung läuft ausschließlich über nicht geloggtes `stdin`. Der Slice bleibt bei genau einer regulären Same-Filesystem-Datei und behauptet keine atomare No-Replace-Garantie. |
 | FG-W10-MOVE-BACKEND | PLANNED | Spätere Frontier-Härtung für einen atomaren No-Replace-Move, no-follow Elternverzeichnisse sowie reproduzierbare Cross-Device-, Race- und Crash-/Recovery-Nachweise. Der Interim-Executor ist bewusst nicht atomar; seine Zielprüfung kann eine konkurrierende Race nicht ausschließen. |
 | W10-003 | BLOCKED | Implement verified rollback and separately approved purge after a retention period; never make successful extraction imply archive deletion. |
 | W10-004 | BLOCKED | Implement bottom-up empty-directory cleanup as a separate approved operation with fresh enumeration, root/reparse/Calibre/sidecar guards and an auditable reconstruction record. |
@@ -242,8 +270,26 @@ gegen Filesystem-Mutationen, mutierende Calibre-Command-Shapes und
 | FUT-003 | PLANNED | Audio quality/corruption assessment, separate from identity; reuse ffmpeg/ffprobe or specialist tools where suitable. |
 | FUT-004 | PLANNED | Research further authority/catalog providers (e.g. VIAF, ISNI, national libraries, Cover Art Archive, Discogs) only after current access/license review. |
 | FUT-005 | PLANNED | Learn deterministic local alias/parsing/ranking rules from review history before considering more complex ML. |
-| FUT-006 | PLANNED | Library Health dashboard combining integrity, metadata quality, unresolved entities, duplicates, completeness gaps and storage-saving estimates. |
+| FUT-006 | DECISION | Die allgemeine `Library Health`-Idee wird für den ersten book-only Slice durch ADR-0058 und `CS-03` konkretisiert; eine medienübergreifende Generalisierung bleibt bis nach Music W4 offen. |
 | FUT-007 | PLANNED | Completeness/gap detection for book series, album tracks/releases and classical multi-part works, reusing external specialist evidence where possible. |
 | FUT-008 | PLANNED | Reproducible transformation/normalization recipes with versioning, dry-run and replay semantics. |
 | FUT-009 | PLANNED | Integrity/fixity monitoring for unexpected file changes/bit rot independent of duplicate detection. |
 | FUT-010 | DECISION | Decide ADR-0042 and the staged FG-FED-IDENTITY/BUNDLE/MERGE/CARRIER contracts for portable object lineage and bounded, idempotent exchange between FolioTone systems. The first slice uses only synthetic packages and read-only carrier detection; it must define node clone/restore semantics, privacy, trust, replay/conflict handling and Decision Compatibility without introducing a universal Asset type. Embedded metadata, Sidecar and external-library writes remain separate W10-blocked work. |
+
+## Book-only Produktprojektionen
+
+ADR-0058 bindet die folgende Reihenfolge. Die drei Aufgaben sind read-only und
+öffnen weder Music noch Federation oder weitere W10-Operationen.
+
+| ID | Status | Item |
+|---|---|---|
+| FG-CS-01 | DONE | Accept ADR-0058 for book-only `CollectionState`, deterministic Diff, bounded local metadata query and multidimensional `Library Health` with explicit private-detail opt-in. |
+| CS-01 | NEXT | Implement immutable, rebuildable `collection-state/v1`, additive insert-only persistence, `collection-state-build` and true SQLite-read-only `collection-state-report` over exactly one completed `ScanRun`. |
+| CS-02 | PLANNED | Implement deterministic `collection-state-diff/v1` and bounded `collection-query/v1` with fixed AST allowlist, keyset pagination, metadata-only local index, `collection-state-diff` and `collection-search`. |
+| CS-03 | PLANNED | Implement `library-health/v1` and `library-health-report` with independent Scan/Fixity, analysis coverage, metadata/authority/classification, review, duplicate/variant, dependency and blocked-operation dimensions; no scalar score or mutation authority. |
+
+## Operativer Collection-Abschluss
+
+| ID | Status | Item |
+|---|---|---|
+| OPS-001 | READY | Execute the full private inventory, candidate-hash, collection-analysis and completion-verifier sequence only as a coordinated local operating procedure. Keep Source Media read-only, store all artifacts outside Git and record only abstract pass/degraded/open evidence in project status. |

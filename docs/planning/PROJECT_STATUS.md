@@ -21,6 +21,15 @@ pro Run mit ausschließlich opaken IDs, Statuswerten und Zeitpunkten. Weder
 Pfade, Namen, Materialhashes, `target_token`, `confirmation_digest` noch
 Finding-Eingaben gelangen in die Ausgabe.
 
+**Nächster regulärer Produkt-Slice: `CS-01`**
+
+ADR-0058 akzeptiert eine book-only Lieferfolge aus `CollectionState`,
+Snapshot-Diff und begrenzter lokaler Metadatensuche sowie mehrdimensionaler
+`Library Health`. `CS-01` ist im kanonischen Backlog `NEXT`. `W10-005` ist
+parallel `READY`, vervollständigt aber nur die Bedien- und Recoverykette des
+vorhandenen Interim-Executors. Die nicht atomare Zielprüfung und alle weiteren
+W10-Sperren bleiben unverändert sichtbar.
+
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
 Der unabhängige operative Punkt W3-026 ist abgeschlossen. ADR-0057 ergänzt ein
@@ -269,8 +278,9 @@ neuen Scope; der vollständige Gate läuft genau einmal am stabilen PR.
 Die spezialisierte Runtime darf anschließend ausschließlich unverschlüsselte
 Archive über bounded Streaming ohne Raw-Artefakt oder Preview verarbeiten.
 Reale Passwortversuche bleiben bis zu einem separaten FG-A-SECRET mit
-belegtem Helper-/Pipe-/Handle-Vertrag `SECURE_CHANNEL_UNAVAILABLE`. W10 bleibt
-unabhängig ausdrücklich gesperrt.
+belegtem Helper-/Pipe-/Handle-Vertrag `SECURE_CHANNEL_UNAVAILABLE`. Dieser
+Archive-Slice autorisiert unabhängig davon keine W10-Operation; die spätere
+enge Ausnahme steht ausschließlich in ADR-0056.
 Der erste Runtimebackend ist `archive-linux-container-runner/v1` für die
 primäre Docker/Linux-Runtime. Er verwendet ausschließlich ein
 digest-gepinntes Image mit verifizierter eingebetteter `7zzs`-26.02-Identität,
@@ -437,22 +447,22 @@ book-only Fortsetzung bis W9 sind in
 [`W3_017_EBOOK_ROADMAP.md`](W3_017_EBOOK_ROADMAP.md) geplant. Der Plan ändert
 keinen implementierten Status und autorisiert W10 nicht.
 
-Die danach vorgemerkte read-only Archiv- und vollständige
+Die damals vorgemerkte read-only Archiv- und vollständige
 Deduplizierungsstrecke ist in
 [`EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md`](EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md)
-geplant. Sie ergänzt noch keine Implementierung. Lokale Passwortkandidaten,
-optionale separat aktivierte Providerrecherche und archive-aware Matching
-führen zunächst ausschließlich zu Evidence, Review und nicht ausführbaren
-W9-Plänen. Quarantäne, Purge und Leer-Verzeichnis-Bereinigung bleiben bis zu
-einer zukünftigen akzeptierten W10-ADR blockiert.
+geplant und inzwischen bis zur read-only Source-Dependency-Planintegration
+umgesetzt. Lokale Passwortkandidaten, optionale separat aktivierte
+Providerrecherche und archive-aware Matching führen weiterhin ausschließlich
+zu Evidence, Review und nicht ausführbaren W9-Plänen. ADR-0056 erlaubt davon
+getrennt nur die Interim-Ein-Datei-Quarantäne; Purge und
+Leer-Verzeichnis-Bereinigung bleiben blockiert.
 
 Die lokalen Authority-Grundlagen aus `PR #36`, der synthetische E5-
 Performance-/Restart-Vertrag aus `PR #37`, die strukturierten Provider-
 Verträge aus `PR #38` und die mehrdimensionalen E-Book-Klassifikationsverträge
-aus `PR #39` sind auf `main` integriert. Persistierte Authority-Entscheidungen
-und die Open-Library-Adapterimplementierung bleiben weiterhin geplant; der
-Provider Cache ist implementiert und die erste reale Provider-Auswahl ist durch
-ADR-0036 abgeschlossen.
+aus `PR #39` sind auf `main` integriert. Persistierte Authority-
+Entscheidungen, Provider Cache und der begrenzte Open-Library-Adapter sind
+inzwischen ebenfalls umgesetzt; weitere Provider bleiben geplant.
 
 ADR-0026 ist durch S-EB00-01 bis S-EB00-04 umgesetzt. `ProviderAccessMode`
 trennt die vier Zugriffsarten aus ADR-0009 vom unabhängigen
@@ -1468,7 +1478,7 @@ Befund. Alle Testdaten sind synthetisch; Source Media und private Runtime-
 Datenbanken wurden nicht geöffnet. Der vollständige Gate läuft genau einmal
 am Pull Request.
 
-## Aktiver W3-Stand und nächster Schritt
+## Abgeschlossener W3-Stand und aktuelle Ausführungsfront
 
 W2 ist abgeschlossen; `W3-001` bis `W3-016` sind abgeschlossen. W3-015 stellt
 den fortsetzbaren Collection-Plan bereit. W3-016 ergänzt
@@ -1508,7 +1518,8 @@ deterministische private Artefakte. `ebook-postscan-verify` prüft den
 paketierten Schema-Head, die gemeinsame Scan-/Hash-/Collection-Lineage, die
 Inventarartefakte bytegenau und die begrenzte Formatabdeckung über dieselbe
 echte Read-only-Verbindung, ohne Source Media zu öffnen. Der vollständige
-private Inventar-/Collection-Lauf und Bericht werden noch abgeschlossen.
+private Inventar-/Collection-Lauf und Bericht bleiben als `OPS-001` ein
+getrenntes lokales Betriebsverfahren und sind kein Entwicklungs- oder CI-Gate.
 EB-04, EB-06, EB-07 und EB-08 sind abgeschlossen. EB-07 liefert die persistierte
 read-only Reconciliation, den pfadfreien CLI-Report und die vollständige
 read-only Capture-Orchestrierung. EB-08 liefert den nicht ausführbaren,
@@ -1531,8 +1542,8 @@ EA9/EA10-Abschluss und Source-Operations bleiben getrennt. Reale
 Passwortversuche bleiben bis FG-A-SECRET blockiert. W10 erlaubt ausschließlich
 die in ADR-0056 dokumentierte Interim-Ein-Datei-Quarantäne; die atomare
 No-Replace-Härtung bleibt als `FG-W10-MOVE-BACKEND` getrennt geplant. Music W4
-bleibt bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
-ausschließlich die CLI.
+bleibt bis nach den drei book-only Produktprojektionen zurückgestellt. Die
+Produktoberfläche bleibt ausschließlich die CLI.
 
 ADR-0055 und S-EBAR-07A schließen den historischen W3-019-Vertrag ab.
 Archive-/Volume-Evidence, Missing-Volume-Findings, der pfadfreie
@@ -1540,9 +1551,18 @@ Collection-Bericht und ein insert-only, scan- und archivegebundener
 Sidecar-Inventarsnapshot sind umgesetzt. Das Inventar speichert weder
 Basename/Pfad noch Inhalt oder Secret und erweitert weder Toolstatus noch
 CLI-Profil oder Ausführungsauthority. ADR-0056 entscheidet inzwischen das
-enge W10-Vertragsgate für Quarantäne. S-W10-01 liefert die reinen, path-free
-Authorization-/Eligibility-Verträge und ist abgeschlossen; S-W10-02 folgt
-mit Persistenz, aber weiterhin ohne Mutation.
+enge W10-Vertragsgate für Quarantäne. S-W10-01 bis S-W10-04 sind
+abgeschlossen: reine Authorization-/Eligibility-Verträge, immutable
+Persistenz, Interim-Executor und read-only Status sind vorhanden. Es fehlen
+die vollständige Capability-Auflösung sowie Authorize-/Execute-/Recovery-CLI;
+`W10-005` plant diese Bedienkette ohne einen weiteren Mutationstyp zu öffnen.
+
+ADR-0058 legt die aktuelle reguläre Produktfolge fest. `CS-01` ist `NEXT` und
+erzeugt `collection-state/v1` als rebuildbare book-only Projektion. `CS-02`
+ergänzt deterministischen Snapshot-Diff und begrenzte lokale Metadatensuche;
+`CS-03` ergänzt eine mehrdimensionale `Library Health`-Projektion ohne
+Gesamtscore oder Mutation Authority. Die kanonische Reihenfolge steht
+ausschließlich in `BACKLOG.md`.
 
 ## Nicht implementiert
 
@@ -1550,13 +1570,14 @@ Noch nicht vorhanden sind unter anderem:
 
 - weitere Formate außerhalb der expliziten EPUB/MOBI/AZW/AZW3-Text-Allowlist
   sowie alle Music-ToolProvider;
-- vollständiger Offline-Orchestrator und Review-CLI für Entity Resolution;
+- vollständiger Authority-/Alias-Review-CLI und Music-Review-Workflow;
 - eine weitergehende Classification Engine über den abgeschlossenen EB-04-
   Assertion-/Projection-Vertrag hinaus;
 - Music- und medienübergreifende Matching-Profile; das book-only Offline-
   Matching für `EXACT_DUPLICATE`, `SAME_EDITION` und `SAME_WORK` ist
   implementiert;
-- vollständiger realer Sammlungslauf und zusätzliche qpdf-Struktur-Evidence;
+- operativer vollständiger privater Sammlungslauf gemäß `OPS-001` und
+  zusätzliche qpdf-Struktur-Evidence;
 - reale Archive-Extraction und Secretübergabe; read-only Runtime,
   Archive-Persistenz und Collection-Orchestrierung sind abgeschlossen;
 - medienübergreifende Classification- und kanonische Relation-Projektion über
@@ -1564,15 +1585,25 @@ Noch nicht vorhanden sind unter anderem:
 - portable Knoten-/Objektreferenzen, Austauschpakete, Multi-Instanz-Merge,
   Trust-/Conflict-Regeln sowie jede eingebettete oder externe
   Bibliothekskennzeichnung; ADR-0042 ist nur `Proposed`;
-- externe Knowledge Provider und Provider Cache über den synthetischen Vertrag
-  hinaus;
-- jede reale W10-Ausführung einschließlich Quarantäne, Purge,
-  Metadatenwrite und Verzeichnisbereinigung; ADR-0056 autorisiert zunächst
-  nur mutationsfreie Vorpakete;
+- weitere externe Knowledge Provider über den implementierten Open-Library-
+  Slice und den persistierten Provider Cache hinaus;
+- die vollständige W10-Authorize-/Execute-/Recovery-Bedienkette, atomarer
+  No-Replace-Move, Rollback, Purge, Metadatenwrite und
+  Verzeichnisbereinigung; nur der enge Interim-Executor ist vorhanden;
+- `collection-state/v1`, Snapshot-Diff, begrenzte lokale Metadatensuche und
+  `library-health/v1`; ADR-0058 plant diese drei Produkt-Waves;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 
 ## Sicherheitsgrenze
 
-W10 bleibt ausdrücklich blockiert. Es gibt keine FolioTone-native oder externe Tool-Operation zum Löschen, Verschieben, Umbenennen oder Retaggen von Source Media.
+ADR-0056 erlaubt als einzige reale W10-Ausnahme den engen Interim-Executor für
+genau eine ausdrücklich autorisierte reguläre Datei im selben vom
+Betriebssystem gemeldeten Filesystem. Die Ziel-Abwesenheitsprüfung vor
+`os.rename` ist nicht atomar; der Executor bietet weder Copy+Delete noch
+Cross-Volume-Fallback und keine allgemeine Move-/Rename-Schnittstelle.
 
-`DELETED`, `FileRelocationCandidate` und Scan-Resume sind ausschließlich Analyse-/Orchestrierungszustände. W9 erzeugt ausschließlich nicht ausführbare `ConsolidationPlan`-Einträge; W10 bleibt für jede Mutation, Quarantäne-, Purge- und Verzeichnisoperation blockiert.
+`DELETED`, `FileRelocationCandidate` und Scan-Resume sind ausschließlich
+Analyse-/Orchestrierungszustände. W9 erzeugt weiterhin ausschließlich
+dauerhaft nicht ausführbare `ConsolidationPlan`-Einträge. Atomarer
+No-Replace-Move, Rollback, Purge, Metadaten-/Sidecar-/Calibrewrite,
+Archive-Umschreibung und Verzeichnisbereinigung bleiben getrennt blockiert.
