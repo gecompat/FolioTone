@@ -1,12 +1,11 @@
 # Atomare Arbeitspakete für die E-Book-Endgerade
 
-**Status:** In Ausführung; die read-only Archive-Strecke bis EBAR-09 sowie
-FG-A3-MATCHING und S-EBA3-01 bis S-EBA3-03 sind abgeschlossen.
-Member-Byte-Identity, Extraction und Secrets bleiben getrennt blockiert; W10
-erlaubt ausschließlich die enge ADR-0056-Interim-Quarantäne;
-ADR-0055 und S-EBAR-07A schließen W3-019 vollständig ab.
+**Status:** Historischer Paketkatalog; die read-only Archive-Strecke bis
+EBAR-09, FG-A3-MATCHING, S-EBA3-01 bis S-EBA3-03 sowie S-W10-01 bis S-W10-04
+sind abgeschlossen. Member-Byte-Identity, Extraction, Secrets und alle über
+ADR-0056 hinausgehenden W10-Operationen bleiben getrennt blockiert.
 
-**Stand:** 2026-08-20
+**Stand:** 2026-08-22
 
 **Scope:** Atomare Implementierungspakete innerhalb der
 E-Book-Lieferwellen EB-00, EB-03A, EB-03B, EB-04, EB-07, EB-08 sowie begrenzter
@@ -96,7 +95,7 @@ die nachstehenden Pakete ersetzt:
 | EB-06 | Scoring, automatische Bestätigung und Review-Status sind fachlich und sicherheitskritisch. |
 | EB-A2 Extraction Runtime | Toolauswahl, Prozessisolation, Secret Channel und Archivbomben-Abwehr benötigen ein Security Gate. |
 | EB-A3 | Archive-aware Matching und Deduplizierungsplanung hängen von EB-05, EB-06 und EB-07 ab. |
-| W10/EA11/EA12 | Nur die abgeschlossene ADR-0056-Interim-Quarantäne darf einen einzelnen autorisierten Candidate per `os.rename` bewegen. Atomarer No-Replace, Rollback, Löschung und Verzeichnisbereinigung bleiben gesperrt. |
+| W10/EA11/EA12 | Jede Mutation, Quarantäne, Löschung oder Verzeichnisbereinigung bleibt gesperrt. |
 
 Ein `ECONOMICAL`-Agent darf nach einem Frontier-Gate mechanische Folgearbeiten
 für diese Wellen übernehmen, beispielsweise Fixture-Erweiterungen oder einen bereits exakt
@@ -131,7 +130,7 @@ Für jedes Paket gelten zusätzlich folgende Grenzen:
   öffentlichen Vertrags, sofern das Paket dies nicht ausdrücklich erlaubt;
 - keine Live-Netzwerktests, privaten Pfade, realen Sammlungsdaten, Secrets oder
   Runtime-Berichte im Repository;
-- keine Source-Media-Mutation und keine ausführbare W10-Operation außerhalb der ausdrücklich erlaubten ADR-0056-Interim-Quarantäne;
+- keine Source-Media-Mutation und keine ausführbare W10-Operation;
 - keine unaufgeforderte Bereinigung angrenzender Module;
 - gezielte Tests während der Arbeit und genau ein vollständiger PR-CI-Gate;
 - Merge nur bei grünem Gate und konsistentem Diff.
@@ -265,7 +264,7 @@ einführen.
 | S-EB08-06 | Additive Persistenz speichert Plan, Lineage, Content Hash, Blocker und Reviews. | genau eine Migration, festgelegte Schemadatei, neuer Store, Migration-/Store-Test | Insert/read, idempotente Wiederholung und atomarer Rollback sind geprüft. |
 | S-EB08-07 | Der Planner verbindet bestätigte Relation, Quality Evidence, Keep Preference und Preconditions. | Consolidation Planner, Integrationstest | Unresolved oder unreviewed Inputs erzeugen nur blockierte Pläne; keine Operation wird ausgeführt. |
 | S-EB08-08 | Deterministischer, pfadfreier Reporter und read-only CLI werden ergänzt. | Reporter/Workflow, `src/foliotone/cli/main.py`, CLI-Test | Ausgabe enthält Plan-ID, Status, Counts und Blocker, aber keine absoluten Pfade oder privaten Evidence-Werte. |
-| S-EB08-09 | Ein statischer Non-Execution-Test verbietet Mutations-APIs und schließt W9 ab. | neue statische Testdatei, Planungsdokumente | `unlink`, `remove`, `rename`, `replace`, `move`, mutierendes Calibre und Shell-Löschbefehle fehlen im Package; nur der getrennte ADR-0056-Executor darf W10-Quarantäne ausführen. |
+| S-EB08-09 | Ein statischer Non-Execution-Test verbietet Mutations-APIs und schließt W9 ab. | neue statische Testdatei, Planungsdokumente | `unlink`, `remove`, `rename`, `replace`, `move`, mutierendes Calibre und Shell-Löschbefehle fehlen im Package; W10 bleibt blockiert. |
 
 ## Abgeschlossene Spark-Vorarbeiten für EB-A1 und EB-A2
 
@@ -345,6 +344,7 @@ W10-Funktion einführen.
 | FG-W10-MOVE-BACKEND | Spätere atomare No-Replace-Härtung des Interim-Executors. | no-follow Elternverzeichnisse sowie Crash-/Race-/Collision-/Cross-Device-Nachweis auf einem echten Host; kein fest vorausgesetztes Dateisystem. | Sol `high`; geplant als eigenständige Frontier-Wave. |
 | S-W10-03 | Gefenceter Interim-Ein-Datei-Quarantäneexecutor über `os.rename`. | PREPARED vor Move, Same-Filesystem-/Ziel-Abwesenheitsprüfung, Full-SHA-256-Revalidierung, Manual-Review nach unklarer Nachprüfung, keine Löschung. | Sol `high`; abgeschlossen, aber bewusst ohne atomare No-Replace-Garantie. |
 | S-W10-04 | DONE: Read-only Quarantänestatus und fokussierter Abschluss. | `quarantine-status-report/v1` liest den exakten Run nur über SQLite read-only und zeigt opaque IDs, feste Status und Zeitpunkte; keine Pfade, Namen, Bestätigungseingaben, Materialhashes, `target_token`, `confirmation_digest` oder Finding-Eingaben. | Luna `medium`; abgeschlossen nach S-W10-03. |
+| W10-005 | Vollständige Bedien- und Recoverykette für die erlaubte Interim-Ein-Datei-Quarantäne. | Privater Capability Resolver, `quarantine-authorize`, `quarantine-execute`, zweite Bestätigung nur über nicht geloggtes `stdin`, `quarantine-recover` und bestehender read-only Status; keine neuen Mutationstypen. | `FRONTIER`; `READY`, aber getrennt von `FG-W10-MOVE-BACKEND`. |
 
 S-EBAR-01 bis S-EBAR-03A, EBAR-04, S-EBAR-02A bis S-EBAR-02C und EBAR-05
 sind abgeschlossen. FG-A-IMAGE, FG-A-RUNTIME-AVAILABILITY,
@@ -413,7 +413,9 @@ zusätzliche Architektur-, Schema-, Sicherheits- oder Produktentscheidung.
 Ändere nur die im Paket erlaubten Dateien und halte die allgemeine Dateigrenze
 des atomaren Paketkatalogs ein. Verwende ausschließlich synthetische Fixtures.
 Keine Live-Netzwerktests, privaten Sammlungsdaten, Secrets oder Source-Media-Writes.
-W10 bleibt gesperrt.
+Außerhalb der engen ADR-0056-Interim-Ein-Datei-Quarantäne bleibt W10
+gesperrt. Ein Auftrag für `W10-005` muss dessen explizite Dateigrenze und
+synthetische Crash-/Recovery-Abnahme verwenden.
 
 Führe die im Paket genannten fokussierten Tests sowie Ruff, Mypy und
 git diff --check für den betroffenen Scope aus. Erzeuge genau einen Pull

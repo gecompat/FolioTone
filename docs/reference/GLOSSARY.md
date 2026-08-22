@@ -69,6 +69,7 @@ Dieses Glossar definiert die kanonischen fachlichen Kernbegriffe des Projekts. E
 | `Review Queue` | Menge unsicherer oder entscheidungsbedürftiger Fälle für menschliche Prüfung. | ManualFixList |
 | `KeepPreferenceOutcome` | Versionierte, reine und reviewpflichtige Auswahl eines bevorzugten `FileRecord` aus bereits bestätigter File-Identity und getrennter Quality Evidence. Das Outcome beweist keine Identity und autorisiert keine physische Operation. | QualityScore, Löschentscheidung |
 | `ConsolidationPlan` | Insert-only, content-addressed und dauerhaft `NOT_EXECUTABLE` bleibender Snapshot einer möglichen späteren Konsolidierung. Er trennt Identity, Quality Evidence, reviewte Keep Preference, Preconditions, Dependencies und Future Operation Intents. | DeletePlan, CleanupScript |
+| `CollectionState` | Immutable, rebuildbare book-only Projektion persistierter Evidence für genau einen abgeschlossenen `ScanRun`. Sie bindet Coverage, Staleness, Profile und Lineage, trifft aber keine neue Identity- oder Mutationsentscheidung. | globale Mutable Library, kanonische Wahrheit, universeller Asset-Zustand |
 | `Library Health` | Zusammengefasste Bewertung des Sammlungszustands anhand mehrerer unabhängiger Analysebereiche. | Quality Score, wenn nur eine einzelne Dimension gemeint ist |
 
 ## Wichtige Abgrenzungen

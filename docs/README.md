@@ -5,7 +5,7 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 ## Produktvision und langfristige Einordnung
 
 - [Evidence-driven Collection Intelligence](vision/EVIDENCE_DRIVEN_COLLECTION_INTELLIGENCE.md) beschreibt als strategischer Entwurf die langfristige local-first Produktthese, Medienfolge und Informationsgrenzen. Das Dokument entscheidet keine neuen Architekturverträge oder Aufgabenstatus.
-- [Future Capability Map](planning/FUTURE_CAPABILITY_MAP.md) ordnet die vorgeschlagenen Fähigkeiten kollisionsfrei den bestehenden W-, EB-, EA- und FUT-Plänen zu.
+- [Future Capability Map](planning/FUTURE_CAPABILITY_MAP.md) ordnet strategische Fähigkeiten kollisionsfrei den bestehenden W-, EB-, EA-, CS- und FUT-Plänen zu. Die aktuelle Ausführungsfront steht ausschließlich im Backlog.
 - [ADR-0042](decisions/ADR-0042-federated-object-identity-and-exchange.md) beschreibt als `Proposed` die noch zu entscheidenden Gates für portable Objekt-Lineage, bounded Austausch und konfliktbewusste Fusion mehrerer FolioTone-Systeme. Sie autorisiert keine Implementierung oder Mutation.
 - [Persönliche Ideen und Gedankensammlungen](ideas/owner-notes/README.md) archivieren nichtkanonische Rohnotizen. Der Bereich ist im öffentlichen Repository ebenfalls öffentlich und darf keine vertraulichen Daten enthalten.
 
@@ -18,8 +18,8 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 5. [E-Book-Roadmap W3-017 bis W9](planning/W3_017_EBOOK_ROADMAP.md) trennt den privaten Runtime-Cutover, synthetische Entwicklungs-Gates und die langfristige book-only Folgeplanung.
 6. [E-Book-Endgame-Ausführungsplan](planning/EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md) bündelt die bestehenden W-, E- und EA-Aufgaben in umsetzbare EB-Lieferpakete, ohne deren Status- oder ID-Hierarchie zu ersetzen.
 7. [Atomare Arbeitspakete für die E-Book-Endgerade](planning/EBOOK_SPARK_WORK_PACKAGES.md) zerlegen geeignete EB-Teile in begrenzte Pull-Request-Pakete mit Frontier-Gates, Tests und Abbruchbedingungen; der Dateiname ist historisch, das aktuelle Routing ist vendor-neutral.
-8. [Ausführungs-Prompt für die E-Book-Roadmap](planning/W3_017_EBOOK_ROADMAP_PROMPT.md) enthält den wiederverwendbaren Auftrag für einen neuen Coding-Agent-Task.
-9. [E-Book-Archive und kontrollierte Deduplizierung](planning/EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md) plant read-only Archivanalyse, lokale Passwortkandidaten, archive-aware Matching und die weiterhin gesperrte spätere W10-Ausführung.
+8. [Ausführungsauftrag für die aktuelle Wave](planning/W3_017_EBOOK_ROADMAP_PROMPT.md) verweist neue Coding-Agent-Tasks auf die kanonische Backlogfront; der Dateiname bleibt für bestehende Links erhalten.
+9. [E-Book-Archive und kontrollierte Deduplizierung](planning/EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md) dokumentiert die abgeschlossene read-only Archivbasis, offene Extraction-/Secret-/Member-Byte-Gates und die getrennten W10-Grenzen.
 10. [Lokaler W2-Smoke-Test](quality/LOCAL_SMOKE_TEST.md) dokumentiert den abgeschlossenen manuellen Windows-/Docker-Testpunkt mit ausschließlich synthetischen Dateien.
 11. [E-Book-Toolchain unter Windows](operations/WINDOWS_EBOOK_TOOLCHAIN.md) beschreibt das explizite Docker-/WSL2-Provisioning und den formatspezifischen Doctor.
 
@@ -65,6 +65,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0033](decisions/ADR-0033-read-only-calibredb-library-reconciliation.md) definiert die festen lokalen read-only `calibredb`-Shapes, konsistente Library-Snapshots sowie Calibre-Ownership- und Sidecar-Evidence.
 - [ADR-0052](decisions/ADR-0052-immutable-archive-evidence-persistence.md) definiert die additive insert-only Archive-Evidence-Persistenz mit exakter Source-/Execution-/Wrapper-Lineage, Reuse und ScanRoot-Fencing.
 - [ADR-0057](decisions/ADR-0057-docker-first-ebook-toolchain-provisioning.md) definiert das explizite, gelockte Docker-first-Provisioning der E-Book-Spezialwerkzeuge und deren pfadfreie Format-Readiness.
+- [ADR-0058](decisions/ADR-0058-book-collection-state-and-local-projections.md) definiert die book-only Lieferfolge für rebuildbaren `CollectionState`, deterministischen Snapshot-Diff, begrenzte lokale Metadatensuche und mehrdimensionale `Library Health`.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

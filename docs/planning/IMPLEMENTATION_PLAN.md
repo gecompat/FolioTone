@@ -9,6 +9,29 @@ IDs.
 
 Under ADR-0016, the initial product surface remains CLI-only. W3 and the following early vertical slices do not add a web API, desktop interface or dashboard layer. The CLI stays a thin adapter to application/core contracts.
 
+## Aktuelle Lieferfolge nach dem E-Book-Endgame
+
+Die kanonische Reihenfolge und der operative Status stehen ausschließlich in
+`BACKLOG.md`. ADR-0058 akzeptiert die nächsten drei regulären read-only
+Produkt-Waves:
+
+1. `CS-01` implementiert `collection-state/v1`, `collection-state-build` und
+   `collection-state-report` über genau einen abgeschlossenen `ScanRun`;
+2. `CS-02` implementiert `collection-state-diff/v1`,
+   `collection-query/v1`, `collection-state-diff` und `collection-search`;
+3. `CS-03` implementiert `library-health/v1` und
+   `library-health-report` ohne Gesamtscore oder Mutation Authority.
+
+Maschinenlesbare Vertragsreports bleiben pfadfrei. Lokale interaktive
+Metadatenwerte benötigen ausdrücklich `--private-details`; absolute Pfade
+bleiben ausgeschlossen. Music W4 folgt als nächste vollständige Mediendomäne
+nach diesen drei Waves.
+
+`W10-005` ist eine unabhängige parallele `FRONTIER`-Wave. Sie vervollständigt
+Capability-Auflösung, Authorize, Execute und Recovery für die bereits durch
+ADR-0056 erlaubte Interim-Ein-Datei-Quarantäne, ohne einen weiteren
+Mutationstyp oder atomare No-Replace-Semantik zu behaupten.
+
 ## W0 — Project Foundation
 
 Scope:
@@ -421,6 +444,13 @@ SHA-256-Revalidierung verwenden. Diese Zielprüfung ist nicht atomar.
 atomaren No-Replace, no-follow sowie Race-/Crash-Nachweise. Cross-Volume-
 Copy+Delete und Überschreiben sind kein Fallback.
 
+Der vorhandene Executor ist noch keine vollständige Bedienkette. `W10-005`
+ergänzt einen privaten `QuarantineCapabilityResolver`,
+`quarantine-authorize`, `quarantine-execute` mit zweiter Bestätigung über
+nicht geloggtes `stdin` und `quarantine-recover`. CLI-Argumente enthalten nur
+opaque IDs und Content Hashes. Der bestehende `quarantine-status` bleibt die
+maschinenlesbare read-only Statusprojektion.
+
 Spätere Operationen wie Rollback, Purge, Metadatenupdate, Calibrewrite und
 explizit autorisierte externe Toolwrites benötigen jeweils eine eigene
 Sicherheitsentscheidung, Revalidierung, Audit, Collision Handling und feste
@@ -428,9 +458,10 @@ Fehlersemantik.
 
 ## Cross-cutting future extensions
 
-These do not block the first end-to-end pipeline but should remain architecturally possible:
+Diese späteren Erweiterungen blockieren die aktuelle Lieferfolge nicht:
 
-- Library Health dashboard combining integrity, quality, unresolved identities, duplicates and completeness;
+- medienübergreifende Generalisierung der durch `CS-03` zunächst book-only
+  implementierten `Library Health`-Projektion;
 - completeness/gap detection for series/albums/classical works;
 - cover/image perceptual fingerprints for editions/releases;
 - e-book structural/quality/content-diff analysis using mature tools where suitable;

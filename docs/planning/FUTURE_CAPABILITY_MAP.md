@@ -1,7 +1,8 @@
 # Future Capability Map
 
-**Status:** Entwurf
-**Stand:** 2026-08-20
+**Status:** Entwurf; die book-only Produktprojektionen wurden in ADR-0058 und
+`BACKLOG.md` übernommen
+**Stand:** 2026-08-22
 **Scope:** langfristige Produktfähigkeiten und Medienlinien
 
 ## Zweck und Autorität
@@ -46,19 +47,19 @@ Statusachse und keine öffentlichen Runtime-Literale.
 - Eine Fähigkeit wird erst dann in `BACKLOG.md` übernommen, wenn ihr
   Nutzerergebnis, Scope, Preconditions, Privacy-Grenze, Abnahmekriterium und
   Modellwahl gemäß `MODEL_ROUTING_POLICY.md` feststehen.
-- Außer der engen ADR-0056-Interim-Quarantäne bleiben Source-Media-Mutation,
-  Purge, Retagging und Verzeichnisbereinigung unabhängig von dieser Map durch
-  W10 blockiert.
+- Außer der engen ADR-0056-Interim-Ein-Datei-Quarantäne bleiben
+  Source-Media-Mutation, Purge, Retagging und Verzeichnisbereinigung
+  unabhängig von dieser Map blockiert.
 - Eine geplante Fähigkeit darf den aktiven E-Book-Endgame-Pfad nicht durch
   eine vorzeitige generische Neuarchitektur unterbrechen.
 
 ## Bezug zur aktuellen Ausgangsposition
 
-Beim Aktualisieren dieser Map sind EB-07 und EB-08 abgeschlossen; die aktive
-Arbeit liegt in der getrennten Archive-Strecke. Der genaue Paketstatus und der
-jeweils nächste atomare Schritt werden hier nicht dupliziert; dafür sind
-`PROJECT_STATUS.md`, `HANDOVER.md` und der atomare Arbeitspaketkatalog
-maßgeblich.
+EB-07, EB-08, die read-only Archive-Strecke und S-W10-01 bis S-W10-04 sind
+abgeschlossen. ADR-0058 und der kanonische Backlog haben die zuvor nur
+strategisch skizzierten book-only Produktprojektionen übernommen. `CS-01` ist
+der nächste reguläre Slice; `W10-005` ist parallel `READY`. Der genaue
+Paketstatus wird hier nicht dupliziert.
 
 ## Empfohlene Entwicklungsfolge
 
@@ -66,21 +67,18 @@ Die Phasen sind eine strategische Abhängigkeitsskizze für noch nicht
 kanonisierte Fähigkeiten. Innerhalb bereits geplanter Arbeit setzen sie
 weder Paketstatus noch Ausführungsreihenfolge.
 
-### Phase 0: E-Book-Endgame abschließen
+### Phase 0: E-Book-Endgame und read-only Archive-Basis
 
-**Einordnung:** bestehender Plan, aktuell
+**Einordnung:** bestehender Plan, abgeschlossen beziehungsweise getrennt
+blockiert
 
-Alle noch offenen E-Book- und Archive-Pakete werden ausschließlich nach der
-Abhängigkeits- und Statusfolge der maßgeblichen Pläne fortgesetzt. Diese Map
-öffnet abgeschlossene EB-Pakete nicht erneut und ordnet die aktive Archive-
-Strecke nicht neu.
+Die book-only EB-Pakete bis W9 sowie die read-only Archive-Persistenz,
+Collection-Orchestrierung und Source-Dependency-Strecke sind abgeschlossen.
+Diese Map öffnet sie nicht erneut.
 
-Die Archive-Strecke folgt ihrer eigenen EA-/EB-A-Zuordnung. W3-018 bis
-W3-022 decken nur Discovery, Inventory, Listing und Member-Evidence ab;
-EB-A2 und EB-A3 umfassen zusätzlich die in W5B, W6 und W9 zugeordneten
-Secret-, Matching- und Planungsaufgaben. Nur die enge ADR-0056-
-Interim-Quarantäne ist umgesetzt; weitergehende W10-Operationen bleiben
-blockiert.
+Archive-Extraction, Secretübergabe und Member-Byte-Identity bleiben an
+`FG-A-WORKSPACE-BACKEND`, `FG-A-SECRET` und `FG-A3-MEMBER-BYTE` gebunden.
+ADR-0056 öffnet davon unabhängig nur die enge Interim-Ein-Datei-Quarantäne.
 
 Diese Phase wird nicht zugunsten einer neuen Medienlinie abgebrochen.
 
@@ -117,9 +115,10 @@ Calibre-Reconciliation-Vertrag.
 
 ### Phase 1: Produktprojektionen über der E-Book-Evidence
 
-**Einordnung:** strategischer Vorschlag, danach
+**Einordnung:** bestehender Plan, aktuell; durch ADR-0058 und `CS-01` bis
+`CS-03` übernommen
 
-Empfohlene Reihenfolge:
+Verbindliche Reihenfolge:
 
 1. `CollectionState` v1 als rebuildbare book-only Projektion;
 2. Snapshot-Diff für zwei abgeschlossene Zustände;
@@ -128,8 +127,9 @@ Empfohlene Reihenfolge:
 5. Content-Index-Policy nach Root, Medienrolle, Feld und Sensitivitätsklasse;
 6. sichere lokale Freitextsuche über denselben Query-AST.
 
-Die Phase liefert unmittelbaren Nutzerwert aus der vorhandenen Evidence,
-bevor eine neue Medienanalyse aufgebaut wird.
+Die ersten vier Punkte sind durch ADR-0058 und `CS-01` bis `CS-03` gebunden.
+Content-Index-Policy und Content-Freitextsuche bleiben spätere
+Frontier-Entscheidungen.
 
 ### Phase 2: Präferenzen, Inbox und Preservation Planning
 
@@ -209,8 +209,7 @@ Korpusentscheidungen unnötig koppeln.
 
 ### Phase 7: Oberflächen und kontrollierte Ausführung
 
-**Einordnung:** Forschungsfrage; ausführende Teile außerhalb der engen
-ADR-0056-Interim-Quarantäne W10-blockiert
+**Einordnung:** Forschungsfrage; ausführende Teile W10-blockiert
 
 API, MCP, Web- oder Desktop-Oberfläche und ein Watcher/Daemon folgen erst,
 wenn Query-, Policy-, Review- und Plan-Application-Verträge stabil sind.
@@ -224,20 +223,20 @@ abgeleitet werden.
 
 | Fähigkeit | Nutzerergebnis | Einordnung | Bestehende Zuordnung | Nächste Entscheidung |
 |---|---|---|---|---|
-| Calibre Reconciliation | Calibre- und Dateisystemzustand read-only vergleichen | bestehender Plan, aktuell | EB-07, W8, ADR-0033 | verbleibende atomare Pakete |
-| Keep Preference und Plan | bevorzugte Repräsentation und Blocker ohne Ausführung | bestehender Plan, abhängigkeitsgebunden | FG-08, EB-08, W9 | Frontier-Vertrag nach EB-07 |
+| Calibre Reconciliation | Calibre- und Dateisystemzustand read-only vergleichen | bestehender Plan, abgeschlossen | EB-07, W8, ADR-0033 | keine offene book-only Implementierung |
+| Keep Preference und Plan | bevorzugte Repräsentation und Blocker ohne Ausführung | bestehender Plan, abgeschlossen | FG-08, EB-08, W9 | W9-Pläne bleiben `NOT_EXECUTABLE` |
 | Archive Discovery/Inventory | Container, Volumes, Sidecars, Members und Integrität nachvollziehen | bestehender Plan, abhängigkeitsgebunden | W3-018 bis W3-022; EB-A1 und Teile von EB-A2 | bestehende Archive-Gates |
 | Archive Matching/Planung | Secret-, Member-, Matching- und Planungs-Evidence verbinden | bestehender Plan, abhängigkeitsgebunden | W5B-011, W6-007, W9-004/W9-005; EB-A2/EB-A3 | bestehende Archive-Gates |
 | Provider Cache/Book Provider | externe Evidence kontrolliert und offline wiederverwendbar machen | bestehender Plan, abhängigkeitsgebunden | EB-03A/B, W5B | vorhandene Provider-Gates |
 | Classification Projection | widersprüchliche Facets getrennt und rebuildbar projizieren | bestehender Plan, abhängigkeitsgebunden | EB-04, W5C | FG-04 und atomare Pakete |
-| `CollectionState` | physische Beobachtungen, bestätigte Identitäten und offene Candidates getrennt verstehen | strategischer Vorschlag, danach | neu; Reports und Scan-Lineage sind Vorarbeit | Frontier-ADR und book-only v1 |
+| `CollectionState` | physische Beobachtungen, bestätigte Identitäten und offene Candidates getrennt verstehen | bestehender Plan, aktuell | ADR-0058, `CS-01` | `collection-state/v1` implementieren |
 | Portable Identität und föderierter Austausch | Datensatz-Lineage über externe Kopien sowie zwischen FolioTone-Systemen nachvollziehen und konfliktbewusst fusionieren | strategischer Vorschlag, danach; Writes W10-blockiert | FUT-010, ADR-0011, ADR-0014 und ADR-0042 Proposed | FG-FED-IDENTITY, FG-FED-BUNDLE, FG-FED-MERGE und FG-FED-CARRIER |
-| Snapshot Diff | Veränderungen zwischen zwei konsistenten Zuständen erklären | strategischer Vorschlag, danach | W2-Lineage ist Vorarbeit; keine direkte Backlogaufgabe | CollectionState-Vertrag |
-| Sichere freie Suche | Metadaten und später Content lokal durchsuchen | strategischer Vorschlag, danach | neu | Query-AST, FTS und Privacy-ADR |
+| Snapshot Diff | Veränderungen zwischen zwei konsistenten Zuständen erklären | bestehender Plan, abhängigkeitsgebunden | ADR-0058, `CS-02` | nach `CS-01` |
+| Sichere lokale Suche | ausgewählte Metadaten lokal über einen bounded Query-AST durchsuchen | bestehender Plan, abhängigkeitsgebunden | ADR-0058, `CS-02` | nach `CS-01`; Content bleibt ausgeschlossen |
 | Preference Policy | Empfehlungen anhand expliziter Nutzerpräferenzen erzeugen | strategischer Vorschlag, danach | EB-08 teilweise | Profil-, Versionierungs- und Explanation-Vertrag |
 | Inbox und Importplanung | neue Objekte gegen den Bestand prüfen | strategischer Vorschlag, danach | neu | eigener Root-/Plan-Vertrag |
 | Acquisition/Desired Set | vorhandene Erwerbskandidaten und Lücken gegenüber einem expliziten Sollbestand erkennen | strategischer Vorschlag, später | FUT-007 teilweise | Sollbestand-, Provider- und Rechte-Evidence |
-| Library Health | unabhängige Zustandsdimensionen zusammenfassen | bestehender Plan, bewusst zurückgestellt | FUT-006 | CollectionState und Quality-Evidence |
+| Library Health | unabhängige Zustandsdimensionen zusammenfassen | bestehender Plan, abhängigkeitsgebunden | ADR-0058, `CS-03`, FUT-006 | nach `CS-01` und `CS-02` |
 | Fixity/Backup-Reconciliation | unerwartete Änderungen und Replica-Lücken erkennen | bestehender Plan, bewusst zurückgestellt | FUT-009 teilweise | Root-Rollen und Restore-Evidence |
 | Music Vertical Slice | Musik auf Work-/Recording-/Release-Ebene verstehen | bestehender Plan, bewusst zurückgestellt | W4, W5, W6, W7 | nach reifer E-Book-Linie |
 | Hörbücher | Buch- und Audioidentität verbinden | strategischer Vorschlag, später | neu | Frontier-Gate für Narration/Edition/Recording |
@@ -249,7 +248,7 @@ abgeleitet werden.
 | Confidence-Kalibrierung | profilgebundene Scores an geprüfter Ground Truth bewerten | Forschungsfrage | FUT-005 berührt Review-Lernen | relationstypbezogener Korpus und Eval-Vertrag |
 | KI-Query/Explanation | natürliche Sprache sicher übersetzen und Evidence erklären | Forschungsfrage | keine | gleicher Query-AST; keine Decision Authority |
 | API/MCP/UI | stabile Application-Verträge außerhalb der CLI anbieten | Forschungsfrage | ADR-0016 stellt zurück | neue Produktoberflächen-ADR |
-| kontrollierte Mutation | geprüfte Pläne entsprechend ihrer Reversibilitätsklasse ausführen | nur enge Interim-Quarantäne umgesetzt; sonst W10-blockiert | W10 | `FG-W10-MOVE-BACKEND` sowie operationseigene ADR und Benutzerfreigabe |
+| kontrollierte Mutation | geprüfte Pläne entsprechend ihrer Reversibilitätsklasse ausführen | eng begrenzte Interim-Ausnahme; sonst blockiert | ADR-0056, `W10-005`, `FG-W10-MOVE-BACKEND` | Bedienkette vervollständigen; atomare Härtung bleibt getrennt |
 
 ## Medienabdeckung
 

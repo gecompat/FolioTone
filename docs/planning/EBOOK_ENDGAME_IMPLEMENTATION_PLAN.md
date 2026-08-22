@@ -1,6 +1,8 @@
 # FolioTone – detaillierte Planung der nächsten E-Book-Wellen
 
-**Planungsstand:** 2026-08-20
+**Planungsstand:** 2026-08-22; EB-00 bis EB-08/W9 sowie die read-only
+Archive-Basis sind abgeschlossen. Die aktuelle Ausführungsfront steht in
+`BACKLOG.md`.
 **Basis:** maßgeblicher Implementierungsstand aus `PROJECT_STATUS.md` und
 `BACKLOG.md` zum genannten Planungsstand
 **Scope:** E-Book-Linie einschließlich Authority Resolution, Enrichment,
@@ -39,9 +41,9 @@ E-Book-Roadmaps. Er führt keine konkurrierende Status- oder ID-Hierarchie ein:
 | EB-A2 | Lieferbündel aus EA4 bis EA7 |
 | EB-A3 | Lieferbündel aus EA8 bis EA10 |
 
-EA11 und EA12 gehören weiterhin zur gesperrten W10-Strecke. Keine EB-Welle
-autorisiert Source-Media-Mutationen, Quarantäne, Löschung oder Verzeichnis-
-bereinigung.
+Keine EB-Welle autorisiert Source-Media-Mutationen. Die später akzeptierte
+ADR-0056-Interim-Ein-Datei-Quarantäne ist ein separater W10-Vertrag und deutet
+keinen EB-/W9-Plan um. Löschung und Verzeichnisbereinigung bleiben blockiert.
 
 Die vollständig festgelegten Teile dieser Lieferpakete sind im
 [`atomaren Arbeitspaketkatalog`](EBOOK_SPARK_WORK_PACKAGES.md) in begrenzte
@@ -91,9 +93,8 @@ Noch nicht vorhanden bzw. nicht vollständig:
 und Workflows aus EB-05/EB-06. ADR-0034 ist mit S-EB08-01 bis S-EB08-09
 vollständig umgesetzt: `foliotone.consolidation` enthält ausschließlich
 immutable DTOs, reine Planung und Validierung, insert-only Persistenz sowie
-pfadfreie read-only Projektionen. Jeder Plan bleibt dauerhaft
-`NOT_EXECUTABLE`; nur die getrennte, kurzlebig autorisierte ADR-0056-
-Interim-Quarantäne besitzt einen Mutationspfad.
+pfadfreie read-only Projektionen. Bis zu einer späteren akzeptierten W10-ADR
+bleibt jeder Plan `NOT_EXECUTABLE` und es existiert kein Mutationspfad.
 
 ---
 
@@ -1817,9 +1818,9 @@ dynamische und injizierte Mutationsformen, gegen öffentliche Ausführungs- oder
 Passthrough-Surfaces sowie gegen mutierende Calibre-Command-Shapes. Er ist ein
 zusätzlicher Regressionstest und ersetzt keine W10-Autorisierung.
 
-Die W9-Non-Execution-Grenze bleibt ausdrücklich bestehen. Nur die getrennte,
-kurzlebig autorisierte ADR-0056-Interim-Quarantäne darf einen einzelnen
-Candidate ausführen; alle übrigen W10-Operationen bleiben blockiert.
+Der statische W9-Vertrag bleibt vollständig nicht ausführbar. Ausschließlich
+ein separater, kurzlebiger ADR-0056-Authorization-Snapshot darf den engen
+Interim-Quarantäneexecutor öffnen.
 
 ---
 
@@ -2580,7 +2581,7 @@ ohne die Fähigkeit, Source Media zu verändern.
 
 ---
 
-# 42. Empfohlener unmittelbarer nächster Implementierungsschritt
+# 42. Abschluss und aktuelle Fortsetzung
 
 Die book-only Wellen EB-00 bis EB-08/W9 sind abgeschlossen. Die read-only
 Archivstrecke ist durch Formatlock, produktiven Parser/Provider, immutable
@@ -2603,6 +2604,12 @@ No-Replace-/Race-/Crash-/no-follow-Nachweis im Backlog.
 FG-A3-MEMBER-BYTE bleibt bis vollständiger Member-SHA-256-Evidence blockiert.
 Passwortversuche bleiben bis FG-A-SECRET blockiert. Jede weitere
 Filesystem-Mutation und jede mutierende Calibre-Operation bleibt ausgeschlossen.
+
+Die aktuelle reguläre Fortsetzung ist `CS-01` aus ADR-0058. Danach folgen
+`CS-02` und `CS-03`. `W10-005` darf parallel die vollständige Capability-,
+Authorize-, Execute- und Recovery-Bedienkette für den vorhandenen
+Interim-Executor ergänzen. Die kanonische Reihenfolge und Statuswerte stehen
+ausschließlich in `BACKLOG.md`.
 
 ---
 

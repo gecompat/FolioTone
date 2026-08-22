@@ -2,24 +2,24 @@
 
 ## Status und Geltungsbereich
 
-**Status:** In Ausführung; read-only Archive-Discovery, Runtime, Formatlock,
-Listing, Persistenz, Collection-Orchestrierung und die generische
-Source-Dependency-Strecke bis S-EBA3-03 sind abgeschlossen. Extraction,
-Member-Byte-Identity und Secrets bleiben getrennt blockiert. W10 erlaubt nur
-die enge ADR-0056-Interim-Quarantäne; die weitergehende Härtung bleibt geplant.
+**Status:** Read-only Basis abgeschlossen; Archive-Discovery, Runtime,
+Formatlock, Listing, Persistenz, Collection-Orchestrierung und die generische
+Source-Dependency-Strecke bis S-EBA3-03 sind umgesetzt. Extraction,
+Member-Byte-Identity und Secrets bleiben getrennt blockiert. ADR-0056 erlaubt
+unabhängig davon nur die enge Interim-Ein-Datei-Quarantäne.
 
-**Stand:** 2026-08-21
+**Stand:** 2026-08-22
 
 **Scope:** Read-only Archivanalyse, lokale Passwortkandidaten, archive-aware
-Matching und Review, nicht ausführbare Deduplizierungsplanung sowie die eng
-begrenzte ADR-0056-Quarantäne und weiterhin gesperrte weitergehende W10-Operationen
+Matching und Review, nicht ausführbare Deduplizierungsplanung sowie getrennte
+spätere W10-Verträge
 
 Diese Roadmap schließt an die E-Book-Wellen in
 [`W3_017_EBOOK_ROADMAP.md`](W3_017_EBOOK_ROADMAP.md) an. Sie dokumentiert
-keine bereits implementierte Archiv- oder Löschfunktion. Source Media bleibt
-durch W9 read-only. ADR-0056 erlaubt ausschließlich eine ausdrücklich
-autorisierte Ein-Datei-Quarantäne; Löschung, Rollback, Metadatenwrite und
-Verzeichnisoperationen bleiben getrennt gesperrt.
+keine Löschfunktion. Source Media bleibt durch W9 read-only. ADR-0056 erlaubt
+als separate Ausnahme eine kurzlebig autorisierte Same-Filesystem-
+Ein-Datei-Quarantäne. Löschung und Verzeichnisoperationen benötigen weiterhin
+eigene akzeptierte Verträge und ausdrückliche Ausführungsfreigaben.
 
 Der
 [`E-Book-Endgame-Ausführungsplan`](EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md)
@@ -379,9 +379,10 @@ S-EBAR-01 Execution-DTOs
     -> FG-W10-QUARANTINE durch ADR-0056 abgeschlossen
     -> S-W10-01 reine Authorization-/Execution-Verträge, abgeschlossen
     -> S-W10-02 Persistenz ohne Source-Mutation, abgeschlossen
-    -> S-W10-03 enge Interim-Quarantäne, abgeschlossen
-    -> S-W10-04 read-only Quarantänestatus, abgeschlossen
-    -> FG-W10-MOVE-BACKEND geplant: atomarer No-Replace-/no-follow-Nachweis
+    -> S-W10-03 Interim-Executor, abgeschlossen
+    -> S-W10-04 read-only Status, abgeschlossen
+    -> W10-005 Bedien-/Recoverykette, READY
+    -> FG-W10-MOVE-BACKEND spätere atomare Härtung, PLANNED
 ```
 
 Die mechanischen S-EBAR-Pakete verwenden das im atomaren Katalog jeweils
@@ -474,13 +475,14 @@ Der Plan enthält mindestens:
 
 ### EA11 — W10-Entscheidung und Quarantäne-Executor
 
-**Status:** Teilweise abgeschlossen durch ADR-0056 und S-W10-01 bis S-W10-04.
+**Status:** ADR-0056, S-W10-01 bis S-W10-04 abgeschlossen; `W10-005` für die
+Bedien-/Recoverykette `READY`; atomare Härtung separat geplant.
 
 ADR-0056 legt Source-Autorisierung, Approvalmodell, Root-Lease, Fencing,
-changed-since-analysis-Prüfung, einen privaten Quarantäneort und Audit für die
-enge Interim-Quarantäne fest. `FG-W10-MOVE-BACKEND` muss den noch fehlenden
-atomaren No-Replace-/no-follow- sowie Race-, Crash- und Cross-Device-Nachweis
-liefern; Rollback und Calibre-Write bleiben getrennte Entscheidungen.
+changed-since-analysis-Prüfung, Crash-Recovery, Quarantänegrenze und Audit für
+genau eine reguläre Same-Filesystem-Datei fest. `FG-W10-MOVE-BACKEND` bleibt
+für atomaren No-Replace, no-follow sowie Race-/Cross-Device-Nachweise offen;
+Rollback und Calibrewrite benötigen weiterhin getrennte Verträge.
 
 Der erste Executor darf ausschließlich revalidierte Kandidaten in eine
 wiederherstellbare Quarantäne verschieben. Vor jeder Operation werden

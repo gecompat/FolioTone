@@ -2,9 +2,9 @@
 
 ## Status und Geltungsbereich
 
-**Status:** In Bearbeitung (W3-017, E4 und E5 abgeschlossen; E6-E8 teilweise integriert; E9 Blocking integriert; E9 Scoring sowie E10-E12 offen)
+**Status:** Abgeschlossen (W3-017 sowie E4 bis E12 sind book-only umgesetzt)
 
-**Stand:** 2026-08-17
+**Stand:** 2026-08-22
 
 **Scope:** E-Book-Schiene von W3-017 bis zur nicht ausführbaren
 Konsolidierungsplanung W9
@@ -12,7 +12,7 @@ Konsolidierungsplanung W9
 Die anschließende archive-aware Analyse- und vollständige
 Deduplizierungsstrecke ist separat in
 [`EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md`](EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md)
-geplant. Sie ändert die W10-Sperre dieses Dokuments nicht.
+geplant. Die aktuelle Ausführungsfront steht ausschließlich in `BACKLOG.md`.
 
 Der
 [`E-Book-Endgame-Ausführungsplan`](EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md)
@@ -22,8 +22,9 @@ Backlog-IDs.
 
 Dieser Plan trennt Entwicklung, synthetische Verifikation und den privaten
 Hintergrundbetrieb. Er plant keine Music-Implementierung. W4 bleibt außerhalb
-dieses Dokuments zurückgestellt. W10 bleibt gesperrt und wird durch diesen Plan
-weder vorbereitet noch autorisiert.
+dieses Dokuments zurückgestellt. Der Plan selbst autorisiert keine W10-
+Operation; die spätere enge Interim-Ausnahme steht ausschließlich in
+ADR-0056.
 
 ## Planungsentscheidung
 
@@ -397,10 +398,9 @@ noch kanonische Datenbank.
 
 Die Pläne sind technisch nicht ausführbar. Identität und Keep-Präferenz
 bleiben getrennt. Jede mögliche spätere Operation enthält eine
-changed-since-analysis-Precondition. ADR-0056 erlaubt ausschließlich die
-enge Ein-Datei-Interim-Quarantäne; alle weitergehenden W10-Operationen bleiben
-blockiert, bis eigene akzeptierte ADRs Sicherheits-, Audit-, Recovery- und
-Benutzerbestätigungsregeln festlegen.
+changed-since-analysis-Precondition. ADR-0056 deutet diese Pläne nicht um;
+nur ein separater kurzlebiger Authorization-Snapshot kann die dort erlaubte
+Interim-Ein-Datei-Quarantäne öffnen.
 
 ## Parallelisierung
 
