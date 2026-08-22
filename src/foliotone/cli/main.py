@@ -99,6 +99,9 @@ from foliotone.workflows import (
     DEFAULT_COLLECTION_REPORT_GROUP_LIMIT,
     DEFAULT_COLLECTION_REPORT_MEMBER_LIMIT,
     DEFAULT_COLLECTION_REPORT_REVIEW_LIMIT,
+    CollectionStateBuildService,
+    CollectionStateReport,
+    CollectionStateWorkflowError,
     EbookAnalysisError,
     EbookAnalysisOrchestrator,
     EbookAnalysisReuseService,
@@ -119,6 +122,7 @@ from foliotone.workflows import (
     EbookMatchingError,
     EbookMatchingService,
     PostscanCompletionVerifier,
+    SQLiteCollectionStateReportReader,
     candidate_hash_status_payload,
     ebook_analysis_format,
 )
@@ -1354,6 +1358,52 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format; defaults to text.",
     )
 
+    collection_state_build = subparsers.add_parser(
+        "collection-state-build",
+        help="Build an immutable book-only state from one completed ScanRun.",
+    )
+    collection_state_build.add_argument(
+        "--scan-run-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque completed e-book ScanRun identifier.",
+    )
+    collection_state_build.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="SQLite database path; defaults to /data/foliotone.db.",
+    )
+    collection_state_build.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format; defaults to text.",
+    )
+
+    collection_state_report = subparsers.add_parser(
+        "collection-state-report",
+        help="Read one persisted CollectionState through SQLite read-only access.",
+    )
+    collection_state_report.add_argument(
+        "--snapshot",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque persisted CollectionState snapshot identifier.",
+    )
+    collection_state_report.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="Existing SQLite database path; opened strictly read-only.",
+    )
+    collection_state_report.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format; defaults to text.",
+    )
+
     consolidation_plan_report = subparsers.add_parser(
         "ebook-consolidation-report",
         help="Read one persisted non-executable consolidation plan without source access.",
@@ -1604,6 +1654,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "calibre-reconciliation-report."
         )
         print(
+            "Immutable book-only collection snapshots can be built and inspected through "
+            "collection-state-build and collection-state-report."
+        )
+        print(
             "Bounded offline relation candidates and append-only matching review are "
             "available through ebook-match and ebook-match-review-* commands."
         )
@@ -1664,6 +1718,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "calibre-reconciliation-report":
         return _run_calibre_reconciliation_report(args)
+
+    if args.command == "collection-state-build":
+        return _run_collection_state_build(args)
+
+    if args.command == "collection-state-report":
+        return _run_collection_state_report(args)
 
     if args.command == "ebook-consolidation-report":
         return _run_ebook_consolidation_report(args)
@@ -2750,6 +2810,101 @@ def _calibre_reconciliation_report_error(args: argparse.Namespace, code: str) ->
         )
     else:
         print("Calibre reconciliation report failed: read-only state is unavailable.")
+    return 2
+
+
+def _run_collection_state_build(args: argparse.Namespace) -> int:
+    """Build one immutable state projection without Source Media access."""
+
+    database: Path = args.database
+    try:
+        migrate(database)
+        engine = create_sqlite_engine(database)
+        try:
+            report = CollectionStateBuildService(engine).build(args.scan_run_id, datetime.now(UTC))
+        finally:
+            engine.dispose()
+    except CollectionStateWorkflowError:
+        return _collection_state_error(args, "SOURCE_STATE_UNAVAILABLE")
+    except OperationalError:
+        return _collection_state_error(args, "SCHEMA_UNAVAILABLE")
+    except (OSError, ValueError):
+        return _collection_state_error(args, "DATABASE_UNAVAILABLE")
+    except Exception:
+        return _collection_state_error(args, "INTERNAL_BUILD_ERROR")
+    _emit_collection_state(report, args, command="collection-state-build")
+    return 0
+
+
+def _run_collection_state_report(args: argparse.Namespace) -> int:
+    """Read and verify one state projection through SQLite read-only access."""
+
+    database: Path = args.database
+    if not database.is_file():
+        return _collection_state_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            report = SQLiteCollectionStateReportReader(engine).read(args.snapshot)
+        finally:
+            engine.dispose()
+    except CollectionStateWorkflowError:
+        return _collection_state_error(args, "SNAPSHOT_UNAVAILABLE")
+    except OperationalError:
+        return _collection_state_error(args, "SCHEMA_UNAVAILABLE")
+    except (OSError, ValueError):
+        return _collection_state_error(args, "DATABASE_UNAVAILABLE")
+    except Exception:
+        return _collection_state_error(args, "INTERNAL_READ_ERROR")
+    _emit_collection_state(report, args, command="collection-state-report")
+    return 0
+
+
+def _emit_collection_state(
+    report: CollectionStateReport,
+    args: argparse.Namespace,
+    *,
+    command: str,
+) -> None:
+    if args.output == "json":
+        _emit_json(report.payload(command=command))
+        return
+    snapshot = report.snapshot
+    print(f"Snapshot: {snapshot.id}")
+    print(f"Profile: {snapshot.profile}")
+    print(f"ScanRoot: {snapshot.scan_root_id}")
+    print(f"Source scan: {snapshot.source_scan_run_id}")
+    print(f"Created at: {snapshot.created_at.isoformat()}")
+    print(f"Content digest: {snapshot.content_digest}")
+    if command == "collection-state-build":
+        print(f"Created: {str(report.created).casefold()}")
+    for count in snapshot.counts:
+        print(f"Count: {count.key}={count.value}")
+    for component in snapshot.components:
+        print(
+            f"Component: {component.component.value} "
+            f"coverage={component.coverage_state.value} "
+            f"freshness={component.freshness_state.value} "
+            f"conflict={component.conflict_state.value} "
+            f"truncation={component.truncation_state.value}"
+        )
+        for profile in component.profile_versions:
+            print(f"Component profile: {component.component.value}={profile}")
+
+
+def _collection_state_error(args: argparse.Namespace, code: str) -> int:
+    command = str(args.command)
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": command,
+                "ok": False,
+                "error": {"code": code},
+            }
+        )
+    else:
+        print("CollectionState operation failed: persisted state is unavailable.")
     return 2
 
 

@@ -67,6 +67,10 @@ def test_status_command_is_non_destructive_bootstrap(
             "calibre-reconciliation-report."
         ),
         (
+            "Immutable book-only collection snapshots can be built and inspected through "
+            "collection-state-build and collection-state-report."
+        ),
+        (
             "Bounded offline relation candidates and append-only matching review are "
             "available through ebook-match and ebook-match-review-* commands."
         ),

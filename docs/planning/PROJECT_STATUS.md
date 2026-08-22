@@ -4,6 +4,27 @@ Stand: 2026-08-22
 
 ## Aktuelle Welle
 
+**CS-01 abgeschlossen — persistierter book-only `CollectionState` ist vorhanden**
+
+`collection-state-build` erzeugt `collection-state/v1` deterministisch aus
+der bereits persistierten Evidence genau eines abgeschlossenen book-only
+`ScanRun`. Die additive Migration `0023` speichert Snapshot, Komponenten,
+vollständige Zähler und itembezogene Zustände insert-only; Update und Delete
+werden durch Datenbank-Trigger abgewiesen. Coverage, Freshness, Konflikte und
+Kürzungen bleiben je Komponente explizit. Ein identischer Rebuild verwendet
+denselben content-addressed Snapshot, geänderte Evidence erzeugt einen neuen.
+
+`collection-state-report` liest ausschließlich über eine echte SQLite-
+Read-only-Verbindung und gibt keine Pfade, Metadatenwerte oder internen
+Evidence-Digests aus. Builder und Report öffnen keine Source Media, starten
+keine Tools oder Provider und besitzen keine Mutation Authority.
+
+**Nächster regulärer Produkt-Slice: `CS-02`**
+
+ADR-0058 legt als Fortsetzung deterministischen Snapshot-Diff und begrenzte
+lokale Metadatensuche fest. `CS-02` ist im kanonischen Backlog `NEXT`; danach
+folgt `CS-03` mit mehrdimensionaler `Library Health` ohne Gesamtscore.
+
 **W10-Interim abgeschlossen — Executor und read-only Quarantänestatus sind vorhanden**
 
 ADR-0056 akzeptiert als erste W10-Grenze ausschließlich reine Quarantäne-
@@ -21,11 +42,6 @@ pro Run mit ausschließlich opaken IDs, Statuswerten und Zeitpunkten. Weder
 Pfade, Namen, Materialhashes, `target_token`, `confirmation_digest` noch
 Finding-Eingaben gelangen in die Ausgabe.
 
-**Nächster regulärer Produkt-Slice: `CS-01`**
-
-ADR-0058 akzeptiert eine book-only Lieferfolge aus `CollectionState`,
-Snapshot-Diff und begrenzter lokaler Metadatensuche sowie mehrdimensionaler
-`Library Health`. `CS-01` ist im kanonischen Backlog `NEXT`. Parallel beginnt
 `S-W10-05A` ist abgeschlossen: Der private, bounded und fail-closed
 `QuarantineCapabilityResolver` löst ausschließlich über die geschützte lokale
 `FOLIOTONE_QUARANTINE_CAPABILITIES_FILE` opaque Capability- zu ScanRoot-IDs
@@ -1561,12 +1577,37 @@ Persistenz, Interim-Executor und read-only Status sind vorhanden. Es fehlen
 die vollständige Capability-Auflösung sowie Authorize-/Execute-/Recovery-CLI;
 `W10-005` plant diese Bedienkette ohne einen weiteren Mutationstyp zu öffnen.
 
-ADR-0058 legt die aktuelle reguläre Produktfolge fest. `CS-01` ist `NEXT` und
-erzeugt `collection-state/v1` als rebuildbare book-only Projektion. `CS-02`
-ergänzt deterministischen Snapshot-Diff und begrenzte lokale Metadatensuche;
-`CS-03` ergänzt eine mehrdimensionale `Library Health`-Projektion ohne
-Gesamtscore oder Mutation Authority. Die kanonische Reihenfolge steht
-ausschließlich in `BACKLOG.md`.
+ADR-0058 legt die aktuelle reguläre Produktfolge fest. `CS-01` ist
+abgeschlossen und erzeugt `collection-state/v1` als immutable, rebuildbare
+book-only Projektion. Der Builder bindet technische, Analyse-, Resolution-,
+Classification-, Matching-, Review-, Calibre-, Archive-, Consolidation- und
+Quarantäne-Evidence an genau einen abgeschlossenen `ScanRun`. Zwei
+deterministische Keyset-Pässe erkennen zwischenzeitlich veränderte Evidence;
+Persistenz und idempotente Wiederverwendung erfolgen atomar. `CS-02` ist
+`NEXT` und ergänzt deterministischen Snapshot-Diff sowie begrenzte lokale
+Metadatensuche; `CS-03` ergänzt danach eine mehrdimensionale `Library Health`-
+Projektion ohne Gesamtscore oder Mutation Authority. Die kanonische
+Reihenfolge steht ausschließlich in `BACKLOG.md`.
+
+**Empirisch für CS-01:** Die 16 dedizierten Contract-, Migrations-,
+Persistenz-, Rollback-, Retry-, Collision-, Idempotenz-, Staleness-, Read-only-,
+Privacy- und statischen Sicherheitsfälle bestanden. Der betroffene
+Persistenz-/Planungsverbund bestand 60 Tests; nach der Volltest-Triage
+bestanden die 32 direkt relevanten CollectionState-, Bootstrap- und
+Dokumentationsfälle erneut. Nach Integration des parallelen S-W10-05A-
+Commits bestand der exakte rebased Head 73 betroffene Tests; ein
+hostprivilegabhängiger Symlink-Fall wurde übersprungen. Ruff war repositoryweit
+ohne Befund; Mypy prüfte 194 Source-Dateien erfolgreich.
+
+Der vollständige lokale Pytest-Lauf bestand 1.751 Tests und übersprang neun.
+48 Windows-Fehler traten auf: Ein CS-01-eigener Bootstrap-Vertrag wurde
+korrigiert und gezielt grün nachgewiesen. Die verbleibenden 47 Fehler
+entsprechen exakt der bereits auf unverändertem `main` dokumentierten
+Windows-Baseline: CRLF verändert bytegehashte Archive-Evidence und die
+Windows-Laufzeit ergänzt erwarteten Toolpfaden den `\\?\`-Präfix. Alle Daten
+waren synthetisch; Source Media, private Runtime-Datenbanken, Tools, Provider
+und Netzwerk wurden für CS-01 nicht verwendet. Der kanonische vollständige
+PR-CI-Gate steht für den stabilen Wave-Head noch aus.
 
 ## Nicht implementiert
 
@@ -1594,8 +1635,8 @@ Noch nicht vorhanden sind unter anderem:
 - die vollständige W10-Authorize-/Execute-/Recovery-Bedienkette, atomarer
   No-Replace-Move, Rollback, Purge, Metadatenwrite und
   Verzeichnisbereinigung; nur der enge Interim-Executor ist vorhanden;
-- `collection-state/v1`, Snapshot-Diff, begrenzte lokale Metadatensuche und
-  `library-health/v1`; ADR-0058 plant diese drei Produkt-Waves;
+- Snapshot-Diff, begrenzte lokale Metadatensuche und `library-health/v1`;
+  `collection-state/v1` ist umgesetzt;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 
 ## Sicherheitsgrenze

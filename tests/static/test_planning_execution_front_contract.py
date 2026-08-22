@@ -19,8 +19,8 @@ def _text(path: Path) -> str:
 def test_backlog_has_one_canonical_next_product_slice() -> None:
     backlog = _text(BACKLOG)
 
-    assert backlog.count("| CS-01 | NEXT |") == 1
-    assert "| CS-02 | PLANNED |" in backlog
+    assert backlog.count("| CS-01 | DONE |") == 1
+    assert backlog.count("| CS-02 | NEXT |") == 1
     assert "| CS-03 | PLANNED |" in backlog
     assert "| W10-005 | READY |" in backlog
     assert "| OPS-001 | READY |" in backlog

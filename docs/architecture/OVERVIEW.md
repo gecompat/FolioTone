@@ -276,6 +276,22 @@ rohe Fingerprints verlassen die Query-Schicht nicht. Deterministische private
 JSON-/CSV-/Checksum-Artefakte erzeugen keine Relation, Keep-Präferenz oder
 Identitätsentscheidung. ADR-0024 dokumentiert diesen Vertrag.
 
+Die book-only Produktprojektion `collection-state/v1` materialisiert die
+bereits persistierte Evidence genau eines abgeschlossenen `ScanRun`. Sie hält
+vollständige physische Zähler sowie je Analyse-, Resolution-, Classification-,
+Matching-, Review-, Calibre-, Archive-, Consolidation- und Quarantäne-
+Komponente explizite Coverage-, Freshness-, Konflikt- und Kürzungszustände.
+Itembezogene Digests machen den Zustand deterministisch und erklärbar, ohne
+Pfade oder Metadatenwerte im maschinenlesbaren Report offenzulegen.
+
+Der Builder liest in zwei stabilen Keyset-Pässen ausschließlich die lokale
+Persistenz und verweigert einen Abschluss, wenn sich die relevante Evidence
+zwischen den Pässen ändert. Migration `0023` speichert Snapshots insert-only;
+identische Eingaben verwenden denselben content-addressed Snapshot. Der
+separate Reportpfad öffnet SQLite tatsächlich read-only. Beide Pfade öffnen
+keine Source Media, starten keine Tools oder Provider und besitzen keine
+Mutation Authority. ADR-0058 dokumentiert Projektion und Lieferfolge.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.

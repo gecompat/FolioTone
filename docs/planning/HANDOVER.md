@@ -891,11 +891,31 @@ Sekunden. Private Collection-Pfade oder Laufzeitkennzahlen wurden nicht in Git
 ## Kanonische Fortsetzung
 
 Die einzige kanonische Ausführungsfront steht am Anfang von `BACKLOG.md`.
-Aktuell ist `CS-01` der nächste reguläre Produkt-Slice. ADR-0058 definiert
-`collection-state/v1` als immutable, rebuildbare book-only Projektion über
-genau einen abgeschlossenen `ScanRun`. Danach folgen `CS-02` für
-Snapshot-Diff und begrenzte lokale Metadatensuche sowie `CS-03` für
-mehrdimensionale `Library Health` ohne Gesamtscore.
+`CS-01` ist abgeschlossen. `collection-state/v1` materialisiert die
+persistierte Evidence genau eines abgeschlossenen book-only `ScanRun` als
+immutable, rebuildbaren und content-addressed Snapshot. Migration `0023`
+persistiert Snapshot, Komponenten, vollständige Zähler und itembezogene
+Zustände insert-only. `collection-state-build` liest ausschließlich
+persistierte Evidence in deterministischen Keyset-Pässen;
+`collection-state-report` verwendet eine echte SQLite-Read-only-Verbindung und
+bleibt pfad- sowie metadatenwertfrei. Kein Pfad öffnet Source Media, startet
+Tools oder Provider oder erhält Mutation Authority.
+
+Aktuell ist `CS-02` der nächste reguläre Produkt-Slice. Er ergänzt
+deterministischen Snapshot-Diff und begrenzte lokale Metadatensuche. Danach
+folgt `CS-03` für mehrdimensionale `Library Health` ohne Gesamtscore.
+
+Für CS-01 bestanden 16 dedizierte Tests und ein betroffener 60-Test-Verbund.
+Nach dem vollständigen lokalen Lauf bestanden die 32 direkt relevanten
+CollectionState-, Bootstrap- und Dokumentationsfälle erneut. Repository-Ruff
+und Mypy für 194 Source-Dateien waren grün. Nach Integration des parallelen
+S-W10-05A-Commits bestand der exakte rebased Head zusätzlich 73 betroffene
+Tests; ein hostprivilegabhängiger Symlink-Fall wurde übersprungen. Der
+vollständige Pytest-Lauf vor diesem schemafreien Rebase bestand 1.751 Tests,
+übersprang neun und zeigte nach Korrektur des einzigen CS-01-eigenen
+Bootstrap-Vertrags ausschließlich die 47 bereits auf unverändertem Windows-
+`main` reproduzierten CRLF-/Long-Path-Baselinefehler. Der vollständige PR-CI-
+Gate bleibt der kanonische Nachweis für den exakten stabilen Head.
 
 `W10-005` darf parallel als getrennte `FRONTIER`-Wave bearbeitet werden. Der
 Slice ergänzt Capability-Auflösung sowie `quarantine-authorize`,
@@ -956,7 +976,7 @@ Export-/Import-/Sync-Workflow noch ein Kennzeichnungs- oder External-Library-
 Write. ADR-0042 bleibt `Proposed` und blockiert die lokale book-only
 `CollectionState`-Projektion nicht.
 
-Music W4 bleibt geplant und wird nach `CS-01` bis `CS-03` als nächste
+Music W4 bleibt geplant und wird nach `CS-02` und `CS-03` als nächste
 vollständige Mediendomäne fortgesetzt. Book-only Leistungen und offene
 Music-Anteile besitzen im Backlog getrennte IDs und Statuswerte.
 
