@@ -228,7 +228,7 @@ gegen Filesystem-Mutationen, mutierende Calibre-Command-Shapes und
 | ID | Status | Item |
 |---|---|---|
 | W10-001 | DECISION | ADR-0056 akzeptiert ausschließlich Vertrag, Persistenz und Status einer gefenceten Ein-Datei-Quarantäne. W9-Pläne bleiben nicht ausführbar; reale Mutation wartet auf `FG-W10-MOVE-BACKEND`. |
-| W10-002 | BLOCKED | Folge S-W10-01 und S-W10-02 mechanisch ohne Source-Mutation um; ein realer Executor folgt erst nach einem akzeptierten atomaren No-Replace-Plattformadapter. Keeper und Candidate werden unmittelbar vor jeder Mutation vollständig revalidiert. |
+| W10-002 | BLOCKED | S-W10-01 und S-W10-02 liefern reine Verträge sowie immutable Authorization-/Run-/Eventpersistenz ohne Source-Mutation. Ein realer Executor bleibt bis zu einem akzeptierten atomaren No-Replace-Plattformadapter blockiert; Keeper und Candidate werden unmittelbar vor jeder Mutation vollständig revalidiert. |
 | W10-003 | BLOCKED | Implement verified rollback and separately approved purge after a retention period; never make successful extraction imply archive deletion. |
 | W10-004 | BLOCKED | Implement bottom-up empty-directory cleanup as a separate approved operation with fresh enumeration, root/reparse/Calibre/sidecar guards and an auditable reconstruction record. |
 

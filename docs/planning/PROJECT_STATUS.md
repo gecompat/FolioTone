@@ -4,11 +4,13 @@ Stand: 2026-08-21
 
 ## Aktuelle Welle
 
-**W3 abgeschlossen — ADR-0056 öffnet nur die W10-Vertragsstrecke**
+**W3 abgeschlossen — S-W10-02 persistiert die W10-Vertragsstrecke ohne Mutation**
 
 ADR-0056 akzeptiert als erste W10-Grenze ausschließlich reine Quarantäne-
-DTOs, insert-only Authorization-/Run-Persistenz und read-only Status. Als
-nächstes folgt S-W10-02 mit insert-only Persistenz ohne Source-I/O. Es gibt
+DTOs sowie immutable Authorization-/Run- und lückenlose Event-Persistenz. S-W10-02
+liefert die additive Migration `0022`, die neue Root-Lease-Owner-Klasse
+`CONSOLIDATION_QUARANTINE_RUN`, Fence-Prüfungen und bounded Reads ohne
+Source-I/O. Es gibt
 weiterhin keine reale Mutation; sie
 bleibt bis zum
 separaten `FG-W10-MOVE-BACKEND` blockiert; der Vertrag verlangt kein
