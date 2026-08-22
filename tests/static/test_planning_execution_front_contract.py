@@ -29,12 +29,12 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `S-W9-006A` |" in backlog
-    assert "Keine weitere Medienlinie" in backlog
+    assert "| NOW | `S-W9-006B` |" in backlog
+    assert "Produktoberflächen bleiben geschlossen" in backlog
     assert "| W9-006 | NEXT |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
-    assert "| S-W9-006A | READY |" in backlog
-    assert "| S-W9-006B | PLANNED |" in backlog
+    assert "| S-W9-006A | DONE |" in backlog
+    assert "| S-W9-006B | READY |" in backlog
     assert "| S-W9-006C | PLANNED |" in backlog
     assert "| W10-005 | READY |" in backlog
     assert "| OPS-001 | READY |" in backlog

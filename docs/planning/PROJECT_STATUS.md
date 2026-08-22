@@ -4,36 +4,45 @@ Stand: 2026-08-22
 
 ## Aktuelle Welle
 
-**FG-W9-006 abgeschlossen — Metadatenkorrekturplanung ist entscheidungsreif**
+**S-W9-006A abgeschlossen — reine Metadatenkorrekturverträge sind implementiert**
 
-ADR-0062 definiert den nicht ausführbaren W9-Vertrag vor jedem Metadata-
-Writer. Ein immutable, content-addressed `MetadataCorrectionCandidate` bindet
-die aktuelle E-Book-Observation, beobachtete und ausgewählte Werte, genau einen
-Zielträger, Dependencies und Writeranforderung. Der append-only Review bezieht
-sich auf diesen Candidate; erst die neueste kompatible Decision wird in einen
-neuen content-addressed `MetadataCorrectionPlan` übernommen. Damit entsteht
-kein zyklischer Hash zwischen Review und Plan.
+Das neue Paket `foliotone.metadata_correction` implementiert immutable,
+path-free und bounded DTOs für `MetadataCorrectionCandidate` und
+`MetadataCorrectionPlan`. Der Candidate bindet genau eine aktuelle E-Book-
+Observation, Full-SHA-256, beobachtete und ausgewählte private Werte, einen von
+fünf strikt getrennten Zielträgern, alle drei Dependency-Achsen sowie eine
+semantische Writeranforderung ohne Tool- oder Commandbindung. Eine feste
+Feldgrammatik deckt einfache, Contributor-, Identifier- und Series-Felder ab,
+ohne freie JSON-Pfade zu öffnen.
 
-Candidate und Plan bleiben path-free, bounded und dauerhaft
-`NOT_EXECUTABLE`. Selbst `APPROVED_NON_EXECUTABLE` öffnet weder Source-
-Metadaten noch Sidecar, Calibre, ein externes Tool oder eine interne Projektion
-zum Schreiben. `S-W9-006A` ist jetzt der kleinste reguläre Code-Slice;
-`S-W9-006B` und `S-W9-006C` folgen getrennt für Persistenz/Review und den
-echten SQLite-Read-only-Report. `W10-005` bleibt parallel `READY`.
+Reine Builder erzeugen Feldselektions-, Evidence-, Candidate- und Planhashes
+über Unicode-NFC-normalisiertes `canonical-json/v1`. Candidate- und Plan-ID
+werden deterministisch per UUIDv5 aus dem jeweiligen Content Hash abgeleitet;
+Auditzeitpunkte ändern ihre Identität nicht. Der Reducer bindet Candidate und
+Review-Snapshot an feste Preconditions und Post-write-Verifikation und liefert
+nur `BLOCKED`, `REVIEW_REQUIRED` oder `APPROVED_NON_EXECUTABLE`. Der einzige
+Execution-State bleibt permanent `NOT_EXECUTABLE`.
 
-Die bereits auf `main` integrierte ADR-0061 gibt die kontrollierte Entwicklung
-mit ausschließlich synthetischen temporären Dateien frei. Reale Source-Media-
-Mutation benötigt weiterhin je Operationstyp eine akzeptierte technische ADR,
-die vollständige Capability-/Authorize-/Execute-/Recovery-Kette und eine
-unmittelbar revalidierte lokale Authorization. Music, Bilder, REST-API und
-grafische Oberfläche sind nicht aktiviert.
+Der statische Non-Execution-Gate verbietet im gesamten neuen Paket mutierende
+Filesystem-/Subprocessimporte und öffentliche Apply-/Execute-/Write-Flächen.
+Private Metadatenwerte und materielle Hashes fehlen aus `repr`; Canonical Bytes
+dienen nur der internen content-addressed Identität. Es gibt keine Migration,
+keine Review-Core-Änderung, keine CLI, keinen Source-Zugriff und keinen Writer.
 
-Der ADR-0062-Gate-Slice ändert keinen Python-Writer, öffnet keine Source Media
-und berührt keine reale Sammlung. Sieben fokussierte Planungs- und neun
-Dokumentationsvertragstests bestanden; eine anfängliche veraltete Text-
-Assertion wurde korrigiert und nur die betroffene Testdatei wiederholt.
-`git diff --check` war ohne Befund. Eine vollständige lokale Suite wurde nicht
-dupliziert; der einmalige vollständige PR-CI-Gate bleibt Merge-Voraussetzung.
+54 fokussierte synthetische Unit-, Golden-Value-, Blocker-, Privacy- und
+Non-Execution-Tests bestanden nach der Korrektur zweier anfänglicher Golden-
+Platzhalter und einer zu groben Scannerregel. Gezielte Ruff- und Mypy-Prüfungen
+des neuen Pakets waren grün. Zusätzlich bestanden die sieben betroffenen
+Planungs- und neun Dokumentationsvertragstests; `git diff --check` war ohne
+Befund. Eine vollständige lokale Suite wurde nicht dupliziert; der einmalige
+vollständige PR-CI-Gate bleibt Merge-Voraussetzung.
+
+`S-W9-006B` ist jetzt `READY` und ergänzt ausschließlich die beiden Review-
+Literale, Migration `0026` und insert-only Persistenz mit vollständiger Hash-/
+Lineage-/Idempotenzprüfung. `S-W9-006C` bleibt danach für echten SQLite-
+Read-only-Report und CLI geplant. `W10-005` bleibt parallel `READY`; reale
+Mutation, Music, Bilder, REST-API und grafische Oberfläche sind nicht
+aktiviert.
 
 **CS-03 abgeschlossen — die book-only Produktprojektionen sind vollständig**
 

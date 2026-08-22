@@ -64,10 +64,12 @@ vollständige Mediendomäne, benötigt aber eine ausdrückliche Aktivierung.
 ADR-0061 aktiviert `W9-006` als nächsten regulären E-Book-Slice. ADR-0062
 definiert dafür zuerst einen separaten, reviewbaren
 `MetadataCorrectionCandidate` und danach den dauerhaft nicht ausführbaren
-`MetadataCorrectionPlan`. `S-W9-006A` liefert reine Verträge und Serialisierung,
-`S-W9-006B` Persistenz und Review-Integration und `S-W9-006C` den read-only
-Report samt CLI. Das technische `FG-W10-METADATA-WRITE` und erst danach der
-kleinste Writer-Slice bilden weiterhin zwei getrennte `FRONTIER`-Waves.
+`MetadataCorrectionPlan`. `S-W9-006A` hat die reinen Verträge, Reducer,
+Serialisierung, Golden Values und den Non-Execution-Gate geliefert.
+`S-W9-006B` folgt mit Persistenz und Review-Integration; `S-W9-006C` liefert
+danach den read-only Report samt CLI. Das technische
+`FG-W10-METADATA-WRITE` und erst danach der kleinste Writer-Slice bilden
+weiterhin zwei getrennte `FRONTIER`-Waves.
 
 `W10-005` ist eine unabhängige parallele `FRONTIER`-Wave. Sie vervollständigt
 Capability-Auflösung, Authorize, Execute und Recovery für die bereits durch
@@ -465,11 +467,12 @@ Build on the W3 calibre ToolProvider and implement read-only library integration
 
 Create non-executable `ConsolidationPlan` data from confirmed/reviewed relations. Plans may describe KEEP and candidate operations but must be marked non-executable.
 
-ADR-0062 teilt `W9-006` in drei begrenzte Pakete. `S-W9-006A` implementiert
+ADR-0062 teilt `W9-006` in drei begrenzte Pakete. `S-W9-006A` ist umgesetzt:
 immutable Candidate-/Plan-DTOs, reine Reducer, kanonische Serialisierung und
-den Non-Execution-Vertrag. `S-W9-006B` ergänzt Migration `0026`, Review-
-Literale und insert-only Persistenz. `S-W9-006C` liefert den echten SQLite-
-Read-only-Report und die CLI-Grenze. Erst danach folgt `W9-007` für
+der Non-Execution-Vertrag sind vorhanden. `S-W9-006B` ergänzt als nächstes
+Migration `0026`, Review-Literale und insert-only Persistenz. `S-W9-006C`
+liefert anschließend den echten SQLite-Read-only-Report und die CLI-Grenze.
+Erst danach folgt `W9-007` für
 reproduzierbare Rename-, Reorganisations-, Import-/Export-, Transformations-
 und Containerrezepte. Ein Zielträger oder Rezept öffnet keinen Writer. Die
 vollständige Reihenfolge steht in `EBOOK_WRITE_PIPELINE_PLAN.md`.
