@@ -71,9 +71,12 @@ den echten SQLite-Read-only-Report samt CLI ergänzt und `W9-006`
 abgeschlossen. ADR-0063 schließt danach `FG-W10-METADATA-WRITE` für genau
 EPUB 3, `SOURCE_METADATA` und einen einzelnen `title`-`REPLACE`.
 `S-W10-MW01` implementiert die reinen Preflight-, lexikalischen Zwei-Spannen-
-Patch- und Byte-/Semantik-Diff-Verträge. `S-W10-MW02` ergänzt als nächster
-Slice ausschließlich privates Staging und feste unabhängige Validatoren.
-Source-Commit, Persistenz und CLI bleiben den späteren Waves vorbehalten.
+Patch- und Byte-/Semantik-Diff-Verträge. `S-W10-MW02` ergänzt privates
+Streaming-Staging und feste unabhängige Metadaten-, EPUBCheck-, Text-, Cover-
+und Preserved-Field-Validatoren. `S-W10-MW03` ergänzt als nächster Slice
+ausschließlich Authorization-/Run-/Eventpersistenz, Capability-Auflösung,
+Root-Lease/Fencing und read-only Status. Source-Commit und CLI bleiben den
+späteren Waves vorbehalten.
 
 `W10-005` ist eine unabhängige parallele `FRONTIER`-Wave. Sie vervollständigt
 Capability-Auflösung, Authorize, Execute und Recovery für die bereits durch

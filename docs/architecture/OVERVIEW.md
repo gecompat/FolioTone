@@ -368,10 +368,11 @@ ADR-0063 entscheidet als ersten weiteren technischen Vertrag ausschließlich
 einen EPUB-3-`SOURCE_METADATA`-Writer für genau einen
 `title`-`REPLACE`. `S-W10-MW01` implementiert den bounded Preflight, den
 lexikalischen Zwei-Spannen-Patch und den memberweisen Diff als reines Bytes-
-API. Privates Staging, unabhängige Validatoren, Authorization/Persistenz,
-Linux-`renameat2`-Exchange und Same-Filesystem-Recovery bleiben in vier
-getrennten Folgewaves. Bis zu deren Abschluss entsteht keine neue operative
-Mutation Authority.
+API. `S-W10-MW02` ergänzt exklusives privates Streaming-Staging sowie feste
+nicht persistierende Metadaten-, EPUBCheck-, Text-, Cover- und Preserved-
+Field-Validatoren. Authorization/Persistenz, Linux-`renameat2`-Exchange und
+Same-Filesystem-Recovery bleiben in drei getrennten Folgewaves. Bis zu deren
+Abschluss entsteht keine neue operative Mutation Authority.
 
 ### Adapters
 

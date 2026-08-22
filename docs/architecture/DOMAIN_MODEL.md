@@ -506,13 +506,21 @@ existing plan to a concrete writer/version, a deterministic technical
 It does not add a writer command, path or tool identity to the W9 domain
 record. Other fields, formats and target carriers remain separate contracts.
 
-`S-W10-MW01` implements only the pure front of that W10 contract.
+`S-W10-MW01` implements the pure front of that W10 contract.
 `EpubTitleWritePreflight` binds the revalidated plan and exact input identity
 to bounded EPUB-3/OCF/package evidence. `EpubTitlePackagePatch` contains the
 exact two-span package-document output, and `EpubTitleArchiveDiff` confirms
 one changed package member while preserving every other member and archive
 metadata contract. None of these DTOs is an Authorization, staging artifact,
 filesystem command or executable plan.
+
+`S-W10-MW02` adds only private, non-persisted staging DTOs.
+`EpubTitleStagedFiles` binds the exact private input copy, rebuilt output and
+streamed archive diff while keeping all paths out of representations.
+`EpubTitleStagedValidation` binds the output to fixed calibre metadata/text/
+cover read-backs and EPUBCheck conformance through path-free fingerprints and
+tool versions. `EpubTitleVerifiedStage` combines both results but is still not
+an Authorization, Run, Event, Capability, executable plan or source commit.
 
 ## Related decisions
 

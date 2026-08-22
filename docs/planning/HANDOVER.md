@@ -50,20 +50,41 @@ Nicht-Package-Entries. Das Paket nimmt und liefert nur Bytes und immutable
 DTOs; es besitzt keine Datei-, Persistenz-, Tool-, CLI-, Capability-,
 Authorization- oder Execute-Fläche.
 
+`S-W10-MW02` ergänzt `epub3-title-private-staging/v1`. Der Builder erhält
+keinen Source-Pfad, erstellt einen exklusiven privaten Ordner und kopiert den
+Input einmal streaming-basiert mit vollständiger Hash-/Größenrevalidierung.
+Beim Containerneuaufbau werden alle Nicht-Package-Member komprimiert roh
+gestreamt; nur das gebundene Package Document wird mit der vorhandenen
+Stored-/Deflate-Methode neu komprimiert. Reihenfolge, Namen, Flags,
+Zeitstempel, Extra Fields, Kommentare und Attribute bleiben erhalten. Ein
+zweiter streaming-basierter Read-back berechnet alle Memberhashes neu.
+
+`FixedEpubTitleStagingValidator` führt ausschließlich gegen die privaten
+Kopien je zwei feste `ebook-meta`-, Text- und Cover-Read-backs sowie einmal
+EPUBCheck gegen den Output aus. Alle Prozesse laufen ohne Shell, mit Version
+Policy, Timeout, isolierten Calibre-/Temp-Verzeichnissen und bounded privaten
+Artefakten. Der Vertrag verlangt Titel-Read-back, identische Preserved Fields,
+Text- und Coverfingerprints sowie `CONFORMANT` und hasht Input/Output danach
+erneut. `EpubTitleStagedValidation` enthält keine Pfade oder Metadatenwerte und
+wird nicht persistiert. Der Preserved-Field-Vergleich ignoriert ausschließlich
+Calibres pro OPF-Export neu erzeugte `identifier:calibre`-Projektion; andere
+Identifier bleiben prüfpflichtig, während der native Memberdiff alle Source-
+Bytes erhält.
+
 Der spätere Source-Commit ist Linux/Docker-only und tauscht den vollständig
 verifizierten Same-Directory-Output über
 `renameat2(RENAME_EXCHANGE)` atomar mit der Source. Das Original wird danach
 per `RENAME_NOREPLACE` in den capability-gebundenen Recoverybereich desselben
 Filesystems verschoben. Fehlende Flag-/Filesystemunterstützung, NFS, `EXDEV`,
 native Windows-Ausführung oder unklare Crashzustände bleiben fail-closed. Die
-reale Mutation ist bis zum Abschluss von `S-W10-MW02` bis `S-W10-MW05`
+reale Mutation ist bis zum Abschluss von `S-W10-MW03` bis `S-W10-MW05`
 weiterhin nicht verfügbar.
 
-`S-W10-MW02` ist die nächste reguläre Wave. Sie baut aus dem reinen Patch einen
-privaten streaming-basierten Staging-Container und führt die festen
-unabhängigen Read-back-, EPUBCheck-, Text-, Cover- und Preserved-Field-
-Validatoren aus. Auch diese Wave erhält keinen Source-Commit, keine
-Persistenz, Capability oder CLI.
+`S-W10-MW03` ist die nächste reguläre Wave. Sie ergänzt immutable
+Authorization-/Run-/Eventpersistenz, private Capability-Auflösung,
+`ScanRootWriteLease`-/Fence-Vertrag und privacy-begrenzten read-only Status.
+Auch nach dieser Wave bleiben Source-Commit, Linux-Executor, Recovery und CLI
+geschlossen.
 
 Für `S-W10-MW01` bestanden lokal 114 fokussierte neue und direkt betroffene
 Unit-, Privacy-, Non-Execution- und Dokumentationsvertragstests in 0,57
@@ -71,9 +92,27 @@ Sekunden. Ruff war für das neue Paket und seine Tests grün; Mypy meldete für
 die drei neuen Source-Dateien keine Findings. Die vollständige lokale Suite,
 Docker-/Toolchain-Läufe, reale E-Books und produktive Runtime-Datenbanken
 wurden nicht verwendet. Der stabile Pull-Request-Head benötigt genau einen
-vollständigen CI-Gate. Ein Staging-, Linux-`renameat2`- oder Source-Writer-
-Lauf ist noch nicht erfolgt und gehört zu den folgenden
-Implementierungswaves.
+vollständigen CI-Gate.
+
+Für `S-W10-MW02` decken fokussierte synthetische Tests Streamgrenzen,
+Stored/Deflate, Data Descriptors, Metadatenerhalt, Kollisionen, Privacy und
+alle unabhängigen Mismatch-Codes ab. Am finalen lokalen Stand bestanden 76
+dieser direkt betroffenen Tests in 0,63 Sekunden. Ruff war für den geänderten
+Python-Scope grün, Mypy prüfte 219 Source-Dateien ohne Befund und
+`git diff --check` war sauber. Ein breiterer Windows-Lauf stoppte nach 71
+erfolgreichen Fällen ausschließlich an der bereits dokumentierten
+`\\?\`-Pfadpräfix-Baseline eines unveränderten Calibre-Analyzer-Tests; die
+vollständige lokale Suite wurde nicht dupliziert.
+
+Ein einzelner zusätzlicher Offline-Smoke führte den aktuellen Code über das
+bereits gebaute gelockte Linux-Toolchain-Image tatsächlich durch `ebook-meta`
+9.13, EPUBCheck 5.3.0, `ebook-convert` 9.13.0 und `calibre-debug` 9.13;
+Outputstatus war `CONFORMANT`. Dabei wurde Calibres volatiler, bei jedem OPF-
+Export neu erzeugter `identifier:calibre` sichtbar und anschließend eng aus
+dem Preserved-Field-Projektionsvergleich ausgeschlossen. Reale E-Books wurden
+nicht geöffnet. Ein Linux-`renameat2`- oder Source-Writer-Lauf ist weiterhin
+nicht erfolgt und gehört zu den folgenden Implementierungswaves. Der stabile
+Pull-Request-Head erhält genau einen vollständigen Linux-CI-Gate.
 
 `S-W9-006A` ist umgesetzt. `foliotone.metadata_correction` enthält die reinen
 Candidate-/Plan-DTOs, fünf getrennte Zielträger, drei vollständige Dependency-
@@ -117,11 +156,12 @@ grün; `git diff --check` war ohne Befund. Die vollständige lokale Suite wird
 nicht dupliziert; genau ein vollständiger PR-CI-Gate bleibt
 Merge-Voraussetzung.
 
-`FG-W10-METADATA-WRITE` ist durch ADR-0063 entschieden; `S-W10-MW01` ist
-umgesetzt und `S-W10-MW02` ist die nächste reguläre Wave. `W10-005` bleibt
+`FG-W10-METADATA-WRITE` ist durch ADR-0063 entschieden; `S-W10-MW01` und
+`S-W10-MW02` sind umgesetzt und `S-W10-MW03` ist die nächste reguläre Wave.
+`W10-005` bleibt
 parallel `READY`. Reale Source-Media-
 Mutation, Music, Bilder, REST-API und grafische Oberfläche werden weder durch
-W9-006 noch durch den reinen ersten Patch-Slice aktiviert.
+W9-006 noch durch das private Staging aktiviert.
 
 W0 bis W2 sind abgeschlossen. Der W2-Slice umfasst Incremental Index, Hashing, Filename-/Path-Kandidaten, konfigurierbare Parsing-Profile und eine generische read-only ToolProvider Runtime. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
 

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import struct
 import warnings
 import zipfile
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta, timezone
+from pathlib import Path
 from uuid import UUID
 
 import pytest
@@ -36,15 +38,26 @@ from foliotone.metadata_write import (
     EPUB_TITLE_DIFF_PROFILE,
     EPUB_TITLE_PATCH_PROFILE,
     EPUB_TITLE_PREFLIGHT_PROFILE,
+    EPUB_TITLE_STAGING_PROFILE,
+    EPUB_TITLE_VALIDATION_PROFILE,
     EPUB_TITLE_WRITE_PROFILE,
     EpubConformanceStatus,
     EpubInputConformance,
     EpubPublicationKind,
+    EpubTitleStagingError,
+    EpubTitleStagingErrorCode,
+    EpubTitleValidationArtifact,
+    EpubTitleValidationCommand,
+    EpubTitleValidationToolOutcome,
     EpubTitleWriteContractError,
     EpubTitleWriteErrorCode,
+    FixedEpubTitleStagingValidator,
+    build_and_verify_private_epub3_title_stage,
     build_epub3_title_package_patch,
+    build_private_epub3_title_stage,
     preflight_epub3_title_write,
     verify_epub3_title_archive_diff,
+    verify_private_epub3_title_stage,
 )
 
 NOW = datetime(2026, 8, 22, 10, 0, tzinfo=UTC)
@@ -861,3 +874,305 @@ def test_public_repr_and_failures_do_not_expose_private_title_or_hash() -> None:
     assert str(caught.value) == "PLAN_INCOMPATIBLE"
     assert PRIVATE_SELECTED_TITLE not in repr(caught.value)
     assert _sha(source) not in repr(caught.value)
+
+
+class _RecordingSource(io.BytesIO):
+    def __init__(self, value: bytes) -> None:
+        super().__init__(value)
+        self.read_sizes: list[int] = []
+
+    def read(self, size: int = -1) -> bytes:
+        self.read_sizes.append(size)
+        return super().read(size)
+
+
+def test_private_stage_streams_source_and_preserves_descriptor_members(
+    tmp_path: Path,
+) -> None:
+    source = _epub(data_descriptors=True)
+    preflight = _preflight(source)
+    patch = build_epub3_title_package_patch(preflight, authorized_at=NOW)
+    stream = _RecordingSource(source)
+
+    stage = build_private_epub3_title_stage(
+        tmp_path / "stage",
+        stream,
+        preflight,
+        patch,
+    )
+
+    assert stage.profile == EPUB_TITLE_STAGING_PROFILE
+    assert stage.input_path.read_bytes() == source
+    assert stage.input_sha256 == _sha(source)
+    assert stage.output_sha256 == _sha(stage.output_path.read_bytes())
+    assert stage.output_sha256 != stage.input_sha256
+    assert max(stream.read_sizes) == 1024 * 1024
+    assert verify_private_epub3_title_stage(
+        preflight,
+        patch,
+        stage.output_path,
+    ) == stage.archive_diff
+
+
+def test_private_stage_preserves_stored_package_and_entry_metadata(tmp_path: Path) -> None:
+    base = _epub(package_compression=zipfile.ZIP_STORED)
+
+    def annotate(info: zipfile.ZipInfo, data: bytes) -> tuple[zipfile.ZipInfo, bytes]:
+        if info.filename == "OEBPS/chapter.xhtml":
+            info.comment = b"synthetic-entry-comment"
+            info.extra = struct.pack("<HH", 0xCAFE, 3) + b"abc"
+            info.internal_attr = 1
+        return info, data
+
+    source = _rebuild_epub(
+        base,
+        replacement_package=_package_document(),
+        mutate_entry=annotate,
+    )
+    preflight = _preflight(source)
+    patch = build_epub3_title_package_patch(preflight, authorized_at=NOW)
+
+    stage = build_private_epub3_title_stage(
+        tmp_path / "stored",
+        io.BytesIO(source),
+        preflight,
+        patch,
+    )
+
+    with zipfile.ZipFile(stage.output_path, mode="r") as archive:
+        package = archive.getinfo(PACKAGE_NAME)
+        chapter = archive.getinfo("OEBPS/chapter.xhtml")
+    assert package.compress_type == zipfile.ZIP_STORED
+    assert chapter.comment == b"synthetic-entry-comment"
+    assert chapter.extra == struct.pack("<HH", 0xCAFE, 3) + b"abc"
+    assert chapter.internal_attr == 1
+    assert verify_epub3_title_archive_diff(
+        preflight,
+        patch,
+        stage.output_path.read_bytes(),
+    ) == stage.archive_diff
+
+
+def test_private_stage_rejects_changed_source_and_existing_target(tmp_path: Path) -> None:
+    source = _epub()
+    preflight = _preflight(source)
+    patch = build_epub3_title_package_patch(preflight, authorized_at=NOW)
+
+    with pytest.raises(EpubTitleStagingError) as changed:
+        build_private_epub3_title_stage(
+            tmp_path / "changed",
+            io.BytesIO(source + b"changed"),
+            preflight,
+            patch,
+        )
+    assert changed.value.code is EpubTitleStagingErrorCode.SOURCE_IDENTITY_MISMATCH
+
+    existing = tmp_path / "existing"
+    existing.mkdir()
+    with pytest.raises(EpubTitleStagingError) as collision:
+        build_private_epub3_title_stage(
+            existing,
+            io.BytesIO(source),
+            preflight,
+            patch,
+        )
+    assert collision.value.code is EpubTitleStagingErrorCode.STAGE_TARGET_EXISTS
+
+
+def _readback_opf(
+    title: str,
+    *,
+    publisher: str = "Synthetic Publisher",
+    stable_identifier: str = "urn:uuid:synthetic",
+    calibre_identifier: str = "volatile-calibre-id",
+) -> bytes:
+    escaped_title = (
+        title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<package xmlns="http://www.idpf.org/2007/opf" '
+        'xmlns:dc="http://purl.org/dc/elements/1.1/" '
+        'xmlns:opf="http://www.idpf.org/2007/opf" version="3.0">'
+        "<metadata>"
+        f"<dc:title>{escaped_title}</dc:title>"
+        "<dc:creator>Ada Author</dc:creator>"
+        f"<dc:identifier>{stable_identifier}</dc:identifier>"
+        f'<dc:identifier opf:scheme="calibre">{calibre_identifier}</dc:identifier>'
+        "<dc:language>de</dc:language>"
+        f"<dc:publisher>{publisher}</dc:publisher>"
+        "</metadata></package>"
+    ).encode()
+
+
+class _SyntheticValidationRunner:
+    def __init__(
+        self,
+        original_title: str,
+        selected_title: str,
+        *,
+        failure: str | None = None,
+    ) -> None:
+        self.original_title = " ".join(original_title.split())
+        self.selected_title = " ".join(selected_title.split())
+        self.failure = failure
+        self.commands: list[EpubTitleValidationCommand] = []
+
+    def run(
+        self,
+        command: EpubTitleValidationCommand,
+        _workspace: Path,
+    ) -> EpubTitleValidationToolOutcome:
+        self.commands.append(command)
+        artifacts: tuple[EpubTitleValidationArtifact, ...]
+        version = "calibre 9.13.0"
+        if command.step.startswith("metadata-"):
+            is_output = command.step == "metadata-output"
+            title = self.selected_title if is_output else self.original_title
+            if is_output and self.failure == "title":
+                title = "Wrong title"
+            publisher = (
+                "Changed Publisher"
+                if is_output and self.failure == "metadata"
+                else "Synthetic Publisher"
+            )
+            artifacts = (
+                EpubTitleValidationArtifact(
+                    "CALIBRE_OPF",
+                    _readback_opf(
+                        title,
+                        publisher=publisher,
+                        stable_identifier=(
+                            "urn:uuid:changed"
+                            if is_output and self.failure == "identifier"
+                            else "urn:uuid:synthetic"
+                        ),
+                        calibre_identifier=(
+                            "volatile-output-id" if is_output else "volatile-input-id"
+                        ),
+                    ),
+                ),
+            )
+        elif command.step == "epubcheck-output":
+            version = "EPUBCheck v5.3.0"
+            failed = self.failure == "epubcheck"
+            report = {
+                "checker": {
+                    "checkerVersion": "5.3.0",
+                    "filename": "output.epub",
+                    "nError": int(failed),
+                    "nFatal": 0,
+                    "nUsage": 0,
+                    "nWarning": 0,
+                },
+                "messages": (
+                    [{"ID": "OPF-001", "severity": "ERROR", "message": "private"}]
+                    if failed
+                    else []
+                ),
+            }
+            artifacts = (
+                EpubTitleValidationArtifact(
+                    "EPUBCHECK_JSON",
+                    json.dumps(report).encode(),
+                ),
+            )
+        elif command.step.startswith("text-"):
+            data = (
+                b"Changed text"
+                if command.step == "text-output" and self.failure == "text"
+                else b"Synthetic readable text"
+            )
+            artifacts = (EpubTitleValidationArtifact("CALIBRE_TEXT", data),)
+        else:
+            assert command.step.startswith("cover-")
+            source = Path(command.args[3])
+            result = {
+                "cover_bytes": 0,
+                "source_sha256": _sha(source.read_bytes()),
+                "status": "NO_EMBEDDED_COVER",
+            }
+            if command.step == "cover-output" and self.failure == "cover":
+                version = "calibre 9.14.0"
+            artifacts = (
+                EpubTitleValidationArtifact(
+                    "CALIBRE_COVER_RESULT",
+                    json.dumps(result).encode(),
+                ),
+            )
+        return EpubTitleValidationToolOutcome(command.step, version, artifacts)
+
+
+def test_fixed_staging_validation_runs_exact_independent_sequence(tmp_path: Path) -> None:
+    source = _epub()
+    preflight = _preflight(source)
+    patch = build_epub3_title_package_patch(preflight, authorized_at=NOW)
+    runner = _SyntheticValidationRunner(preflight.original_title, patch.selected_title)
+    validator = FixedEpubTitleStagingValidator(runner=runner)
+
+    verified = build_and_verify_private_epub3_title_stage(
+        tmp_path / "verified",
+        io.BytesIO(source),
+        preflight,
+        patch,
+        validator=validator,
+    )
+
+    assert verified.validation.profile == EPUB_TITLE_VALIDATION_PROFILE
+    assert verified.validation.conformance_status == "CONFORMANT"
+    assert verified.validation.cover_status == "NO_EMBEDDED_COVER"
+    assert [command.step for command in runner.commands] == [
+        "metadata-input",
+        "metadata-output",
+        "epubcheck-output",
+        "text-input",
+        "text-output",
+        "cover-input",
+        "cover-output",
+    ]
+    joined_args = " ".join(arg for command in runner.commands for arg in command.args)
+    assert "--title" not in joined_args
+    assert str(verified.staged_files.input_path) in joined_args
+    assert str(verified.staged_files.output_path) in joined_args
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected"),
+    (
+        ("title", EpubTitleStagingErrorCode.METADATA_READBACK_MISMATCH),
+        ("metadata", EpubTitleStagingErrorCode.PRESERVED_FIELDS_MISMATCH),
+        ("identifier", EpubTitleStagingErrorCode.PRESERVED_FIELDS_MISMATCH),
+        ("epubcheck", EpubTitleStagingErrorCode.EPUBCHECK_MISMATCH),
+        ("text", EpubTitleStagingErrorCode.TEXT_READBACK_MISMATCH),
+        ("cover", EpubTitleStagingErrorCode.COVER_READBACK_MISMATCH),
+    ),
+)
+def test_fixed_staging_validation_fails_closed_on_independent_mismatch(
+    tmp_path: Path,
+    failure: str,
+    expected: EpubTitleStagingErrorCode,
+) -> None:
+    source = _epub()
+    preflight = _preflight(source)
+    patch = build_epub3_title_package_patch(preflight, authorized_at=NOW)
+    validator = FixedEpubTitleStagingValidator(
+        runner=_SyntheticValidationRunner(
+            preflight.original_title,
+            patch.selected_title,
+            failure=failure,
+        )
+    )
+    stage = build_private_epub3_title_stage(
+        tmp_path / failure,
+        io.BytesIO(source),
+        preflight,
+        patch,
+    )
+
+    with pytest.raises(EpubTitleStagingError) as caught:
+        validator.validate(stage, preflight, patch)
+
+    assert caught.value.code is expected
+    assert str(caught.value) == expected.value
+    assert PRIVATE_SELECTED_TITLE not in repr(caught.value)
+    assert str(stage.private_directory) not in repr(caught.value)
