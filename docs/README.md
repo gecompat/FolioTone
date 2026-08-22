@@ -17,7 +17,7 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 4. [Backlog](planning/BACKLOG.md) enthält die konkreten Aufgaben und Statuswerte.
 5. [E-Book-Roadmap W3-017 bis W9](planning/W3_017_EBOOK_ROADMAP.md) trennt den privaten Runtime-Cutover, synthetische Entwicklungs-Gates und die langfristige book-only Folgeplanung.
 6. [E-Book-Endgame-Ausführungsplan](planning/EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md) bündelt die bestehenden W-, E- und EA-Aufgaben in umsetzbare EB-Lieferpakete, ohne deren Status- oder ID-Hierarchie zu ersetzen.
-7. [Kanonischer End-to-End-Plan der E-Book-Schreibpipeline](planning/EBOOK_WRITE_PIPELINE_PLAN.md) verbindet Scan, Analyse, Quality, Review, nicht ausführbare Korrektur-/Konsolidierungspläne, operation-spezifische W10-Gates, Verifikation und die spätere REST-/UI-Grenze, ohne eine Mutation zu autorisieren.
+7. [Kanonischer End-to-End-Plan der E-Book-Schreibpipeline](planning/EBOOK_WRITE_PIPELINE_PLAN.md) verbindet Scan, Analyse, Quality, Review, nicht ausführbare Korrektur-/Konsolidierungspläne, operation-spezifische W10-Gates, Verifikation und die spätere REST-/UI-Grenze. ADR-0061 erlaubt die kontrollierte Writer-Entwicklung, nicht aber eine pauschale reale Mutation.
 8. [Atomare Arbeitspakete für die E-Book-Endgerade](planning/EBOOK_SPARK_WORK_PACKAGES.md) zerlegen geeignete EB-Teile in begrenzte Pull-Request-Pakete mit Frontier-Gates, Tests und Abbruchbedingungen; der Dateiname ist historisch, das aktuelle Routing ist vendor-neutral.
 9. [Ausführungsauftrag für die aktuelle Wave](planning/W3_017_EBOOK_ROADMAP_PROMPT.md) verweist neue Coding-Agent-Tasks auf die kanonische Backlogfront; der Dateiname bleibt für bestehende Links erhalten.
 10. [E-Book-Archive und kontrollierte Deduplizierung](planning/EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md) dokumentiert die abgeschlossene read-only Archivbasis, offene Extraction-/Secret-/Member-Byte-Gates und die getrennten W10-Grenzen.
@@ -69,6 +69,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0058](decisions/ADR-0058-book-collection-state-and-local-projections.md) definiert die book-only Lieferfolge für rebuildbaren `CollectionState`, deterministischen Snapshot-Diff, begrenzte lokale Metadatensuche und mehrdimensionale `Library Health`.
 - [ADR-0059](decisions/ADR-0059-collection-state-diff-and-metadata-query.md) definiert die festen Diff-Kategorien, den begrenzten Query-AST, den snapshotgebundenen Metadata-FTS-Index und das private Ausgabeprofil von `CS-02`.
 - [ADR-0060](decisions/ADR-0060-multidimensional-library-health.md) definiert sieben unabhängige book-only Health-Dimensionen, feste Findings, insert-only Persistenz, bounded opaque Samples und den reproduzierbaren read-only Vergleich von `CS-03`.
+- [ADR-0061](decisions/ADR-0061-controlled-ebook-write-development.md) hält die Owner-Freigabe für kontrollierte E-Book-Writer-Entwicklung mit synthetischen Fixtures fest und trennt sie von operation-spezifischer technischer und operativer Authorization.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

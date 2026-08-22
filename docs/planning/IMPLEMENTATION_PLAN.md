@@ -10,8 +10,10 @@ IDs.
 `EBOOK_WRITE_PIPELINE_PLAN.md` verbindet diese Implementierungsfolge mit der
 vollständigen späteren Schreibstrecke von Scan und Review über nicht
 ausführbare Metadatenkorrektur-/Konsolidierungspläne bis zu getrennten
-W10-Gates, Verifikation, Recovery sowie REST-/UI-Grenzen. Das Dokument
-autorisiert keine neue Mutation und erzeugt keine konkurrierende Statusachse.
+W10-Gates, Verifikation, Recovery sowie REST-/UI-Grenzen. ADR-0061 autorisiert
+die kontrollierte Entwicklung dieser E-Book-Writer mit synthetischen
+Fixtures, aber keine pauschale reale Mutation. Das Dokument erzeugt keine
+konkurrierende Statusachse.
 
 Under ADR-0016, the initial product surface remains CLI-only. W3 and the following early vertical slices do not add a web API, desktop interface or dashboard layer. The CLI stays a thin adapter to application/core contracts.
 
@@ -58,6 +60,11 @@ Metadatenwerte benötigen ausdrücklich `--private-details`; absolute Pfade
 bleiben ausgeschlossen. Nach Abschluss der drei Waves wird keine andere
 Medienlinie automatisch gestartet. Music W4 bleibt die nächste geplante
 vollständige Mediendomäne, benötigt aber eine ausdrückliche Aktivierung.
+
+ADR-0061 aktiviert `W9-006` als nächsten regulären E-Book-Slice. Der
+`MetadataCorrectionPlan` bleibt nicht ausführbar und geht jedem konkreten
+Metadata-Writer voraus. Das technische `FG-W10-METADATA-WRITE` und erst danach
+der kleinste Writer-Slice bilden zwei getrennte `FRONTIER`-Waves.
 
 `W10-005` ist eine unabhängige parallele `FRONTIER`-Wave. Sie vervollständigt
 Capability-Auflösung, Authorize, Execute und Recovery für die bereits durch
@@ -483,7 +490,8 @@ atomaren No-Replace, no-follow sowie Race-/Crash-Nachweise. Cross-Volume-
 Copy+Delete und Überschreiben sind kein Fallback.
 
 Metadaten-, Sidecar-, externe Library-, Rename- und Archive-/Containerwrites
-bleiben an `FG-W10-METADATA-WRITE`, `FG-W10-SIDECAR-WRITE`,
+sind durch ADR-0061 zur getrennten Entwicklung freigegeben, bleiben operativ
+aber an `FG-W10-METADATA-WRITE`, `FG-W10-SIDECAR-WRITE`,
 `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME` beziehungsweise
 `FG-W10-ARCHIVE-REWRITE` gebunden. Kein Gate autorisiert einen anderen
 Operationstyp. W10-003 und W10-004 halten Rollback/Purge und

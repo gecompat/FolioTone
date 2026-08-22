@@ -11,6 +11,9 @@ IMPLEMENTATION = PLANNING / "IMPLEMENTATION_PLAN.md"
 FUTURE_MAP = PLANNING / "FUTURE_CAPABILITY_MAP.md"
 WRITE_PIPELINE = PLANNING / "EBOOK_WRITE_PIPELINE_PLAN.md"
 ADR = ROOT / "docs/decisions/ADR-0058-book-collection-state-and-local-projections.md"
+WRITE_AUTHORIZATION_ADR = (
+    ROOT / "docs/decisions/ADR-0061-controlled-ebook-write-development.md"
+)
 
 
 def _text(path: Path) -> str:
@@ -23,8 +26,9 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | E-Book-Produktlinie |" in backlog
+    assert "| NOW | `W9-006` |" in backlog
     assert "Keine weitere Medienlinie" in backlog
+    assert "| W9-006 | NEXT |" in backlog
     assert "| W10-005 | READY |" in backlog
     assert "| OPS-001 | READY |" in backlog
     assert "Andere Planungsdokumente erläutern diese Aufgaben" in backlog
@@ -90,10 +94,11 @@ def test_current_status_does_not_reintroduce_superseded_w10_claims() -> None:
     assert "Capability-Auflösung" in handover
 
 
-def test_ebook_write_pipeline_is_discoverable_and_remains_gate_bound() -> None:
+def test_ebook_write_pipeline_is_development_authorized_and_remains_gate_bound() -> None:
     plan = _text(WRITE_PIPELINE)
     documentation_index = _text(ROOT / "docs/README.md")
     backlog = _text(BACKLOG)
+    authorization_adr = _text(WRITE_AUTHORIZATION_ADR)
 
     required = (
         "Read-only erfassen",
@@ -105,9 +110,32 @@ def test_ebook_write_pipeline_is_discoverable_and_remains_gate_bound() -> None:
         "FG-W10-ARCHIVE-REWRITE",
         "REST-API und grafische Oberfläche",
         "Anfangs ist nur `E-Books` aktiv",
-        "autorisiert keine neue Mutation",
+        "kontrollierte Entwicklung",
+        "Reale Mutation bleibt an",
     )
     assert all(marker in plan for marker in required)
     assert "EBOOK_WRITE_PIPELINE_PLAN.md" in documentation_index
-    assert "| W9-006 | PLANNED |" in backlog
+    assert "ADR-0061" in documentation_index
+    assert "| W9-006 | NEXT |" in backlog
     assert "| W9-007 | PLANNED |" in backlog
+    assert "| FG-W10-WRITE-DEVELOPMENT | DONE |" in backlog
+    for gate in (
+        "FG-W10-METADATA-WRITE",
+        "FG-W10-SIDECAR-WRITE",
+        "FG-W10-EXTERNAL-LIBRARY-WRITE",
+        "FG-W10-RENAME",
+        "FG-W10-ARCHIVE-REWRITE",
+    ):
+        assert f"| {gate} | DECISION |" in backlog
+
+    required_adr_markers = (
+        "- Status: Accepted",
+        "synthetischen",
+        "kein globaler Runtime-Schalter",
+        "keine gemeinsame `write-all`-Capability",
+        "W9-006",
+        "W10-005",
+        "FG-W10-METADATA-WRITE",
+        "nur die E-Book-Linie",
+    )
+    assert all(marker in authorization_adr for marker in required_adr_markers)

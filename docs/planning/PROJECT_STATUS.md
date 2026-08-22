@@ -4,6 +4,30 @@ Stand: 2026-08-22
 
 ## Aktuelle Welle
 
+**FG-W10-WRITE-DEVELOPMENT abgeschlossen — kontrollierte Writer-Entwicklung ist freigegeben**
+
+ADR-0061 hält die ausdrückliche Owner-Entscheidung fest, die E-Book-
+Schreibstrecke weiterzuentwickeln. Alle Writer-Waves dürfen ihre konkreten
+Operationen mit ausschließlich synthetischen temporären Dateien und isolierten
+Runtime-Datenbanken implementieren und prüfen. Es existiert kein globaler
+Write-Schalter: Reale Source-Media-Mutation erfordert weiterhin je
+Operationstyp eine akzeptierte technische ADR, eine vollständige
+Capability-/Authorize-/Execute-/Recovery-Kette und die unmittelbar
+revalidierte lokale Authorization.
+
+`W9-006` ist der nächste reguläre E-Book-Produktslice und liefert zuerst den
+nicht ausführbaren `MetadataCorrectionPlan`. `W10-005` bleibt parallel
+`READY` und vervollständigt ausschließlich die bereits durch ADR-0056 eng
+erlaubte Quarantänekette. Danach folgen `FG-W10-METADATA-WRITE` und erst nach
+dessen Annahme der kleinste konkrete Metadata-Writer. Music, Bilder, REST-API
+und grafische Oberfläche sind dadurch nicht aktiviert.
+
+Für diese reine Gate-/Dokumentations-Wave bestanden 17 fokussierte
+Planungs-, W10- und Dokumentationsvertragstests. `git diff --check` war ohne
+Befund. Entsprechend `TEST_POLICY.md` wurde keine vollständige lokale Suite
+gestartet; der stabile Pull-Request-Head erhält genau einen vollständigen
+CI-Gate als Merge-Voraussetzung.
+
 **CS-03 abgeschlossen — die book-only Produktprojektionen sind vollständig**
 
 `collection-state-build` erzeugt `collection-state/v1` deterministisch aus
@@ -58,9 +82,11 @@ Capabilities; die aktive Oberfläche bleibt die CLI.
 book-only Leserichtung von Scan, Analyse, Quality, Resolution, Matching und
 Review über nicht ausführbare Metadatenkorrektur-/Konsolidierungspläne bis zu
 operation-spezifischen W10-Gates, Revalidierung, Fencing, Verifikation,
-Recovery und der späteren REST-/UI-Grenze. Der Plan autorisiert keinen neuen
-Writer. `W9-006`, `W9-007` sowie die Metadata-, Sidecar-, externe Library-,
-Rename- und Archive-Write-Gates bleiben geplant beziehungsweise blockiert.
+Recovery und der späteren REST-/UI-Grenze. ADR-0061 autorisiert ihre
+kontrollierte Entwicklung, nicht eine pauschale reale Mutation. `W9-006` ist
+`NEXT`; `W9-007` bleibt `PLANNED`. Die Metadata-, Sidecar-, externe Library-,
+Rename- und Archive-Write-Gates stehen als getrennte technische `DECISION`s
+an.
 
 **W10-Interim abgeschlossen — Executor und read-only Quarantänestatus sind vorhanden**
 
@@ -1709,7 +1735,8 @@ Noch nicht vorhanden sind unter anderem:
   Slice und den persistierten Provider Cache hinaus;
 - die vollständige W10-Authorize-/Execute-/Recovery-Bedienkette, atomarer
   No-Replace-Move, Rollback, Purge, Metadatenwrite und
-  Verzeichnisbereinigung; nur der enge Interim-Executor ist vorhanden;
+  Verzeichnisbereinigung; ihre Entwicklung ist durch ADR-0061 freigegeben,
+  operativ vorhanden ist weiterhin nur der enge Interim-Executor;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 
 ## Sicherheitsgrenze
@@ -1724,4 +1751,6 @@ Cross-Volume-Fallback und keine allgemeine Move-/Rename-Schnittstelle.
 Analyse-/Orchestrierungszustände. W9 erzeugt weiterhin ausschließlich
 dauerhaft nicht ausführbare `ConsolidationPlan`-Einträge. Atomarer
 No-Replace-Move, Rollback, Purge, Metadaten-/Sidecar-/Calibrewrite,
-Archive-Umschreibung und Verzeichnisbereinigung bleiben getrennt blockiert.
+Archive-Umschreibung und Verzeichnisbereinigung bleiben operativ nicht
+verfügbar. ADR-0061 erlaubt ihre getrennte Entwicklung, ersetzt aber keines
+ihrer technischen Gates oder eine konkrete Runtime-Authorization.

@@ -4,6 +4,21 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
+ADR-0061 hält seit 2026-08-22 die ausdrückliche Owner-Freigabe für die
+kontrollierte Entwicklung der E-Book-Schreibstrecke fest. Writer-Code und
+End-to-End-Tests dürfen ausschließlich synthetische temporäre Dateien
+mutieren. Die Entscheidung ist keine globale Runtime-Freigabe: Für reale
+Source Media bleiben eine eigene technische Operations-ADR, vollständige
+Capability-/Authorize-/Execute-/Recovery-Kette und eine konkrete lokale
+Authorization verpflichtend. `W9-006` ist dadurch `NEXT`; `W10-005` bleibt
+parallel `READY`.
+
+Die ADR-0061-Gate-Wave änderte keinen Python-Writer und berührte keine reale
+Sammlung. 17 fokussierte Planungs-, W10- und Dokumentationsvertragstests
+bestanden; eine vollständige lokale Suite wurde ressourcenschonend nicht
+dupliziert. Der Pull Request muss den einmaligen vollständigen CI-Gate auf
+seinem stabilen Head bestehen.
+
 W0 bis W2 sind abgeschlossen. Der W2-Slice umfasst Incremental Index, Hashing, Filename-/Path-Kandidaten, konfigurierbare Parsing-Profile und eine generische read-only ToolProvider Runtime. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
 
 W3-026 schließt die operative Windows-Lücke Docker-first. Das explizite Skript
@@ -1000,9 +1015,10 @@ außerhalb von Git; Source Media bleibt unverändert.
 die spätere book-only Schreibstrecke. Sie verbindet den implementierten
 read-only Pfad mit `W9-006`/`W9-007`, den getrennten Metadata-, Sidecar-,
 externen Library-, Rename- und Archive-Write-Gates sowie Rescan,
-Verifikation, Recovery, Rollback/Purge und FUT-011. Das Dokument setzt keine
-zweite Statusachse und autorisiert keinen neuen Writer; die aktuelle Front
-bleibt ausschließlich im Backlog.
+Verifikation, Recovery, Rollback/Purge und FUT-011. ADR-0061 autorisiert die
+getrennte Writer-Entwicklung mit synthetischen Fixtures, aber keine pauschale
+reale Mutation. Das Dokument setzt keine zweite Statusachse; die aktuelle
+Front bleibt ausschließlich im Backlog.
 
 Die langfristige Produktvision und Medienfolge stehen als nicht statussetzende
 Entwürfe in `docs/vision/EVIDENCE_DRIVEN_COLLECTION_INTELLIGENCE.md` und
@@ -1047,8 +1063,9 @@ und nicht direkt zu kanonischen Metadaten.
 - Externe Tool-/Provider-Ergebnisse sind Evidence, nicht kanonische Wahrheit.
 - Absolute private Pfade werden nicht als persistierte Tool-Input-Identität gespeichert.
 - ADR-0056 erlaubt ausschließlich die enge Interim-Ein-Datei-Quarantäne;
-  atomarer Move, weitere Mutationstypen, Rollback, Purge und Cleanup bleiben
-  getrennt blockiert.
+  atomarer Move und weitere Mutationstypen bleiben operativ getrennt.
+- ADR-0061 erlaubt ihre kontrollierte Entwicklung, ist aber weder technische
+  Operations-ADR noch konkrete Runtime-Authorization für reale Source Media.
 
 ## Dokumentations- und Lizenzregeln
 

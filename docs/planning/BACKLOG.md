@@ -13,11 +13,13 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | E-Book-Produktlinie | `CS-01` bis `CS-03` sind abgeschlossen. Keine weitere Medienlinie oder Produktoberfläche ist dadurch automatisch aktiviert. |
+| NOW | `W9-006` | ADR-0061 aktiviert den nicht ausführbaren `MetadataCorrectionPlan` als nächsten regulären E-Book-Produktslice. Keine weitere Medienlinie oder Produktoberfläche ist dadurch aktiviert. |
 | PARALLEL READY | `W10-005` | Die von ADR-0056 erlaubte Ein-Datei-Quarantäne erhält eine vollständige Authorize-/Execute-/Recovery-Bedienkette, ohne den Mutationstyp zu erweitern. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
-| LATER | W4 sowie die Music-Anteile aus W5 bis W7 | Music bleibt die nächste vollständige Mediendomäne nach den drei Produktprojektionen. |
-| BLOCKED | `FG-W10-MOVE-BACKEND`, `FG-W10-METADATA-WRITE`, `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004, `FG-A-SECRET`, `FG-A3-MEMBER-BYTE` | Atomare Mutation, getrennte Writer, Rollback/Purge, Cleanup, Secrets und Member-Byte-Identity benötigen ihre eigenen Gates. |
+| NEXT WAVES | `FG-W10-METADATA-WRITE`, danach kleinster Metadata-Writer | Die Entwicklungsfreigabe ist vorhanden; Format, Zielträger und technische Safety-Grenze werden vor Writer-Code in einer eigenen ADR entschieden. |
+| LATER | `W9-007`, W4 sowie die Music-Anteile aus W5 bis W7 | Weitere Operationsrezepte bleiben getrennt; Music bleibt die nächste vollständige Mediendomäne nach ausdrücklicher Aktivierung. |
+| DECISION | `FG-W10-METADATA-WRITE`, `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004 | ADR-0061 entfernt den Owner-Freigabeblocker, ersetzt aber keinen operation-spezifischen technischen Vertrag. |
+| BLOCKED | `FG-A-SECRET`, `FG-A3-MEMBER-BYTE` | Secretkanal und Archive-Member-Byte-Identity sind von der E-Book-Write-Freigabe nicht betroffen. |
 
 Andere Planungsdokumente erläutern diese Aufgaben, setzen aber keine eigene
 Ausführungsreihenfolge oder konkurrierende Statusachse.
@@ -249,7 +251,7 @@ Interim-Quarantäneexecutor öffnen.
 | W9-003 | DONE | Represent changed-since-analysis checks needed by future execution. |
 | W9-004 | DONE | Produce a complete non-executable, content-addressed e-book deduplication plan with Keeper, quarantine, verification, rollback, purge, Calibre, sidecar, archive and empty-directory preconditions. |
 | W9-005 | DONE | Require Review approval for Keep preference and every future mutation candidate; keep exact duplicate identity, quality ranking and physical operation separate. |
-| W9-006 | PLANNED | Implement a non-executable, content-addressed `MetadataCorrectionPlan` that binds observed values, reviewed canonical candidates, one explicit target carrier, dependencies, writer profile, changed-since-analysis preconditions and post-write verification without exposing a writer. |
+| W9-006 | NEXT | Implement a non-executable, content-addressed `MetadataCorrectionPlan` that binds observed values, reviewed canonical candidates, one explicit target carrier, dependencies, writer profile, changed-since-analysis preconditions and post-write verification without exposing a writer. |
 | W9-007 | PLANNED | Implement non-executable, reproducible recipes for rename, reorganization, import/export, transformation and archive/container changes; keep every operation behind its own W10 gate. |
 
 ## W10 — Controlled Consolidation
@@ -257,18 +259,19 @@ Interim-Quarantäneexecutor öffnen.
 | ID | Status | Item |
 |---|---|---|
 | W10-001 | DECISION | ADR-0056 bindet Vertrag, Persistenz und Status einer gefenceten Ein-Datei-Quarantäne. W9-Pläne bleiben nicht ausführbar; nur eine neue, kurzlebige W10-Authorization darf den Interim-Executor öffnen. |
+| FG-W10-WRITE-DEVELOPMENT | DONE | ADR-0061 hält die ausdrückliche Owner-Freigabe für die kontrollierte Entwicklung der E-Book-Schreibstrecke fest. Synthetische Writer-Tests sind erlaubt; reale Mutation benötigt weiterhin eine eigene technische ADR, Capability, Authorization, Revalidierung, Fencing, Journal und Recovery. |
 | W10-002 | DONE | S-W10-01 bis S-W10-04 liefern path-freie Verträge, immutable Authorization-/Run-/Eventpersistenz, einen engen Interim-Executor und `quarantine-status` als echte SQLite-Read-only-Projektion: gleicher vom OS gemeldeter Filesystem-Kontext, Ziel-Abwesenheitsprüfung, `os.rename`, Full-SHA-256-Revalidierung sowie ausschließlich opaque Statusausgabe. Kein Copy+Delete oder Cross-Volume-Fallback. |
 | S-DOC-W10-01 | DONE | Pauschale Alttexte zur W10-Sperre sind auf ADR-0056 harmonisiert: Nur die enge S-W10-03-Interim-Quarantäne ist ausführbar; `FG-W10-MOVE-BACKEND` bleibt die verpflichtende, geplante Frontier-Härtung. |
 | W10-005 | READY | Vervollständige die ADR-0056-Bedienkette in getrennten, kleinen Folgepaketen. CLI-Argumente enthalten nur opaque IDs und Content Hashes; die zweite Bestätigung läuft ausschließlich über nicht geloggtes `stdin`. Der Slice bleibt bei genau einer regulären Same-Filesystem-Datei und behauptet keine atomare No-Replace-Garantie. |
 | S-W10-05A | DONE | Privater, bounded und fail-closed `QuarantineCapabilityResolver`: `FOLIOTONE_QUARANTINE_CAPABILITIES_FILE` löst nur eine opaque Capability-ID zu ScanRoot-ID und privaten absoluten Verzeichnissen auf. Fehlende/unsichere Konfiguration, Schema-/Duplikat-/Pfad-/Reparse-/Berechtigungsfehler ergeben ausschließlich `TOOL_UNAVAILABLE`. Keine CLI, Persistenz, Reports oder Executor-Aufrufe. |
 | FG-W10-MOVE-BACKEND | PLANNED | Spätere Frontier-Härtung für einen atomaren No-Replace-Move, no-follow Elternverzeichnisse sowie reproduzierbare Cross-Device-, Race- und Crash-/Recovery-Nachweise. Der Interim-Executor ist bewusst nicht atomar; seine Zielprüfung kann eine konkurrierende Race nicht ausschließen. |
-| FG-W10-METADATA-WRITE | BLOCKED | Entscheide und belege Source-Metadata-Write je Format mit exaktem Writerprofil, Rohwerterhalt, Byte-/Semantik-Diff, Backup-/Recoverygrenze und unmittelbarer Revalidierung. Keine Sidecar- oder externe Library-Freigabe. |
-| FG-W10-SIDECAR-WRITE | BLOCKED | Entscheide Sidecar Create/Update separat mit Ownership, Kollisions-, No-Follow-, Atomizitäts-, Dependency-, Recovery- und Reconciliation-Vertrag. |
-| FG-W10-EXTERNAL-LIBRARY-WRITE | BLOCKED | Entscheide mutierendes Calibre oder andere externe Systeme je Adapter und fester Operation mit eigenem Snapshot, Idempotenz, Konflikt-, Recovery- und Auditvertrag. |
-| FG-W10-RENAME | BLOCKED | Entscheide Datei-Rename/Reorganisation separat mit Root-Grenze, No-Replace, no-follow, Dependency-, Collision-, Rollback- und Scan-Reconciliation-Nachweis. |
-| FG-W10-ARCHIVE-REWRITE | BLOCKED | Entscheide Archive-/Container-Rewrite separat; erfolgreiche Extraction oder Transformation darf keine Source-Löschung implizieren. |
-| W10-003 | BLOCKED | Implement verified rollback and separately approved purge after a retention period; never make successful extraction imply archive deletion. |
-| W10-004 | BLOCKED | Implement bottom-up empty-directory cleanup as a separate approved operation with fresh enumeration, root/reparse/Calibre/sidecar guards and an auditable reconstruction record. |
+| FG-W10-METADATA-WRITE | DECISION | Entscheide und belege Source-Metadata-Write je Format mit exaktem Writerprofil, Rohwerterhalt, Byte-/Semantik-Diff, Backup-/Recoverygrenze und unmittelbarer Revalidierung. Keine Sidecar- oder externe Library-Freigabe. |
+| FG-W10-SIDECAR-WRITE | DECISION | Entscheide Sidecar Create/Update separat mit Ownership, Kollisions-, No-Follow-, Atomizitäts-, Dependency-, Recovery- und Reconciliation-Vertrag. |
+| FG-W10-EXTERNAL-LIBRARY-WRITE | DECISION | Entscheide mutierendes Calibre oder andere externe Systeme je Adapter und fester Operation mit eigenem Snapshot, Idempotenz, Konflikt-, Recovery- und Auditvertrag. |
+| FG-W10-RENAME | DECISION | Entscheide Datei-Rename/Reorganisation separat mit Root-Grenze, No-Replace, no-follow, Dependency-, Collision-, Rollback- und Scan-Reconciliation-Nachweis. |
+| FG-W10-ARCHIVE-REWRITE | DECISION | Entscheide Archive-/Container-Rewrite separat; erfolgreiche Extraction oder Transformation darf keine Source-Löschung implizieren. |
+| W10-003 | DECISION | Decide verified rollback and separately approved purge after a retention period; never make successful extraction imply archive deletion. |
+| W10-004 | DECISION | Decide bottom-up empty-directory cleanup as a separate approved operation with fresh enumeration, root/reparse/Calibre/sidecar guards and an auditable reconstruction record. |
 
 ## Cross-cutting future candidates
 

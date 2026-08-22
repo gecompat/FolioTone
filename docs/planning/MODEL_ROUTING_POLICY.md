@@ -172,9 +172,11 @@ Frage offen ist.
   nichtkritische Diagnose verwenden `BALANCED`.
 - Neue Medienidentitäten, Matching, Persistenzgrenzen, Archive-Security,
   Secret Handling, Lease/Fencing und W10 benötigen `FRONTIER`.
-- Nur die eng autorisierte ADR-0056-Interim-Quarantäne ist durch den geltenden
-  W10-Vertrag erlaubt; diese Richtlinie erweitert ihren Scope nicht. Jede
-  weitere Source-Media-Mutation bleibt blockiert.
+- ADR-0061 erlaubt die getrennte Entwicklung weiterer E-Book-Writer mit
+  synthetischen Fixtures. Jede Gate- und Writer-Wave bleibt `FRONTIER`; diese
+  Richtlinie erweitert weder ihren Operationstyp noch die reale Runtime-
+  Authority. Aktuell ist nur die enge ADR-0056-Interim-Quarantäne als
+  Source-Media-Mutation technisch akzeptiert.
 
 Testauswahl, lokale Evidence und der einmalige vollständige PR-Gate folgen
 [`TEST_POLICY.md`](../quality/TEST_POLICY.md). Kontext- und Logkosten folgen

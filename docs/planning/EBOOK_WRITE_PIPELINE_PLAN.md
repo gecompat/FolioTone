@@ -3,8 +3,10 @@
 **Planungsstand:** 2026-08-22
 **Scope:** ausschließlich E-Books; gemeinsame Produktoberfläche und spätere
 Medienlinien werden nur an ihren Grenzen berücksichtigt
-**Ausführungsstatus:** Dieser Plan autorisiert keine neue Mutation. Maßgeblich
-für die Ausführbarkeit bleiben `BACKLOG.md` und akzeptierte ADRs.
+**Ausführungsstatus:** ADR-0061 autorisiert die kontrollierte Entwicklung der
+E-Book-Writer mit synthetischen Fixtures. Reale Mutation bleibt an
+`BACKLOG.md`, eine operation-spezifische akzeptierte technische ADR und die
+vollständige Capability-/Authorize-/Execute-/Recovery-Kette gebunden.
 
 ## Zweck und Autorität
 
@@ -26,7 +28,9 @@ Es führt keine zweite Statusachse ein:
 
 Außer der engen ADR-0056-Interim-Ein-Datei-Quarantäne bleiben
 Source-Media-, Sidecar-, Archive-, Calibre- und externe Toolwrites sowie
-Purge und Verzeichnisbereinigung gesperrt. Eine geplante Stufe ist keine
+Purge und Verzeichnisbereinigung operativ nicht verfügbar. ADR-0061 gibt ihre
+getrennte Entwicklung frei, ersetzt aber weder das technische Gate noch eine
+konkrete Ausführungs-Authorization. Eine geplante Stufe ist keine
 Ausführungsfreigabe.
 
 ## Zielzustand der E-Book-Linie
@@ -180,9 +184,11 @@ automatisch entbehrlich.
 
 ## 5. Operation-spezifische Safety-Gates
 
-Jeder Mutationstyp benötigt vor Implementierung eine eigene akzeptierte ADR,
-synthetische Conformance-Nachweise und einen Backlogstatus, der die Ausführung
-ausdrücklich öffnet.
+Jeder Mutationstyp benötigt vor seinem Writer-Slice eine eigene akzeptierte
+technische ADR. Die vorangehende Gate-Wave darf Vertrag, Threat Model und
+synthetische Conformance-Matrix erarbeiten. Reale Ausführung benötigt
+zusätzlich die vollständige Implementierung und eine konkrete lokale
+Capability und Authorization.
 
 | Operation | Aktueller Stand | Erforderlicher nächster Vertrag |
 |---|---|---|
@@ -190,14 +196,14 @@ ausdrücklich öffnet.
 | nicht ausführbarer Duplicate-Plan | vorhanden | W9-Vertrag unverändert lassen |
 | eine reguläre Same-Filesystem-Datei quarantänisieren | enger Interim-Executor vorhanden; Bedienkette unvollständig | `W10-005`, danach optional `FG-W10-MOVE-BACKEND` |
 | atomarer/generalisierter Quarantäne-Move | nicht autorisiert | `FG-W10-MOVE-BACKEND` mit No-Replace, no-follow, Race- und Crash-Nachweis |
-| Metadaten in Source Media schreiben | nicht autorisiert | `FG-W10-METADATA-WRITE` |
-| Sidecar erzeugen oder ändern | nicht autorisiert | `FG-W10-SIDECAR-WRITE` |
-| Calibre oder anderes externes System ändern | nicht autorisiert | `FG-W10-EXTERNAL-LIBRARY-WRITE` |
-| Datei umbenennen oder reorganisieren | nicht autorisiert | `FG-W10-RENAME` |
-| Archiv oder Container umschreiben | nicht autorisiert | `FG-W10-ARCHIVE-REWRITE` |
-| Quarantäne-Rollback | nicht autorisiert | W10-003 mit eigener Authorization und Zielrevalidierung |
-| Purge nach Retention | nicht autorisiert | W10-003 mit separater Approval- und Recoveryentscheidung |
-| leere Verzeichnisse entfernen | nicht autorisiert | W10-004 |
+| Metadaten in Source Media schreiben | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-METADATA-WRITE` |
+| Sidecar erzeugen oder ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-SIDECAR-WRITE` |
+| Calibre oder anderes externes System ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-EXTERNAL-LIBRARY-WRITE` |
+| Datei umbenennen oder reorganisieren | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-RENAME` |
+| Archiv oder Container umschreiben | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-ARCHIVE-REWRITE` |
+| Quarantäne-Rollback | Entwicklung freigegeben; operativ nicht verfügbar | W10-003 mit eigener Authorization und Zielrevalidierung |
+| Purge nach Retention | Entwicklung freigegeben; operativ nicht verfügbar | W10-003 mit separater Approval- und Recoveryentscheidung |
+| leere Verzeichnisse entfernen | Entwicklung freigegeben; operativ nicht verfügbar | W10-004 |
 
 Kein Gate darf stillschweigend Copy+Delete, Cross-Volume-Fallback,
 Überschreiben, Symlink-/Reparse-Following oder eine breitere Capability
@@ -268,26 +274,26 @@ zusammenziehen.
 
 ## 8. Lieferfolge in kleinen Waves
 
-Die nächsten Schreib-Waves bleiben voneinander unabhängig und werden nur nach
-dem jeweils erforderlichen Gate aktiviert:
+ADR-0061 aktiviert die folgenden vier nächsten, jeweils getrennt prüfbaren
+Waves. `BACKLOG.md` bleibt für ihren Status maßgeblich:
 
-1. `W10-005`: vorhandene Ein-Datei-Quarantäne um vollständige
-   Authorize-/Execute-/Recovery-Bedienkette ergänzen, ohne den Mutationstyp zu
-   erweitern.
-2. `W9-006`: nicht ausführbaren Metadatenkorrekturplan samt Zielträgern,
-   Dependencies und Verifikation implementieren.
-3. `W9-007`: nicht ausführbare Rename-/Reorganisations-/Transformationsrezepte
-   implementieren.
-4. Je Operation ein separates `FRONTIER`-Gate aus Abschnitt 5 entscheiden;
-   ein abgelehntes oder nicht belegbares Gate bleibt fail-closed.
-5. Erst danach den kleinsten Writer als einzelne vertikale Wave mit
-   synthetischer End-to-End-Verifikation implementieren.
-6. Read-only REST/API- und UI-Shell erst nach FUT-011-ADR; schreibende
-   Controls nochmals separat nach der jeweiligen W10-Autorisierung.
+1. `W9-006` implementiert den nicht ausführbaren `MetadataCorrectionPlan`
+   samt Zielträgern, Dependencies, Writerprofil und Post-write-Verifikation.
+2. `W10-005` vervollständigt parallel die vorhandene Ein-Datei-Quarantäne in
+   eigenen Authorize-, Execute-/Bestätigungs- und Recovery-Paketen, ohne den
+   Mutationstyp zu erweitern.
+3. `FG-W10-METADATA-WRITE` entscheidet anhand des fertigen Plans genau einen
+   Format-/Zielträgervertrag, seine Byte-/Semantik-Diffs, Recovery-Grenze und
+   synthetische Conformance-Matrix.
+4. Erst die akzeptierte Gate-ADR aktiviert den kleinsten vertikalen Metadata-
+   Writer mit synthetischer End-to-End-Verifikation, Revalidierung, Fencing,
+   Journal und Recovery.
 
-W10-005 darf parallel zu read-only Produktarbeit laufen. Die übrigen Punkte
-sind keine automatische aktuelle Ausführungsfront. Music, Bilder und weitere
-Linien beginnen nur nach ausdrücklicher Aktivierung.
+`W9-007` und die übrigen operation-spezifischen Gates folgen danach in
+getrennten Waves. Read-only REST/API- und UI-Shell beginnen erst nach der
+FUT-011-ADR; schreibende Controls benötigen zusätzlich die jeweils fertige
+W10-Kette. Music, Bilder und weitere Linien starten nur nach ausdrücklicher
+Aktivierung.
 
 ## 9. Ressourcenschonende Verifikation
 

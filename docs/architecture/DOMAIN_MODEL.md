@@ -107,7 +107,11 @@ Large/transient raw output should not automatically be stored forever. Persisten
 
 ### Safety state
 
-A ToolProvider may expose mutating operations, but FolioTone must distinguish capability from authorization. Through W9 only analysis-safe operations may execute against source media.
+A ToolProvider may expose mutating operations, but FolioTone must distinguish
+capability from authorization. Through W9 only analysis-safe operations may
+execute against source media. ADR-0061 authorizes development of later
+E-book writers, while every real W10 execution remains bound to its own
+technical gate, local capability and short-lived authorization.
 
 ## Authority/contributor layer
 
@@ -482,7 +486,11 @@ Review may also create durable local authority knowledge such as a confirmed ali
 
 ## Consolidation layer
 
-W9 introduces `ConsolidationPlan` only. Plans describe candidate actions and preconditions, but are non-executable until W10 is explicitly enabled by a future accepted ADR.
+W9 introduces `ConsolidationPlan` only. Plans describe candidate actions and
+preconditions and remain permanently non-executable. ADR-0061 enables
+operation-specific W10 development but does not reinterpret a W9 plan; only a
+new W10 Authorization under the accepted technical contract may open one
+concrete operation.
 
 ## Related decisions
 
