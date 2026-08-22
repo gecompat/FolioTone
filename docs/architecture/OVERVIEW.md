@@ -364,6 +364,13 @@ vollständige Bedien-/Recoverykette und eine konkrete lokale Authorization. Die
 enge ADR-0056-Interim-Quarantäne ist derzeit der einzige ausführbare
 Mutationstyp.
 
+ADR-0063 entscheidet als ersten weiteren technischen Vertrag ausschließlich
+einen EPUB-3-`SOURCE_METADATA`-Writer für genau einen
+`title`-`REPLACE`. Der lexikalische Patch, privates Staging, memberweiser
+Diff, Linux-`renameat2`-Exchange und Same-Filesystem-Recovery bleiben in fünf
+getrennten Implementierungswaves. Bis zu deren Abschluss entsteht keine neue
+operative Mutation Authority.
+
 ### Adapters
 
 Integrate concrete external systems and tools. Calibre, beets, SongKong, Picard, FFmpeg, Chromaprint and external authority/music/book providers must not leak their schemas/commands into the core domain model.

@@ -71,6 +71,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0060](decisions/ADR-0060-multidimensional-library-health.md) definiert sieben unabhängige book-only Health-Dimensionen, feste Findings, insert-only Persistenz, bounded opaque Samples und den reproduzierbaren read-only Vergleich von `CS-03`.
 - [ADR-0061](decisions/ADR-0061-controlled-ebook-write-development.md) hält die Owner-Freigabe für kontrollierte E-Book-Writer-Entwicklung mit synthetischen Fixtures fest und trennt sie von operation-spezifischer technischer und operativer Authorization.
 - [ADR-0062](decisions/ADR-0062-non-executable-metadata-correction-plans.md) definiert immutable, content-addressed und reviewte `MetadataCorrectionCandidate`- und `MetadataCorrectionPlan`-Snapshots mit permanenter `NOT_EXECUTABLE`-Grenze.
+- [ADR-0063](decisions/ADR-0063-bounded-epub-title-source-metadata-writer.md) entscheidet den ersten Source-Metadata-Writer ausschließlich für EPUB 3, einen `title`-`REPLACE`, einen lexikalischen rohwerterhaltenden Patch und Linux-`renameat2`-Exchange mit Same-Filesystem-Recovery.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

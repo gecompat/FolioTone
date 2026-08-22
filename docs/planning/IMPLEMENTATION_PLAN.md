@@ -68,8 +68,12 @@ definiert dafür zuerst einen separaten, reviewbaren
 Serialisierung, Golden Values und den Non-Execution-Gate geliefert.
 `S-W9-006B` hat Persistenz und Review-Integration geliefert; `S-W9-006C` hat
 den echten SQLite-Read-only-Report samt CLI ergänzt und `W9-006`
-abgeschlossen. Das technische `FG-W10-METADATA-WRITE` und erst danach der
-kleinste Writer-Slice bilden weiterhin zwei getrennte `FRONTIER`-Waves.
+abgeschlossen. ADR-0063 schließt danach `FG-W10-METADATA-WRITE` für genau
+EPUB 3, `SOURCE_METADATA` und einen einzelnen `title`-`REPLACE`. Der nächste
+reguläre Slice `S-W10-MW01` implementiert ausschließlich reine Preflight-,
+lexikalische Zwei-Spannen-Patch- und Byte-/Semantik-Diff-Verträge. Source-
+Commit, Persistenz und CLI folgen getrennt in `S-W10-MW02` bis
+`S-W10-MW05`.
 
 `W10-005` ist eine unabhängige parallele `FRONTIER`-Wave. Sie vervollständigt
 Capability-Auflösung, Authorize, Execute und Recovery für die bereits durch
@@ -500,11 +504,18 @@ Copy+Delete und Überschreiben sind kein Fallback.
 
 Metadaten-, Sidecar-, externe Library-, Rename- und Archive-/Containerwrites
 sind durch ADR-0061 zur getrennten Entwicklung freigegeben, bleiben operativ
-aber an `FG-W10-METADATA-WRITE`, `FG-W10-SIDECAR-WRITE`,
-`FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME` beziehungsweise
-`FG-W10-ARCHIVE-REWRITE` gebunden. Kein Gate autorisiert einen anderen
-Operationstyp. W10-003 und W10-004 halten Rollback/Purge und
-Verzeichnisbereinigung weiterhin getrennt.
+aber an ihre eigenen technischen und operativen Verträge gebunden. ADR-0063
+entscheidet `FG-W10-METADATA-WRITE` ausschließlich für
+`ebook-source-metadata-write/epub3-title-replace/v1`. Der Writer patcht nur
+`dc:title` und das formatbedingt aktualisierte `dcterms:modified`, verlangt
+einen memberweisen Byte-/Semantik-Diff und verwendet für den späteren Linux-
+Commit ausschließlich atomaren `renameat2`-Exchange mit
+Same-Filesystem-Recovery. Die Implementierung bleibt bis zum Abschluss von
+`S-W10-MW01` bis `S-W10-MW05` operativ geschlossen. Sidecar-, externe
+Library-, Rename- und Archivewrites bleiben an
+`FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME`
+beziehungsweise `FG-W10-ARCHIVE-REWRITE` gebunden. W10-003 und W10-004
+halten Rollback/Purge und Verzeichnisbereinigung weiterhin getrennt.
 
 Der vorhandene Executor ist noch keine vollständige Bedienkette. `W10-005`
 ergänzt einen privaten `QuarantineCapabilityResolver`,

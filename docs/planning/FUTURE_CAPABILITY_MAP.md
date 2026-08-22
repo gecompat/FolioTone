@@ -52,8 +52,9 @@ Statusachse und keine öffentlichen Runtime-Literale.
 - ADR-0061 erlaubt die kontrollierte Entwicklung der E-Book-Writer. Außer der
   engen ADR-0056-Interim-Ein-Datei-Quarantäne bleiben Source-Media-Mutation,
   Purge, Retagging und Verzeichnisbereinigung unabhängig von dieser Map
-  operativ nicht verfügbar, bis ihr eigenes technisches Gate abgeschlossen
-  ist.
+  operativ nicht verfügbar, bis ihr technischer Vertrag und ihre vollständige
+  Bedien-/Recoverykette abgeschlossen sind. ADR-0063 entscheidet nur den
+  ersten EPUB-Titelvertrag und öffnet noch keinen operativen Writer.
 - Eine geplante Fähigkeit darf den aktiven E-Book-Endgame-Pfad nicht durch
   eine vorzeitige generische Neuarchitektur unterbrechen.
 
@@ -62,10 +63,11 @@ Statusachse und keine öffentlichen Runtime-Literale.
 EB-07, EB-08, die read-only Archive-Strecke und S-W10-01 bis S-W10-04 sind
 abgeschlossen. ADR-0058 und der kanonische Backlog haben die zuvor nur
 strategisch skizzierten book-only Produktprojektionen übernommen. `CS-01`,
-`CS-02` und `CS-03` sind abgeschlossen; ADR-0061 aktiviert `W9-006` als
-`NEXT`, während `W10-005` unabhängig `READY` bleibt. Eine weitere Medienlinie
-ist nicht automatisch aktiviert. Der genaue Paketstatus wird hier nicht
-dupliziert.
+`CS-02`, `CS-03` und `W9-006` sind abgeschlossen. ADR-0063 entscheidet den
+ersten EPUB-Titelvertrag; seine fünf Implementierungswaves bleiben von der
+unabhängig `READY` stehenden Quarantäne-Bedienkette `W10-005` getrennt. Eine
+weitere Medienlinie ist nicht automatisch aktiviert. Der genaue Paketstatus
+wird hier nicht dupliziert.
 
 ## Empfohlene Entwicklungsfolge
 
@@ -273,7 +275,7 @@ ist, existiert dafür weder REST-Endpunkt noch aktivierbares UI-Control.
 | Confidence-Kalibrierung | profilgebundene Scores an geprüfter Ground Truth bewerten | Forschungsfrage | FUT-005 berührt Review-Lernen | relationstypbezogener Korpus und Eval-Vertrag |
 | KI-Query/Explanation | natürliche Sprache sicher übersetzen und Evidence erklären | Forschungsfrage | keine | gleicher Query-AST; keine Decision Authority |
 | API/MCP/UI | stabile Application-Verträge außerhalb der CLI mit eigenen Einstiegen je Medienlinie anbieten | Forschungsfrage | ADR-0016 stellt zurück; FUT-011; `EBOOK_WRITE_PIPELINE_PLAN.md` | neue Produktoberflächen-ADR einschließlich REST/OpenAPI, Auth, Privacy, Audit und strikt getrennten W10-Capabilities |
-| kontrollierte Mutation | geprüfte Pläne entsprechend ihrer Reversibilitätsklasse ausführen | Entwicklung freigegeben; operativ nur enge Interim-Ausnahme | ADR-0056, ADR-0061, `W10-005`, `FG-W10-MOVE-BACKEND` und operation-spezifische Write-Gates | Bedienkette vervollständigen; Metadata-, Sidecar-, externe Library-, Rename-, Archive-, Rollback-, Purge- und Cleanup-Verträge getrennt entscheiden |
+| kontrollierte Mutation | geprüfte Pläne entsprechend ihrer Reversibilitätsklasse ausführen | Entwicklung freigegeben; erster EPUB-Titelvertrag entschieden; operativ nur enge Interim-Ausnahme | ADR-0056, ADR-0061, ADR-0063, `W10-005`, `FG-W10-MOVE-BACKEND` und verbleibende operation-spezifische Write-Gates | Bedienkette vervollständigen; EPUB-Titel in fünf Waves umsetzen und Sidecar-, externe Library-, Rename-, Archive-, Rollback-, Purge- und Cleanup-Verträge getrennt entscheiden |
 
 ## Medienabdeckung
 

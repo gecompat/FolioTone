@@ -15,6 +15,9 @@ WRITE_AUTHORIZATION_ADR = ROOT / "docs/decisions/ADR-0061-controlled-ebook-write
 METADATA_CORRECTION_ADR = (
     ROOT / "docs/decisions/ADR-0062-non-executable-metadata-correction-plans.md"
 )
+METADATA_WRITE_ADR = (
+    ROOT / "docs/decisions/ADR-0063-bounded-epub-title-source-metadata-writer.md"
+)
 
 
 def _text(path: Path) -> str:
@@ -27,8 +30,8 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `FG-W10-METADATA-WRITE` |" in backlog
-    assert "bleibt jeder Metadata-Writer geschlossen" in backlog
+    assert "| NOW | `S-W10-MW01` |" in backlog
+    assert "ohne Source-Commit" in backlog
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
     assert "| S-W9-006A | DONE |" in backlog
@@ -124,8 +127,8 @@ def test_ebook_write_pipeline_is_development_authorized_and_remains_gate_bound()
     assert "| W9-006 | DONE |" in backlog
     assert "| W9-007 | PLANNED |" in backlog
     assert "| FG-W10-WRITE-DEVELOPMENT | DONE |" in backlog
+    assert "| FG-W10-METADATA-WRITE | DONE |" in backlog
     for gate in (
-        "FG-W10-METADATA-WRITE",
         "FG-W10-SIDECAR-WRITE",
         "FG-W10-EXTERNAL-LIBRARY-WRITE",
         "FG-W10-RENAME",
@@ -171,3 +174,30 @@ def test_metadata_correction_gate_is_reviewed_bounded_and_non_executable() -> No
     assert all(marker in adr for marker in required)
     assert "ADR-0062" in documentation_index
     assert "| FG-W9-006 | DONE |" in backlog
+
+
+def test_first_source_metadata_writer_gate_is_narrow_and_non_operational() -> None:
+    adr = _text(METADATA_WRITE_ADR)
+    documentation_index = _text(ROOT / "docs/README.md")
+    backlog = _text(BACKLOG)
+
+    required = (
+        "- Status: Accepted",
+        "ebook-source-metadata-write/epub3-title-replace/v1",
+        "target_carrier = SOURCE_METADATA",
+        "genau eine Feldkorrektur `title`",
+        "dcterms:modified",
+        "ebook-meta-opf/2",
+        "RENAME_EXCHANGE",
+        "RENAME_NOREPLACE",
+        "MANUAL_RECOVERY_REQUIRED",
+        "S-W10-MW01",
+        "S-W10-MW05",
+        "operativ nicht",
+        "Reale private E-Books",
+    )
+    assert all(marker in adr for marker in required)
+    assert "ADR-0063" in documentation_index
+    assert "| FG-W10-METADATA-WRITE | DONE |" in backlog
+    assert "| S-W10-MW01 | NEXT |" in backlog
+    assert "| W10-006 | PLANNED |" in backlog

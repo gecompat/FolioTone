@@ -13,12 +13,12 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | `FG-W10-METADATA-WRITE` | `W9-006` ist einschließlich privacy-begrenztem echten SQLite-Read-only-Report abgeschlossen. Als nächstes entscheidet eine eigene `FRONTIER`-ADR genau einen Format-/Zielträgervertrag; bis zu ihrer Annahme bleibt jeder Metadata-Writer geschlossen. |
+| NOW | `S-W10-MW01` | ADR-0063 hat genau EPUB 3, `SOURCE_METADATA` und einen einzelnen `title`-`REPLACE` akzeptiert. Der erste Slice implementiert nur bounded Preflight, lexikalischen Zwei-Spannen-Patch und Byte-/Semantik-Diff auf synthetischen Bytes, ohne Source-Commit. |
 | PARALLEL READY | `W10-005` | Die von ADR-0056 erlaubte Ein-Datei-Quarantäne erhält eine vollständige Authorize-/Execute-/Recovery-Bedienkette, ohne den Mutationstyp zu erweitern. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
-| NEXT WAVES | `FG-W10-METADATA-WRITE`, danach kleinster Metadata-Writer | Die Entwicklungsfreigabe ist vorhanden; Format, Zielträger und technische Safety-Grenze werden vor Writer-Code in einer eigenen ADR entschieden. |
+| NEXT WAVES | `S-W10-MW01` bis `S-W10-MW05` | Reiner Patchvertrag, privates Staging, Authorization/Persistenz, Linux-Exchange/Recovery und feste CLI/Reconciliation bleiben getrennte kleine Waves. Reale Source-Mutation bleibt bis zum Abschluss der gesamten Kette geschlossen. |
 | LATER | `W9-007`, W4 sowie die Music-Anteile aus W5 bis W7 | Weitere Operationsrezepte bleiben getrennt; Music bleibt die nächste vollständige Mediendomäne nach ausdrücklicher Aktivierung. |
-| DECISION | `FG-W10-METADATA-WRITE`, `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004 | ADR-0061 entfernt den Owner-Freigabeblocker, ersetzt aber keinen operation-spezifischen technischen Vertrag. |
+| DECISION | `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004 | ADR-0063 entscheidet nur den ersten EPUB-Titelwriter. Alle benachbarten Operationen behalten ihr eigenes technisches Gate. |
 | BLOCKED | `FG-A-SECRET`, `FG-A3-MEMBER-BYTE` | Secretkanal und Archive-Member-Byte-Identity sind von der E-Book-Write-Freigabe nicht betroffen. |
 
 Andere Planungsdokumente erläutern diese Aufgaben, setzen aber keine eigene
@@ -269,7 +269,13 @@ Interim-Quarantäneexecutor öffnen.
 | W10-005 | READY | Vervollständige die ADR-0056-Bedienkette in getrennten, kleinen Folgepaketen. CLI-Argumente enthalten nur opaque IDs und Content Hashes; die zweite Bestätigung läuft ausschließlich über nicht geloggtes `stdin`. Der Slice bleibt bei genau einer regulären Same-Filesystem-Datei und behauptet keine atomare No-Replace-Garantie. |
 | S-W10-05A | DONE | Privater, bounded und fail-closed `QuarantineCapabilityResolver`: `FOLIOTONE_QUARANTINE_CAPABILITIES_FILE` löst nur eine opaque Capability-ID zu ScanRoot-ID und privaten absoluten Verzeichnissen auf. Fehlende/unsichere Konfiguration, Schema-/Duplikat-/Pfad-/Reparse-/Berechtigungsfehler ergeben ausschließlich `TOOL_UNAVAILABLE`. Keine CLI, Persistenz, Reports oder Executor-Aufrufe. |
 | FG-W10-MOVE-BACKEND | PLANNED | Spätere Frontier-Härtung für einen atomaren No-Replace-Move, no-follow Elternverzeichnisse sowie reproduzierbare Cross-Device-, Race- und Crash-/Recovery-Nachweise. Der Interim-Executor ist bewusst nicht atomar; seine Zielprüfung kann eine konkurrierende Race nicht ausschließen. |
-| FG-W10-METADATA-WRITE | DECISION | Entscheide und belege Source-Metadata-Write je Format mit exaktem Writerprofil, Rohwerterhalt, Byte-/Semantik-Diff, Backup-/Recoverygrenze und unmittelbarer Revalidierung. Keine Sidecar- oder externe Library-Freigabe. |
+| FG-W10-METADATA-WRITE | DONE | ADR-0063 akzeptiert ausschließlich `ebook-source-metadata-write/epub3-title-replace/v1`: ein EPUB-3-`SOURCE_METADATA`-Plan, ein `title`-`REPLACE`, lexikalischer Zwei-Spannen-Patch, memberweiser Diff, privates Staging und Linux-`renameat2`-Exchange mit Same-Filesystem-Recovery. Andere Formate, Felder und Zielträger bleiben geschlossen. |
+| W10-006 | PLANNED | Implementiere den durch ADR-0063 begrenzten EPUB-Titelwriter vollständig. Operative Verfügbarkeit entsteht erst nach allen fünf Subwaves und dem exakten Linux-/Filesystem-Konformitätsgate. |
+| S-W10-MW01 | NEXT | Implementiere reine bounded EPUB-3-Preflight-, lexikalische `dc:title`-/`dcterms:modified`-Patch- und Byte-/Semantik-Diff-Verträge mit ausschließlich synthetischen Fixtures. Keine Persistenz, CLI, Capability oder Source-Mutation. |
+| S-W10-MW02 | PLANNED | Ergänze privaten streaming-basierten Containerneuaufbau und feste Read-back-, EPUBCheck-, Text-, Cover- und Preserved-Field-Verifikation, weiterhin ohne Source-Commit. |
+| S-W10-MW03 | PLANNED | Ergänze immutable Authorization-/Run-/Eventpersistenz, Capability-Auflösung, `ScanRootWriteLease`-/Fence-Vertrag und privacy-begrenzten read-only Status. |
+| S-W10-MW04 | PLANNED | Implementiere das Linux-`renameat2(RENAME_EXCHANGE)`-/`RENAME_NOREPLACE`-Backend, den Ein-Datei-Executor und idempotente Crash-Recovery ausschließlich auf synthetischen Filesystemen. |
+| S-W10-MW05 | PLANNED | Ergänze feste Authorize-/Execute-/Recover-CLI, zweite Bestätigung über nicht geloggtes `stdin`, unmittelbare Verifikation, neuen Scan und Collection-Reconciliation. |
 | FG-W10-SIDECAR-WRITE | DECISION | Entscheide Sidecar Create/Update separat mit Ownership, Kollisions-, No-Follow-, Atomizitäts-, Dependency-, Recovery- und Reconciliation-Vertrag. |
 | FG-W10-EXTERNAL-LIBRARY-WRITE | DECISION | Entscheide mutierendes Calibre oder andere externe Systeme je Adapter und fester Operation mit eigenem Snapshot, Idempotenz, Konflikt-, Recovery- und Auditvertrag. |
 | FG-W10-RENAME | DECISION | Entscheide Datei-Rename/Reorganisation separat mit Root-Grenze, No-Replace, no-follow, Dependency-, Collision-, Rollback- und Scan-Reconciliation-Nachweis. |

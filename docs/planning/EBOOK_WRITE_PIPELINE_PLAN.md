@@ -7,6 +7,9 @@ Medienlinien werden nur an ihren Grenzen berücksichtigt
 E-Book-Writer mit synthetischen Fixtures. Reale Mutation bleibt an
 `BACKLOG.md`, eine operation-spezifische akzeptierte technische ADR und die
 vollständige Capability-/Authorize-/Execute-/Recovery-Kette gebunden.
+ADR-0063 entscheidet davon nur den ersten EPUB-3-Titelwriter; seine reale
+Source-Mutation bleibt bis zum Abschluss von `S-W10-MW01` bis
+`S-W10-MW05` geschlossen.
 
 ## Zweck und Autorität
 
@@ -146,6 +149,15 @@ und Review-Integration und `S-W9-006C` einen privacy-begrenzten echten
 SQLite-Read-only-Report samt CLI. Keines der drei Pakete öffnet Source Media
 oder stellt eine Write-/Execute-/Apply-Operation bereit.
 
+ADR-0063 löst aus diesen allgemeinen Plänen ausschließlich einen einzelnen
+EPUB-3-`title`-`REPLACE` für `SOURCE_METADATA` auf. Der Patch verändert im
+Package Document bytegenau nur `dc:title` und das formatbedingt neue
+`dcterms:modified`; alle anderen Package-Document-Bytes und alle
+Nicht-Package-Entry-Inhalte müssen erhalten bleiben. calibre schreibt in
+diesem Profil nicht, sondern liefert zusammen mit EPUBCheck unabhängige
+Read-back- und Konformitäts-Evidence. Andere Felder, Formate und Zielträger
+bleiben eigene spätere Verträge.
+
 Die Zielträger bleiben getrennte Operationstypen:
 
 1. ausschließlich interne FolioTone-Projektion;
@@ -205,7 +217,7 @@ Capability und Authorization.
 | nicht ausführbarer Duplicate-Plan | vorhanden | W9-Vertrag unverändert lassen |
 | eine reguläre Same-Filesystem-Datei quarantänisieren | enger Interim-Executor vorhanden; Bedienkette unvollständig | `W10-005`, danach optional `FG-W10-MOVE-BACKEND` |
 | atomarer/generalisierter Quarantäne-Move | nicht autorisiert | `FG-W10-MOVE-BACKEND` mit No-Replace, no-follow, Race- und Crash-Nachweis |
-| Metadaten in Source Media schreiben | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-METADATA-WRITE` |
+| Metadaten in Source Media schreiben | ADR-0063 entscheidet nur EPUB 3 plus einen `title`-`REPLACE`; operativ nicht verfügbar | `S-W10-MW01` bis `S-W10-MW05` einschließlich Linux-/Filesystem-Konformitätsgate |
 | Sidecar erzeugen oder ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-SIDECAR-WRITE` |
 | Calibre oder anderes externes System ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-EXTERNAL-LIBRARY-WRITE` |
 | Datei umbenennen oder reorganisieren | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-RENAME` |
@@ -283,7 +295,7 @@ zusammenziehen.
 
 ## 8. Lieferfolge in kleinen Waves
 
-ADR-0061 und ADR-0062 aktivieren die folgenden getrennt prüfbaren Waves.
+ADR-0061, ADR-0062 und ADR-0063 aktivieren die folgenden getrennt prüfbaren Waves.
 `BACKLOG.md` bleibt für ihren Status maßgeblich:
 
 1. `S-W9-006A` hat die reinen Candidate-/Plan-Verträge und ihre kanonische
@@ -295,12 +307,15 @@ ADR-0061 und ADR-0062 aktivieren die folgenden getrennt prüfbaren Waves.
 4. `W10-005` vervollständigt parallel die vorhandene Ein-Datei-Quarantäne in
    eigenen Authorize-, Execute-/Bestätigungs- und Recovery-Paketen, ohne den
    Mutationstyp zu erweitern.
-5. `FG-W10-METADATA-WRITE` entscheidet anhand des fertigen Plans genau einen
-   Format-/Zielträgervertrag, seine Byte-/Semantik-Diffs, Recovery-Grenze und
-   synthetische Conformance-Matrix.
-6. Erst die akzeptierte Gate-ADR aktiviert den kleinsten vertikalen Metadata-
-   Writer mit synthetischer End-to-End-Verifikation, Revalidierung, Fencing,
-   Journal und Recovery.
+5. ADR-0063 hat `FG-W10-METADATA-WRITE` für genau EPUB 3,
+   `SOURCE_METADATA` und einen einzelnen `title`-`REPLACE` entschieden. Der
+   Vertrag verwendet einen lexikalischen `dc:title`-/`dcterms:modified`-
+   Patch, memberweisen Diff, privates Staging und einen Linux-
+   `renameat2`-Exchange mit Same-Filesystem-Recovery.
+6. `S-W10-MW01` implementiert als nächstes nur Preflight, Patch und Diff ohne
+   Source-Commit. `S-W10-MW02` bis `S-W10-MW05` ergänzen danach Staging und
+   Verifikation, Authorization/Persistenz, Linux-Executor/Recovery sowie CLI,
+   neuen Scan und Reconciliation in getrennten Waves.
 
 `W9-007` und die übrigen operation-spezifischen Gates folgen danach in
 getrennten Waves. Read-only REST/API- und UI-Shell beginnen erst nach der
