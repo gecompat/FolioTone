@@ -26,10 +26,13 @@ Finding-Eingaben gelangen in die Ausgabe.
 ADR-0058 akzeptiert eine book-only Lieferfolge aus `CollectionState`,
 Snapshot-Diff und begrenzter lokaler Metadatensuche sowie mehrdimensionaler
 `Library Health`. `CS-01` ist im kanonischen Backlog `NEXT`. Parallel beginnt
-`S-W10-05A` als kleinster `W10-005`-Folgeschritt: nur ein privater,
-fail-closed `QuarantineCapabilityResolver`, noch ohne CLI, Persistenz oder
-Executor-Aufruf. Die nicht atomare Zielprüfung und alle weiteren W10-Sperren
-bleiben unverändert sichtbar.
+`S-W10-05A` ist abgeschlossen: Der private, bounded und fail-closed
+`QuarantineCapabilityResolver` löst ausschließlich über die geschützte lokale
+`FOLIOTONE_QUARANTINE_CAPABILITIES_FILE` opaque Capability- zu ScanRoot-IDs
+und privaten Laufzeitverzeichnissen auf. Fehler bleiben `TOOL_UNAVAILABLE` und
+pfadfrei; CLI, Persistenz und Executor-Aufrufe gehören weiterhin nicht dazu.
+Die nicht atomare Zielprüfung und alle weiteren W10-Sperren bleiben unverändert
+sichtbar.
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
