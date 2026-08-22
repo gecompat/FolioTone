@@ -235,6 +235,58 @@ Komponenten, nicht reguläre Verzeichnisse oder nicht nachweisbar geschützte
 Dateiberechtigungen ergeben `TOOL_UNAVAILABLE`. Konfigurationswerte werden
 nicht persistiert oder ausgegeben.
 
+### S-W10-05A: privater Capability Resolver
+
+`S-W10-05A` ist das kleinste eigenständige Folgepaket von `W10-005`. Es
+liefert ausschließlich einen privaten `QuarantineCapabilityResolver`; weder
+ein CLI-Kommando noch der Executor, die Persistenz oder eine Mutation gehören
+zu diesem Paket. Er liest genau die über
+`FOLIOTONE_QUARANTINE_CAPABILITIES_FILE` benannte lokale JSON-Datei. Die
+Konfiguration ordnet eine opaque `quarantine_capability_id` genau einem
+`scan_root_id`, einem absoluten privaten ScanRoot-Verzeichnis und einem
+absoluten privaten Quarantäneverzeichnis zu.
+
+Der Resolver ist bounded und fail-closed. Fehlende oder unsichere
+Konfiguration, unbekannte Felder, doppelte Capability- oder ScanRoot-IDs,
+relative oder nicht normalisierbare Pfade, überlappende Roots, Symlink- oder
+Reparse-Komponenten, nicht vorhandene oder nicht reguläre Verzeichnisse und
+nicht nachweisbar geschützte Dateiberechtigungen ergeben ausschließlich
+`TOOL_UNAVAILABLE`. Er gibt weder Konfigurationswerte noch Pfade in Fehlern,
+`repr`, Logs, DTOs, SQLite oder Reports aus. Eine erfolgreich aufgelöste
+Capability ist ausschließlich ein privates Laufzeitobjekt und autorisiert
+keine Dateisystemoperation.
+
+Der nachfolgende Implementierungs-PR darf nur diese Produktdatei ergänzen:
+
+```text
+src/foliotone/quarantine/capabilities.py
+```
+
+und genau diese fokussierte Testdatei:
+
+```text
+tests/unit/test_quarantine_capabilities.py
+```
+
+Er darf ausschließlich synthetische temporäre Konfigurations- und
+Verzeichnisfixtures verwenden. Die Tests beweisen einen gültigen Lookup sowie
+jeweils das fail-closed Verhalten für fehlende oder ungültige Environment-
+Konfiguration, JSON-/Schemafehler, unbekannte Felder, doppelte IDs, relative
+oder überlappende Pfade, Symlink-/Reparse-Fälle, ungültige Verzeichnisse,
+unsichere Berechtigungen und pfadfreie Fehlerdarstellung. Sie dürfen weder
+`os.rename` noch den Interim-Executor, SQLite, CLI, Logs oder reale
+Sammlungsdaten berühren. Die Wave erfordert `FRONTIER`, da sie eine private
+Runtime-Konfigurations- und Dateisystemvertrauensgrenze festlegt; bei einer
+nicht portabel prüfbaren Sicherheitsbedingung stoppt sie mit
+`TOOL_UNAVAILABLE`, statt eine schwächere Prüfung einzuführen.
+
+`S-W10-05A` ist erst fertig, wenn sein Diff auf die zwei genannten Dateien
+sowie die synchronisierten Planungsdokumente begrenzt ist, die genannten
+synthetischen Tests, der bestehende W10-Vertragstest, Ruff, Mypy und
+`git diff --check` lokal grün sind und der PR-Gate am unveränderten Head grün
+ist. Es folgt erst danach mit einem eigenen Paket die Authorize-CLI; Execute,
+Bestätigung und Recovery bleiben getrennte Pakete.
+
 Die Bedienkette besteht aus vier festen Kommandos:
 
 1. `quarantine-authorize` akzeptiert opaque Plan-ID, vollständigen
@@ -269,7 +321,9 @@ Recovery autorisiert weder Rollback noch Purge.
 4. `FG-W10-MOVE-BACKEND`: spätere Frontier-Härtung für atomaren No-Replace-
    Move, no-follow Elternverzeichnisse und Crash-/Race-/Cross-Device-Nachweis.
 5. `S-W10-04`: read-only Status/Report und fokussierter End-to-End-Abschluss.
-6. `W10-005`: Capability Resolver, feste Authorize-/Execute-/Recovery-CLI und
+6. `S-W10-05A`: privater Capability Resolver ohne CLI, Persistenz oder
+   Mutation.
+7. `W10-005`: nach `S-W10-05A` feste Authorize-/Execute-/Recovery-CLI und
    synthetische Crash-/Recovery-Abnahme; keine neuen Mutationstypen.
 
 Jedes Paket erhält einen eigenen kleinen PR. Vollständige Tests laufen einmal
