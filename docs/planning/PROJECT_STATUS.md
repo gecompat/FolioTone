@@ -4,7 +4,7 @@ Stand: 2026-08-22
 
 ## Aktuelle Welle
 
-**W10-Interim abgeschlossen — ein gefenceter Ein-Datei-Executor ist vorhanden**
+**W10-Interim abgeschlossen — Executor und read-only Quarantänestatus sind vorhanden**
 
 ADR-0056 akzeptiert als erste W10-Grenze ausschließlich reine Quarantäne-
 DTOs sowie immutable Authorization-/Run- und lückenlose Event-Persistenz.
@@ -16,6 +16,10 @@ vollständige SHA-256-Revalidierung und kein Copy+Delete-/Cross-Volume-
 Fallback. Die Zielprüfung ist nicht atomar; `FG-W10-MOVE-BACKEND` bleibt als
 spätere Frontier-Härtung für atomaren No-Replace, no-follow und Race-/Crash-
 Nachweise im Backlog.
+S-W10-04 ergänzt `quarantine-status`: eine echte SQLite-Read-only-Projektion
+pro Run mit ausschließlich opaken IDs, Statuswerten und Zeitpunkten. Weder
+Pfade, Namen, Materialhashes, `target_token`, `confirmation_digest` noch
+Finding-Eingaben gelangen in die Ausgabe.
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 

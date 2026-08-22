@@ -50,6 +50,29 @@ class QuarantineExecutionEvent:
     confirmation_digest: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class QuarantineStatusSnapshot:
+    """Bounded path-free material needed by the public W10 status reader."""
+
+    run_id: EntityId
+    authorization_id: EntityId
+    plan_id: EntityId
+    scan_root_id: EntityId
+    created_at: datetime
+    authorized_at: datetime
+    expires_at: datetime
+    events: tuple[QuarantineStatusEventSnapshot, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class QuarantineStatusEventSnapshot:
+    """Publicly reportable event fields only; private event material is not read."""
+
+    sequence_no: int
+    status: QuarantineRunStatus
+    occurred_at: datetime
+
+
 _NEXT = {
     QuarantineRunStatus.PREPARED: frozenset(QuarantineRunStatus) - {QuarantineRunStatus.PREPARED},
     QuarantineRunStatus.MOVED: frozenset(
@@ -178,6 +201,65 @@ class SQLiteQuarantineStore:
             ).mappings()
             return tuple(_event_from_row(run_id, dict(row)) for row in rows)
 
+    def read_status_snapshot(self, run_id: EntityId) -> QuarantineStatusSnapshot | None:
+        """Read only the path-free fields permitted for a quarantine status report."""
+
+        with self._engine.connect() as connection:
+            run = (
+                connection.execute(
+                    select(
+                        quarantine_execution_runs.c.id,
+                        quarantine_execution_runs.c.authorization_id,
+                        quarantine_execution_runs.c.plan_id,
+                        quarantine_execution_runs.c.scan_root_id,
+                        quarantine_execution_runs.c.created_at,
+                        quarantine_authorizations.c.authorized_at,
+                        quarantine_authorizations.c.expires_at,
+                    )
+                    .join(
+                        quarantine_authorizations,
+                        quarantine_execution_runs.c.authorization_id
+                        == quarantine_authorizations.c.id,
+                    )
+                    .where(quarantine_execution_runs.c.id == str(run_id))
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if run is None:
+                return None
+            events = tuple(
+                _status_event_from_row(dict(row))
+                for row in connection.execute(
+                    select(
+                        quarantine_execution_events.c.sequence_no,
+                        quarantine_execution_events.c.status,
+                        quarantine_execution_events.c.occurred_at,
+                    )
+                    .where(quarantine_execution_events.c.run_id == str(run_id))
+                    .order_by(quarantine_execution_events.c.sequence_no)
+                ).mappings()
+            )
+        created_at = datetime_from_db(str(run["created_at"]))
+        authorized_at = datetime_from_db(str(run["authorized_at"]))
+        expires_at = datetime_from_db(str(run["expires_at"]))
+        if created_at is None or authorized_at is None or expires_at is None:
+            raise QuarantineStoreError("quarantine status timestamp is missing")
+        if not events:
+            raise QuarantineStoreError("quarantine status has no prepared event")
+        if tuple(event.sequence_no for event in events) != tuple(range(1, len(events) + 1)):
+            raise QuarantineStoreError("quarantine status events are not gapless")
+        return QuarantineStatusSnapshot(
+            run_id,
+            EntityId.parse(str(run["authorization_id"])),
+            EntityId.parse(str(run["plan_id"])),
+            EntityId.parse(str(run["scan_root_id"])),
+            created_at,
+            authorized_at,
+            expires_at,
+            events,
+        )
+
 
 def _authorization_row(value: QuarantineAuthorizationSnapshot) -> dict[str, object]:
     return {
@@ -226,4 +308,15 @@ def _event_from_row(run_id: EntityId, values: dict[str, Any]) -> QuarantineExecu
         None if values["fence_epoch"] is None else int(values["fence_epoch"]),
         values["finding_code"],
         values["confirmation_digest"],
+    )
+
+
+def _status_event_from_row(values: dict[str, Any]) -> QuarantineStatusEventSnapshot:
+    occurred_at = datetime_from_db(str(values["occurred_at"]))
+    if occurred_at is None:
+        raise QuarantineStoreError("quarantine event timestamp is missing")
+    return QuarantineStatusEventSnapshot(
+        int(values["sequence_no"]),
+        QuarantineRunStatus(str(values["status"])),
+        occurred_at,
     )

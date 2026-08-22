@@ -411,11 +411,15 @@ Acceptance:
 
 ## W10 — Controlled Consolidation (gated)
 
-ADR-0056 akzeptiert zunächst ausschließlich reine Quarantäneverträge,
-insert-only Authorization-/Run-Persistenz und read-only Status. S-W10-01 und
-S-W10-02 dürfen keine Source-Mutation enthalten. Ein realer Ein-Datei-
-Quarantäneexecutor bleibt bis zum separaten `FG-W10-MOVE-BACKEND` blockiert;
-Cross-Volume-Copy+Delete und Überschreiben sind kein Fallback.
+ADR-0056 akzeptiert reine Quarantäneverträge, insert-only Authorization-/Run-
+Persistenz, read-only Status und als begrenzte Interim-Ausnahme einen
+Ein-Datei-Quarantäneexecutor. S-W10-01 und S-W10-02 bleiben mutationsfrei;
+S-W10-03 darf ausschließlich `os.rename` im selben vom Betriebssystem
+gemeldeten Filesystem nach Ziel-Abwesenheitsprüfung und vollständiger
+SHA-256-Revalidierung verwenden. Diese Zielprüfung ist nicht atomar.
+`FG-W10-MOVE-BACKEND` bleibt deshalb die verpflichtende spätere Härtung für
+atomaren No-Replace, no-follow sowie Race-/Crash-Nachweise. Cross-Volume-
+Copy+Delete und Überschreiben sind kein Fallback.
 
 Spätere Operationen wie Rollback, Purge, Metadatenupdate, Calibrewrite und
 explizit autorisierte externe Toolwrites benötigen jeweils eine eigene

@@ -233,13 +233,15 @@ Rules:
 
 ## W10 requirements
 
-ADR-0056 öffnet ausschließlich die Vertragsschicht für eine gefencete
-Ein-Datei-Quarantäne. S-W10-01 und S-W10-02 bleiben mutationsfrei; eine reale
-Operation setzt zusätzlich ein akzeptiertes `FG-W10-MOVE-BACKEND` voraus.
-Dieses Gate beweist einen atomaren No-Replace-Move im selben Volume-Kontext,
-ohne ein konkretes Dateisystem vorauszusetzen und ohne Copy+Delete-Fallback.
-Purge, Metadatenwrite, Calibrewrite und Verzeichnisbereinigung bleiben
-blockiert.
+ADR-0056 öffnet die Vertragsschicht für eine gefencete Ein-Datei-Quarantäne.
+S-W10-01 und S-W10-02 bleiben mutationsfrei. Der eng begrenzte S-W10-03-
+Interim-Executor darf ausschließlich `os.rename` im selben vom Betriebssystem
+gemeldeten Filesystem nach Ziel-Abwesenheitsprüfung und vollständiger SHA-256-
+Revalidierung verwenden. Er behauptet keine atomare No-Replace-Semantik.
+`FG-W10-MOVE-BACKEND` bleibt verpflichtend für den späteren atomaren
+No-Replace-Move, no-follow sowie Race-/Crash-Nachweise ohne Copy+Delete-
+Fallback. Purge, Metadatenwrite, Calibrewrite und Verzeichnisbereinigung
+bleiben blockiert.
 
 Ein ausführbarer Consolidation-Teil darf nicht lediglich durch einen CLI-
 Schalter aktiviert werden. Er benötigt weiterhin mindestens:

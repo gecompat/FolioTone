@@ -228,7 +228,7 @@ gegen Filesystem-Mutationen, mutierende Calibre-Command-Shapes und
 | ID | Status | Item |
 |---|---|---|
 | W10-001 | DECISION | ADR-0056 bindet Vertrag, Persistenz und Status einer gefenceten Ein-Datei-Quarantäne. W9-Pläne bleiben nicht ausführbar; nur eine neue, kurzlebige W10-Authorization darf den Interim-Executor öffnen. |
-| W10-002 | DONE | S-W10-01/-02 und S-W10-03 liefern path-freie Verträge, immutable Authorization-/Run-/Eventpersistenz und einen engen Interim-Executor: gleicher vom OS gemeldeter Filesystem-Kontext, Ziel-Abwesenheitsprüfung, `os.rename`, Full-SHA-256-Revalidierung. Kein Copy+Delete oder Cross-Volume-Fallback. |
+| W10-002 | DONE | S-W10-01 bis S-W10-04 liefern path-freie Verträge, immutable Authorization-/Run-/Eventpersistenz, einen engen Interim-Executor und `quarantine-status` als echte SQLite-Read-only-Projektion: gleicher vom OS gemeldeter Filesystem-Kontext, Ziel-Abwesenheitsprüfung, `os.rename`, Full-SHA-256-Revalidierung sowie ausschließlich opaque Statusausgabe. Kein Copy+Delete oder Cross-Volume-Fallback. |
 | FG-W10-MOVE-BACKEND | PLANNED | Spätere Frontier-Härtung für einen atomaren No-Replace-Move, no-follow Elternverzeichnisse sowie reproduzierbare Cross-Device-, Race- und Crash-/Recovery-Nachweise. Der Interim-Executor ist bewusst nicht atomar; seine Zielprüfung kann eine konkurrierende Race nicht ausschließen. |
 | W10-003 | BLOCKED | Implement verified rollback and separately approved purge after a retention period; never make successful extraction imply archive deletion. |
 | W10-004 | BLOCKED | Implement bottom-up empty-directory cleanup as a separate approved operation with fresh enumeration, root/reparse/Calibre/sidecar guards and an auditable reconstruction record. |

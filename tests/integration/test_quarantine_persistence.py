@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 from sqlalchemy import text
 
+from foliotone.cli.main import build_parser, main
 from foliotone.core import EntityId
 from foliotone.persistence import create_sqlite_engine, migrate, schema
 from foliotone.persistence.quarantine import (
@@ -190,6 +192,94 @@ def test_interim_executor_refuses_existing_target_without_touching_source(tmp_pa
     engine.dispose()
 
 
+def test_quarantine_status_is_read_only_and_excludes_private_execution_material(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database = tmp_path / "private-quarantine-status.db"
+    engine = _head_engine_from_migration(tmp_path, database)
+    authorization = _authorization()
+    store = SQLiteQuarantineStore(engine)
+    store.create_or_get_authorization(authorization)
+    lease = SQLiteScanRootWriteLeaseStore(engine).acquire(
+        ROOT,
+        ScanRootWriteOwnerKind.CONSOLIDATION_QUARANTINE_RUN,
+        RUN,
+        lease_token="synthetic-quarantine-lease",
+        acquired_at=NOW,
+        lease_expires_at=NOW + timedelta(minutes=5),
+    )
+    run = _run(authorization)
+    store.create_prepared_run(run, lease, NOW)
+    for sequence, status in enumerate(
+        (QuarantineRunStatus.MOVED, QuarantineRunStatus.VERIFIED, QuarantineRunStatus.COMPLETED),
+        start=2,
+    ):
+        store.append_event(
+            QuarantineExecutionEvent(
+                RUN,
+                sequence,
+                status,
+                NOW,
+                lease.fence_epoch,
+                "PRIVATE_FINDING",
+                "f" * 64,
+            ),
+            lease,
+        )
+    engine.dispose()
+    before = database.read_bytes()
+    monkeypatch.setattr("foliotone.cli.main.migrate", lambda _path: pytest.fail("must not migrate"))
+    monkeypatch.setattr(
+        "foliotone.cli.main.create_sqlite_engine",
+        lambda _path: pytest.fail("must not open a writable engine"),
+    )
+
+    assert main(
+        [
+            "quarantine-status",
+            "--run-id",
+            str(RUN),
+            "--database",
+            str(database),
+            "--output",
+            "json",
+        ]
+    ) == 0
+
+    assert database.read_bytes() == before
+    payload = json.loads(capsys.readouterr().out)
+    encoded = json.dumps(payload, sort_keys=True)
+    assert payload["command"] == "quarantine-status"
+    assert payload["status"] == "COMPLETED"
+    assert [event["status"] for event in payload["events"]] == [
+        "PREPARED",
+        "MOVED",
+        "VERIFIED",
+        "COMPLETED",
+    ]
+    assert str(RUN) in encoded
+    for private_value in (
+        str(database),
+        CANDIDATE_HASH,
+        KEEPER_HASH,
+        PLAN_HASH,
+        REVIEW_HASH,
+        run.target_token,
+        "f" * 64,
+        "PRIVATE_FINDING",
+        "candidate.epub",
+        "keeper.epub",
+    ):
+        assert private_value not in encoded
+
+
+def test_quarantine_status_rejects_invalid_run_identifier() -> None:
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["quarantine-status", "--run-id", "not-a-uuid"])
+
+
 def _authorization(candidate_hash: str = CANDIDATE_HASH) -> QuarantineAuthorizationSnapshot:
     expires_at = NOW + timedelta(minutes=15)
     content_hash = _authorization_content_hash(
@@ -232,8 +322,8 @@ def _run(authorization: QuarantineAuthorizationSnapshot) -> QuarantineExecutionR
     )
 
 
-def _head_engine_from_migration(tmp_path: Path):
-    database = tmp_path / "quarantine.db"
+def _head_engine_from_migration(tmp_path: Path, database: Path | None = None):
+    database = database or tmp_path / "quarantine.db"
     migrate(database)
     engine = create_sqlite_engine(database)
     _seed(engine)
