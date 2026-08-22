@@ -152,7 +152,8 @@ deterministisch und no-overwrite.
 
 ### Persistenz und Status
 
-Das Folgepaket `S-W10-02` erhält eine additive Migration nach `0021` mit
+Das Folgepaket `S-W10-02` erhält eine additive Migration `0022` nach der
+inzwischen vorhandenen Revision `0021` mit
 separaten immutable Tabellen für Authorization und Execution-Run sowie einer
 append-only, lückenlos sequenzierten Eventtabelle. `PREPARED`, Move-/
 Verifikationsfortschritt, Verbrauch, Stale- und Terminalzustände werden nur

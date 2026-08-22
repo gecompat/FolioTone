@@ -123,6 +123,12 @@ if TYPE_CHECKING:
         ConsolidationStoreError,
         SQLiteConsolidationStore,
     )
+    from foliotone.persistence.quarantine import (
+        QuarantineExecutionEvent,
+        QuarantineExecutionRun,
+        QuarantineStoreError,
+        SQLiteQuarantineStore,
+    )
 
 
 def __getattr__(name: str) -> Any:
@@ -137,6 +143,15 @@ def __getattr__(name: str) -> Any:
             "ConsolidationStoreError": ConsolidationStoreError,
             "SQLiteConsolidationStore": SQLiteConsolidationStore,
         }[name]
+    if name in {
+        "QuarantineExecutionEvent",
+        "QuarantineExecutionRun",
+        "QuarantineStoreError",
+        "SQLiteQuarantineStore",
+    }:
+        from foliotone.persistence import quarantine
+
+        return getattr(quarantine, name)
     raise AttributeError(name)
 
 __all__ = [
@@ -222,6 +237,10 @@ __all__ = [
     "SQLiteRelationCandidateStore",
     "SQLiteScanRootWriteLeaseStore",
     "scan_root_write_scope",
+    "QuarantineExecutionEvent",
+    "QuarantineExecutionRun",
+    "QuarantineStoreError",
+    "SQLiteQuarantineStore",
     "alembic_config",
     "create_sqlite_engine",
     "create_sqlite_read_only_engine",
