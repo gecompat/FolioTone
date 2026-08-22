@@ -13,10 +13,10 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | `S-W10-MW01` | ADR-0063 hat genau EPUB 3, `SOURCE_METADATA` und einen einzelnen `title`-`REPLACE` akzeptiert. Der erste Slice implementiert nur bounded Preflight, lexikalischen Zwei-Spannen-Patch und Byte-/Semantik-Diff auf synthetischen Bytes, ohne Source-Commit. |
+| NOW | `S-W10-MW02` | `S-W10-MW01` liefert den reinen, bounded EPUB-3-Preflight, den lexikalischen Zwei-Spannen-Patch und den memberweisen Diff. Der nächste Slice baut daraus ausschließlich privaten Staging-Output und führt die festen unabhängigen Validatoren aus, weiterhin ohne Source-Commit. |
 | PARALLEL READY | `W10-005` | Die von ADR-0056 erlaubte Ein-Datei-Quarantäne erhält eine vollständige Authorize-/Execute-/Recovery-Bedienkette, ohne den Mutationstyp zu erweitern. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
-| NEXT WAVES | `S-W10-MW01` bis `S-W10-MW05` | Reiner Patchvertrag, privates Staging, Authorization/Persistenz, Linux-Exchange/Recovery und feste CLI/Reconciliation bleiben getrennte kleine Waves. Reale Source-Mutation bleibt bis zum Abschluss der gesamten Kette geschlossen. |
+| NEXT WAVES | `S-W10-MW02` bis `S-W10-MW05` | Privates Staging, Authorization/Persistenz, Linux-Exchange/Recovery und feste CLI/Reconciliation bleiben getrennte kleine Waves. Reale Source-Mutation bleibt bis zum Abschluss der gesamten Kette geschlossen. |
 | LATER | `W9-007`, W4 sowie die Music-Anteile aus W5 bis W7 | Weitere Operationsrezepte bleiben getrennt; Music bleibt die nächste vollständige Mediendomäne nach ausdrücklicher Aktivierung. |
 | DECISION | `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004 | ADR-0063 entscheidet nur den ersten EPUB-Titelwriter. Alle benachbarten Operationen behalten ihr eigenes technisches Gate. |
 | BLOCKED | `FG-A-SECRET`, `FG-A3-MEMBER-BYTE` | Secretkanal und Archive-Member-Byte-Identity sind von der E-Book-Write-Freigabe nicht betroffen. |
@@ -271,8 +271,8 @@ Interim-Quarantäneexecutor öffnen.
 | FG-W10-MOVE-BACKEND | PLANNED | Spätere Frontier-Härtung für einen atomaren No-Replace-Move, no-follow Elternverzeichnisse sowie reproduzierbare Cross-Device-, Race- und Crash-/Recovery-Nachweise. Der Interim-Executor ist bewusst nicht atomar; seine Zielprüfung kann eine konkurrierende Race nicht ausschließen. |
 | FG-W10-METADATA-WRITE | DONE | ADR-0063 akzeptiert ausschließlich `ebook-source-metadata-write/epub3-title-replace/v1`: ein EPUB-3-`SOURCE_METADATA`-Plan, ein `title`-`REPLACE`, lexikalischer Zwei-Spannen-Patch, memberweiser Diff, privates Staging und Linux-`renameat2`-Exchange mit Same-Filesystem-Recovery. Andere Formate, Felder und Zielträger bleiben geschlossen. |
 | W10-006 | PLANNED | Implementiere den durch ADR-0063 begrenzten EPUB-Titelwriter vollständig. Operative Verfügbarkeit entsteht erst nach allen fünf Subwaves und dem exakten Linux-/Filesystem-Konformitätsgate. |
-| S-W10-MW01 | NEXT | Implementiere reine bounded EPUB-3-Preflight-, lexikalische `dc:title`-/`dcterms:modified`-Patch- und Byte-/Semantik-Diff-Verträge mit ausschließlich synthetischen Fixtures. Keine Persistenz, CLI, Capability oder Source-Mutation. |
-| S-W10-MW02 | PLANNED | Ergänze privaten streaming-basierten Containerneuaufbau und feste Read-back-, EPUBCheck-, Text-, Cover- und Preserved-Field-Verifikation, weiterhin ohne Source-Commit. |
+| S-W10-MW01 | DONE | `foliotone.metadata_write` revalidiert den exakten reviewten Plan, denselben Full-SHA-256 und gepinnte EPUBCheck-/EPUB-3-Evidence, prüft bounded OCF-/ZIP-/XML-Verträge, ersetzt ausschließlich `dc:title` und `dcterms:modified` und belegt danach genau einen geänderten Package-Document-Member. Das reine Bytes-API besitzt keine Datei-, Persistenz-, Tool-, CLI-, Capability- oder Execute-Fläche. |
+| S-W10-MW02 | NEXT | Ergänze privaten streaming-basierten Containerneuaufbau und feste Read-back-, EPUBCheck-, Text-, Cover- und Preserved-Field-Verifikation, weiterhin ohne Source-Commit. |
 | S-W10-MW03 | PLANNED | Ergänze immutable Authorization-/Run-/Eventpersistenz, Capability-Auflösung, `ScanRootWriteLease`-/Fence-Vertrag und privacy-begrenzten read-only Status. |
 | S-W10-MW04 | PLANNED | Implementiere das Linux-`renameat2(RENAME_EXCHANGE)`-/`RENAME_NOREPLACE`-Backend, den Ein-Datei-Executor und idempotente Crash-Recovery ausschließlich auf synthetischen Filesystemen. |
 | S-W10-MW05 | PLANNED | Ergänze feste Authorize-/Execute-/Recover-CLI, zweite Bestätigung über nicht geloggtes `stdin`, unmittelbare Verifikation, neuen Scan und Collection-Reconciliation. |

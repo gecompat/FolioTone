@@ -69,11 +69,11 @@ Serialisierung, Golden Values und den Non-Execution-Gate geliefert.
 `S-W9-006B` hat Persistenz und Review-Integration geliefert; `S-W9-006C` hat
 den echten SQLite-Read-only-Report samt CLI ergänzt und `W9-006`
 abgeschlossen. ADR-0063 schließt danach `FG-W10-METADATA-WRITE` für genau
-EPUB 3, `SOURCE_METADATA` und einen einzelnen `title`-`REPLACE`. Der nächste
-reguläre Slice `S-W10-MW01` implementiert ausschließlich reine Preflight-,
-lexikalische Zwei-Spannen-Patch- und Byte-/Semantik-Diff-Verträge. Source-
-Commit, Persistenz und CLI folgen getrennt in `S-W10-MW02` bis
-`S-W10-MW05`.
+EPUB 3, `SOURCE_METADATA` und einen einzelnen `title`-`REPLACE`.
+`S-W10-MW01` implementiert die reinen Preflight-, lexikalischen Zwei-Spannen-
+Patch- und Byte-/Semantik-Diff-Verträge. `S-W10-MW02` ergänzt als nächster
+Slice ausschließlich privates Staging und feste unabhängige Validatoren.
+Source-Commit, Persistenz und CLI bleiben den späteren Waves vorbehalten.
 
 `W10-005` ist eine unabhängige parallele `FRONTIER`-Wave. Sie vervollständigt
 Capability-Auflösung, Authorize, Execute und Recovery für die bereits durch

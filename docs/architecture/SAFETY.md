@@ -266,6 +266,14 @@ Staging, Capability, Authorization, Journal, Executor, Recovery, CLI und
 Reconciliation vollständig implementiert und synthetisch belegt sind, bleibt
 auch dieser Metadatenwrite operativ nicht verfügbar.
 
+`S-W10-MW01` schwächt diese Grenze nicht. Das Paket
+`foliotone.metadata_write` nimmt ausschließlich einen immutable Plan,
+gebundene Conformance-Evidence und EPUB-Bytes entgegen. Es prüft und erzeugt
+immutable DTOs und Bytes, besitzt aber keine Pfad-, Dateischreib-,
+Persistenz-, Tool-, Netzwerk-, CLI-, Capability-, Authorization- oder
+Execute-Schnittstelle. Ein erfolgreicher `EpubTitleArchiveDiff` ist deshalb
+nur Staging-Evidence und keine Mutationsfreigabe.
+
 Ein ausführbarer Consolidation-Teil darf nicht lediglich durch einen CLI-
 Schalter aktiviert werden. Er benötigt weiterhin mindestens:
 

@@ -7,9 +7,10 @@ Medienlinien werden nur an ihren Grenzen berücksichtigt
 E-Book-Writer mit synthetischen Fixtures. Reale Mutation bleibt an
 `BACKLOG.md`, eine operation-spezifische akzeptierte technische ADR und die
 vollständige Capability-/Authorize-/Execute-/Recovery-Kette gebunden.
-ADR-0063 entscheidet davon nur den ersten EPUB-3-Titelwriter; seine reale
-Source-Mutation bleibt bis zum Abschluss von `S-W10-MW01` bis
-`S-W10-MW05` geschlossen.
+ADR-0063 entscheidet davon nur den ersten EPUB-3-Titelwriter. `S-W10-MW01`
+liefert dessen reine Preflight-, Patch- und Diff-Verträge; seine reale Source-
+Mutation bleibt bis zum Abschluss von `S-W10-MW02` bis `S-W10-MW05`
+geschlossen.
 
 ## Zweck und Autorität
 
@@ -217,7 +218,7 @@ Capability und Authorization.
 | nicht ausführbarer Duplicate-Plan | vorhanden | W9-Vertrag unverändert lassen |
 | eine reguläre Same-Filesystem-Datei quarantänisieren | enger Interim-Executor vorhanden; Bedienkette unvollständig | `W10-005`, danach optional `FG-W10-MOVE-BACKEND` |
 | atomarer/generalisierter Quarantäne-Move | nicht autorisiert | `FG-W10-MOVE-BACKEND` mit No-Replace, no-follow, Race- und Crash-Nachweis |
-| Metadaten in Source Media schreiben | ADR-0063 entscheidet nur EPUB 3 plus einen `title`-`REPLACE`; operativ nicht verfügbar | `S-W10-MW01` bis `S-W10-MW05` einschließlich Linux-/Filesystem-Konformitätsgate |
+| Metadaten in Source Media schreiben | ADR-0063 entscheidet nur EPUB 3 plus einen `title`-`REPLACE`; reiner Preflight/Patch/Diff vorhanden, operativ nicht verfügbar | `S-W10-MW02` bis `S-W10-MW05` einschließlich Linux-/Filesystem-Konformitätsgate |
 | Sidecar erzeugen oder ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-SIDECAR-WRITE` |
 | Calibre oder anderes externes System ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-EXTERNAL-LIBRARY-WRITE` |
 | Datei umbenennen oder reorganisieren | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-RENAME` |
@@ -312,10 +313,11 @@ ADR-0061, ADR-0062 und ADR-0063 aktivieren die folgenden getrennt prüfbaren Wav
    Vertrag verwendet einen lexikalischen `dc:title`-/`dcterms:modified`-
    Patch, memberweisen Diff, privates Staging und einen Linux-
    `renameat2`-Exchange mit Same-Filesystem-Recovery.
-6. `S-W10-MW01` implementiert als nächstes nur Preflight, Patch und Diff ohne
-   Source-Commit. `S-W10-MW02` bis `S-W10-MW05` ergänzen danach Staging und
-   Verifikation, Authorization/Persistenz, Linux-Executor/Recovery sowie CLI,
-   neuen Scan und Reconciliation in getrennten Waves.
+6. `S-W10-MW01` implementiert Preflight, Patch und Diff ohne Source-Commit.
+   `S-W10-MW02` ergänzt als nächstes Staging und unabhängige Verifikation;
+   `S-W10-MW03` bis `S-W10-MW05` ergänzen Authorization/Persistenz, Linux-
+   Executor/Recovery sowie CLI, neuen Scan und Reconciliation in getrennten
+   Waves.
 
 `W9-007` und die übrigen operation-spezifischen Gates folgen danach in
 getrennten Waves. Read-only REST/API- und UI-Shell beginnen erst nach der
