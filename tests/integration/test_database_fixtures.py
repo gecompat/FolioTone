@@ -29,7 +29,7 @@ def test_head_database_factory_returns_isolated_schema_copies(
     right_engine.dispose()
 
     assert marker is None
-    assert revision == "0023_collection_state"
+    assert revision == "0024_collection_state_diff_query"
 
 
 def test_head_database_factory_rejects_reuse_and_nested_names(

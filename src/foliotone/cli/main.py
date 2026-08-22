@@ -26,6 +26,12 @@ from foliotone.adapters.calibre import (
 )
 from foliotone.adapters.epubcheck import EpubCheckAnalyzer, EpubCheckError
 from foliotone.adapters.poppler import PopplerPdfAnalyzer, PopplerPdfError
+from foliotone.collection_state import (
+    MAX_COLLECTION_STATE_DIFF_LIMIT,
+    CollectionQuerySpec,
+    CollectionStateDiffRequest,
+    parse_collection_query_spec,
+)
 from foliotone.core import (
     MAX_EBOOK_COLLECTION_WORKERS,
     EbookCollectionRunStatus,
@@ -99,7 +105,13 @@ from foliotone.workflows import (
     DEFAULT_COLLECTION_REPORT_GROUP_LIMIT,
     DEFAULT_COLLECTION_REPORT_MEMBER_LIMIT,
     DEFAULT_COLLECTION_REPORT_REVIEW_LIMIT,
+    CollectionQueryReport,
+    CollectionQueryService,
+    CollectionQueryWorkflowError,
     CollectionStateBuildService,
+    CollectionStateDiffReport,
+    CollectionStateDiffService,
+    CollectionStateDiffWorkflowError,
     CollectionStateReport,
     CollectionStateWorkflowError,
     EbookAnalysisError,
@@ -335,6 +347,25 @@ def _aware_datetime(value: str) -> datetime:
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise argparse.ArgumentTypeError("timestamp must include a timezone offset")
     return parsed
+
+
+def _collection_state_diff_limit(value: str) -> int:
+    try:
+        limit = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("expected a bounded positive integer") from error
+    if not 1 <= limit <= MAX_COLLECTION_STATE_DIFF_LIMIT:
+        raise argparse.ArgumentTypeError(
+            f"diff limit must be between 1 and {MAX_COLLECTION_STATE_DIFF_LIMIT}"
+        )
+    return limit
+
+
+def _collection_query_spec(value: str) -> CollectionQuerySpec:
+    try:
+        return parse_collection_query_spec(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("query must match collection-query/v1") from error
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1404,6 +1435,80 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format; defaults to text.",
     )
 
+    collection_state_diff = subparsers.add_parser(
+        "collection-state-diff",
+        help="Compare two compatible immutable CollectionState snapshots read-only.",
+    )
+    collection_state_diff.add_argument(
+        "--before",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque earlier CollectionState snapshot identifier.",
+    )
+    collection_state_diff.add_argument(
+        "--after",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque later CollectionState snapshot identifier.",
+    )
+    collection_state_diff.add_argument(
+        "--limit",
+        type=_collection_state_diff_limit,
+        default=100,
+        help="Bounded changed-item page size; defaults to 100.",
+    )
+    collection_state_diff.add_argument(
+        "--after-file-id",
+        type=EntityId.parse,
+        help="Opaque keyset cursor returned by an earlier diff page.",
+    )
+    collection_state_diff.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="Existing SQLite database path; opened strictly read-only.",
+    )
+    collection_state_diff.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format; defaults to text.",
+    )
+
+    collection_search = subparsers.add_parser(
+        "collection-search",
+        help="Run a bounded validated query against one local metadata index.",
+    )
+    collection_search.add_argument(
+        "--snapshot",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque CollectionState snapshot identifier.",
+    )
+    collection_search.add_argument(
+        "--query",
+        required=True,
+        type=_collection_query_spec,
+        help="Bounded collection-query/v1 JSON AST; never persisted as query history.",
+    )
+    collection_search.add_argument(
+        "--private-details",
+        action="store_true",
+        help="Show selected local metadata candidates in interactive text output only.",
+    )
+    collection_search.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="Existing SQLite database path; opened strictly read-only.",
+    )
+    collection_search.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format; JSON remains private-detail-free.",
+    )
+
     consolidation_plan_report = subparsers.add_parser(
         "ebook-consolidation-report",
         help="Read one persisted non-executable consolidation plan without source access.",
@@ -1658,6 +1763,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "collection-state-build and collection-state-report."
         )
         print(
+            "Compatible snapshots can be compared and their bounded local metadata index "
+            "searched through collection-state-diff and collection-search."
+        )
+        print(
             "Bounded offline relation candidates and append-only matching review are "
             "available through ebook-match and ebook-match-review-* commands."
         )
@@ -1724,6 +1833,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "collection-state-report":
         return _run_collection_state_report(args)
+
+    if args.command == "collection-state-diff":
+        return _run_collection_state_diff(args)
+
+    if args.command == "collection-search":
+        return _run_collection_search(args)
 
     if args.command == "ebook-consolidation-report":
         return _run_ebook_consolidation_report(args)
@@ -2905,6 +3020,131 @@ def _collection_state_error(args: argparse.Namespace, code: str) -> int:
         )
     else:
         print("CollectionState operation failed: persisted state is unavailable.")
+    return 2
+
+
+def _run_collection_state_diff(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    if not database.is_file():
+        return _collection_projection_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        request = CollectionStateDiffRequest(
+            args.before,
+            args.after,
+            args.limit,
+            args.after_file_id,
+        )
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            report = CollectionStateDiffService(engine).diff(request)
+        finally:
+            engine.dispose()
+    except CollectionStateDiffWorkflowError:
+        return _collection_projection_error(args, "SNAPSHOTS_INCOMPATIBLE_OR_UNAVAILABLE")
+    except OperationalError:
+        return _collection_projection_error(args, "SCHEMA_UNAVAILABLE")
+    except (OSError, ValueError):
+        return _collection_projection_error(args, "REQUEST_OR_DATABASE_INVALID")
+    except Exception:
+        return _collection_projection_error(args, "INTERNAL_DIFF_ERROR")
+    _emit_collection_state_diff(report, args)
+    return 0
+
+
+def _run_collection_search(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    if args.private_details and args.output != "text":
+        return _collection_projection_error(args, "PRIVATE_DETAILS_REQUIRE_TEXT")
+    if not database.is_file():
+        return _collection_projection_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            report = CollectionQueryService(engine).search(
+                args.snapshot,
+                args.query,
+                private_details=args.private_details,
+            )
+        finally:
+            engine.dispose()
+    except CollectionQueryWorkflowError:
+        return _collection_projection_error(args, "INDEX_OR_QUERY_UNAVAILABLE")
+    except OperationalError:
+        return _collection_projection_error(args, "SCHEMA_UNAVAILABLE")
+    except (OSError, ValueError):
+        return _collection_projection_error(args, "REQUEST_OR_DATABASE_INVALID")
+    except Exception:
+        return _collection_projection_error(args, "INTERNAL_QUERY_ERROR")
+    _emit_collection_query(report, args)
+    return 0
+
+
+def _emit_collection_state_diff(
+    report: CollectionStateDiffReport,
+    args: argparse.Namespace,
+) -> None:
+    payload = report.payload()
+    if args.output == "json":
+        _emit_json(payload)
+        return
+    print(f"Before snapshot: {payload['before_snapshot_id']}")
+    print(f"After snapshot: {payload['after_snapshot_id']}")
+    print(f"Changed items: {payload['total_changed_items']}")
+    counts = payload["counts"]
+    assert isinstance(counts, dict)
+    for category, count in counts.items():
+        print(f"Change count: {category}={count}")
+    entries = payload["entries"]
+    assert isinstance(entries, list)
+    for entry in entries:
+        assert isinstance(entry, dict)
+        categories = ",".join(str(value) for value in entry["categories"])
+        print(f"Change: {entry['file_id']} categories={categories}")
+    print(f"Truncated: {str(payload['truncated']).casefold()}")
+    if payload["next_after_file_id"] is not None:
+        print(f"Next after file: {payload['next_after_file_id']}")
+
+
+def _emit_collection_query(report: CollectionQueryReport, args: argparse.Namespace) -> None:
+    payload = report.payload()
+    if args.output == "json":
+        _emit_json(payload)
+        return
+    print(f"Snapshot: {payload['snapshot_id']}")
+    print(f"Coverage: {payload['coverage']}")
+    print(f"Index truncation: {payload['index_truncation']}")
+    print(f"Results: {payload['result_count']}")
+    hits = payload["hits"]
+    assert isinstance(hits, list)
+    for hit, private_hit in zip(hits, report.page.hits, strict=True):
+        assert isinstance(hit, dict)
+        print(
+            f"Result: {hit['file_id']} observation={hit['observation_id']} format={hit['format']}"
+        )
+        private_values = report.private_values(private_hit) if args.private_details else ()
+        for value in private_values:
+            print(
+                f"Metadata candidate: {value.field.value}={value.value} "
+                f"evidence={value.evidence_kind.value}"
+            )
+    print(f"Truncated: {str(payload['truncated']).casefold()}")
+    if payload["next_after_file_id"] is not None:
+        print(f"Next after file: {payload['next_after_file_id']}")
+
+
+def _collection_projection_error(args: argparse.Namespace, code: str) -> int:
+    command = str(args.command)
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": command,
+                "ok": False,
+                "error": {"code": code},
+            }
+        )
+    else:
+        print("Collection projection operation failed: request or persisted state is unavailable.")
     return 2
 
 

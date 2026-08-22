@@ -127,7 +127,7 @@ def test_migration_0023_is_additive_and_collection_state_is_insert_only(
 ) -> None:
     database = tmp_path / "collection-state-migration.db"
     migrate(database, "0022_quarantine_execution_persistence")
-    migrate(database)
+    migrate(database, "0023_collection_state")
     engine = create_sqlite_engine(database)
     with engine.connect() as connection:
         assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
@@ -163,18 +163,32 @@ def test_migration_0023_is_additive_and_collection_state_is_insert_only(
         for operation in ("no_update", "no_delete")
     }
     root_id, scan_id = _seed_root_and_scan(engine)
-    _seed_observation(engine, root_id, scan_id)
-    snapshot = SQLiteCollectionStateStore(engine).build(scan_id, NOW).snapshot
+    snapshot_id = EntityId.new()
     with engine.begin() as connection:
+        connection.execute(
+            insert(collection_state_snapshots),
+            {
+                "id": str(snapshot_id),
+                "profile": "collection-state/v1",
+                "serializer": "canonical-json/v1",
+                "scan_root_id": str(root_id),
+                "source_scan_run_id": str(scan_id),
+                "created_at": NOW.isoformat(),
+                "item_count": 0,
+                "total_size_bytes": 0,
+                "items_digest": "a" * 64,
+                "content_digest": "b" * 64,
+            },
+        )
         with pytest.raises(Exception, match="immutable collection state"):
             connection.execute(
                 text("UPDATE collection_state_snapshots SET item_count=0 WHERE id=:id"),
-                {"id": str(snapshot.id)},
+                {"id": str(snapshot_id)},
             )
         with pytest.raises(Exception, match="immutable collection state"):
             connection.execute(
-                text("DELETE FROM collection_state_items WHERE snapshot_id=:id"),
-                {"id": str(snapshot.id)},
+                text("DELETE FROM collection_state_snapshots WHERE id=:id"),
+                {"id": str(snapshot_id)},
             )
     engine.dispose()
     with pytest.raises(RuntimeError, match="prevents migration downgrade"):

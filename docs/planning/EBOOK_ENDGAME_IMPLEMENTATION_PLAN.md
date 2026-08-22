@@ -2605,8 +2605,8 @@ FG-A3-MEMBER-BYTE bleibt bis vollständiger Member-SHA-256-Evidence blockiert.
 Passwortversuche bleiben bis FG-A-SECRET blockiert. Jede weitere
 Filesystem-Mutation und jede mutierende Calibre-Operation bleibt ausgeschlossen.
 
-Die aktuelle reguläre Fortsetzung ist `CS-01` aus ADR-0058. Danach folgen
-`CS-02` und `CS-03`. `W10-005` darf parallel die vollständige Capability-,
+`CS-01` und `CS-02` aus ADR-0058 sind abgeschlossen. Die aktuelle reguläre
+Fortsetzung ist `CS-03`. `W10-005` darf parallel die vollständige Capability-,
 Authorize-, Execute- und Recovery-Bedienkette für den vorhandenen
 Interim-Executor ergänzen. Die kanonische Reihenfolge und Statuswerte stehen
 ausschließlich in `BACKLOG.md`.

@@ -60,6 +60,16 @@ from foliotone.workflows.collection_state import (
     CollectionStateWorkflowError,
     SQLiteCollectionStateReportReader,
 )
+from foliotone.workflows.collection_state_query import (
+    COLLECTION_QUERY_REPORT_PROFILE,
+    COLLECTION_STATE_DIFF_REPORT_PROFILE,
+    CollectionQueryReport,
+    CollectionQueryService,
+    CollectionQueryWorkflowError,
+    CollectionStateDiffReport,
+    CollectionStateDiffService,
+    CollectionStateDiffWorkflowError,
+)
 from foliotone.workflows.comparison import (
     EBOOK_COMPARISON_PROFILE,
     EbookComparisonCoverage,
@@ -167,6 +177,14 @@ __all__ = [
     "CollectionStateReport",
     "CollectionStateWorkflowError",
     "SQLiteCollectionStateReportReader",
+    "COLLECTION_QUERY_REPORT_PROFILE",
+    "COLLECTION_STATE_DIFF_REPORT_PROFILE",
+    "CollectionQueryReport",
+    "CollectionQueryService",
+    "CollectionQueryWorkflowError",
+    "CollectionStateDiffReport",
+    "CollectionStateDiffService",
+    "CollectionStateDiffWorkflowError",
     "EbookInventoryReportError",
     "EbookInventoryReportLimits",
     "EbookInventoryReportMissingError",

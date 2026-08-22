@@ -66,6 +66,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0052](decisions/ADR-0052-immutable-archive-evidence-persistence.md) definiert die additive insert-only Archive-Evidence-Persistenz mit exakter Source-/Execution-/Wrapper-Lineage, Reuse und ScanRoot-Fencing.
 - [ADR-0057](decisions/ADR-0057-docker-first-ebook-toolchain-provisioning.md) definiert das explizite, gelockte Docker-first-Provisioning der E-Book-Spezialwerkzeuge und deren pfadfreie Format-Readiness.
 - [ADR-0058](decisions/ADR-0058-book-collection-state-and-local-projections.md) definiert die book-only Lieferfolge für rebuildbaren `CollectionState`, deterministischen Snapshot-Diff, begrenzte lokale Metadatensuche und mehrdimensionale `Library Health`.
+- [ADR-0059](decisions/ADR-0059-collection-state-diff-and-metadata-query.md) definiert die festen Diff-Kategorien, den begrenzten Query-AST, den snapshotgebundenen Metadata-FTS-Index und das private Ausgabeprofil von `CS-02`.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

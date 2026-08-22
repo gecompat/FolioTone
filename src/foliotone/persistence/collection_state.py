@@ -372,9 +372,11 @@ class SQLiteCollectionStateStore:
                 if existing is not None:
                     if existing.material_payload() != snapshot.material_payload():
                         raise CollectionStateStoreError("CollectionState content collision")
+                    self._ensure_query_index(connection, existing)
                     return CollectionStateBuildResult(existing, False)
                 self._insert_parent(connection, snapshot)
                 self._insert_items(connection, source, snapshot)
+                self._ensure_query_index(connection, snapshot)
                 return CollectionStateBuildResult(snapshot, True)
         except CollectionStateStoreError:
             raise
@@ -389,6 +391,26 @@ class SQLiteCollectionStateStore:
             raise
         except (IntegrityError, ValueError) as error:
             raise CollectionStateStoreError("CollectionState read failed") from error
+
+    def _ensure_query_index(
+        self,
+        connection: Connection,
+        snapshot: CollectionStateSnapshot,
+    ) -> None:
+        """Bind the CS-02 metadata index to this exact immutable snapshot."""
+
+        from foliotone.persistence.collection_query import (
+            CollectionQueryStoreError,
+            SQLiteCollectionQueryStore,
+        )
+
+        try:
+            SQLiteCollectionQueryStore(
+                self._engine,
+                batch_size=self._batch_size,
+            ).ensure_for_snapshot(connection, snapshot)
+        except CollectionQueryStoreError as error:
+            raise CollectionStateStoreError("Collection query index build failed") from error
 
     @staticmethod
     def _source_scan(connection: Connection, scan_run_id: EntityId) -> _SourceScan:

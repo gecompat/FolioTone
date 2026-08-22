@@ -901,9 +901,19 @@ persistierte Evidence in deterministischen Keyset-Pässen;
 bleibt pfad- sowie metadatenwertfrei. Kein Pfad öffnet Source Media, startet
 Tools oder Provider oder erhält Mutation Authority.
 
-Aktuell ist `CS-02` der nächste reguläre Produkt-Slice. Er ergänzt
-deterministischen Snapshot-Diff und begrenzte lokale Metadatensuche. Danach
-folgt `CS-03` für mehrdimensionale `Library Health` ohne Gesamtscore.
+`CS-02` ist ebenfalls abgeschlossen. `collection-state-diff/v1` trennt sieben
+direkt belegte Änderungskategorien, zählt den vollständigen Vergleich und
+begrenzt nur die nach opaque `File`-ID paginierten Details.
+`collection-query/v1` akzeptiert ausschließlich einen begrenzten `AND`-/`OR`-
+AST mit festen Feldern, Operatoren und `FILE_ID_ASC`. Migration `0024` bindet
+Statuswerte, Finding-Codes und ausgewählte Metadaten-Candidates insert-only an
+den exakten Snapshot und projiziert nur diese Werte in FTS5. Query-History,
+Content, OCR, Netzwerk, API und UI bleiben ausgeschlossen. Maschinenreports
+bleiben metadatenwertfrei; private Werte sind nur mit `--private-details` in
+interaktiver Textausgabe sichtbar und absolute Pfade werden ausgefiltert.
+
+Aktuell ist `CS-03` der nächste reguläre Produkt-Slice. Er ergänzt
+mehrdimensionale `Library Health` ohne Gesamtscore oder Mutation Authority.
 
 Für CS-01 bestanden 16 dedizierte Tests und ein betroffener 60-Test-Verbund.
 Nach dem vollständigen lokalen Lauf bestanden die 32 direkt relevanten
@@ -916,6 +926,19 @@ vollständige Pytest-Lauf vor diesem schemafreien Rebase bestand 1.751 Tests,
 Bootstrap-Vertrags ausschließlich die 47 bereits auf unverändertem Windows-
 `main` reproduzierten CRLF-/Long-Path-Baselinefehler. Der vollständige PR-CI-
 Gate bleibt der kanonische Nachweis für den exakten stabilen Head.
+
+Für CS-02 bestanden 28 dedizierte Fälle. Der synthetische 600-Dokumente-Lauf
+blieb für die FTS-Suche unter drei Sekunden und bestätigte den FTS5-Virtual-
+Table-Index. Der betroffene Persistenz-, Bootstrap- und
+Dokumentationsverbund bestand am finalen lokalen Stand 98 Tests. Eine zunächst
+fehlende FTS-Tabelleninventarisierung sowie nicht als Migration benannte
+Migrationsszenarien wurden korrigiert und darin grün nachgewiesen.
+Repository-Ruff, die statischen Vertragstests und Mypy für 201 Source-Dateien
+waren ohne Befund. Der vollständige lokale Lauf bestand 1.788 Tests,
+übersprang zehn und zeigte ausschließlich die 47 bekannten Windows-CRLF-/
+Long-Path-Baselinefehler; keine CS-02-Datei und keine neue Fehlersignatur war
+betroffen. Der vollständige PR-CI-Gate ist vor dem Git-Abschluss für den
+stabilen Head zu vervollständigen.
 
 `W10-005` darf parallel als getrennte `FRONTIER`-Wave bearbeitet werden. Der
 Slice ergänzt Capability-Auflösung sowie `quarantine-authorize`,
@@ -976,7 +999,7 @@ Export-/Import-/Sync-Workflow noch ein Kennzeichnungs- oder External-Library-
 Write. ADR-0042 bleibt `Proposed` und blockiert die lokale book-only
 `CollectionState`-Projektion nicht.
 
-Music W4 bleibt geplant und wird nach `CS-02` und `CS-03` als nächste
+Music W4 bleibt geplant und wird nach `CS-03` als nächste
 vollständige Mediendomäne fortgesetzt. Book-only Leistungen und offene
 Music-Anteile besitzen im Backlog getrennte IDs und Statuswerte.
 

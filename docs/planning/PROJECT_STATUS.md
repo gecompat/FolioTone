@@ -4,7 +4,7 @@ Stand: 2026-08-22
 
 ## Aktuelle Welle
 
-**CS-01 abgeschlossen — persistierter book-only `CollectionState` ist vorhanden**
+**CS-02 abgeschlossen — Snapshot-Diff und lokale Metadatensuche sind vorhanden**
 
 `collection-state-build` erzeugt `collection-state/v1` deterministisch aus
 der bereits persistierten Evidence genau eines abgeschlossenen book-only
@@ -19,11 +19,26 @@ Read-only-Verbindung und gibt keine Pfade, Metadatenwerte oder internen
 Evidence-Digests aus. Builder und Report öffnen keine Source Media, starten
 keine Tools oder Provider und besitzen keine Mutation Authority.
 
-**Nächster regulärer Produkt-Slice: `CS-02`**
+`collection-state-diff` vergleicht zwei kompatible Snapshots deterministisch
+und trennt hinzugefügte, verschwundene, technisch geänderte, neu analysierte,
+neu aufgelöste, neu reviewte und neu blockierte Zustände. Vollständige Counts
+und begrenzte, nach opaque `File`-ID paginierte Details bleiben pfadfrei.
 
-ADR-0058 legt als Fortsetzung deterministischen Snapshot-Diff und begrenzte
-lokale Metadatensuche fest. `CS-02` ist im kanonischen Backlog `NEXT`; danach
-folgt `CS-03` mit mehrdimensionaler `Library Health` ohne Gesamtscore.
+Migration `0024` ergänzt den insert-only, snapshotgebundenen
+`collection-query-index/v1`. `collection-search` akzeptiert ausschließlich den
+validierten `collection-query/v1`-AST mit festen Feldern und Operatoren,
+`AND`/`OR`, `FILE_ID_ASC`, Keyset-Pagination und harten Grenzen. FTS5 enthält
+nur ausgewählte Metadaten-Candidates; Content, OCR, Netzwerk und Query-History
+bleiben ausgeschlossen. JSON bleibt metadatenwertfrei. Private Metadatenwerte
+benötigen ausdrücklich `--private-details` mit interaktiver Textausgabe;
+absolute Pfade werden auch dort unterdrückt.
+
+**Nächster regulärer Produkt-Slice: `CS-03`**
+
+ADR-0058 legt als Fortsetzung eine mehrdimensionale `Library Health` fest.
+`CS-03` ist im kanonischen Backlog `NEXT` und führt weder Gesamtscore noch
+Mutation Authority ein. ADR-0059 dokumentiert den abgeschlossenen Diff- und
+Query-Vertrag.
 
 **W10-Interim abgeschlossen — Executor und read-only Quarantänestatus sind vorhanden**
 
@@ -1584,10 +1599,11 @@ Classification-, Matching-, Review-, Calibre-, Archive-, Consolidation- und
 Quarantäne-Evidence an genau einen abgeschlossenen `ScanRun`. Zwei
 deterministische Keyset-Pässe erkennen zwischenzeitlich veränderte Evidence;
 Persistenz und idempotente Wiederverwendung erfolgen atomar. `CS-02` ist
-`NEXT` und ergänzt deterministischen Snapshot-Diff sowie begrenzte lokale
-Metadatensuche; `CS-03` ergänzt danach eine mehrdimensionale `Library Health`-
-Projektion ohne Gesamtscore oder Mutation Authority. Die kanonische
-Reihenfolge steht ausschließlich in `BACKLOG.md`.
+ebenfalls abgeschlossen. ADR-0059 bindet den deterministischen Snapshot-Diff,
+den festen Query-AST und den durch Migration `0024` insert-only persistierten
+Metadata-FTS-Index. `CS-03` ist `NEXT` und ergänzt eine mehrdimensionale
+`Library Health`-Projektion ohne Gesamtscore oder Mutation Authority. Die
+kanonische Reihenfolge steht ausschließlich in `BACKLOG.md`.
 
 **Empirisch für CS-01:** Die 16 dedizierten Contract-, Migrations-,
 Persistenz-, Rollback-, Retry-, Collision-, Idempotenz-, Staleness-, Read-only-,
@@ -1608,6 +1624,25 @@ Windows-Laufzeit ergänzt erwarteten Toolpfaden den `\\?\`-Präfix. Alle Daten
 waren synthetisch; Source Media, private Runtime-Datenbanken, Tools, Provider
 und Netzwerk wurden für CS-01 nicht verwendet. Der kanonische vollständige
 PR-CI-Gate steht für den stabilen Wave-Head noch aus.
+
+**Empirisch für CS-02:** 28 dedizierte Contract-, Migration-, Diff-, FTS-,
+AST-Limit-, Pagination-, Privacy-, Read-only-, CLI- und statische
+Sicherheitsfälle bestanden. Der synthetische Skalierungsfall materialisierte
+600 Dokumente und acht selektive Treffer; die begrenzte Suche blieb unter der
+festen Drei-Sekunden-Grenze und der SQLite-Plan verwendete den FTS5-Virtual-
+Table-Index. Der betroffene Persistenz-, Bootstrap- und
+Dokumentationsverbund bestand am finalen lokalen Stand 98 Tests. Eine zunächst
+fehlende FTS-Tabelleninventarisierung sowie nicht als Migration benannte
+Migrationsszenarien wurden korrigiert und in diesem Verbund grün nachgewiesen.
+Repository-Ruff, die statischen Vertragstests und Mypy für 201 Source-Dateien
+waren ohne Befund.
+
+Der vollständige lokale Pytest-Lauf bestand 1.788 Tests und übersprang zehn.
+Die verbleibenden 47 Fehler entsprechen exakt der bereits auf unverändertem
+Windows-`main` dokumentierten Baseline: CRLF verändert bytegehashte Archive-
+Evidence und die Windows-Laufzeit ergänzt erwarteten Toolpfaden den `\\?\`-
+Präfix. Keine CS-02-Datei und keine neue Fehlersignatur war betroffen. Der
+vollständige PR-CI-Gate wird für den stabilen Head getrennt nachgewiesen.
 
 ## Nicht implementiert
 
@@ -1635,8 +1670,8 @@ Noch nicht vorhanden sind unter anderem:
 - die vollständige W10-Authorize-/Execute-/Recovery-Bedienkette, atomarer
   No-Replace-Move, Rollback, Purge, Metadatenwrite und
   Verzeichnisbereinigung; nur der enge Interim-Executor ist vorhanden;
-- Snapshot-Diff, begrenzte lokale Metadatensuche und `library-health/v1`;
-  `collection-state/v1` ist umgesetzt;
+- `library-health/v1`; `collection-state/v1`, Snapshot-Diff und begrenzte
+  lokale Metadatensuche sind umgesetzt;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 
 ## Sicherheitsgrenze

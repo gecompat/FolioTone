@@ -12,8 +12,7 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | `CS-02` | Der persistierte book-only `CollectionState` erhält deterministischen Snapshot-Diff und begrenzte lokale Metadatensuche. |
-| NEXT | `CS-03` | `Library Health` baut auf `CS-01` und `CS-02` auf, ohne einen Gesamtscore oder Mutation Authority einzuführen. |
+| NOW | `CS-03` | `Library Health` baut auf `CS-01` und `CS-02` auf, ohne einen Gesamtscore oder Mutation Authority einzuführen. |
 | PARALLEL READY | `W10-005` | Die von ADR-0056 erlaubte Ein-Datei-Quarantäne erhält eine vollständige Authorize-/Execute-/Recovery-Bedienkette, ohne den Mutationstyp zu erweitern. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
 | LATER | W4 sowie die Music-Anteile aus W5 bis W7 | Music bleibt die nächste vollständige Mediendomäne nach den drei Produktprojektionen. |
@@ -287,8 +286,8 @@ ADR-0058 bindet die folgende Reihenfolge. Die drei Aufgaben sind read-only und
 |---|---|---|
 | FG-CS-01 | DONE | Accept ADR-0058 for book-only `CollectionState`, deterministic Diff, bounded local metadata query and multidimensional `Library Health` with explicit private-detail opt-in. |
 | CS-01 | DONE | Implemented immutable, rebuildable `collection-state/v1`, additive insert-only persistence, `collection-state-build` and true SQLite-read-only `collection-state-report` over exactly one completed `ScanRun`. |
-| CS-02 | NEXT | Implement deterministic `collection-state-diff/v1` and bounded `collection-query/v1` with fixed AST allowlist, keyset pagination, metadata-only local index, `collection-state-diff` and `collection-search`. |
-| CS-03 | PLANNED | Implement `library-health/v1` and `library-health-report` with independent Scan/Fixity, analysis coverage, metadata/authority/classification, review, duplicate/variant, dependency and blocked-operation dimensions; no scalar score or mutation authority. |
+| CS-02 | DONE | Implemented deterministic `collection-state-diff/v1` and bounded `collection-query/v1` with fixed AST allowlist, keyset pagination, snapshot-bound metadata-only FTS index, `collection-state-diff` and `collection-search`. |
+| CS-03 | NEXT | Implement `library-health/v1` and `library-health-report` with independent Scan/Fixity, analysis coverage, metadata/authority/classification, review, duplicate/variant, dependency and blocked-operation dimensions; no scalar score or mutation authority. |
 
 ## Operativer Collection-Abschluss
 

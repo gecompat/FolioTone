@@ -440,6 +440,29 @@ Metadatenwerte. Der öffentliche Report prüft Parent und Item-Stream erneut
 über eine echte SQLite-Read-only-Verbindung und gibt interne Evidence- und
 Item-Digests nicht aus.
 
+### Snapshotgebundener CollectionQuery-Index
+
+Migration `0024_collection_state_diff_query` ergänzt
+`collection_query_indexes`, `collection_query_documents` und
+`collection_query_values` sowie eine lokale FTS5-Projektion. Parent,
+Dokumente und Werte sind insert-only. Der Parent bindet genau einen
+`CollectionStateSnapshot`; vollständige Counts, Coverage, Truncation und
+Digests erlauben einen deterministischen Rebuild und die Verifikation einer
+idempotenten Wiederholung. Deklarierte Dokument- und Wertanzahlen begrenzen
+zulässige Ordinale; zusammen mit Eindeutigkeit verhindern sie nach dem
+vollständigen Build weitere Appends.
+
+Dokumentzeilen speichern nur opaque File-/Observation-IDs, Format und feste
+Komponentenzustände. Wertzeilen enthalten diese technischen Filter,
+Finding-Codes und ausgewählte private `METADATA_CANDIDATE`-Werte. Es gibt kein
+eigenes Pfad-/Locatorfeld und weder Content, OCR noch Query-History; da ein
+beobachteter Candidate selbst private Freitextwerte tragen kann, bleibt der
+gesamte Index private Runtime-Persistenz. FTS5 übernimmt ausschließlich
+normalisierte `METADATA_CANDIDATE`-Werte und wird nur über gebundene Parameter
+eines validierten Query-AST gelesen. Die Suche öffnet SQLite mit `mode=ro` und
+`query_only=ON`; absolute Pfadwerte werden auch bei expliziter privater
+Textausgabe unterdrückt.
+
 ## Current constraints and deferred integrity
 
 Implemented SQL constraints include:
@@ -454,7 +477,7 @@ Implemented SQL constraints include:
 - eindeutige Ausführungs- und Befundordinale je `EbookCollectionItem` sowie
   eindeutige `ToolExecution`-Referenzen innerhalb ihrer jeweiligen Projektion.
 
-Cross-table polymorphic target validation, allgemeine Query-Repositories,
+Cross-table polymorphic target validation, allgemeine unbeschränkte Query-Repositories,
 Bulk-Write-Pfade und Transaction Orchestration bleiben zurückgestellt, bis
 ihre konkreten Zugriffsverträge vorliegen. Der gemessene E-Book-
 Paarvergleichspfad besitzt gezielte Indizes; weitere Performance-Indizes
