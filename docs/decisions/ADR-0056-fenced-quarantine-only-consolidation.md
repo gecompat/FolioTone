@@ -62,8 +62,9 @@ der Autorisierung und erneut unmittelbar vor der Mutation gilt:
 6. Candidate-Dependencies `CALIBRE`, `SIDECAR` und `ARCHIVE` sind jeweils
    `KNOWN_NONE`; `UNKNOWN`, `NOT_APPLICABLE` oder `KNOWN_PRESENT` blockieren;
 7. der Keeper ist präsent, lesbar und sein vollständiger SHA-256 stimmt;
-8. der Candidate ist eine einzelne reguläre Datei, präsent, no-follow
-   geöffnet und sein vollständiger SHA-256 stimmt;
+8. der Candidate ist eine einzelne reguläre Datei, präsent und sein
+   vollständiger SHA-256 stimmt; der vollständige no-follow-Nachweis bleibt
+   Teil der späteren `FG-W10-MOVE-BACKEND`-Härtung;
 9. Plan, Root, Scan, FileRecord, FileObservation, Reviews und Dependencies
    gehören exakt zur gebundenen Generation.
 
@@ -117,23 +118,23 @@ Der Operator provisioniert pro ScanRoot einen privaten Quarantänebereich.
 FolioTone speichert und berichtet nur eine opaque `quarantine_capability_id`.
 Absolute Pfade, Volume-Namen und Mountpunkte bleiben private Konfiguration.
 
-Vor jedem Lauf muss der Backendadapter beweisen:
+Der Interim-Executor muss vor jedem Lauf beweisen:
 
 - Source und Quarantäneziel liegen im selben Volume-/Filesystem-Kontext;
 - Ziel liegt weder im ScanRoot noch ober- oder unterhalb davon;
-- beide Elternverzeichnisse sind no-follow geöffnet und unverändert;
-- der opaque Zielpfad ist abwesend und exklusiv ohne Überschreiben erzeugbar;
-- der Move ist atomar und besitzt eine echte No-Replace-Semantik;
+- der opaque Zielpfad ist unmittelbar vor `os.rename` abwesend;
 - kein Copy+Delete-, Shell-, generischer Callback- oder ToolProvider-Fallback
   existiert;
 - nach dem Move können File-Identity, Byteanzahl und vollständiger SHA-256 am
   Ziel erneut bewiesen werden.
 
-Der Vertrag verlangt kein bestimmtes Dateisystem. Ein Windows-, Linux- oder
-anderer Adapter wird nur durch ein eigenes Gate freigegeben, wenn er diese
-Semantik mit synthetischen Crash-, Collision- und Race-Tests nachweist.
-Cross-Volume-Moves und Backends ohne atomisches No-Replace ergeben
-`TOOL_UNAVAILABLE`, nicht einen schwächeren Ersatzpfad.
+Diese Zielprüfung ist nicht atomar und schließt keine konkurrierende Race aus.
+Der Vertrag verlangt kein bestimmtes Dateisystem. `FG-W10-MOVE-BACKEND` muss
+für einen späteren Adapter beide Elternverzeichnisse no-follow und unverändert
+beweisen, das Ziel exklusiv ohne Überschreiben erzeugen sowie einen atomaren
+No-Replace-Move mit synthetischen Crash-, Collision- und Race-Tests
+nachweisen. Cross-Volume-Moves und Backends ohne diesen späteren Nachweis
+ergeben `TOOL_UNAVAILABLE`, nicht einen schwächeren Ersatzpfad.
 
 ### Fencing und Ablauf
 
@@ -144,10 +145,12 @@ Der Executor verwendet die bestehende Root-Lease mit einer neuen Owner-Klasse
    Lineage read-only revalidieren und den Bestätigungs-Event persistieren;
 2. Root-Lease erwerben und in einer kurzen Transaktion fencesicher einen
    `PREPARED`-Run mit deterministischem opaque Zielnamen persistieren;
-3. Keeper und Candidate über private, no-follow Handles erneut vollständig
-   prüfen;
-4. Backend-Capability und unveränderte Source-/Zieleltern beweisen;
-5. genau einen atomaren No-Replace-Move ausführen;
+3. Keeper und Candidate über private Runtimepfade erneut vollständig prüfen;
+   no-follow Handles bleiben Teil von `FG-W10-MOVE-BACKEND`;
+4. Same-Filesystem, Ziel-Abwesenheit und Source-Revalidierung des
+   Interim-Executors beweisen; no-follow und unveränderte Eltern bleiben Teil
+   von `FG-W10-MOVE-BACKEND`;
+5. genau einen `os.rename`-Move ohne atomare No-Replace-Behauptung ausführen;
 6. Source-Abwesenheit, Ziel-File-Identity, Größe und Full-SHA-256 beweisen;
 7. Root-Lease erneut fencen und einen terminalen Run-Event anhängen;
 8. append-only Verbrauchsevent persistieren und Lease freigeben.
