@@ -372,10 +372,12 @@ API. `S-W10-MW02` ergänzt exklusives privates Streaming-Staging sowie feste
 nicht persistierende Metadaten-, EPUBCheck-, Text-, Cover- und Preserved-
 Field-Validatoren. `S-W10-MW03` ergänzt content-addressed Preparation und
 Authorization, einmalige gefencete Runs, append-only Events, private
-Capability-Auflösung und einen read-only Status. Linux-`renameat2`-Exchange/
-Recovery sowie CLI/Reconciliation bleiben `S-W10-MW04` und `S-W10-MW05`
-vorbehalten. Bis zu deren Abschluss entsteht keine neue operative Mutation
-Authority.
+Capability-Auflösung und einen read-only Status. `S-W10-MW04` ergänzt den
+internen, fest profilierten Linux-x86_64-glibc-`renameat2`-Exchange, den
+gefenceten Ein-Datei-Executor und die idempotente Exact-State-Recovery. Das
+öffentliche Application-/CLI-Entry, zweite Bestätigung, Post-write-
+Verifikation, neuer Scan und Reconciliation bleiben `S-W10-MW05` vorbehalten.
+Bis zu dessen Abschluss entsteht keine neue operative Mutation Authority.
 
 ### Adapters
 

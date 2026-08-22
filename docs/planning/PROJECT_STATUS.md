@@ -1,8 +1,62 @@
 # Projektstatus
 
-Stand: 2026-08-22
+Stand: 2026-08-23
 
 ## Aktuelle Welle
+
+**S-W10-MW04 implementiert — Linux-Exchange und Recovery bleiben ohne Bedienpfad**
+
+`foliotone.metadata_write.linux_backend` implementiert ausschließlich
+`epub-source-replace-linux-renameat2/v1` für Linux x86_64 mit glibc. Das
+Backend öffnet Capability- und Source-Verzeichnisse komponentenweise über
+no-follow Directory-FDs, akzeptiert nur dieselbe lokale ext-, Btrfs-, tmpfs-
+oder XFS-Instanz und prüft `RENAME_EXCHANGE` sowie `RENAME_NOREPLACE` in einem
+capability-eigenen persistenten Probe-Slot. Native Windows-Ausführung,
+read-only oder nicht unterstützte Filesysteme, fremde Owner, Symlinks,
+Hardlinks, Special Bits und nicht leere beziehungsweise nicht prüfbare xattrs
+schlagen fail-closed fehl.
+
+Der Executor rekonstruiert den autorisierten Output erneut im privaten
+Staging, vergleicht alle gebundenen Hashes, Größen, Toolversionen und den
+Validator-Fingerprint und erzeugt danach exklusiv einen internen Draft neben
+der Source. Unmittelbar vor Source-Draft, `PREPARED`, atomarem Exchange,
+Originalerhalt und Restore werden eine frische Root-Fence und mindestens zwei
+Minuten verbleibende Lease-Zeit verlangt. Das separate
+`PREPARED`-Execution-Gate prüft vor dem ersten Exchange zusätzlich die noch
+gültige Authorization, aktuelle Plan-/Review-/File-Lineage und den festen
+Backend-Binding-Snapshot. Erfolg endet absichtlich bei
+`ORIGINAL_PRESERVED`; `VERIFIED` gehört zu `S-W10-MW05`.
+
+Migration `0028_metadata_write_backend` ergänzt genau einen immutable,
+pfadfreien Backend-/Probe-Binding-Snapshot je Run. Die Recovery verwendet
+unter einer neuen Fence ausschließlich den historischen autorisierten
+Observation-Locator und exakte Full-SHA-256-Verteilungen. Sie darf deshalb
+auch nach Authorization-Ablauf oder späterer Änderung des aktuellen
+`FileRecord` den ursprünglichen Zustand derselben Operation wiederherstellen.
+Uneindeutige Verteilungen führen ohne weitere Mutation zu
+`MANUAL_RECOVERY_REQUIRED`. Es existiert kein Copy+Delete-, Overwrite-,
+Cross-Volume-, Delete- oder Cleanup-Fallback; Draft-, Recovery- und
+Probe-Artefakte bleiben erhalten.
+
+Der zusammengefasste lokale MW04-Lauf bestand 37 fokussierte Unit-, SQLite-,
+Migrations-, Privacy-, Planungs- und statische Tests in 23,83 Sekunden; sieben
+echte tmpfs-/`renameat2`-Fälle wurden auf Windows erwartungsgemäß ausgelassen.
+Nach den abschließenden eng begrenzten Gate- und Cleanup-Härtungen bestanden
+zusätzlich acht Executor-Fälle, der betroffene Store-Fall sowie sieben
+Backend-Fälle; die sechs Backend-Linux-Fälle blieben dabei
+ausgelassen. Weitere 17 Dokumentationsverträge waren grün. Ruff war für den
+gesamten geänderten Python-Scope grün, Mypy prüfte zwölf direkt betroffene
+Source-Dateien ohne Befund und `git diff --check` war sauber. Die ausgelassenen
+Fälle müssen im einmaligen vollständigen Linux-PR-CI-Gate des stabilen Heads
+grün werden. Verwendet wurden ausschließlich synthetische EPUBs und temporäre
+Datenbanken im vorgesehenen Projekt-Tempbereich; reale E-Books und produktive
+Runtime-Datenbanken wurden nicht geöffnet.
+
+`S-W10-MW05` ist der nächste reguläre Slice: feste Authorize-/Execute-/
+Recover-CLI, zweite Bestätigung über nicht geloggtes `stdin`, unmittelbare
+Post-write-Verifikation, neuer Scan und Collection-Reconciliation. Bis zu
+diesem Abschluss gibt es keinen operativen Metadata-Write-Einstiegspunkt;
+REST-API, grafische Oberfläche, Music und Bilder bleiben ebenfalls geschlossen.
 
 **S-W10-MW03 abgeschlossen — Authorization und Journal bleiben nicht ausführbar**
 
@@ -55,11 +109,10 @@ sauber. Die vollständige lokale Suite wird ressourcenschonend nicht
 dupliziert; der stabile Pull-Request-Head erhält genau einen vollständigen
 CI-Gate.
 
-`S-W10-MW04` ist die nächste reguläre Wave. Sie implementiert ausschließlich
-das Linux-`renameat2`-Backend, den Ein-Datei-Executor und idempotente
-Crash-Recovery auf synthetischen Filesystemen. CLI und Reconciliation bleiben
-`S-W10-MW05` vorbehalten; reale Source-Metadata-Mutation bleibt operativ nicht
-verfügbar.
+`S-W10-MW04` implementiert inzwischen das interne Linux-`renameat2`-Backend,
+den Ein-Datei-Executor und idempotente Crash-Recovery auf synthetischen
+Filesystemen. CLI und Reconciliation bleiben `S-W10-MW05` vorbehalten; reale
+Source-Metadata-Mutation bleibt operativ nicht verfügbar.
 
 **S-W10-MW02 abgeschlossen — privates EPUB-Staging ist unabhängig verifizierbar**
 
@@ -114,9 +167,9 @@ vollständigen CI-Gate.
 
 `S-W10-MW03` ergänzt inzwischen immutable Authorization-/Run-/
 Eventpersistenz, private Capability-Auflösung, `ScanRootWriteLease`-/
-Fence-Vertrag und privacy-begrenzten read-only Status. Linux-Commit/Recovery
-sowie CLI/Reconciliation bleiben `S-W10-MW04` und `S-W10-MW05` vorbehalten.
-Reale Source-Metadata-Mutation bleibt operativ nicht verfügbar.
+Fence-Vertrag und privacy-begrenzten read-only Status. `S-W10-MW04` ergänzt
+Linux-Commit und Recovery; CLI/Reconciliation bleiben `S-W10-MW05`
+vorbehalten. Reale Source-Metadata-Mutation bleibt operativ nicht verfügbar.
 
 **S-W9-006C abgeschlossen — Metadatenkorrekturpläne sind read-only berichtbar**
 
@@ -182,7 +235,8 @@ nun ausdrücklich; andere Reviewzustände bleiben an ihre persistierten
 für den begrenzten EPUB-3-Titelwriter entschieden; `S-W10-MW01` und
 `S-W10-MW02` liefern Patch, privates Staging und unabhängige Verifikation;
 `S-W10-MW03` liefert Authorization, Journal, Capability/Fencing und read-only
-Status. `S-W10-MW04` ist der nächste reguläre Slice.
+Status. `S-W10-MW04` liefert den internen Linux-Executor und Recovery;
+`S-W10-MW05` ist der nächste reguläre Slice.
 `W10-005` bleibt parallel `READY`; reale Mutation,
 Music, Bilder, REST-API und grafische Oberfläche werden durch diesen Abschluss
 nicht aktiviert. Am finalen lokalen Stand von S-W9-006C bestanden 41

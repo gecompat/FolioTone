@@ -148,16 +148,40 @@ metadata_write_events = Table(
 )
 
 
+metadata_write_backend_bindings = Table(
+    "metadata_write_backend_bindings",
+    metadata,
+    Column(
+        "run_id",
+        ID,
+        ForeignKey("metadata_write_runs.id"),
+        primary_key=True,
+    ),
+    Column("backend_profile", Text, nullable=False),
+    Column("conformance_profile", Text, nullable=False),
+    Column("bound_at", DATETIME, nullable=False),
+    CheckConstraint(
+        "backend_profile='epub-source-replace-linux-renameat2/v1' "
+        "AND conformance_profile='renameat2-capability-probe/v1'",
+        name="ck_metadata_write_backend_bindings_profiles",
+    ),
+)
+
+
 METADATA_WRITE_TABLES = (
     metadata_write_authorizations,
     metadata_write_runs,
     metadata_write_events,
 )
 
+METADATA_WRITE_BACKEND_TABLES = (metadata_write_backend_bindings,)
+
 
 __all__ = [
     "METADATA_WRITE_TABLES",
+    "METADATA_WRITE_BACKEND_TABLES",
     "metadata_write_authorizations",
+    "metadata_write_backend_bindings",
     "metadata_write_events",
     "metadata_write_runs",
 ]

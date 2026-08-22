@@ -330,8 +330,12 @@ verfügbar. `S-W10-MW01` implementiert den reinen Preflight-, Patch- und Diff-
 Vertrag; `S-W10-MW02` implementiert privates Streaming-Staging und die festen
 unabhängigen Validatoren. `S-W10-MW03` implementiert die immutable
 Authorization-/Run-/Eventpersistenz, private Capability-Auflösung,
-Root-Lease/Fencing und read-only Status. `S-W10-MW04` ist der nächste reguläre
-Slice; eine operative Source-Mutation besteht weiterhin nicht.
+Root-Lease/Fencing und read-only Status. `S-W10-MW04` implementiert das feste
+Linux-x86_64-glibc-Backend, die persistente Backend-/Probe-Bindung, den
+gefenceten Ein-Datei-Executor und idempotente Recovery für exakte bekannte
+Hashverteilungen. Der Erfolgszustand bleibt `ORIGINAL_PRESERVED`; eine
+operative Source-Mutation besteht bis CLI, zweiter Bestätigung, Post-write-
+Verifikation, neuem Scan und Reconciliation aus `S-W10-MW05` weiterhin nicht.
 
 ## Synthetische Konformitätsmatrix
 

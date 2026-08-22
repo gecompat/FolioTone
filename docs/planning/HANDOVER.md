@@ -106,20 +106,35 @@ unbrauchbar und verlangen eine neue Vorbereitung. Die vollständige lokale
 Suite wird nicht dupliziert; der stabile Pull-Request-Head erhält genau einen
 vollständigen CI-Gate.
 
-Der spätere Source-Commit ist Linux/Docker-only und tauscht den vollständig
-verifizierten Same-Directory-Output über
-`renameat2(RENAME_EXCHANGE)` atomar mit der Source. Das Original wird danach
-per `RENAME_NOREPLACE` in den capability-gebundenen Recoverybereich desselben
-Filesystems verschoben. Fehlende Flag-/Filesystemunterstützung, NFS, `EXDEV`,
-native Windows-Ausführung oder unklare Crashzustände bleiben fail-closed. Die
-reale Mutation ist bis zum Abschluss von `S-W10-MW04` und `S-W10-MW05`
-weiterhin nicht verfügbar.
+`S-W10-MW04` implementiert den internen Source-Commit Linux/Docker-only.
+`epub-source-replace-linux-renameat2/v1` verlangt Linux x86_64 mit glibc,
+no-follow Directory-FDs, dieselbe erlaubte lokale ext-, Btrfs-, tmpfs- oder
+XFS-Instanz und einen erfolgreichen persistenten
+`renameat2-capability-probe/v1`. Der vollständig verifizierte exklusive
+Same-Directory-Draft wird per `RENAME_EXCHANGE` atomar mit der Source
+getauscht; das Original wandert anschließend per `RENAME_NOREPLACE` unter
+einen content-addressed Namen in den Capability-Recoverybereich. Es gibt
+keinen Delete-, Copy+Delete-, Overwrite- oder Cross-Volume-Fallback.
 
-`S-W10-MW04` ist die nächste reguläre Wave. Sie ergänzt ausschließlich das
-Linux-`renameat2`-Backend, den Ein-Datei-Executor und idempotente Crash-
-Recovery auf synthetischen Filesystemen. CLI, zweiter Bestätigungsschritt,
-neuer Scan und Reconciliation bleiben `S-W10-MW05` vorbehalten. Reale
-Source-Mutation bleibt bis zum Abschluss der gesamten Kette geschlossen.
+Migration `0028_metadata_write_backend` bindet genau dieses Backend und
+Probeprofil immutable und pfadfrei an den Run. Vor Draft und `PREPARED` gelten
+weiterhin die live Plan-/Review-/File-/Authorization-Gates. Unmittelbar vor
+dem Exchange prüft ein separates `PREPARED`-Gate dieselben aktuellen
+Preconditions und die frische Root-Fence erneut. Nach einem begonnenen
+Exchange darf der historische Recovery-Pfad Authorization-Ablauf oder ein
+später geändertes aktuelles `FileRecord` ignorieren, aber nur unter einer
+neuen Fence und nur für die exakten gebundenen Original-/Output-
+Hashverteilungen. Uneindeutige Zustände werden ohne weitere Mutation als
+`MANUAL_RECOVERY_REQUIRED` journalisiert.
+
+Der MW04-Erfolgszustand ist absichtlich `ORIGINAL_PRESERVED`, nicht
+`VERIFIED`. `S-W10-MW05` ist die nächste reguläre Wave: feste Authorize-/
+Execute-/Recover-CLI, zweite Bestätigung über nicht geloggtes `stdin`,
+unmittelbare Post-write-Verifikation, neuer Scan und Collection-
+Reconciliation. Bis dahin gibt es keinen operativen Source-Metadata-Write-
+Einstiegspunkt. Die echten Linux-tmpfs-/`renameat2`-Fälle bleiben lokal auf
+Windows ausgelassen und sind durch den einmaligen vollständigen Linux-PR-CI-
+Gate des stabilen Heads zu bestätigen.
 
 Für `S-W10-MW01` bestanden lokal 114 fokussierte neue und direkt betroffene
 Unit-, Privacy-, Non-Execution- und Dokumentationsvertragstests in 0,57
@@ -145,8 +160,8 @@ bereits gebaute gelockte Linux-Toolchain-Image tatsächlich durch `ebook-meta`
 Outputstatus war `CONFORMANT`. Dabei wurde Calibres volatiler, bei jedem OPF-
 Export neu erzeugter `identifier:calibre` sichtbar und anschließend eng aus
 dem Preserved-Field-Projektionsvergleich ausgeschlossen. Reale E-Books wurden
-nicht geöffnet. Ein Linux-`renameat2`- oder Source-Writer-Lauf ist weiterhin
-nicht erfolgt und gehört zu den folgenden Implementierungswaves. Der stabile
+nicht geöffnet. In dieser MW02-Welle erfolgte noch kein Linux-`renameat2`-
+oder Source-Writer-Lauf; dieser Nachweis gehört inzwischen zu MW04. Der stabile
 Pull-Request-Head erhält genau einen vollständigen Linux-CI-Gate.
 
 `S-W9-006A` ist umgesetzt. `foliotone.metadata_correction` enthält die reinen
@@ -192,8 +207,8 @@ nicht dupliziert; genau ein vollständiger PR-CI-Gate bleibt
 Merge-Voraussetzung.
 
 `FG-W10-METADATA-WRITE` ist durch ADR-0063 entschieden; `S-W10-MW01` und
-`S-W10-MW02` und `S-W10-MW03` sind umgesetzt; `S-W10-MW04` ist die nächste
-reguläre Wave.
+`S-W10-MW02`, `S-W10-MW03` und `S-W10-MW04` sind umgesetzt; `S-W10-MW05` ist
+die nächste reguläre Wave.
 `W10-005` bleibt
 parallel `READY`. Reale Source-Media-
 Mutation, Music, Bilder, REST-API und grafische Oberfläche werden weder durch

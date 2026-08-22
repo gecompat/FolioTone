@@ -554,6 +554,32 @@ einer privaten, bounded und owner-only geschützten Runtime-Konfiguration und
 werden nicht in SQLite übernommen. Migration und Store führen keine Source-
 Media-Operation aus.
 
+### Backend-Binding und getrennte Execution-/Recovery-Gates
+
+Migration `0028_metadata_write_backend` ergänzt
+`metadata_write_backend_bindings`. Genau eine Zeile bindet einen Run
+insert-only an `epub-source-replace-linux-renameat2/v1` und
+`renameat2-capability-probe/v1`; Update und Delete werden durch Trigger
+verweigert. Die Zeile enthält weder Capability-Pfade noch Source-/Output-
+Hashes. Ein belegter Binding-Zustand blockiert den Downgrade auf `0027`.
+
+`SQLiteMetadataWriteStore` gibt den privaten Observation-Locator nur an drei
+unterschiedlich strenge Aufrufer weiter. Vor dem Source-Draft ist ausschließlich
+`CREATED` zulässig. Unmittelbar nach dem append-only `PREPARED`-Event prüft das
+separate Exchange-Gate nochmals die weiterhin gültige Authorization, aktuelle
+Plan-/Review-/File-Lineage, Backend-Binding und Root-Fence. Der historische
+Recovery-Read verlangt weiterhin den exakten immutable Plan, Observation-
+Snapshot, Full-SHA-256-Nachweis, Backend-Binding und eine frische Fence, darf
+aber Authorization-Ablauf, spätere Reviewentscheidungen und einen inzwischen
+geänderten aktuellen `FileRecord` nicht als Grund verwenden, die
+Wiederherstellung bereits ausgetauschter Originalbytes aufzugeben.
+
+Die physischen Pfade und Hashes bleiben auch in diesen DTOs aus
+Standardrepräsentationen und Statusreports ausgeschlossen. Nur feste
+Confirmation-Digests und Zustände werden in das gapless Eventjournal
+übernommen. `VERIFIED` wird in MW04 nicht erzeugt; Post-write-Scan und
+Reconciliation bleiben `S-W10-MW05`.
+
 ## Current constraints and deferred integrity
 
 Implemented SQL constraints include:

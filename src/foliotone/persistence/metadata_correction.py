@@ -229,6 +229,27 @@ class SQLiteMetadataCorrectionStore:
     ) -> None:
         """Revalidate one exact persisted plan before a separate W10 authorization."""
 
+        self.require_persisted_approved_plan_in_transaction(connection, plan)
+        self._validate_candidate_lineage(
+            connection,
+            plan.candidate,
+            require_current_file=True,
+        )
+        self._validate_latest_review(connection, plan)
+
+    def require_persisted_approved_plan_in_transaction(
+        self,
+        connection: Connection,
+        plan: MetadataCorrectionPlan,
+    ) -> None:
+        """Require the exact immutable approved plan without current-state checks.
+
+        This narrower variant exists only for crash recovery of an already
+        authorized operation.  It intentionally does not treat authorization
+        expiry, later review decisions, or a changed current FileRecord as a
+        reason to abandon recovery of the original bytes.
+        """
+
         _validate_plan_identity(plan)
         _validate_plan_reducer(plan)
         row = (
@@ -248,12 +269,6 @@ class SQLiteMetadataCorrectionStore:
             or plan.blockers
         ):
             raise MetadataCorrectionStoreError("metadata correction plan is not approved")
-        self._validate_candidate_lineage(
-            connection,
-            plan.candidate,
-            require_current_file=True,
-        )
-        self._validate_latest_review(connection, plan)
 
     def _candidate_by_id(
         self,
