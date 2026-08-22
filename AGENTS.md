@@ -51,10 +51,15 @@ If repository code and documentation disagree, treat the discrepancy as a defect
 - Language: Python.
 - Primary runtime: Docker/Linux.
 - Persistence: host-persistent data mounted at `/data`; SQLite initially.
-- Media roots: read-only mounts under `/media` for normal operations. The
-  narrowly authorized ADR-0056 interim quarantine is the only W10 exception.
-- Current product mode: analysis only, except for the narrowly authorized
-  ADR-0056 W10 interim quarantine.
+- Media roots: read-only mounts under `/media` for normal operations. A
+  write-capable mount or private path is provided only to one explicitly
+  authorized W10 capability for the duration of its operation.
+- Current product mode: analysis plus operation-specific controlled W10
+  development. ADR-0061 authorizes further E-book writer implementation with
+  synthetic fixtures; only an operation with its own accepted technical ADR,
+  complete Authorize/Execute/Recovery chain and local capability may mutate
+  real Source Media. ADR-0056 interim quarantine is currently the only such
+  mutation contract.
 - Current product surface: CLI only; no web API, desktop UI or dashboard is in the active scope.
 - **Orchestration first:** before implementing substantial specialist media functionality, evaluate maintained tools with stable documented automation interfaces.
 - External specialist tools are replaceable `ToolProvider` integrations; their schemas/commands do not define the core model.
@@ -71,9 +76,11 @@ If repository code and documentation disagree, treat the discrepancy as a defect
 - External knowledge providers are behind adapters; network use is explicit, cached and privacy-bounded.
 - Matching: candidate generation first, then scoring; never global all-vs-all comparison.
 - Resolution/matching decisions preserve evidence, score/confidence, rule/resolver/matcher/provider/tool versions, and review state.
-- Consolidation execution: W9 remains non-executable. ADR-0056 permits only
-  the narrowly authorized W10 interim quarantine described there; all other
-  consolidation execution remains prohibited until its own accepted decision.
+- Consolidation execution: W9 remains non-executable. ADR-0061 releases
+  operation-specific E-book writer development but creates no global runtime
+  switch. ADR-0056 permits only the narrowly authorized W10 interim quarantine
+  described there; every other operation remains unavailable until its own
+  accepted technical decision and completed safety chain.
 
 ## 3. Privacy and repository hygiene
 
@@ -221,7 +228,12 @@ Until W10:
 - no external-tool delete/move/rename/retag operation;
 - no write-capable source-media mount required by normal operation.
 
-Within W10, ADR-0056 permits only its narrowly authorized one-file interim
+Within W10, ADR-0061 permits operation-specific writer development only with
+synthetic fixtures until the corresponding technical gate is accepted and its
+complete safety chain is implemented. It never acts as an operational
+Authorization or a shared `write-all` capability.
+
+ADR-0056 permits the currently only narrowly authorized one-file interim
 quarantine. It uses same-filesystem `os.rename`, a non-atomic target-absence
 check and full SHA-256 revalidation; it neither promises atomic no-replace nor
 authorizes copy/delete, rollback, purge, metadata writes or directory cleanup.

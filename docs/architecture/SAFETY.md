@@ -2,7 +2,11 @@
 
 ## Baseline
 
-FolioTone starts as an analysis system. Source collections are treated as evidence, not as writable workspace.
+W0 bis W9 behandeln Source Collections als Evidence und nicht als
+beschreibbaren Workspace. ADR-0061 erlaubt die kontrollierte Entwicklung der
+E-Book-Schreibstrecke mit synthetischen Fixtures. Eine reale W10-Mutation
+bleibt trotzdem an einen eigenen technischen Operationsvertrag, eine lokale
+Capability und eine kurzlebige Authorization gebunden.
 
 ## Enforced W0–W9 invariants
 
@@ -233,6 +237,12 @@ Rules:
 
 ## W10 requirements
 
+ADR-0061 entfernt die fehlende Owner-Freigabe für die Entwicklung weiterer
+E-Book-Writer. Sie ist kein globaler Runtime-Schalter und keine konkrete
+Ausführungs-Authorization. Solange die eigene technische ADR und die
+vollständige Bedien-/Recoverykette eines Operationstyps fehlen, bleibt dieser
+Writer operativ nicht verfügbar.
+
 ADR-0056 öffnet die Vertragsschicht für eine gefencete Ein-Datei-Quarantäne.
 S-W10-01 und S-W10-02 bleiben mutationsfrei. Der eng begrenzte S-W10-03-
 Interim-Executor darf ausschließlich `os.rename` im selben vom Betriebssystem
@@ -258,9 +268,14 @@ Schalter aktiviert werden. Er benötigt weiterhin mindestens:
 10. no implicit deletion based on one signal, one tool/provider result, one AI/web inference or one score;
 11. separate authorization rules for FolioTone-native operations and write-capable ToolProvider operations.
 
-## Persistence is writable; media is not
+## Persistence und operation-spezifische Media Writes
 
 `/data` is intentionally writable so scans, hashes, normalized metadata, tool execution records, authority/provider cache, decisions, and future plans can be persisted. `/media/...` is read-only in the default compose file.
+
+Ein späterer W10-Writer erhält keine allgemeine Schreibfreigabe für
+`/media`. Er verwendet ausschließlich die engste lokal aufgelöste Capability
+seines Operationstyps. Fehlt sie oder ist ihre Revalidierung nicht eindeutig,
+endet die Operation fail-closed vor der Mutation.
 
 ## Private data
 

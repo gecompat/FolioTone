@@ -350,7 +350,12 @@ Review can create durable local knowledge such as confirmed aliases or rejected 
 
 ### Consolidation
 
-W9 only plans possible actions. No executable source-media mutation exists before W10 and an explicit architecture decision.
+W9 plant mögliche Aktionen ausschließlich nicht ausführbar. ADR-0061 erlaubt
+die kontrollierte Entwicklung operation-spezifischer E-Book-Writer; eine reale
+W10-Mutation benötigt zusätzlich die eigene akzeptierte technische ADR, die
+vollständige Bedien-/Recoverykette und eine konkrete lokale Authorization. Die
+enge ADR-0056-Interim-Quarantäne ist derzeit der einzige ausführbare
+Mutationstyp.
 
 ### Adapters
 
@@ -440,7 +445,8 @@ The collection may contain hundreds of thousands of files and multiple terabytes
 
 ## Safety assumptions
 
-- source media stays read-only through W9;
+- source media stays read-only through W9; W10 writers remain
+  operation-specific and capability-bound;
 - runtime databases/caches remain outside Git;
 - external tool containers should receive read-only media mounts for analysis whenever possible;
 - write/delete/move/rename/retag commands from external tools are prohibited through W9;
