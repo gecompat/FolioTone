@@ -91,16 +91,20 @@ read-only Status enthält nur opaque IDs, Profile, Zeitpunkte und Zustände.
 Source-/Output-Hashes, Metadatenwerte, Capability-Inhalte, Fences, Findings
 und Digests bleiben privat.
 
-Für `S-W10-MW03` bestanden am stabilen lokalen Stand 71 fokussierte
+Für `S-W10-MW03` bestanden vor der abschließenden reinen Test-Fixture-
+Optimierung 71 fokussierte
 synthetische MW01-/MW02-/MW03-, Capability-, Privacy-, Fencing-, Migration-,
 Journal-, Status- und Non-Execution-Tests in 34,17 Sekunden. Ruff war für den
 gesamten geänderten Python-Scope grün; Mypy prüfte 12 direkt betroffene
-Source-Dateien ohne Befund. Reale E-Books und produktive Runtime-Datenbanken
-wurden nicht verwendet. Provider-/Toolzugang und Lizenzannahmen änderten sich
-nicht. Geänderte Writer-, Patcher-, Staging-, Validator- oder Toolversionen
-machen eine vorhandene Preparation/Authorization unbrauchbar und verlangen
-eine neue Vorbereitung. Die vollständige lokale Suite wird nicht dupliziert;
-der stabile Pull-Request-Head erhält genau einen vollständigen CI-Gate.
+Source-Dateien ohne Befund. Auf dem finalen lokalen Stand bestanden zusätzlich
+der Datenbank-Testeffizienzvertrag und die vier davon betroffenen
+Integrationsfälle, insgesamt 5 Tests in 18,33 Sekunden. Reale E-Books und
+produktive Runtime-Datenbanken wurden nicht verwendet. Provider-/Toolzugang
+und Lizenzannahmen änderten sich nicht. Geänderte Writer-, Patcher-, Staging-,
+Validator- oder Toolversionen machen eine vorhandene Preparation/Authorization
+unbrauchbar und verlangen eine neue Vorbereitung. Die vollständige lokale
+Suite wird nicht dupliziert; der stabile Pull-Request-Head erhält genau einen
+vollständigen CI-Gate.
 
 Der spätere Source-Commit ist Linux/Docker-only und tauscht den vollständig
 verifizierten Same-Directory-Output über

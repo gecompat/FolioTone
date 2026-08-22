@@ -44,13 +44,16 @@ und produktive Runtime-Datenbanken wurden nicht verwendet. Änderungen an den
 gebundenen Writer-, Patcher-, Staging-, Validator- oder Toolversionen erfordern
 eine neue Preparation und Authorization.
 
-Am stabilen lokalen Stand bestanden 71 fokussierte synthetische MW01-/MW02-/
-MW03-, Capability-, Privacy-, Fencing-, Migration-, Journal-, Status- und
-Non-Execution-Tests in 34,17 Sekunden. Ruff war für den gesamten geänderten
-Python-Scope grün; Mypy prüfte 12 direkt betroffene Source-Dateien ohne
-Befund. `git diff --check` war sauber. Die vollständige lokale Suite wird
-ressourcenschonend nicht dupliziert; der stabile Pull-Request-Head erhält
-genau einen vollständigen CI-Gate.
+Vor der abschließenden reinen Test-Fixture-Optimierung bestanden 71 fokussierte
+synthetische MW01-/MW02-/MW03-, Capability-, Privacy-, Fencing-, Migration-,
+Journal-, Status- und Non-Execution-Tests in 34,17 Sekunden. Ruff war für den
+gesamten geänderten Python-Scope grün; Mypy prüfte 12 direkt betroffene
+Source-Dateien ohne Befund. Auf dem finalen lokalen Stand bestanden zusätzlich
+der Datenbank-Testeffizienzvertrag und die vier davon betroffenen
+Integrationsfälle, insgesamt 5 Tests in 18,33 Sekunden. `git diff --check` war
+sauber. Die vollständige lokale Suite wird ressourcenschonend nicht
+dupliziert; der stabile Pull-Request-Head erhält genau einen vollständigen
+CI-Gate.
 
 `S-W10-MW04` ist die nächste reguläre Wave. Sie implementiert ausschließlich
 das Linux-`renameat2`-Backend, den Ein-Datei-Executor und idempotente

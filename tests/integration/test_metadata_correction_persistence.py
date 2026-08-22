@@ -990,7 +990,6 @@ def _metadata_write_authorization(engine, plan):
 
 
 def _persist_metadata_write_run(database: Path):
-    migrate(database)
     engine = create_sqlite_engine(database)
     plan = _approved_plan_for_metadata_write(engine)
     authorization, preparation_lease, prepared_at = _metadata_write_authorization(
@@ -1046,6 +1045,8 @@ def test_migration_0027_persists_one_use_fenced_metadata_write_journal(
     tmp_path: Path,
 ) -> None:
     database = tmp_path / "metadata-write.db"
+    migrate(database, "0026_metadata_correction_plans")
+    migrate(database)
     engine, plan, authorization, run, run_lease = _persist_metadata_write_run(database)
     store = SQLiteMetadataWriteStore(engine)
     lease_store = SQLiteScanRootWriteLeaseStore(engine)
@@ -1181,9 +1182,9 @@ def test_migration_0027_persists_one_use_fenced_metadata_write_journal(
 
 
 def test_metadata_write_status_uses_true_read_only_private_projection(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "metadata-write-status.db"
+    database = head_database
     engine, _plan_value, authorization, run, run_lease = _persist_metadata_write_run(
         database
     )
@@ -1238,9 +1239,9 @@ def test_metadata_write_status_uses_true_read_only_private_projection(
 
 
 def test_metadata_write_status_rejects_an_invalid_persisted_transition(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "metadata-write-invalid-status.db"
+    database = head_database
     engine, _plan_value, _authorization, run, run_lease = _persist_metadata_write_run(
         database
     )
@@ -1294,10 +1295,9 @@ def test_metadata_write_status_rejects_an_invalid_persisted_transition(
 
 
 def test_metadata_write_run_revalidates_the_latest_approved_review(
-    tmp_path: Path,
+    head_database: Path,
 ) -> None:
-    database = tmp_path / "metadata-write-stale-review.db"
-    migrate(database)
+    database = head_database
     engine = create_sqlite_engine(database)
     plan = _approved_plan_for_metadata_write(engine)
     assert plan.review is not None
@@ -1345,8 +1345,8 @@ def test_metadata_write_run_revalidates_the_latest_approved_review(
         acquired_at=run_created_at,
         lease_expires_at=run_created_at + timedelta(minutes=2),
     )
-    source_root = tmp_path / "synthetic-source-root"
-    recovery = tmp_path / "synthetic-recovery"
+    source_root = database.parent / "synthetic-source-root"
+    recovery = database.parent / "synthetic-recovery"
     source_root.mkdir()
     recovery.mkdir()
     run = build_metadata_write_run(
