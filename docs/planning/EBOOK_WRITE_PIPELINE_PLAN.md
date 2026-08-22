@@ -290,8 +290,8 @@ ADR-0061 und ADR-0062 aktivieren die folgenden getrennt prüfbaren Waves.
    content-addressed Serialisierung implementiert.
 2. `S-W9-006B` hat Review-Literale, Migration `0026` und insert-only
    Persistenz mit vollständiger Lineage- und Idempotenzprüfung ergänzt.
-3. `S-W9-006C` ergänzt als nächster Slice den privacy-begrenzten SQLite-
-   Read-only-Report und die CLI; damit wird `W9-006` abgeschlossen.
+3. `S-W9-006C` hat den privacy-begrenzten SQLite-Read-only-Report und die CLI
+   ergänzt und damit `W9-006` abgeschlossen.
 4. `W10-005` vervollständigt parallel die vorhandene Ein-Datei-Quarantäne in
    eigenen Authorize-, Execute-/Bestätigungs- und Recovery-Paketen, ohne den
    Mutationstyp zu erweitern.

@@ -1059,9 +1059,12 @@ class SQLiteMetadataCorrectionStore:
             review.candidate_id != plan.candidate.id
             or review.evidence_fingerprint != plan.candidate.evidence_fingerprint
             or review.candidate_set_fingerprint != plan.candidate.content_hash
-            or review.review_item_id is None
         ):
             raise MetadataCorrectionStoreError("persisted plan review binding differs")
+        if review.state is MetadataCorrectionReviewState.MISSING:
+            return
+        if review.review_item_id is None:
+            raise MetadataCorrectionStoreError("persisted plan review item is missing")
         item = (
             connection.execute(
                 select(review_schema.review_items).where(

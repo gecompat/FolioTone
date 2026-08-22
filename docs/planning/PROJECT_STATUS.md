@@ -4,7 +4,7 @@ Stand: 2026-08-22
 
 ## Aktuelle Welle
 
-**S-W9-006B abgeschlossen — Metadatenkorrekturpläne sind insert-only persistiert**
+**S-W9-006C abgeschlossen — Metadatenkorrekturpläne sind read-only berichtbar**
 
 Das neue Paket `foliotone.metadata_correction` implementiert immutable,
 path-free und bounded DTOs für `MetadataCorrectionCandidate` und
@@ -46,18 +46,35 @@ Private Metadatenwerte liegen nur in den dafür vorgesehenen Runtime-
 Valuezeilen und erscheinen weder in Fehlern noch in Standardrepräsentationen.
 Der erweiterte Non-Execution-Gate bestätigt auch für den Store: kein
 Filesystem-/Subprocessimport, keine Source-Media-Öffnung und keine öffentliche
-Apply-/Execute-/Write-Fläche. Es gibt weiterhin keine CLI und keinen Writer.
+Apply-/Execute-/Write-Fläche. Es gibt weiterhin keinen Writer.
 
-`S-W9-006C` ist jetzt der nächste reguläre Slice für den echten SQLite-
-Read-only-Report und die CLI. `W10-005` bleibt parallel `READY`; reale
-Mutation, Music, Bilder, REST-API und grafische Oberfläche sind nicht
-aktiviert. Am finalen lokalen Stand bestanden 37 gezielte Candidate-/Plan-,
-Migration-, Review-, Head-Schema-, Privacy-, Dokumentations- und Non-
-Execution-Fälle in 32,46 Sekunden. Gezieltes Ruff für alle geänderten Python-
-Dateien und Mypy für die vier betroffenen Source-Module waren ohne Befund;
-`git diff --check` blieb sauber. Eine vollständige lokale Suite wurde
-ressourcenschonend nicht dupliziert. Der stabile Pull-Request-Head erhält genau
-einen vollständigen CI-Gate.
+`ebook-metadata-correction-report` liest genau einen persistierten Plan über
+eine echte SQLite-Read-only-Verbindung mit `mode=ro` und `query_only=ON`.
+Text und JSON enthalten ausschließlich Plan-/Candidate-ID, Plan-/Candidate-
+Profil, Status, Execution-State, Plan-Content-Hash, Zielträger, Format,
+Feldpfade, Operationen, Counts, Reviewstatus und Blockerliterale. Private
+Werte, Pfade, File-/Observation-/Root-IDs, Dateinamen, Source-/Target-
+Fingerprints und Evidence-Materialien bleiben ausgeschlossen. Fehlende
+Datenbanken, ältere Schemas, fehlende Pläne und interne Lesefehler ergeben nur
+feste pfadfreie Fehlercodes; der Report migriert oder bootstrapt kein Schema.
+
+Der neue echte Read-only-Fall deckte eine zu strenge historische
+Reviewprüfung auf: Ein korrekt persistierter `MISSING`-Snapshot besitzt kein
+`ReviewItem`. Der Store akzeptiert diesen vertraglichen Zustand beim Lesen
+nun ausdrücklich; andere Reviewzustände bleiben an ihre persistierten
+`ReviewItem`-/`ReviewDecision`-Lineage gebunden.
+
+`W9-006` ist abgeschlossen. `FG-W10-METADATA-WRITE` ist die nächste reguläre
+`FRONTIER`-Wave und muss genau einen Format-/Zielträgervertrag entscheiden,
+bevor Writer-Code beginnt. `W10-005` bleibt parallel `READY`; reale Mutation,
+Music, Bilder, REST-API und grafische Oberfläche werden durch diesen Abschluss
+nicht aktiviert. Am finalen lokalen Stand bestanden 41 fokussierte Report-,
+Privacy-, Schema-, Bootstrap-, Store-, Consolidation-Regression- und statische
+Tests in 26,36 Sekunden. Ruff war für alle geänderten Python-Dateien und Mypy
+für die drei betroffenen Source-Module grün; `git diff --check` war ohne
+Befund. Eine vollständige lokale Suite wurde ressourcenschonend nicht
+dupliziert; der stabile Pull-Request-Head erhält genau einen vollständigen
+CI-Gate.
 
 **CS-03 abgeschlossen — die book-only Produktprojektionen sind vollständig**
 

@@ -100,6 +100,11 @@ from foliotone.persistence.consolidation_report import (
     ConsolidationPlanReportReaderError,
     SQLiteConsolidationPlanReportReader,
 )
+from foliotone.persistence.metadata_correction_report import (
+    MetadataCorrectionPlanReport,
+    MetadataCorrectionPlanReportReaderError,
+    SQLiteMetadataCorrectionPlanReportReader,
+)
 from foliotone.persistence.quarantine import SQLiteQuarantineStore
 from foliotone.tooling.ebook_readiness import inspect_ebook_toolchain
 from foliotone.tooling.runtime import ToolRuntime
@@ -1587,6 +1592,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format; defaults to text.",
     )
 
+    metadata_correction_report = subparsers.add_parser(
+        "ebook-metadata-correction-report",
+        help="Read one persisted non-executable metadata correction plan read-only.",
+    )
+    metadata_correction_report.add_argument(
+        "--plan",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque persisted MetadataCorrectionPlan identifier.",
+    )
+    metadata_correction_report.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="Existing SQLite database path; opened strictly read-only.",
+    )
+    metadata_correction_report.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format; both variants remain path- and metadata-value-free.",
+    )
+
     archive_collection_status = subparsers.add_parser(
         "archive-collection-status",
         help="Read one persisted archive collection run without source access.",
@@ -1822,6 +1850,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "searched through collection-state-diff and collection-search."
         )
         print(
+            "Persisted non-executable metadata correction plans can be inspected read-only "
+            "through ebook-metadata-correction-report."
+        )
+        print(
             "Bounded offline relation candidates and append-only matching review are "
             "available through ebook-match and ebook-match-review-* commands."
         )
@@ -1900,6 +1932,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-consolidation-report":
         return _run_ebook_consolidation_report(args)
+
+    if args.command == "ebook-metadata-correction-report":
+        return _run_ebook_metadata_correction_report(args)
 
     if args.command == "archive-collection-status":
         return _run_archive_collection_status(args)
@@ -3324,6 +3359,89 @@ def _ebook_consolidation_report_error(args: argparse.Namespace, code: str) -> in
         )
     else:
         print("Consolidation report failed: read-only state is unavailable.")
+    return 2
+
+
+def _run_ebook_metadata_correction_report(args: argparse.Namespace) -> int:
+    """Render one persisted metadata correction plan without mutable access."""
+
+    database: Path = args.database
+    if not database.is_file():
+        return _ebook_metadata_correction_report_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            report = SQLiteMetadataCorrectionPlanReportReader(engine).read(args.plan)
+        finally:
+            engine.dispose()
+    except MetadataCorrectionPlanReportReaderError:
+        return _ebook_metadata_correction_report_error(args, "PLAN_UNAVAILABLE")
+    except OperationalError:
+        return _ebook_metadata_correction_report_error(args, "SCHEMA_UNAVAILABLE")
+    except (OSError, ValueError):
+        return _ebook_metadata_correction_report_error(args, "DATABASE_UNAVAILABLE")
+    except Exception:
+        return _ebook_metadata_correction_report_error(args, "INTERNAL_READ_ERROR")
+
+    if args.output == "json":
+        _emit_json(report.payload())
+    else:
+        _print_ebook_metadata_correction_report(report)
+    return 0
+
+
+def _print_ebook_metadata_correction_report(
+    report: MetadataCorrectionPlanReport,
+) -> None:
+    print(f"Plan: {report.plan_id}")
+    print(f"Candidate: {report.candidate_id}")
+    print(f"Plan profile: {report.plan_profile}")
+    print(f"Candidate profile: {report.candidate_profile}")
+    print(f"Status: {report.status}")
+    print(f"Execution state: {report.execution_state}")
+    print(f"Content hash: {report.content_hash}")
+    print(f"Target carrier: {report.target_carrier}")
+    print(f"Format: {report.format_label}")
+    print(f"Review status: {report.review_status}")
+    for label, value in (
+        ("Fields", report.counts.fields),
+        ("Observed values", report.counts.observed_values),
+        ("Selected values", report.counts.selected_values),
+        ("Field evidence refs", report.counts.field_evidence_refs),
+        ("Candidate evidence refs", report.counts.candidate_evidence_refs),
+        ("Dependencies", report.counts.dependencies),
+        ("Preconditions", report.counts.preconditions),
+        ("Verification fields", report.counts.verification_fields),
+        ("Verification dependencies", report.counts.verification_dependencies),
+        ("Blockers", report.counts.blockers),
+        ("Blocker evidence refs", report.counts.blocker_evidence_refs),
+        ("Review items", report.counts.review_items),
+        ("Decisions", report.counts.decisions),
+    ):
+        print(f"{label}: {value}")
+    for field in report.fields:
+        print(
+            f"Field: {field.field_path} operation={field.operation} "
+            f"observed_values={field.observed_value_count} "
+            f"selected_values={field.selected_value_count} "
+            f"evidence_refs={field.evidence_ref_count}"
+        )
+    for code in report.blocker_codes:
+        print(f"Blocker code: {code}")
+
+
+def _ebook_metadata_correction_report_error(args: argparse.Namespace, code: str) -> int:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": "ebook-metadata-correction-report",
+                "ok": False,
+                "error": {"code": code},
+            }
+        )
+    else:
+        print("Metadata correction report failed: read-only state is unavailable.")
     return 2
 
 

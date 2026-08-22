@@ -512,8 +512,12 @@ harten Obergrenzen und berechnen Candidate- und Planidentität erneut.
 
 Die Planung benötigt keine `ScanRootWriteLease`: Sie öffnet keine Source Media
 und schreibt nur neue immutable Datenbankzeilen. Private Metadatenwerte liegen
-ausschließlich in `metadata_correction_values`; Fehlertexte und die in
-`S-W9-006C` folgende Standard-Reportfläche dürfen sie nicht übernehmen.
+ausschließlich in `metadata_correction_values`; Fehlertexte und die Standard-
+Reportfläche übernehmen sie nicht. `ebook-metadata-correction-report` öffnet
+die bestehende Datenbank mit `mode=ro` und `query_only=ON`, rehydriert genau
+einen Plan bounded über den Store und projiziert nur erlaubte opaque IDs,
+Profile, Statuswerte, Content Hash, Zielträger, Format, Feldpfade,
+Operationen, Counts, Reviewstatus und Blockerliterale.
 
 ## Current constraints and deferred integrity
 

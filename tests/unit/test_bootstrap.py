@@ -75,6 +75,10 @@ def test_status_command_is_non_destructive_bootstrap(
             "searched through collection-state-diff and collection-search."
         ),
         (
+            "Persisted non-executable metadata correction plans can be inspected read-only "
+            "through ebook-metadata-correction-report."
+        ),
+        (
             "Bounded offline relation candidates and append-only matching review are "
             "available through ebook-match and ebook-match-review-* commands."
         ),
