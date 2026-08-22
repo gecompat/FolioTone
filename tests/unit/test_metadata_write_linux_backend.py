@@ -309,11 +309,18 @@ def test_linux_tmpfs_recovery_collision_never_overwrites(
         assert collision.read_bytes() == b"synthetic-collision"
         assert (
             session.classify().state
-            is LinuxMetadataWritePhysicalState.SOURCE_OUTPUT_WITH_ORIGINAL_DRAFT
+            is LinuxMetadataWritePhysicalState.AMBIGUOUS
         )
-        session.restore_original()
+        with pytest.raises(LinuxMetadataWriteBackendError) as restore_error:
+            session.restore_original()
 
-    assert source_path.read_bytes() == source
+    assert restore_error.value.code is (
+        LinuxMetadataWriteBackendErrorCode.STATE_AMBIGUOUS
+    )
+    assert source_path.read_bytes() == output
+    draft = source_path.parent / f".foliotone-metadata-write-{run.id}.draft.epub"
+    assert draft.read_bytes() == source
+    assert collision.read_bytes() == b"synthetic-collision"
     assert output != source
 
 
