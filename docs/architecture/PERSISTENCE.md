@@ -418,6 +418,28 @@ Plan und setzt nur verwaiste `RUNNING`-Items zurück. Der Statusbericht öffnet
 SQLite read-only, aggregiert bounded in SQL und gibt weder Source-IDs noch
 Hashes, Pfade, Locator oder Secrets aus.
 
+### Immutable CollectionState-Snapshots
+
+Migration `0023_collection_state` ergänzt die Tabellen
+`collection_state_snapshots`, `collection_state_components`,
+`collection_state_counts` und `collection_state_items`. Update- und Delete-
+Trigger machen Parent- und Childzeilen insert-only. Ein belegter Snapshot
+verhindert den Downgrade, damit keine Projektion still verloren geht.
+
+`SQLiteCollectionStateStore` bindet genau einen abgeschlossenen book-only
+`ScanRun` und liest seine aktuelle sowie ältere relevante Evidence in stabilen
+Keyset-Batches. Der erste Pass berechnet Komponenten, vollständige Zähler und
+den kanonischen Item-Stream-Digest. Nach dem Parent-Insert rekonstruiert der
+zweite Pass dieselben Items; eine Abweichung bricht die gesamte Transaktion ab.
+Identische kanonische Daten verwenden denselben content-addressed Snapshot,
+geänderte Evidence erzeugt einen neuen Parent.
+
+Der gespeicherte Itemzustand enthält opaque File-/Observation-IDs, technische
+Summen sowie komponentenbezogene Zustände und Digests, aber keine Pfade oder
+Metadatenwerte. Der öffentliche Report prüft Parent und Item-Stream erneut
+über eine echte SQLite-Read-only-Verbindung und gibt interne Evidence- und
+Item-Digests nicht aus.
+
 ## Current constraints and deferred integrity
 
 Implemented SQL constraints include:

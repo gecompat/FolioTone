@@ -12,15 +12,22 @@ Under ADR-0016, the initial product surface remains CLI-only. W3 and the followi
 ## Aktuelle Lieferfolge nach dem E-Book-Endgame
 
 Die kanonische Reihenfolge und der operative Status stehen ausschließlich in
-`BACKLOG.md`. ADR-0058 akzeptiert die nächsten drei regulären read-only
-Produkt-Waves:
+`BACKLOG.md`. ADR-0058 akzeptiert drei aufeinander aufbauende reguläre
+read-only Produkt-Waves:
 
-1. `CS-01` implementiert `collection-state/v1`, `collection-state-build` und
+1. `CS-01` liefert `collection-state/v1`, `collection-state-build` und
    `collection-state-report` über genau einen abgeschlossenen `ScanRun`;
-2. `CS-02` implementiert `collection-state-diff/v1`,
+2. `CS-02` ergänzt als nächste Wave `collection-state-diff/v1`,
    `collection-query/v1`, `collection-state-diff` und `collection-search`;
-3. `CS-03` implementiert `library-health/v1` und
+3. `CS-03` ergänzt danach `library-health/v1` und
    `library-health-report` ohne Gesamtscore oder Mutation Authority.
+
+`CS-01` ist umgesetzt. Die Projektion ist immutable und rebuildbar, bindet
+ihre Evidence an einen abgeschlossenen book-only `ScanRun` und wird durch die
+additive Migration `0023` insert-only persistiert. Der Builder liest nur
+persistierte Evidence; der Report verwendet eine echte SQLite-Read-only-
+Verbindung. Beide Pfade öffnen weder Source Media noch starten sie Tools oder
+Provider.
 
 Maschinenlesbare Vertragsreports bleiben pfadfrei. Lokale interaktive
 Metadatenwerte benötigen ausdrücklich `--private-details`; absolute Pfade

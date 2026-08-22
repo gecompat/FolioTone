@@ -235,6 +235,22 @@ Textfingerprint bei unterschiedlichen vollständigen Datei-Hashes besitzen.
 Die Gruppe hat eine abgeleitete stabile ID und dokumentierte Basis, ist aber
 keine `Relation`, Confidence oder Aussage über `Edition`-/`Work`-Identität.
 
+### CollectionStateSnapshot / CollectionStateItem
+
+`CollectionStateSnapshot` ist eine immutable, rebuildbare book-only
+Anwendungsprojektion über genau einen abgeschlossenen `ScanRun`. Der Snapshot
+bindet feste Profilversionen und vollständige Zähler an den technischen
+Bestand. Seine Komponenten unterscheiden Coverage, Freshness, Konflikte und
+Kürzungen ausdrücklich; fehlende oder veraltete Evidence wird nicht als
+erfolgreiche Analyse ausgegeben.
+
+`CollectionStateItem` verbindet genau eine aktuelle `FileObservation` mit den
+relevanten persistierten Evidence-Bezügen. Content- und Item-Digests sichern
+deterministische Wiederverwendung und spätere Diffbarkeit. Sie erzeugen keine
+neue Datei-, `Edition`- oder `Work`-Identität, kein kanonisches Metadatum und
+keine Mutation Authority. Öffentliche Reports geben weder private Pfade und
+Metadatenwerte noch interne Evidence-Digests aus.
+
 ## Music layer
 
 ### MusicWork
