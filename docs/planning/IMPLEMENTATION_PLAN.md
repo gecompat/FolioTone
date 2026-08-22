@@ -17,7 +17,7 @@ read-only Produkt-Waves:
 
 1. `CS-01` liefert `collection-state/v1`, `collection-state-build` und
    `collection-state-report` über genau einen abgeschlossenen `ScanRun`;
-2. `CS-02` ergänzt als nächste Wave `collection-state-diff/v1`,
+2. `CS-02` ergänzt `collection-state-diff/v1`,
    `collection-query/v1`, `collection-state-diff` und `collection-search`;
 3. `CS-03` ergänzt danach `library-health/v1` und
    `library-health-report` ohne Gesamtscore oder Mutation Authority.
@@ -28,6 +28,16 @@ additive Migration `0023` insert-only persistiert. Der Builder liest nur
 persistierte Evidence; der Report verwendet eine echte SQLite-Read-only-
 Verbindung. Beide Pfade öffnen weder Source Media noch starten sie Tools oder
 Provider.
+
+`CS-02` ist ebenfalls umgesetzt. ADR-0059 konkretisiert sieben feste
+Diff-Kategorien und den begrenzten `collection-query/v1`-AST. Migration `0024`
+persistiert opaque IDs, Statuswerte, Finding-Codes und ausgewählte
+Metadaten-Candidates snapshotgebunden und insert-only; nur die ausgewählten
+Metadatenwerte werden lokal über FTS5 gesucht. Diff und Suche verwenden echte
+SQLite-Read-only-Verbindungen. JSON bleibt metadatenwertfrei, während
+`--private-details` ausschließlich interaktive Textausgabe öffnet.
+
+`CS-03` ist der nächste reguläre Produkt-Slice.
 
 Maschinenlesbare Vertragsreports bleiben pfadfrei. Lokale interaktive
 Metadatenwerte benötigen ausdrücklich `--private-details`; absolute Pfade

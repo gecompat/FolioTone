@@ -251,6 +251,21 @@ neue Datei-, `Edition`- oder `Work`-Identität, kein kanonisches Metadatum und
 keine Mutation Authority. Öffentliche Reports geben weder private Pfade und
 Metadatenwerte noch interne Evidence-Digests aus.
 
+### CollectionStateDiff / CollectionQuery
+
+`CollectionStateDiff` ist eine rebuildbare Anwendungsprojektion über genau
+zwei kompatible `CollectionStateSnapshot`-Objekte. Ein Eintrag trägt eine oder
+mehrere feste Änderungskategorien, bestätigt aber weder Ursache noch Identity.
+Counts beziehen sich auf den vollständigen Vergleich; Detailseiten verwenden
+eine opaque `File`-ID als Keyset-Cursor.
+
+`CollectionQuery` ist ein validierter, begrenzter AST und kein SQL- oder
+Calibre-Abfragefragment. Der zugehörige insert-only Index bindet ausgewählte
+`METADATA_CANDIDATE`-Werte, technische Statuswerte und Finding-Codes an genau
+einen Snapshot. Die Projektion erzeugt keine kanonischen Metadaten und
+speichert keine Query-History. `CollectionQuery` und sein Index bleiben
+book-only; eine spätere medienübergreifende Abstraktion wird nicht vorweggenommen.
+
 ## Music layer
 
 ### MusicWork

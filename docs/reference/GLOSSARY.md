@@ -70,6 +70,8 @@ Dieses Glossar definiert die kanonischen fachlichen Kernbegriffe des Projekts. E
 | `KeepPreferenceOutcome` | Versionierte, reine und reviewpflichtige Auswahl eines bevorzugten `FileRecord` aus bereits bestätigter File-Identity und getrennter Quality Evidence. Das Outcome beweist keine Identity und autorisiert keine physische Operation. | QualityScore, Löschentscheidung |
 | `ConsolidationPlan` | Insert-only, content-addressed und dauerhaft `NOT_EXECUTABLE` bleibender Snapshot einer möglichen späteren Konsolidierung. Er trennt Identity, Quality Evidence, reviewte Keep Preference, Preconditions, Dependencies und Future Operation Intents. | DeletePlan, CleanupScript |
 | `CollectionState` | Immutable, rebuildbare book-only Projektion persistierter Evidence für genau einen abgeschlossenen `ScanRun`. Sie bindet Coverage, Staleness, Profile und Lineage, trifft aber keine neue Identity- oder Mutationsentscheidung. | globale Mutable Library, kanonische Wahrheit, universeller Asset-Zustand |
+| `CollectionStateDiff` | Deterministische, pfadfreie Projektion direkt belegter Zustandsunterschiede zwischen genau zwei kompatiblen `CollectionState`-Snapshots. | Kausalitätsanalyse, Dateisystemmutation, Identity-Entscheidung |
+| `CollectionQuery` | Validierter und hart begrenzter book-only Query-AST über einen snapshotgebundenen lokalen Metadata-FTS-Index. | freies SQL, Content-Suche, Query-History, kanonische Metadatenabfrage |
 | `Library Health` | Zusammengefasste Bewertung des Sammlungszustands anhand mehrerer unabhängiger Analysebereiche. | Quality Score, wenn nur eine einzelne Dimension gemeint ist |
 
 ## Wichtige Abgrenzungen

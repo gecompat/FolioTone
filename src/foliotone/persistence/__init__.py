@@ -31,11 +31,23 @@ from foliotone.persistence.calibre_library_report import (
     CalibreReconciliationReportSnapshot,
     SQLiteCalibreLibraryReportReader,
 )
+from foliotone.persistence.collection_query import (
+    CollectionQueryHit,
+    CollectionQueryIndexSummary,
+    CollectionQueryPage,
+    CollectionQueryPrivateValue,
+    CollectionQueryStoreError,
+    SQLiteCollectionQueryStore,
+)
 from foliotone.persistence.collection_state import (
     COLLECTION_STATE_KEYSET_BATCH_SIZE,
     CollectionStateBuildResult,
     CollectionStateStoreError,
     SQLiteCollectionStateStore,
+)
+from foliotone.persistence.collection_state_diff import (
+    CollectionStateDiffStoreError,
+    SQLiteCollectionStateDiffReader,
 )
 from foliotone.persistence.contracts import Repository
 from foliotone.persistence.ebook_candidate_hash import (
@@ -233,6 +245,14 @@ __all__ = [
     "CollectionStateBuildResult",
     "CollectionStateStoreError",
     "SQLiteCollectionStateStore",
+    "CollectionQueryHit",
+    "CollectionQueryIndexSummary",
+    "CollectionQueryPage",
+    "CollectionQueryPrivateValue",
+    "CollectionQueryStoreError",
+    "SQLiteCollectionQueryStore",
+    "CollectionStateDiffStoreError",
+    "SQLiteCollectionStateDiffReader",
     "SQLiteEbookCandidateHashRunStore",
     "SQLiteEbookInventoryReportStore",
     "SQLiteEbookCollectionReportStore",

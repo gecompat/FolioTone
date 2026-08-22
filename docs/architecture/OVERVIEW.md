@@ -292,6 +292,20 @@ separate Reportpfad öffnet SQLite tatsächlich read-only. Beide Pfade öffnen
 keine Source Media, starten keine Tools oder Provider und besitzen keine
 Mutation Authority. ADR-0058 dokumentiert Projektion und Lieferfolge.
 
+`collection-state-diff/v1` vergleicht zwei immutable Snapshots desselben
+`ScanRoot` über begrenzte Keyset-Streams. Kategorien beschreiben nur direkt
+belegte Zustandsübergänge; ein neuer Observation-Identifier allein wird nicht
+als technische Änderung ausgegeben. Der pfadfreie Report zählt den
+vollständigen Diff und begrenzt nur seine Detailseite.
+
+`collection-query/v1` kompiliert ausschließlich einen validierten, begrenzten
+`AND`-/`OR`-AST auf feste SQLite-Abfragen. Migration `0024` bindet opaque IDs,
+Statuswerte, Finding-Codes und ausgewählte nicht kanonische Metadaten-
+Candidates insert-only an den exakten `CollectionState`. FTS5 indexiert nur
+diese Metadatenwerte, nie Content oder OCR. Maschinenreports bleiben
+metadatenwertfrei; private Werte benötigen interaktive Textausgabe mit
+`--private-details`. ADR-0059 dokumentiert den ausführbaren Vertrag.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.

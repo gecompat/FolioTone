@@ -58,8 +58,8 @@ Statusachse und keine öffentlichen Runtime-Literale.
 EB-07, EB-08, die read-only Archive-Strecke und S-W10-01 bis S-W10-04 sind
 abgeschlossen. ADR-0058 und der kanonische Backlog haben die zuvor nur
 strategisch skizzierten book-only Produktprojektionen übernommen. `CS-01` ist
-abgeschlossen, `CS-02` ist der nächste reguläre Slice; `W10-005` ist parallel
-`READY`. Der genaue
+abgeschlossen, `CS-02` ist abgeschlossen und `CS-03` ist der nächste reguläre
+Slice; `W10-005` ist parallel `READY`. Der genaue
 Paketstatus wird hier nicht dupliziert.
 
 ## Empfohlene Entwicklungsfolge
@@ -230,10 +230,10 @@ abgeleitet werden.
 | Archive Matching/Planung | Secret-, Member-, Matching- und Planungs-Evidence verbinden | bestehender Plan, abhängigkeitsgebunden | W5B-011, W6-007, W9-004/W9-005; EB-A2/EB-A3 | bestehende Archive-Gates |
 | Provider Cache/Book Provider | externe Evidence kontrolliert und offline wiederverwendbar machen | bestehender Plan, abhängigkeitsgebunden | EB-03A/B, W5B | vorhandene Provider-Gates |
 | Classification Projection | widersprüchliche Facets getrennt und rebuildbar projizieren | bestehender Plan, abhängigkeitsgebunden | EB-04, W5C | FG-04 und atomare Pakete |
-| `CollectionState` | physische Beobachtungen, bestätigte Identitäten und offene Candidates getrennt verstehen | implementiert | ADR-0058, `CS-01` | in `CS-02` über Diff und Query nutzbar machen |
+| `CollectionState` | physische Beobachtungen, bestätigte Identitäten und offene Candidates getrennt verstehen | implementiert | ADR-0058, `CS-01`, `CS-02` | in `CS-03` für unabhängige Health-Dimensionen nutzen |
 | Portable Identität und föderierter Austausch | Datensatz-Lineage über externe Kopien sowie zwischen FolioTone-Systemen nachvollziehen und konfliktbewusst fusionieren | strategischer Vorschlag, danach; Writes W10-blockiert | FUT-010, ADR-0011, ADR-0014 und ADR-0042 Proposed | FG-FED-IDENTITY, FG-FED-BUNDLE, FG-FED-MERGE und FG-FED-CARRIER |
-| Snapshot Diff | Veränderungen zwischen zwei konsistenten Zuständen erklären | bestehender Plan, abhängigkeitsgebunden | ADR-0058, `CS-02` | nach `CS-01` |
-| Sichere lokale Suche | ausgewählte Metadaten lokal über einen bounded Query-AST durchsuchen | bestehender Plan, abhängigkeitsgebunden | ADR-0058, `CS-02` | nach `CS-01`; Content bleibt ausgeschlossen |
+| Snapshot Diff | Veränderungen zwischen zwei konsistenten Zuständen erklären | implementiert | ADR-0058, ADR-0059, `CS-02` | in `CS-03` nur als belegte Zustandsänderung verwenden |
+| Sichere lokale Suche | ausgewählte Metadaten lokal über einen bounded Query-AST durchsuchen | implementiert | ADR-0058, ADR-0059, `CS-02` | Content, OCR und Query-History bleiben ausgeschlossen |
 | Preference Policy | Empfehlungen anhand expliziter Nutzerpräferenzen erzeugen | strategischer Vorschlag, danach | EB-08 teilweise | Profil-, Versionierungs- und Explanation-Vertrag |
 | Inbox und Importplanung | neue Objekte gegen den Bestand prüfen | strategischer Vorschlag, danach | neu | eigener Root-/Plan-Vertrag |
 | Acquisition/Desired Set | vorhandene Erwerbskandidaten und Lücken gegenüber einem expliziten Sollbestand erkennen | strategischer Vorschlag, später | FUT-007 teilweise | Sollbestand-, Provider- und Rechte-Evidence |

@@ -71,6 +71,10 @@ def test_status_command_is_non_destructive_bootstrap(
             "collection-state-build and collection-state-report."
         ),
         (
+            "Compatible snapshots can be compared and their bounded local metadata index "
+            "searched through collection-state-diff and collection-search."
+        ),
+        (
             "Bounded offline relation candidates and append-only matching review are "
             "available through ebook-match and ebook-match-review-* commands."
         ),

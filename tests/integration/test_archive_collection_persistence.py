@@ -255,7 +255,7 @@ def test_migration_0020_upgrades_0019_with_closed_tables_and_writer_checks(
                 {"run": str(EntityId.new())},
             ).all()
         )
-    assert revision == "0023_collection_state"
+    assert revision == "0024_collection_state_diff_query"
     assert {
         "archive_collection_runs",
         "archive_collection_items",
