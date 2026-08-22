@@ -888,38 +888,43 @@ aktuelle Gruppe und verarbeitete zwei Batchgrößen-1-Kandidaten in 0,395
 Sekunden. Private Collection-Pfade oder Laufzeitkennzahlen wurden nicht in Git
 übernommen.
 
-## Danach weiterarbeiten
+## Kanonische Fortsetzung
 
-Die langfristige E-Book-Folgestrecke für Archive und einen vollständigen
-Deduplizierungsworkflow steht in
-[`EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md`](EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md).
-Sie beginnt mit Toolbewertung, read-only Archiv-/Volume-/Sidecar-Inventar und
-lokalen Passwortkandidaten aus Containerkommentaren sowie
-begrenzten NFO-/TXT-/DIZ-/INFO-/URL-/HTML-/SFV-/README-Quellen. Der vom
-Benutzer genannte Name `Newzcrabber` ist vor einer Providerplanung zunächst
-einer konkreten dokumentierten Schnittstelle zuzuordnen. Online-Recherche
-bleibt getrennt aktivierbar und darf weder Pfade noch Passwortmaterial loggen.
-W9 erzeugt nur nicht ausführbare Pläne; jede Quarantäne-, Lösch- oder
-Verzeichnisoperation bleibt W10-blockiert.
+Die einzige kanonische Ausführungsfront steht am Anfang von `BACKLOG.md`.
+Aktuell ist `CS-01` der nächste reguläre Produkt-Slice. ADR-0058 definiert
+`collection-state/v1` als immutable, rebuildbare book-only Projektion über
+genau einen abgeschlossenen `ScanRun`. Danach folgen `CS-02` für
+Snapshot-Diff und begrenzte lokale Metadatensuche sowie `CS-03` für
+mehrdimensionale `Library Health` ohne Gesamtscore.
+
+`W10-005` darf parallel als getrennte `FRONTIER`-Wave bearbeitet werden. Der
+Slice ergänzt Capability-Auflösung sowie `quarantine-authorize`,
+`quarantine-execute` und `quarantine-recover` um den vorhandenen
+Interim-Executor. Er erweitert weder die Ein-Datei-/Same-Filesystem-Grenze
+noch behauptet er atomare No-Replace-Semantik. Die zweite Bestätigung bleibt
+auf nicht geloggtes `stdin` beschränkt.
+
+`OPS-001` ist ein getrenntes lokales Betriebsverfahren für den vollständigen
+privaten Inventory-/Hash-/Collection-/Verifier-Lauf. Es verwendet den
+read-only Bestand, erzeugt keine CI-Evidence und schreibt keine privaten
+Artefakte nach Git.
 
 EB-07 und EB-08 sind abgeschlossen. ADR-0034 ist vollständig umgesetzt;
 S-EB08-01 bis S-EB08-09 sowie W9 sind `DONE`. `foliotone.consolidation`
 liefert immutable DTOs, `canonical-json/v1`, reine Preconditions und Blocker,
 die reviewpflichtige Keep Preference, Migration `0016`, insert-only Persistenz,
 den read-only Report `ebook-consolidation-report` und den statischen
-Non-Execution-Gate gegen Filesystem-Mutationen, mutierende
-Calibre-Command-Shapes und öffentliche Ausführungssurfaces. Jede
-Filesystem-Mutation, mutierende Calibre-Operation und ausführbare W10-Strecke
-bleibt ausgeschlossen.
+Non-Execution-Gate gegen Filesystem-Mutationen und mutierende
+Calibre-Command-Shapes. W9-Pläne bleiben dauerhaft `NOT_EXECUTABLE`; nur ein
+separater, kurzlebiger ADR-0056-Authorization-Snapshot darf den vorhandenen
+Interim-Quarantäneexecutor öffnen.
 
-FG-03A ist jetzt durch ADR-0035 akzeptiert. Das Gate legt den
+FG-03A ist durch ADR-0035 akzeptiert. Das Gate legt den
 `provider-cache-entry/v1`-Vertrag mit Result-Status, Payload-Kind,
 Freshness-Triade, getrenntem vierteiligen Source- und fünfteiligen
 Mapping-Input-Key, Negative-Cache-Regeln, Mapping-Reanalyse ohne Refetch,
-generation-gefencetem CAS und bounded Retention fest. Der nächste
-maßgebliche Implementierungsschritt gemäß
-`EBOOK_ENDGAME_IMPLEMENTATION_PLAN.md` ist S-EB03A-01 mit immutable
-Cache-DTOs und den in ADR-0035 festgelegten Result-/Freshness-Literalen.
+generation-gefencetem CAS und bounded Retention fest. EB-03A und der
+Open-Library-Slice EB-03B sind abgeschlossen.
 
 EB-00, EB-01/E4, EB-02, EB-05, EB-06, EB-07 und EB-08 sind abgeschlossen. Die
 Reihenfolge, Stop-Gates und atomaren Pakete stehen in
@@ -948,11 +953,12 @@ Austauschpaket, Merge/Trust/Decision Compatibility und read-only
 Kennzeichnungsträger erforderlich. Ein Tag, Pfad oder Hash ist dabei keine
 alleinige Identitätsautorität. ADR-0042 ist `Proposed`; es existiert weder ein
 Export-/Import-/Sync-Workflow noch ein Kennzeichnungs- oder External-Library-
-Write. Die aktive Archive-Welle und W10 bleiben unverändert.
+Write. ADR-0042 bleibt `Proposed` und blockiert die lokale book-only
+`CollectionState`-Projektion nicht.
 
-Music W4 bleibt geplant, wird aber erst nach der E-Book-Vertiefung und den
-book-spezifischen Teilen von Authority Resolution, Matching, Review und
-Calibre-Library-Reconciliation fortgesetzt.
+Music W4 bleibt geplant und wird nach `CS-01` bis `CS-03` als nächste
+vollständige Mediendomäne fortgesetzt. Book-only Leistungen und offene
+Music-Anteile besitzen im Backlog getrennte IDs und Statuswerte.
 
 Die Produktoberfläche bleibt dabei ausschließlich die CLI. Externe Tool-Ergebnisse werden weiterhin als Evidence behandelt und nicht direkt zu kanonischen Metadaten.
 
@@ -968,7 +974,9 @@ Die Produktoberfläche bleibt dabei ausschließlich die CLI. Externe Tool-Ergebn
 - Keine write-capable externe Tooloperation.
 - Externe Tool-/Provider-Ergebnisse sind Evidence, nicht kanonische Wahrheit.
 - Absolute private Pfade werden nicht als persistierte Tool-Input-Identität gespeichert.
-- W10 bleibt bis zu einer späteren expliziten ADR blockiert.
+- ADR-0056 erlaubt ausschließlich die enge Interim-Ein-Datei-Quarantäne;
+  atomarer Move, weitere Mutationstypen, Rollback, Purge und Cleanup bleiben
+  getrennt blockiert.
 
 ## Dokumentations- und Lizenzregeln
 

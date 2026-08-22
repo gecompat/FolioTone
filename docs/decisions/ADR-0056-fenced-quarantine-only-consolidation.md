@@ -216,6 +216,47 @@ revalidierten Ort erfolgen. Purge, Retention, Empty-Directory-Cleanup,
 Metadatenwrite, eingebettete Identifier, Sidecarwrite und Calibrewrite sind
 nicht Teil von ADR-0056.
 
+### Bedien- und Recoverykette (W10-005)
+
+S-W10-01 bis S-W10-04 stellen Vertrag, Persistenz, Interim-Executor und
+read-only Status bereit. Sie stellen noch keine vollständige
+Operator-Bedienkette bereit. `W10-005` darf diese Lücke schließen, ohne den
+erlaubten Mutationstyp zu erweitern.
+
+Ein `QuarantineCapabilityResolver` lädt eine geschützte lokale
+Runtimekonfiguration außerhalb von Git und SQLite. Der CLI-Prozess erhält den
+Konfigurationsdateipfad ausschließlich über
+`FOLIOTONE_QUARANTINE_CAPABILITIES_FILE`; argv und öffentliche Reports
+enthalten keinen Pfad. Die bounded JSON-Datei ordnet eine opaque
+`quarantine_capability_id` genau einem `scan_root_id`, einem privaten
+ScanRoot-Verzeichnis und einem privaten Quarantäneverzeichnis zu. Unbekannte
+Felder, doppelte IDs, relative Pfade, überlappende Roots, Symlink-/Reparse-
+Komponenten, nicht reguläre Verzeichnisse oder nicht nachweisbar geschützte
+Dateiberechtigungen ergeben `TOOL_UNAVAILABLE`. Konfigurationswerte werden
+nicht persistiert oder ausgegeben.
+
+Die Bedienkette besteht aus vier festen Kommandos:
+
+1. `quarantine-authorize` akzeptiert opaque Plan-ID, vollständigen
+   Plan-Content-Hash und Capability-ID. Es lädt Plan, aktuelle Evidence,
+   Reviews und Dependencies, baut `quarantine-authorization/v1` und
+   persistiert ausschließlich einen erfolgreichen Snapshot.
+2. `quarantine-execute` liest Authorization-ID und Plan-ID ein zweites Mal
+   über nicht geloggtes `stdin`, revalidiert Ablauf, Verbrauch, Plan,
+   Evidence, Reviews, Capability und Root-Lineage, erwirbt danach die
+   `CONSOLIDATION_QUARANTINE_RUN`-Lease und ruft den engen Interim-Executor.
+3. `quarantine-recover` akzeptiert nur eine opaque Run-ID. Es erwirbt dieselbe
+   Root-Lease und klassifiziert Source/Ziel ausschließlich nach der in diesem
+   ADR festgelegten Recovery-Matrix. Ein unklarer Zustand endet ohne weitere
+   Mutation als `MANUAL_REVIEW`.
+4. `quarantine-status` bleibt die einzige maschinenlesbare öffentliche
+   Statusprojektion.
+
+Kein Kommando akzeptiert freie Source-/Zielpfade, Command-Fragmente,
+Callbacks, Batchlisten oder ToolProvider-Argumente. CLI-Fehler bleiben
+pfadfrei. Eine Capability-Konfiguration, Authorization oder erfolgreiche
+Recovery autorisiert weder Rollback noch Purge.
+
 ## Arbeitspakete
 
 1. `S-W10-01`: reine DTOs, kanonische Hashes, Authorization-/Statusreducer und
@@ -228,6 +269,8 @@ nicht Teil von ADR-0056.
 4. `FG-W10-MOVE-BACKEND`: spätere Frontier-Härtung für atomaren No-Replace-
    Move, no-follow Elternverzeichnisse und Crash-/Race-/Cross-Device-Nachweis.
 5. `S-W10-04`: read-only Status/Report und fokussierter End-to-End-Abschluss.
+6. `W10-005`: Capability Resolver, feste Authorize-/Execute-/Recovery-CLI und
+   synthetische Crash-/Recovery-Abnahme; keine neuen Mutationstypen.
 
 Jedes Paket erhält einen eigenen kleinen PR. Vollständige Tests laufen einmal
 im PR-Gate; lokal werden nur betroffene Unit-, Schema- und Integrationsknoten
