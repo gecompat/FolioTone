@@ -100,8 +100,7 @@ resolution_candidate_evidence = Table(
         name="ck_resolution_candidate_evidence_entity_kind",
     ),
     CheckConstraint(
-        "length(material_fingerprint) = 64 "
-        "AND material_fingerprint NOT GLOB '*[^0-9a-f]*'",
+        "length(material_fingerprint) = 64 AND material_fingerprint NOT GLOB '*[^0-9a-f]*'",
         name="ck_resolution_candidate_evidence_fingerprint",
     ),
     UniqueConstraint(
@@ -137,13 +136,21 @@ review_items = Table(
     Column("created_at", DATETIME, nullable=False),
     CheckConstraint(
         "review_type IN ('AUTHORITY_RESOLUTION', 'CLASSIFICATION', 'MATCH_RELATION', "
-        "'KEEP_PREFERENCE', 'CONSOLIDATION_CANDIDATE')",
+        "'KEEP_PREFERENCE', 'CONSOLIDATION_CANDIDATE', 'METADATA_CORRECTION')",
         name="ck_review_items_type",
     ),
     CheckConstraint(
         "candidate_kind IN ('RESOLUTION_CANDIDATE', 'CLASSIFICATION_ASSERTION', "
-        "'RELATION', 'KEEP_PREFERENCE', 'CONSOLIDATION_CANDIDATE')",
+        "'RELATION', 'KEEP_PREFERENCE', 'CONSOLIDATION_CANDIDATE', "
+        "'METADATA_CORRECTION_CANDIDATE')",
         name="ck_review_items_candidate_kind",
+    ),
+    CheckConstraint(
+        "(review_type = 'METADATA_CORRECTION' "
+        "AND candidate_kind = 'METADATA_CORRECTION_CANDIDATE') OR "
+        "(review_type <> 'METADATA_CORRECTION' "
+        "AND candidate_kind <> 'METADATA_CORRECTION_CANDIDATE')",
+        name="ck_review_items_metadata_correction_pair",
     ),
     CheckConstraint(
         "state IN ('PENDING', 'DECIDED', 'DEFERRED', 'STALE')",

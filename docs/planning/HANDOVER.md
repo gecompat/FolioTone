@@ -28,21 +28,27 @@ Der Plan bildet feste Source-, Target-, Dependency-, Review- und Writer-
 Preconditions sowie die Post-write-Verifikation ab, bietet aber ausschließlich
 den Execution-State `NOT_EXECUTABLE` an.
 
-54 fokussierte synthetische Unit-, Golden-Value-, Blocker-, Privacy- und
-Non-Execution-Tests bestanden nach der Korrektur zweier anfänglicher Golden-
-Platzhalter und einer zu groben Scannerregel. Gezielte Ruff- und Mypy-Prüfungen
-des neuen Pakets waren grün. Der statische Gate bestätigt zusätzlich, dass das
-Paket weder Persistenz, CLI, Tooling noch Filesystem-/Subprocessmodule
-importiert. Zusätzlich bestanden sieben Planungs- und neun
-Dokumentationsvertragstests; `git diff --check` war ohne Befund. Eine
-vollständige lokale Suite wurde ressourcenschonend nicht dupliziert; der
-einmalige vollständige PR-CI-Gate bleibt Merge-Voraussetzung.
+`S-W9-006B` ist ebenfalls umgesetzt. Der Review-Core besitzt die fest gepaarten
+Metadata-Correction-Literale. Migration `0026_metadata_correction_plans`
+erhält bestehende Review-/Decision- und Consolidation-Review-Zeilen, ergänzt
+14 normalisierte insert-only Tabellen mit bounded Child-Counts und verweigert
+einen datenverlustbehafteten Downgrade. Der Store rehydriert den vollständigen
+Graph bounded, prüft alle content-addressed Identitäten, den kanonischen
+Reducer sowie Source-, Full-SHA-, Evidence-, Dependency-, Target- und neueste
+Review-Lineage in einer kurzen Transaktion. Exakte Retries sind idempotent;
+abweichende Payloads und fehlende oder fremde Lineage schlagen atomar fehl.
 
-`S-W9-006B` ist jetzt `READY`: ReviewType und ReviewCandidateKind werden
-additiv erweitert; Migration `0026` und der insert-only Store müssen Candidate
-und Plan bounded rehydrieren und alle Hashes sowie Source-/Review-Lineage in
-einer kurzen Transaktion erneut prüfen. `S-W9-006C` folgt erst danach mit dem
-echten SQLite-Read-only-Report und der CLI. `W10-005` bleibt parallel `READY`.
+Private Werte werden ausschließlich in Runtime-Valuezeilen gespeichert und
+nicht in Fehlermeldungen übernommen. Der Store besitzt keinen Pfadparameter,
+öffnet keine Source Media und bietet keine Execute-/Apply-/Write-Fläche.
+`S-W9-006C` ist als nächster regulärer Slice `READY` und ergänzt erst danach
+den echten SQLite-Read-only-Report und die CLI. `W10-005` bleibt parallel
+`READY`. Am finalen lokalen Stand bestanden 37 gezielte Candidate-/Plan-,
+Migration-, Review-, Head-Schema-, Privacy-, Dokumentations- und Non-
+Execution-Fälle in 32,46 Sekunden. Gezieltes Ruff für alle geänderten Python-
+Dateien und Mypy für die vier betroffenen Source-Module waren grün;
+`git diff --check` war ohne Befund. Die vollständige lokale Suite wurde nicht
+dupliziert; genau ein vollständiger PR-CI-Gate bleibt Merge-Voraussetzung.
 
 W0 bis W2 sind abgeschlossen. Der W2-Slice umfasst Incremental Index, Hashing, Filename-/Path-Kandidaten, konfigurierbare Parsing-Profile und eine generische read-only ToolProvider Runtime. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
 

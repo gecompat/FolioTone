@@ -99,6 +99,12 @@ from foliotone.persistence.library_health import (
     LibraryHealthStoreError,
     SQLiteLibraryHealthStore,
 )
+from foliotone.persistence.metadata_correction import (
+    MAX_METADATA_CORRECTION_BLOCKERS,
+    MAX_METADATA_CORRECTION_PRECONDITIONS,
+    MetadataCorrectionStoreError,
+    SQLiteMetadataCorrectionStore,
+)
 from foliotone.persistence.provider_cache_store import (
     ProviderCacheStoreCandidate,
     ProviderCacheStoreCapacityError,
@@ -262,6 +268,10 @@ __all__ = [
     "LibraryHealthBuildResult",
     "LibraryHealthStoreError",
     "SQLiteLibraryHealthStore",
+    "MAX_METADATA_CORRECTION_BLOCKERS",
+    "MAX_METADATA_CORRECTION_PRECONDITIONS",
+    "MetadataCorrectionStoreError",
+    "SQLiteMetadataCorrectionStore",
     "SQLiteEbookCandidateHashRunStore",
     "SQLiteEbookInventoryReportStore",
     "SQLiteEbookCollectionReportStore",

@@ -11,9 +11,7 @@ IMPLEMENTATION = PLANNING / "IMPLEMENTATION_PLAN.md"
 FUTURE_MAP = PLANNING / "FUTURE_CAPABILITY_MAP.md"
 WRITE_PIPELINE = PLANNING / "EBOOK_WRITE_PIPELINE_PLAN.md"
 ADR = ROOT / "docs/decisions/ADR-0058-book-collection-state-and-local-projections.md"
-WRITE_AUTHORIZATION_ADR = (
-    ROOT / "docs/decisions/ADR-0061-controlled-ebook-write-development.md"
-)
+WRITE_AUTHORIZATION_ADR = ROOT / "docs/decisions/ADR-0061-controlled-ebook-write-development.md"
 METADATA_CORRECTION_ADR = (
     ROOT / "docs/decisions/ADR-0062-non-executable-metadata-correction-plans.md"
 )
@@ -29,13 +27,13 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `S-W9-006B` |" in backlog
-    assert "Produktoberflächen bleiben geschlossen" in backlog
+    assert "| NOW | `S-W9-006C` |" in backlog
+    assert "Writer und Source-Zugriff bleiben geschlossen" in backlog
     assert "| W9-006 | NEXT |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
     assert "| S-W9-006A | DONE |" in backlog
-    assert "| S-W9-006B | READY |" in backlog
-    assert "| S-W9-006C | PLANNED |" in backlog
+    assert "| S-W9-006B | DONE |" in backlog
+    assert "| S-W9-006C | READY |" in backlog
     assert "| W10-005 | READY |" in backlog
     assert "| OPS-001 | READY |" in backlog
     assert "Andere Planungsdokumente erläutern diese Aufgaben" in backlog

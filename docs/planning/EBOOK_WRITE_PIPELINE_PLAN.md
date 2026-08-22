@@ -286,12 +286,12 @@ zusammenziehen.
 ADR-0061 und ADR-0062 aktivieren die folgenden getrennt prüfbaren Waves.
 `BACKLOG.md` bleibt für ihren Status maßgeblich:
 
-1. `S-W9-006A` implementiert die reinen Candidate-/Plan-Verträge und ihre
-   kanonische content-addressed Serialisierung.
-2. `S-W9-006B` ergänzt Review-Literale, Migration `0026` und insert-only
-   Persistenz mit vollständiger Lineage- und Idempotenzprüfung.
-3. `S-W9-006C` ergänzt den privacy-begrenzten SQLite-Read-only-Report und die
-   CLI; damit wird `W9-006` abgeschlossen.
+1. `S-W9-006A` hat die reinen Candidate-/Plan-Verträge und ihre kanonische
+   content-addressed Serialisierung implementiert.
+2. `S-W9-006B` hat Review-Literale, Migration `0026` und insert-only
+   Persistenz mit vollständiger Lineage- und Idempotenzprüfung ergänzt.
+3. `S-W9-006C` ergänzt als nächster Slice den privacy-begrenzten SQLite-
+   Read-only-Report und die CLI; damit wird `W9-006` abgeschlossen.
 4. `W10-005` vervollständigt parallel die vorhandene Ein-Datei-Quarantäne in
    eigenen Authorize-, Execute-/Bestätigungs- und Recovery-Paketen, ohne den
    Mutationstyp zu erweitern.

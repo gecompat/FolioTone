@@ -482,6 +482,39 @@ Migration `0025` vorhandener Snapshot erhält Health nur durch einen erneuten
 `collection-state-build`, der zuerst die zugrunde liegende Evidence
 revalidiert.
 
+### Insert-only Metadatenkorrekturpläne
+
+Migration `0026_metadata_correction_plans` erweitert den generischen Review-
+Core additiv um die fest gepaarten Literale `METADATA_CORRECTION` und
+`METADATA_CORRECTION_CANDIDATE`. Weil SQLite bestehende Check-Constraints
+nicht direkt erweitert, rekonstruiert die Migration die Review-Tabellen in
+Abhängigkeitsreihenfolge. Vorhandene `ReviewItem`-, `ReviewDecision`- und
+`ConsolidationPlan`-Reviewzeilen werden bytewertgleich übernommen. Ein leerer
+Downgrade stellt den vorherigen Constraint wieder her; vorhandene Metadata-
+Correction-Daten oder -Reviewfälle sperren den Downgrade.
+
+Vierzehn normalisierte Tabellen speichern Candidate, Feldkorrekturen,
+beobachtete und ausgewählte private Werte, Feld- und Candidate-Evidence,
+Dependencies sowie Plan, Review-Snapshot, Preconditions, Verifikation und
+Blocker. Parent-Counts und bounded Insert-Trigger begrenzen jeden Child-Graph.
+Update und Delete werden auf allen Tabellen durch Trigger abgewiesen. Der
+Content Hash bleibt der semantische Idempotenzschlüssel; ein abweichender
+Payload unter derselben Identität wird nicht überschrieben.
+
+`SQLiteMetadataCorrectionStore` validiert vor dem Candidate-Insert den
+abgeschlossenen book-only `ScanRun`, die exakte File-/Observation-Lineage,
+Full-SHA-256-Evidence, polymorphe ValueAssertion-/ToolResult-/Fingerprint-
+Referenzen, Zielträger und alle drei Dependency-Achsen. Vor dem Plan-Insert
+prüft er zusätzlich die neueste kompatible Review Decision und rekonstruiert
+den erwarteten Plan mit dem kanonischen Reducer. Reads rehydrieren Values,
+Evidence, Dependencies, Reviews, Preconditions, Verifikation und Blocker mit
+harten Obergrenzen und berechnen Candidate- und Planidentität erneut.
+
+Die Planung benötigt keine `ScanRootWriteLease`: Sie öffnet keine Source Media
+und schreibt nur neue immutable Datenbankzeilen. Private Metadatenwerte liegen
+ausschließlich in `metadata_correction_values`; Fehlertexte und die in
+`S-W9-006C` folgende Standard-Reportfläche dürfen sie nicht übernehmen.
+
 ## Current constraints and deferred integrity
 
 Implemented SQL constraints include:

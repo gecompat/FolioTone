@@ -29,7 +29,7 @@ def test_head_database_factory_returns_isolated_schema_copies(
     right_engine.dispose()
 
     assert marker is None
-    assert revision == "0025_library_health"
+    assert revision == "0026_metadata_correction_plans"
 
 
 def test_head_database_factory_rejects_reuse_and_nested_names(
