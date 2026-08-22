@@ -51,8 +51,10 @@ If repository code and documentation disagree, treat the discrepancy as a defect
 - Language: Python.
 - Primary runtime: Docker/Linux.
 - Persistence: host-persistent data mounted at `/data`; SQLite initially.
-- Media roots: read-only mounts under `/media`.
-- Current product mode: analysis only.
+- Media roots: read-only mounts under `/media` for normal operations. The
+  narrowly authorized ADR-0056 interim quarantine is the only W10 exception.
+- Current product mode: analysis only, except for the narrowly authorized
+  ADR-0056 W10 interim quarantine.
 - Current product surface: CLI only; no web API, desktop UI or dashboard is in the active scope.
 - **Orchestration first:** before implementing substantial specialist media functionality, evaluate maintained tools with stable documented automation interfaces.
 - External specialist tools are replaceable `ToolProvider` integrations; their schemas/commands do not define the core model.
@@ -69,7 +71,9 @@ If repository code and documentation disagree, treat the discrepancy as a defect
 - External knowledge providers are behind adapters; network use is explicit, cached and privacy-bounded.
 - Matching: candidate generation first, then scoring; never global all-vs-all comparison.
 - Resolution/matching decisions preserve evidence, score/confidence, rule/resolver/matcher/provider/tool versions, and review state.
-- Consolidation execution: prohibited until W10 is explicitly activated by a later architecture decision.
+- Consolidation execution: W9 remains non-executable. ADR-0056 permits only
+  the narrowly authorized W10 interim quarantine described there; all other
+  consolidation execution remains prohibited until its own accepted decision.
 
 ## 3. Privacy and repository hygiene
 
@@ -216,6 +220,13 @@ Until W10:
 - no automatic Calibre modification;
 - no external-tool delete/move/rename/retag operation;
 - no write-capable source-media mount required by normal operation.
+
+Within W10, ADR-0056 permits only its narrowly authorized one-file interim
+quarantine. It uses same-filesystem `os.rename`, a non-atomic target-absence
+check and full SHA-256 revalidation; it neither promises atomic no-replace nor
+authorizes copy/delete, rollback, purge, metadata writes or directory cleanup.
+`FG-W10-MOVE-BACKEND` remains the mandatory Frontier hardening for those
+filesystem guarantees.
 
 W9 may create `ConsolidationPlan` records, but they must be non-executable.
 

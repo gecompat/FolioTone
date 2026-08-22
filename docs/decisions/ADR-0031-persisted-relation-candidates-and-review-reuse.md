@@ -79,7 +79,8 @@ auf `0013` wird verweigert, sobald Relation-Candidate-Daten vorhanden sind.
 - Die neue Persistenz enthält keine privaten Pfade oder Rohwerte.
 - Es gibt keinen Source-Media-Zugriff, keine Netzwerkabfrage und keine
   Dateisystemmutation.
-- W10 bleibt unverändert blockiert.
+- Dieser Slice öffnet keinen eigenen W10-Pfad; nur die getrennte
+  ADR-0056-Interim-Quarantäne ist ausführbar.
 
 ## Verifikation
 

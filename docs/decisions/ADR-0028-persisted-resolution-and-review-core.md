@@ -93,8 +93,9 @@ enthält.
 - Diese Welle implementiert keinen Provider-Cache, keinen realen Provider,
   keine Matching-Relation, keine Canonical-Projektion und keine Review-CLI.
 - Music-Resolution bleibt in W4/W5A-004 geplant.
-- W10 bleibt unverändert blockiert; es gibt keine Lösch-, Verschiebe-, Rename-
-  oder Retag-Ausführung.
+- Dieser Slice öffnet keinen eigenen W10-Pfad. Außer der getrennten
+  ADR-0056-Interim-Quarantäne gibt es keine Lösch-, Verschiebe-, Rename- oder
+  Retag-Ausführung.
 
 ## Verifikation
 

@@ -102,7 +102,8 @@ aber weder Scoring noch automatische Relation-Persistenz aus.
 - DTOs und Fehler enthalten keine Pfade, Dateinamen oder materiellen
   Metadatenwerte.
 - Nur synthetische Daten werden in Tests verwendet.
-- W10 bleibt unverändert blockiert.
+- Dieser Slice öffnet keinen eigenen W10-Pfad; nur die getrennte
+  ADR-0056-Interim-Quarantäne ist ausführbar.
 
 ## Konsequenzen
 

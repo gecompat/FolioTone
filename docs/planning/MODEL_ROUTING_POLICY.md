@@ -172,8 +172,9 @@ Frage offen ist.
   nichtkritische Diagnose verwenden `BALANCED`.
 - Neue Medienidentitäten, Matching, Persistenzgrenzen, Archive-Security,
   Secret Handling, Lease/Fencing und W10 benötigen `FRONTIER`.
-- Jede Source-Media-Mutation bleibt durch die geltenden W10-Verträge
-  blockiert; diese Richtlinie autorisiert sie nicht.
+- Nur die eng autorisierte ADR-0056-Interim-Quarantäne ist durch den geltenden
+  W10-Vertrag erlaubt; diese Richtlinie erweitert ihren Scope nicht. Jede
+  weitere Source-Media-Mutation bleibt blockiert.
 
 Testauswahl, lokale Evidence und der einmalige vollständige PR-Gate folgen
 [`TEST_POLICY.md`](../quality/TEST_POLICY.md). Kontext- und Logkosten folgen

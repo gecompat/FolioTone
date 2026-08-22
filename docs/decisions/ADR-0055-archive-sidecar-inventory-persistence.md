@@ -217,4 +217,6 @@ oder W10-Operation.
 ## Folgen
 
 Nach `S-EBAR-07A` ist W3-019 abgeschlossen. FG-A3-MEMBER-BYTE,
-FG-A-SECRET, S-EBAR-04A, EBAR-06 und W10 bleiben unverändert blockiert.
+FG-A-SECRET, S-EBAR-04A und EBAR-06 bleiben blockiert. Dieser Archive-Slice
+autorisiert keine W10-Operation; die getrennte ADR-0056-Interim-Quarantäne
+bleibt davon unberührt.

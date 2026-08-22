@@ -94,7 +94,8 @@ keine erneute Benutzerentscheidung erzwingen.
 - Classification, Cover-Ähnlichkeit, Provider Agreement und einzelne
   Metadatenfelder bleiben allein unzureichende Identity Evidence.
 - Der Slice verwendet ausschließlich synthetische Tests und kein Netzwerk.
-- W10 bleibt unverändert blockiert.
+- Dieser Slice öffnet keinen eigenen W10-Pfad; nur die getrennte
+  ADR-0056-Interim-Quarantäne ist ausführbar.
 
 ## Verifikation
 
