@@ -4,51 +4,60 @@ Stand: 2026-08-22
 
 ## Aktuelle Welle
 
-**FG-W10-METADATA-WRITE entschieden — nächster Slice ist ein reiner EPUB-3-Titelpatch**
+**S-W10-MW01 abgeschlossen — der begrenzte EPUB-3-Titelpatch ist rein prüfbar**
 
-ADR-0063 akzeptiert ausschließlich
-`ebook-source-metadata-write/epub3-title-replace/v1`: Zielträger
-`SOURCE_METADATA`, Format EPUB 3, genau eine reviewte `title`-Korrektur mit
-`REPLACE` und genau einem ausgewählten Wert. Calibre-, Sidecar- und Archive-
-Dependencies müssen für v1 nachweislich fehlen. EPUB 2, KEPUB, MOBI, AZW,
-AZW3, PDF, weitere Felder, `REMOVE`, Sidecar- und externe Librarywrites bleiben
-geschlossen.
+Das neue Paket `foliotone.metadata_write` implementiert
+`ebook-source-metadata-write/epub3-title-replace/v1` ausschließlich als
+immutable Bytes-Vertrag. `preflight_epub3_title_write` akzeptiert nur einen
+kanonisch revalidierten `APPROVED_NON_EXECUTABLE`-Plan für EPUB 3,
+`SOURCE_METADATA`, genau einen `title`-`REPLACE` und die Dependency-Zustände
+`CALIBRE = KNOWN_NONE`, `SIDECAR = KNOWN_NONE` sowie
+`ARCHIVE = NOT_APPLICABLE`. Plan-, Candidate-, Evidence-, Feld- und Writer-
+Fingerprints werden erneut berechnet. Der Input muss außerdem Größe und Full-
+SHA-256 des Plans sowie eine auf denselben Hash gebundene
+`epubcheck-5.3.0-input-conformance/v1`-Evidence mit `CONFORMANT` und `EPUB3`
+erfüllen.
 
-Die Primärquellenprüfung von calibre 9.13.0 hat den CLI-Setter als zu breit
-bewertet: `ebook-meta --title` lädt das vollständige Metadatenobjekt, setzt
-weitere nichtleere Felder erneut, erzeugt `title_sort`, serialisiert das OPF
-neu und schreibt in-place. `ebook-polish --opf` übernimmt ebenfalls einen
-vollständigen OPF-Metadatensatz. Der erste Writer verwendet deshalb einen
-FolioTone-eigenen lexikalischen Patch, der im Package Document nur
-`dc:title` und das durch EPUB 3 bedingte `dcterms:modified` verändert.
-`ebook-meta-opf/2` und EPUBCheck 5.3.0 bleiben unabhängige read-only
-Validatoren.
+Der bounded OCF-Preflight liest nur die übergebenen Bytes. Er prüft Single-
+Disk-ZIP ohne ZIP64, eindeutige UTF-8-Entry-Namen, feste Kompressionsmethoden,
+vollständig lesbare Entries, das erste unkomprimierte `mimetype`, genau ein
+Package Document, fehlende Signatur/Verschlüsselung sowie begrenzte XML-
+Größe und -Tiefe. Ein no-network Semantikparser und ein getrennter
+namespacebewusster lexikalischer Scanner akzeptieren nur EPUB 3 mit genau
+einem einfachen `dc:title` und einem nicht verfeinerten
+`dcterms:modified`. `DOCTYPE`, Entity-Deklarationen, CDATA im Ziel,
+Title-Refinements, EPUB 2, KEPUB- und nicht positive Conformance-Evidence
+schlagen fail-closed fehl.
 
-Der spätere Linux/Docker-Commit verwendet ausschließlich
-`renameat2(RENAME_EXCHANGE)` zwischen Source und vollständig verifiziertem
-Same-Directory-Output. Das herausgetauschte Original wird danach per
-`RENAME_NOREPLACE` in einen capability-gebundenen Recoverybereich desselben
-Filesystems verschoben. Unsupported Flags, `EXDEV`, NFS, native Windows-
-Ausführung und unklare Hashzustände schlagen fail-closed fehl. Es gibt keinen
-Copy+Delete-, Overwrite- oder Cross-Volume-Fallback.
+`build_epub3_title_package_patch` ersetzt bytegenau nur die zwei ermittelten
+Textspannen. XML-Sonderzeichen und Wagenrückläufe werden semantikerhaltend
+escaped; der technische UTC-Sekundenwert folgt der durch ADR-0063 gebundenen
+Zeitregel. `verify_epub3_title_archive_diff` akzeptiert danach nur dieselbe
+Entry-Menge und -Reihenfolge, identische Archiv-/Membermetadaten, identische
+Hashes und Längen aller Nicht-Package-Entries sowie genau den erwarteten
+Package-Document-Output. Full-SHA-256 von Input und Output müssen verschieden
+sein.
 
-`S-W10-MW01` ist der nächste reguläre Slice. Er implementiert nur bounded
-EPUB-3-Preflight, den lexikalischen Zwei-Spannen-Patch und den memberweisen
-Byte-/Semantik-Diff mit synthetischen Fixtures. Privates Staging,
-Authorization/Persistenz, Capability, Linux-Executor, Crash-Recovery, CLI und
-Reconciliation folgen getrennt in `S-W10-MW02` bis `S-W10-MW05`. Bis deren
-vollständigem Abschluss bleibt reale Source-Metadata-Mutation operativ nicht
-verfügbar. Reale private E-Books wurden nicht verwendet.
+Das Paket besitzt keine Pfad-, Datei-, Persistenz-, Netzwerk-, Tool-, CLI-,
+Capability-, Authorization- oder Execute-Schnittstelle. Es erzeugt weder ein
+Staging-EPUB noch einen Source-Commit. Fehler und Standardrepräsentationen
+bleiben frei von Metadatenwerten, internen Entry-Namen und Hashes.
 
-Die Gate-Wave enthält nur Verträge und Dokumentation. Ein lokaler Linux-
-Filesystem- oder Writerlauf ist daher noch kein behaupteter Nachweis; die
-synthetische Runtime-Konformität entsteht in den jeweiligen
-Implementierungswaves. Lokal bestanden 17 fokussierte Planungs- und
-Dokumentationsvertragstests in 0,11 Sekunden. Ruff prüfte den geänderten
-statischen Test ohne Befund; `git diff --check` war erfolgreich. Die
-vollständige lokale Suite und Toolchain-/Containerläufe wurden
-ressourcenschonend nicht ausgeführt; der stabile Pull-Request-Head erhält
-genau einen vollständigen CI-Gate.
+Lokal bestanden 114 fokussierte neue und direkt betroffene Unit-, Privacy-,
+Non-Execution- und Dokumentationsvertragstests in 0,57 Sekunden. Ruff war für
+das neue Paket und seine Tests grün; Mypy meldete für die drei neuen Source-
+Dateien keine Findings.
+Die vollständige lokale Suite, Docker-/Toolchain-Läufe, reale E-Books und
+produktive Runtime-Datenbanken wurden ressourcenschonend nicht verwendet.
+Der stabile Pull-Request-Head erhält genau einen vollständigen CI-Gate.
+
+`S-W10-MW02` ist die nächste reguläre Wave. Sie ergänzt ausschließlich den
+privaten streaming-basierten Containerneuaufbau und feste unabhängige Read-
+back-, EPUBCheck-, Text-, Cover- und Preserved-Field-Verifikation, weiterhin
+ohne Source-Commit. Authorization/Persistenz, Capability, Linux-Executor,
+Crash-Recovery, CLI und Reconciliation bleiben `S-W10-MW03` bis
+`S-W10-MW05` vorbehalten. Reale Source-Metadata-Mutation bleibt operativ nicht
+verfügbar.
 
 **S-W9-006C abgeschlossen — Metadatenkorrekturpläne sind read-only berichtbar**
 
@@ -111,8 +120,9 @@ nun ausdrücklich; andere Reviewzustände bleiben an ihre persistierten
 `ReviewItem`-/`ReviewDecision`-Lineage gebunden.
 
 `W9-006` ist abgeschlossen. ADR-0063 hat `FG-W10-METADATA-WRITE` anschließend
-für den begrenzten EPUB-3-Titelwriter entschieden; `S-W10-MW01` ist der nächste
-reguläre reine Patch-Slice. `W10-005` bleibt parallel `READY`; reale Mutation,
+für den begrenzten EPUB-3-Titelwriter entschieden; `S-W10-MW01` liefert den
+reinen Patchvertrag und `S-W10-MW02` ist der nächste reguläre Slice.
+`W10-005` bleibt parallel `READY`; reale Mutation,
 Music, Bilder, REST-API und grafische Oberfläche werden durch diesen Abschluss
 nicht aktiviert. Am finalen lokalen Stand von S-W9-006C bestanden 41
 fokussierte Report-, Privacy-, Schema-, Bootstrap-, Store-, Consolidation-

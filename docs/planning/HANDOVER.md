@@ -35,28 +35,45 @@ zusätzlich `title_sort`, serialisiert das OPF neu und schreibt in-place;
 Metadatensatz. `ebook-meta-opf/2` und EPUBCheck 5.3.0 bleiben unabhängige
 read-only Validatoren.
 
+`S-W10-MW01` implementiert den ersten Teilvertrag als reines Paket
+`foliotone.metadata_write`. Der Preflight revalidiert den vollständigen W9-
+Plan einschließlich seiner content-addressed Identitäten, Dependency-Achsen,
+Input-Größe und Full-SHA-256. Zusätzlich bindet er positive EPUBCheck-5.3.0-
+und `EPUB3`-Evidence an denselben Hash und prüft bounded Single-Disk-ZIP-,
+OCF-, Container- und Package-Document-Verträge.
+
+Der namespacebewusste lexikalische Scanner bestimmt genau die Textspannen
+von `dc:title` und `dcterms:modified`, ohne das XML zu serialisieren. Der
+Patch ersetzt nur diese Spannen. Der anschließende Diff verlangt identische
+Entry-Reihenfolge, Archiv-/Membermetadaten sowie identische Inhalte aller
+Nicht-Package-Entries. Das Paket nimmt und liefert nur Bytes und immutable
+DTOs; es besitzt keine Datei-, Persistenz-, Tool-, CLI-, Capability-,
+Authorization- oder Execute-Fläche.
+
 Der spätere Source-Commit ist Linux/Docker-only und tauscht den vollständig
 verifizierten Same-Directory-Output über
 `renameat2(RENAME_EXCHANGE)` atomar mit der Source. Das Original wird danach
 per `RENAME_NOREPLACE` in den capability-gebundenen Recoverybereich desselben
 Filesystems verschoben. Fehlende Flag-/Filesystemunterstützung, NFS, `EXDEV`,
 native Windows-Ausführung oder unklare Crashzustände bleiben fail-closed. Die
-reale Mutation ist bis zum Abschluss von `S-W10-MW01` bis `S-W10-MW05`
+reale Mutation ist bis zum Abschluss von `S-W10-MW02` bis `S-W10-MW05`
 weiterhin nicht verfügbar.
 
-`S-W10-MW01` ist die nächste reguläre Wave und bleibt rein: bounded EPUB-3-
-Preflight, lexikalischer Zwei-Spannen-Patch und Byte-/Semantik-Diff mit
-synthetischen Fixtures, ohne Source-Commit, Persistenz, Capability oder CLI.
-Reale private E-Books sind kein Entwicklungs- oder CI-Gate und wurden für die
-Gate-Entscheidung nicht verwendet.
+`S-W10-MW02` ist die nächste reguläre Wave. Sie baut aus dem reinen Patch einen
+privaten streaming-basierten Staging-Container und führt die festen
+unabhängigen Read-back-, EPUBCheck-, Text-, Cover- und Preserved-Field-
+Validatoren aus. Auch diese Wave erhält keinen Source-Commit, keine
+Persistenz, Capability oder CLI.
 
-Für den lokalen ADR-0063-Gate bestanden 17 fokussierte Planungs- und
-Dokumentationsvertragstests in 0,11 Sekunden. Ruff prüfte den geänderten
-statischen Test ohne Befund; `git diff --check` war erfolgreich. Die
-vollständige lokale Suite und Toolchain-/Containerläufe wurden nicht
-dupliziert. Der stabile Pull-Request-Head benötigt genau einen vollständigen
-CI-Gate. Ein Linux-`renameat2`- oder Writer-Konformitätslauf ist ausdrücklich
-noch nicht erfolgt und gehört zu den Implementierungswaves.
+Für `S-W10-MW01` bestanden lokal 114 fokussierte neue und direkt betroffene
+Unit-, Privacy-, Non-Execution- und Dokumentationsvertragstests in 0,57
+Sekunden. Ruff war für das neue Paket und seine Tests grün; Mypy meldete für
+die drei neuen Source-Dateien keine Findings. Die vollständige lokale Suite,
+Docker-/Toolchain-Läufe, reale E-Books und produktive Runtime-Datenbanken
+wurden nicht verwendet. Der stabile Pull-Request-Head benötigt genau einen
+vollständigen CI-Gate. Ein Staging-, Linux-`renameat2`- oder Source-Writer-
+Lauf ist noch nicht erfolgt und gehört zu den folgenden
+Implementierungswaves.
 
 `S-W9-006A` ist umgesetzt. `foliotone.metadata_correction` enthält die reinen
 Candidate-/Plan-DTOs, fünf getrennte Zielträger, drei vollständige Dependency-
@@ -100,8 +117,9 @@ grün; `git diff --check` war ohne Befund. Die vollständige lokale Suite wird
 nicht dupliziert; genau ein vollständiger PR-CI-Gate bleibt
 Merge-Voraussetzung.
 
-`FG-W10-METADATA-WRITE` ist durch ADR-0063 entschieden; `S-W10-MW01` ist die
-nächste reguläre Wave. `W10-005` bleibt parallel `READY`. Reale Source-Media-
+`FG-W10-METADATA-WRITE` ist durch ADR-0063 entschieden; `S-W10-MW01` ist
+umgesetzt und `S-W10-MW02` ist die nächste reguläre Wave. `W10-005` bleibt
+parallel `READY`. Reale Source-Media-
 Mutation, Music, Bilder, REST-API und grafische Oberfläche werden weder durch
 W9-006 noch durch den reinen ersten Patch-Slice aktiviert.
 

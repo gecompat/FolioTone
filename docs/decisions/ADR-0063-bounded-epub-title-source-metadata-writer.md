@@ -326,7 +326,8 @@ Die Umsetzung folgt in getrennten kleinen Waves:
 
 Bis alle fünf Pakete einschließlich des exakten Runtime-Konformitätsgates
 abgeschlossen sind, bleibt die reale Source-Metadata-Mutation operativ nicht
-verfügbar. Die reine Wave `S-W10-MW01` ist der nächste reguläre Slice.
+verfügbar. `S-W10-MW01` implementiert den reinen Preflight-, Patch- und Diff-
+Vertrag; `S-W10-MW02` ist der nächste reguläre Slice.
 
 ## Synthetische Konformitätsmatrix
 

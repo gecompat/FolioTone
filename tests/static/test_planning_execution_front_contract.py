@@ -30,7 +30,7 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `S-W10-MW01` |" in backlog
+    assert "| NOW | `S-W10-MW02` |" in backlog
     assert "ohne Source-Commit" in backlog
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
@@ -199,5 +199,6 @@ def test_first_source_metadata_writer_gate_is_narrow_and_non_operational() -> No
     assert all(marker in adr for marker in required)
     assert "ADR-0063" in documentation_index
     assert "| FG-W10-METADATA-WRITE | DONE |" in backlog
-    assert "| S-W10-MW01 | NEXT |" in backlog
+    assert "| S-W10-MW01 | DONE |" in backlog
+    assert "| S-W10-MW02 | NEXT |" in backlog
     assert "| W10-006 | PLANNED |" in backlog
