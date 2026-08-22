@@ -25,10 +25,11 @@ Finding-Eingaben gelangen in die Ausgabe.
 
 ADR-0058 akzeptiert eine book-only Lieferfolge aus `CollectionState`,
 Snapshot-Diff und begrenzter lokaler Metadatensuche sowie mehrdimensionaler
-`Library Health`. `CS-01` ist im kanonischen Backlog `NEXT`. `W10-005` ist
-parallel `READY`, vervollständigt aber nur die Bedien- und Recoverykette des
-vorhandenen Interim-Executors. Die nicht atomare Zielprüfung und alle weiteren
-W10-Sperren bleiben unverändert sichtbar.
+`Library Health`. `CS-01` ist im kanonischen Backlog `NEXT`. Parallel beginnt
+`S-W10-05A` als kleinster `W10-005`-Folgeschritt: nur ein privater,
+fail-closed `QuarantineCapabilityResolver`, noch ohne CLI, Persistenz oder
+Executor-Aufruf. Die nicht atomare Zielprüfung und alle weiteren W10-Sperren
+bleiben unverändert sichtbar.
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
