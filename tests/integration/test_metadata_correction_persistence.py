@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
+import io
 import json
+import os
+import shutil
+import sys
+import zipfile
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from alembic import command
@@ -52,16 +59,29 @@ from foliotone.metadata_correction import (
     metadata_correction_plan_id,
 )
 from foliotone.metadata_write import (
+    EpubConformanceStatus,
+    EpubInputConformance,
+    EpubPublicationKind,
+    EpubTitleStagedValidation,
+    EpubTitleVerifiedStage,
     EpubTitleWritePreparationSnapshot,
     MetadataWriteExecutionEvent,
     MetadataWriteRunStatus,
     ResolvedMetadataWriteCapability,
+    build_epub3_title_package_patch,
+    build_epub3_title_write_preparation,
     build_metadata_write_authorization,
     build_metadata_write_run,
+    build_private_epub3_title_stage,
+    preflight_epub3_title_write,
 )
 from foliotone.metadata_write.authorization import (
     _preparation_hash_from_material,
     _preparation_id,
+)
+from foliotone.metadata_write.executor import (
+    execute_epub3_title_metadata_write,
+    recover_epub3_title_metadata_write,
 )
 from foliotone.persistence import (
     MetadataCorrectionStoreError,
@@ -82,6 +102,9 @@ from foliotone.persistence.metadata_correction_report import (
 from foliotone.persistence.metadata_write import (
     MetadataWriteStoreError,
     SQLiteMetadataWriteStore,
+)
+from foliotone.persistence.metadata_write_schema import (
+    metadata_write_backend_bindings,
 )
 from foliotone.persistence.scan_root_lease import (
     ScanRootWriteOwnerKind,
@@ -121,7 +144,12 @@ def _evidence(kind: str, ref_id: EntityId, digest: str) -> MetadataEvidenceRefer
     return MetadataEvidenceReference(kind, ref_id, _sha(digest))
 
 
-def _seed_source(engine) -> None:
+def _seed_source(
+    engine,
+    *,
+    source_sha256: str = FULL_HASH,
+    source_size_bytes: int = 4096,
+) -> None:
     with engine.begin() as connection:
         connection.execute(
             insert(schema.scan_roots),
@@ -148,7 +176,7 @@ def _seed_source(engine) -> None:
                 "id": str(FILE_ID),
                 "scan_root_id": str(ROOT_ID),
                 "relative_path": PRIVATE_PATH,
-                "size_bytes": 4096,
+                "size_bytes": source_size_bytes,
                 "modified_at": NOW.isoformat(),
                 "media_type": "EBOOK",
                 "presence_state": "PRESENT",
@@ -165,7 +193,7 @@ def _seed_source(engine) -> None:
                 "file_id": str(FILE_ID),
                 "scan_run_id": str(SCAN_ID),
                 "relative_path": PRIVATE_PATH,
-                "size_bytes": 4096,
+                "size_bytes": source_size_bytes,
                 "modified_at": NOW.isoformat(),
                 "observed_at": NOW.isoformat(),
             },
@@ -179,7 +207,7 @@ def _seed_source(engine) -> None:
                 "kind": "FILE_SHA256",
                 "algorithm": "sha256",
                 "algorithm_version": "1",
-                "value": FULL_HASH,
+                "value": source_sha256,
                 "created_at": NOW.isoformat(),
                 "tool_execution_id": None,
             },
@@ -238,7 +266,13 @@ def _seed_source(engine) -> None:
         )
 
 
-def _candidate(*, created_at: datetime = NOW, selected_title: str = SELECTED_TITLE):
+def _candidate(
+    *,
+    created_at: datetime = NOW,
+    selected_title: str = SELECTED_TITLE,
+    expected_full_sha256: str = FULL_HASH,
+    expected_size_bytes: int = 4096,
+):
     observed = MetadataValueSnapshot(
         0,
         ValueState.OBSERVED,
@@ -294,8 +328,8 @@ def _candidate(*, created_at: datetime = NOW, selected_title: str = SELECTED_TIT
             observation_id=OBSERVATION_ID,
             format_label="EPUB",
             expected_presence_state=PresenceState.PRESENT,
-            expected_full_sha256=FULL_HASH,
-            expected_size_bytes=4096,
+            expected_full_sha256=expected_full_sha256,
+            expected_size_bytes=expected_size_bytes,
             expected_modified_at=NOW,
             expected_observed_at=NOW,
             metadata_evidence_fingerprint=_sha("9"),
@@ -472,7 +506,7 @@ def test_migration_0026_preserves_review_history_and_downgrades_when_empty(
         review_ddl = connection.execute(
             text("SELECT sql FROM sqlite_master WHERE type='table' AND name='review_items'")
         ).scalar_one()
-    assert revision == "0027_metadata_write_operations"
+    assert revision == "0028_metadata_write_backend"
     assert retained == str(decision_id)
     assert retained_plan_review == str(plan_id)
     assert "METADATA_CORRECTION" in review_ddl
@@ -916,10 +950,24 @@ def test_metadata_correction_report_internal_failure_does_not_leak_details(
     }
 
 
-def _approved_plan_for_metadata_write(engine):
-    _seed_source(engine)
+def _approved_plan_for_metadata_write(
+    engine,
+    *,
+    source_sha256: str = FULL_HASH,
+    source_size_bytes: int = 4096,
+):
+    _seed_source(
+        engine,
+        source_sha256=source_sha256,
+        source_size_bytes=source_size_bytes,
+    )
     correction_store = SQLiteMetadataCorrectionStore(engine)
-    candidate = correction_store.create_or_get_candidate(_candidate())
+    candidate = correction_store.create_or_get_candidate(
+        _candidate(
+            expected_full_sha256=source_sha256,
+            expected_size_bytes=source_size_bytes,
+        )
+    )
     review_store = SQLiteResolutionReviewStore(engine)
     item = review_store.enqueue_or_get_review(_review_item(candidate))
     review_store.append_decision(
@@ -1039,6 +1087,461 @@ def _persist_metadata_write_run(database: Path):
     )
     assert store.create_run(run, authorization, plan, run_lease) == run
     return engine, plan, authorization, run, run_lease
+
+
+def _synthetic_epub() -> bytes:
+    package = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<package xmlns="http://www.idpf.org/2007/opf" '
+        'xmlns:dc="http://purl.org/dc/elements/1.1/" version="3.0" '
+        'unique-identifier="book-id">\n'
+        "  <metadata>\n"
+        '    <dc:identifier id="book-id">urn:uuid:synthetic</dc:identifier>\n'
+        f'    <dc:title id="main-title">{OBSERVED_TITLE}</dc:title>\n'
+        '    <meta property="dcterms:modified">2026-08-22T18:00:00Z</meta>\n'
+        "  </metadata>\n"
+        '  <manifest><item id="chapter" href="chapter.xhtml" '
+        'media-type="application/xhtml+xml"/></manifest>\n'
+        '  <spine><itemref idref="chapter"/></spine>\n'
+        "</package>\n"
+    ).encode()
+    container = (
+        b'<?xml version="1.0" encoding="UTF-8"?>'
+        b'<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container" '
+        b'version="1.0"><rootfiles><rootfile full-path="OEBPS/package.opf" '
+        b'media-type="application/oebps-package+xml"/></rootfiles></container>'
+    )
+
+    def info(name: str, compression: int) -> zipfile.ZipInfo:
+        value = zipfile.ZipInfo(name, date_time=(2026, 8, 22, 18, 0, 0))
+        value.compress_type = compression
+        value.create_system = 3
+        value.external_attr = 0o100644 << 16
+        return value
+
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, mode="w") as archive:
+        archive.comment = b"synthetic-mw04"
+        archive.writestr(info("mimetype", zipfile.ZIP_STORED), b"application/epub+zip")
+        archive.writestr(
+            info("META-INF/container.xml", zipfile.ZIP_DEFLATED),
+            container,
+        )
+        archive.writestr(
+            info("OEBPS/package.opf", zipfile.ZIP_DEFLATED),
+            package,
+        )
+        archive.writestr(
+            info("OEBPS/chapter.xhtml", zipfile.ZIP_DEFLATED),
+            b'<html xmlns="http://www.w3.org/1999/xhtml"><body>synthetic</body></html>',
+        )
+    return output.getvalue()
+
+
+def _synthetic_stage_validation(stage) -> EpubTitleStagedValidation:
+    return EpubTitleStagedValidation(
+        plan_id=stage.plan_id,
+        input_sha256=stage.input_sha256,
+        output_sha256=stage.output_sha256,
+        preserved_fields_sha256="a" * 64,
+        normalized_text_sha256="b" * 64,
+        cover_identity_sha256="c" * 64,
+        cover_status="NO_EMBEDDED_COVER",
+        metadata_tool_version="ebook-meta calibre 9.13.0",
+        epubcheck_tool_version="EPUBCheck v5.3.0",
+        text_tool_version="ebook-convert calibre 9.13.0",
+        cover_tool_version="calibre-debug calibre 9.13.0",
+        validator_set_fingerprint="d" * 64,
+    )
+
+
+class _SyntheticBoundStageValidator:
+    def validate(self, stage, _preflight, _patch) -> EpubTitleStagedValidation:
+        return _synthetic_stage_validation(stage)
+
+
+def test_linux_tmpfs_metadata_write_execution_and_recovery_end_to_end(
+    head_database: Path,
+) -> None:
+    tmpfs = Path("/dev/shm")
+    if sys.platform != "linux" or not tmpfs.is_dir() or not os.access(tmpfs, os.W_OK):
+        pytest.skip("Linux tmpfs is required for the MW04 execution gate")
+    sandbox = tmpfs / f"foliotone-mw04-e2e-{uuid4()}"
+    source_root = sandbox / "source"
+    recovery_root = sandbox / "recovery"
+    stage_root = sandbox / "stage"
+    preparation_stage = sandbox / "preparation-stage"
+    engine = None
+    try:
+        for directory in (
+            sandbox,
+            source_root,
+            recovery_root,
+            stage_root,
+            preparation_stage,
+        ):
+            directory.mkdir(mode=0o700)
+            directory.chmod(0o700)
+        source_path = source_root / PRIVATE_PATH
+        source_path.parent.mkdir(parents=True, mode=0o700)
+        source = _synthetic_epub()
+        source_path.write_bytes(source)
+        source_path.chmod(0o640)
+        os.utime(source_path, (NOW.timestamp(), NOW.timestamp()))
+        source_hash = hashlib.sha256(source).hexdigest()
+
+        engine = create_sqlite_engine(head_database)
+        plan = _approved_plan_for_metadata_write(
+            engine,
+            source_sha256=source_hash,
+            source_size_bytes=len(source),
+        )
+        capability = ResolvedMetadataWriteCapability(
+            METADATA_WRITE_CAPABILITY_ID,
+            ROOT_ID,
+            source_root,
+            recovery_root,
+        )
+        authorized_at = NOW + timedelta(minutes=3)
+        prepared_at = authorized_at + timedelta(seconds=1)
+        lease_store = SQLiteScanRootWriteLeaseStore(engine)
+        preparation_lease = lease_store.acquire(
+            ROOT_ID,
+            ScanRootWriteOwnerKind.METADATA_WRITE_PREPARATION,
+            PREPARATION_OWNER_ID,
+            lease_token="synthetic-linux-preparation",
+            acquired_at=authorized_at - timedelta(seconds=1),
+            lease_expires_at=authorized_at + timedelta(minutes=5),
+        )
+        preflight = preflight_epub3_title_write(
+            plan,
+            source,
+            EpubInputConformance(
+                source_hash,
+                EpubPublicationKind.EPUB3,
+                EpubConformanceStatus.CONFORMANT,
+            ),
+        )
+        patch = build_epub3_title_package_patch(
+            preflight,
+            authorized_at=authorized_at,
+        )
+        staged = build_private_epub3_title_stage(
+            preparation_stage / "prepared",
+            io.BytesIO(source),
+            preflight,
+            patch,
+        )
+        verified = EpubTitleVerifiedStage(
+            staged,
+            _synthetic_stage_validation(staged),
+        )
+        preparation = build_epub3_title_write_preparation(
+            plan=plan,
+            preflight=preflight,
+            patch=patch,
+            verified_stage=verified,
+            capability=capability,
+            preparation_lease=preparation_lease,
+            authorized_at=authorized_at,
+            prepared_at=prepared_at,
+        )
+        authorization = build_metadata_write_authorization(
+            preparation,
+            expires_at=authorized_at + timedelta(minutes=10),
+        )
+        store = SQLiteMetadataWriteStore(engine)
+        store.create_or_get_authorization(
+            authorization,
+            plan,
+            preparation_lease,
+            persisted_at=prepared_at + timedelta(seconds=1),
+        )
+        lease_store.release(
+            preparation_lease,
+            released_at=prepared_at + timedelta(seconds=2),
+        )
+        run_created_at = prepared_at + timedelta(seconds=3)
+        run_lease = lease_store.acquire(
+            ROOT_ID,
+            ScanRootWriteOwnerKind.METADATA_WRITE_RUN,
+            METADATA_WRITE_RUN_ID,
+            lease_token="synthetic-linux-execution",
+            acquired_at=run_created_at,
+            lease_expires_at=run_created_at + timedelta(minutes=5),
+        )
+        run = build_metadata_write_run(
+            authorization,
+            capability,
+            run_lease,
+            run_id=METADATA_WRITE_RUN_ID,
+            created_at=run_created_at,
+        )
+        store.create_run(run, authorization, plan, run_lease)
+
+        result = execute_epub3_title_metadata_write(
+            store=store,
+            run=run,
+            authorization=authorization,
+            plan=plan,
+            capability=capability,
+            lease=run_lease,
+            private_stage_root=stage_root,
+            clock=lambda: run_created_at + timedelta(seconds=1),
+            validator=_SyntheticBoundStageValidator(),  # type: ignore[arg-type]
+        )
+        assert result.status is MetadataWriteRunStatus.ORIGINAL_PRESERVED
+        assert hashlib.sha256(source_path.read_bytes()).hexdigest() == (
+            authorization.expected_output_sha256
+        )
+
+        recovered = recover_epub3_title_metadata_write(
+            store=store,
+            run=run,
+            authorization=authorization,
+            plan=plan,
+            capability=capability,
+            lease=run_lease,
+            clock=lambda: run_created_at + timedelta(seconds=2),
+        )
+        assert recovered.status is MetadataWriteRunStatus.RECOVERED
+        assert source_path.read_bytes() == source
+        assert [event.status for event in store.events_for_run(run.id)] == [
+            MetadataWriteRunStatus.CREATED,
+            MetadataWriteRunStatus.PREPARED,
+            MetadataWriteRunStatus.EXCHANGED,
+            MetadataWriteRunStatus.ORIGINAL_PRESERVED,
+            MetadataWriteRunStatus.RECOVERED,
+        ]
+    finally:
+        if engine is not None:
+            engine.dispose()
+        if sandbox.exists():
+            shutil.rmtree(sandbox)
+
+
+def test_metadata_write_backend_binding_and_private_source_are_fenced(
+    head_database: Path,
+) -> None:
+    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(
+        head_database
+    )
+    store = SQLiteMetadataWriteStore(engine)
+    bound_at = run.created_at + timedelta(seconds=1)
+
+    binding = store.bind_backend(
+        run,
+        authorization,
+        plan,
+        run_lease,
+        bound_at=bound_at,
+    )
+    retry = store.bind_backend(
+        run,
+        authorization,
+        plan,
+        run_lease,
+        bound_at=bound_at + timedelta(seconds=1),
+    )
+    source = store.require_execution_source(
+        run,
+        authorization,
+        plan,
+        run_lease,
+        checked_at=bound_at,
+    )
+
+    assert retry == binding
+    assert store.get_backend_binding(run.id) == binding
+    assert source.relative_path == PRIVATE_PATH
+    assert source.source_sha256 == FULL_HASH
+    assert source.expected_modified_at == NOW
+    assert PRIVATE_PATH not in repr(source)
+    assert FULL_HASH not in repr(source)
+
+    for sequence, status in enumerate(
+        (
+            MetadataWriteRunStatus.PREPARED,
+            MetadataWriteRunStatus.EXCHANGED,
+            MetadataWriteRunStatus.ORIGINAL_PRESERVED,
+            MetadataWriteRunStatus.VERIFIED,
+        ),
+        start=2,
+    ):
+        store.append_event(
+            MetadataWriteExecutionEvent(
+                run.id,
+                sequence,
+                status,
+                run.created_at + timedelta(seconds=sequence),
+                run_lease.fence_epoch,
+                confirmation_digest=_sha("f"),
+            ),
+            run_lease,
+        )
+    with pytest.raises(MetadataWriteStoreError, match="run status is unavailable"):
+        store.require_recovery_source(
+            run,
+            authorization,
+            plan,
+            run_lease,
+            checked_at=run.created_at + timedelta(seconds=7),
+        )
+
+    for statement in (
+        "UPDATE metadata_write_backend_bindings SET bound_at='2026-01-01T00:00:00+00:00'",
+        "DELETE FROM metadata_write_backend_bindings",
+    ):
+        with pytest.raises(IntegrityError):
+            with engine.begin() as connection:
+                connection.execute(text(statement))
+    engine.dispose()
+
+
+def test_metadata_write_recovery_uses_historical_locator_after_expiry(
+    head_database: Path,
+) -> None:
+    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(
+        head_database
+    )
+    store = SQLiteMetadataWriteStore(engine)
+    store.bind_backend(
+        run,
+        authorization,
+        plan,
+        run_lease,
+        bound_at=run.created_at + timedelta(seconds=1),
+    )
+    with engine.begin() as connection:
+        connection.execute(
+            schema.file_records.update()
+            .where(schema.file_records.c.id == str(FILE_ID))
+            .values(
+                relative_path="changed/current-location.epub",
+                size_bytes=5000,
+                modified_at=(NOW + timedelta(hours=1)).isoformat(),
+            )
+        )
+    with pytest.raises(MetadataWriteStoreError, match="execution source is unavailable"):
+        store.require_execution_source(
+            run,
+            authorization,
+            plan,
+            run_lease,
+            checked_at=run.created_at + timedelta(seconds=2),
+        )
+
+    lease_store = SQLiteScanRootWriteLeaseStore(engine)
+    lease_store.release(
+        run_lease,
+        released_at=run.created_at + timedelta(seconds=3),
+    )
+    recovery_at = authorization.expires_at + timedelta(seconds=1)
+    recovery_lease = lease_store.acquire(
+        ROOT_ID,
+        ScanRootWriteOwnerKind.METADATA_WRITE_RUN,
+        run.id,
+        lease_token="synthetic-metadata-write-recovery",
+        acquired_at=recovery_at,
+        lease_expires_at=recovery_at + timedelta(minutes=5),
+    )
+    recovered_source = store.require_recovery_source(
+        run,
+        authorization,
+        plan,
+        recovery_lease,
+        checked_at=recovery_at + timedelta(seconds=1),
+    )
+
+    assert recovered_source.relative_path == PRIVATE_PATH
+    assert recovered_source.expected_modified_at == NOW
+    assert recovered_source.source_size_bytes == 4096
+    engine.dispose()
+
+
+def test_prepared_source_gate_expires_but_recovery_remains_available(
+    head_database: Path,
+) -> None:
+    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(
+        head_database
+    )
+    store = SQLiteMetadataWriteStore(engine)
+    store.bind_backend(
+        run,
+        authorization,
+        plan,
+        run_lease,
+        bound_at=run.created_at + timedelta(seconds=1),
+    )
+    store.append_event(
+        MetadataWriteExecutionEvent(
+            run.id,
+            2,
+            MetadataWriteRunStatus.PREPARED,
+            run.created_at + timedelta(seconds=2),
+            run_lease.fence_epoch,
+        ),
+        run_lease,
+    )
+    lease_store = SQLiteScanRootWriteLeaseStore(engine)
+    lease_store.release(
+        run_lease,
+        released_at=run.created_at + timedelta(seconds=3),
+    )
+    recovery_at = authorization.expires_at + timedelta(seconds=1)
+    recovery_lease = lease_store.acquire(
+        ROOT_ID,
+        ScanRootWriteOwnerKind.METADATA_WRITE_RUN,
+        run.id,
+        lease_token="synthetic-expired-prepared-recovery",
+        acquired_at=recovery_at,
+        lease_expires_at=recovery_at + timedelta(minutes=5),
+    )
+
+    with pytest.raises(MetadataWriteStoreError, match="authorization is unavailable"):
+        store.require_prepared_execution_source(
+            run,
+            authorization,
+            plan,
+            recovery_lease,
+            checked_at=recovery_at + timedelta(seconds=1),
+        )
+    recovered_source = store.require_recovery_source(
+        run,
+        authorization,
+        plan,
+        recovery_lease,
+        checked_at=recovery_at + timedelta(seconds=2),
+    )
+
+    assert recovered_source.relative_path == PRIVATE_PATH
+    engine.dispose()
+
+
+def test_migration_0028_refuses_to_drop_a_backend_binding(
+    head_database: Path,
+) -> None:
+    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(
+        head_database
+    )
+    SQLiteMetadataWriteStore(engine).bind_backend(
+        run,
+        authorization,
+        plan,
+        run_lease,
+        bound_at=run.created_at + timedelta(seconds=1),
+    )
+    with engine.connect() as connection:
+        assert connection.execute(
+            select(metadata_write_backend_bindings.c.run_id)
+        ).scalar_one() == str(run.id)
+    engine.dispose()
+
+    with pytest.raises(RuntimeError, match="backend binding prevents migration downgrade"):
+        command.downgrade(
+            alembic_config(head_database),
+            "0027_metadata_write_operations",
+        )
 
 
 def test_migration_0027_persists_one_use_fenced_metadata_write_journal(
@@ -1238,6 +1741,44 @@ def test_metadata_write_status_uses_true_read_only_private_projection(
     assert "fence_epoch" not in encoded
 
 
+def test_metadata_write_persists_manual_recovery_from_prepared(
+    head_database: Path,
+) -> None:
+    engine, _plan, _authorization, run, run_lease = _persist_metadata_write_run(
+        head_database
+    )
+    store = SQLiteMetadataWriteStore(engine)
+    store.append_event(
+        MetadataWriteExecutionEvent(
+            run.id,
+            2,
+            MetadataWriteRunStatus.PREPARED,
+            run.created_at + timedelta(seconds=2),
+            run_lease.fence_epoch,
+        ),
+        run_lease,
+    )
+    store.append_event(
+        MetadataWriteExecutionEvent(
+            run.id,
+            3,
+            MetadataWriteRunStatus.MANUAL_RECOVERY_REQUIRED,
+            run.created_at + timedelta(seconds=3),
+            run_lease.fence_epoch,
+            "STATE_AMBIGUOUS",
+            _sha("d"),
+        ),
+        run_lease,
+    )
+
+    assert [event.status for event in store.events_for_run(run.id)] == [
+        MetadataWriteRunStatus.CREATED,
+        MetadataWriteRunStatus.PREPARED,
+        MetadataWriteRunStatus.MANUAL_RECOVERY_REQUIRED,
+    ]
+    engine.dispose()
+
+
 def test_metadata_write_status_rejects_an_invalid_persisted_transition(
     head_database: Path,
 ) -> None:
@@ -1384,7 +1925,7 @@ def test_migration_0027_empty_downgrade_restores_previous_lease_contract(
                 "WHERE type='table' AND name='scan_root_write_leases'"
             )
         ).scalar_one()
-    assert version == "0027_metadata_write_operations"
+    assert version == "0028_metadata_write_backend"
     assert "METADATA_WRITE_PREPARATION" in lease_sql
     assert "METADATA_WRITE_RUN" in lease_sql
     engine.dispose()
@@ -1402,6 +1943,7 @@ def test_migration_0027_empty_downgrade_restores_previous_lease_contract(
     assert "metadata_write_authorizations" not in tables
     assert "metadata_write_runs" not in tables
     assert "metadata_write_events" not in tables
+    assert "metadata_write_backend_bindings" not in tables
     assert "CONSOLIDATION_QUARANTINE_RUN" in lease_sql
     assert "METADATA_WRITE_PREPARATION" not in lease_sql
     assert "METADATA_WRITE_RUN" not in lease_sql

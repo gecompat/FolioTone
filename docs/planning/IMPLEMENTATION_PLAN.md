@@ -76,9 +76,11 @@ Streaming-Staging und feste unabhängige Metadaten-, EPUBCheck-, Text-, Cover-
 und Preserved-Field-Validatoren. `S-W10-MW03` ergänzt content-addressed
 Preparation/Authorization, einmaligen Run, insert-only Eventjournal, private
 Capability-Auflösung, Root-Lease/Fencing und read-only Status. `S-W10-MW04`
-ist der nächste Slice und bleibt auf Linux-`renameat2`-Backend, Ein-Datei-
-Executor und idempotente Crash-Recovery mit synthetischen Filesystemen
-begrenzt. CLI und Reconciliation bleiben `S-W10-MW05` vorbehalten.
+implementiert das feste Linux-x86_64-glibc-`renameat2`-Backend, immutable
+Backend-Binding, den gefenceten Ein-Datei-Executor und idempotente Exact-State-
+Recovery mit synthetischen Filesystemen. `S-W10-MW05` ist der nächste Slice;
+CLI, zweite Bestätigung, unmittelbare Verifikation, neuer Scan und
+Reconciliation bleiben ihm vorbehalten.
 
 `W10-005` ist eine unabhängige parallele `FRONTIER`-Wave. Sie vervollständigt
 Capability-Auflösung, Authorize, Execute und Recovery für die bereits durch
@@ -516,7 +518,9 @@ entscheidet `FG-W10-METADATA-WRITE` ausschließlich für
 einen memberweisen Byte-/Semantik-Diff und verwendet für den späteren Linux-
 Commit ausschließlich atomaren `renameat2`-Exchange mit
 Same-Filesystem-Recovery. Die Implementierung bleibt bis zum Abschluss von
-`S-W10-MW01` bis `S-W10-MW05` operativ geschlossen. Sidecar-, externe
+`S-W10-MW05` operativ geschlossen. `S-W10-MW04` stellt den internen
+Exchange-/Recovery-Pfad bereit, aber weder CLI noch `VERIFIED`-/
+Reconciliation-Abschluss. Sidecar-, externe
 Library-, Rename- und Archivewrites bleiben an
 `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME`
 beziehungsweise `FG-W10-ARCHIVE-REWRITE` gebunden. W10-003 und W10-004

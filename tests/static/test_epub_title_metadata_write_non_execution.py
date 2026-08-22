@@ -20,6 +20,8 @@ MW03_SOURCE_FILES = (
     ROOT / "src/foliotone/persistence/alembic/versions/0027_metadata_write_operations.py",
     ROOT / "src/foliotone/workflows/metadata_write_report.py",
 )
+MW04_BACKEND = ROOT / "src/foliotone/metadata_write/linux_backend.py"
+MW04_EXECUTOR = ROOT / "src/foliotone/metadata_write/executor.py"
 
 
 def test_pure_epub_title_slice_has_no_filesystem_process_database_or_network_surface() -> None:
@@ -191,3 +193,121 @@ def test_mw03_authorization_and_status_slice_cannot_mutate_source_media() -> Non
         assert "os.replace" not in source
         assert "foliotone.cli" not in source
     assert "foliotone.persistence" not in MW03_SOURCE_FILES[0].read_text(encoding="utf-8")
+
+
+def test_mw04_keeps_all_source_mutation_inside_the_fixed_linux_backend() -> None:
+    backend_source = MW04_BACKEND.read_text(encoding="utf-8")
+    backend_tree = ast.parse(backend_source, filename=str(MW04_BACKEND))
+    forbidden_import_roots = {
+        "httpx",
+        "requests",
+        "shutil",
+        "socket",
+        "subprocess",
+        "urllib",
+    }
+    forbidden_attributes = {
+        "copy",
+        "copy2",
+        "move",
+        "remove",
+        "rename",
+        "rmdir",
+        "unlink",
+    }
+    imported_roots: set[str] = set()
+    called_attributes: set[str] = set()
+    rename_flags: list[str] = []
+    for node in ast.walk(backend_tree):
+        if isinstance(node, ast.Import):
+            imported_roots.update(alias.name.split(".", 1)[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported_roots.add(node.module.split(".", 1)[0])
+        elif isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Attribute):
+                called_attributes.add(node.func.attr)
+            elif isinstance(node.func, ast.Name) and node.func.id == "_renameat2":
+                flag = node.args[-1]
+                assert isinstance(flag, ast.Name)
+                rename_flags.append(flag.id)
+
+    assert imported_roots.isdisjoint(forbidden_import_roots)
+    assert called_attributes.isdisjoint(forbidden_attributes)
+    assert rename_flags
+    assert set(rename_flags) == {"_RENAME_EXCHANGE", "_RENAME_NOREPLACE"}
+    assert "os.rename" not in backend_source
+    assert "os.replace" not in backend_source
+    assert "copy+delete" not in backend_source.lower()
+
+
+def test_mw04_executor_accepts_no_source_path_or_rename_controls() -> None:
+    source = MW04_EXECUTOR.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(MW04_EXECUTOR))
+    public_functions = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name
+        in {
+            "execute_epub3_title_metadata_write",
+            "recover_epub3_title_metadata_write",
+        }
+    }
+    assert set(public_functions) == {
+        "execute_epub3_title_metadata_write",
+        "recover_epub3_title_metadata_write",
+    }
+    forbidden_parameters = {
+        "source",
+        "source_path",
+        "source_relative_path",
+        "target",
+        "target_path",
+        "flags",
+        "rename_flags",
+        "syscall",
+        "syscall_number",
+    }
+    for function in public_functions.values():
+        parameters = {
+            argument.arg
+            for argument in (
+                *function.args.posonlyargs,
+                *function.args.args,
+                *function.args.kwonlyargs,
+            )
+        }
+        assert parameters.isdisjoint(forbidden_parameters)
+
+    forbidden_import_roots = {
+        "httpx",
+        "requests",
+        "shutil",
+        "socket",
+        "subprocess",
+        "urllib",
+    }
+    forbidden_mutations = {
+        "copy",
+        "copy2",
+        "move",
+        "remove",
+        "rename",
+        "replace",
+        "rmdir",
+        "unlink",
+    }
+    imported_roots: set[str] = set()
+    called_attributes: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported_roots.update(alias.name.split(".", 1)[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported_roots.add(node.module.split(".", 1)[0])
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            called_attributes.add(node.func.attr)
+    assert imported_roots.isdisjoint(forbidden_import_roots)
+    assert called_attributes.isdisjoint(forbidden_mutations)
+    assert "foliotone.cli" not in source
+    assert "_RENAME_EXCHANGE" not in source
+    assert "_RENAME_NOREPLACE" not in source

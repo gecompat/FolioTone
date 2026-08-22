@@ -1,4 +1,4 @@
-"""Bounded contracts for the still non-executable EPUB metadata writer."""
+"""Bounded contracts for the operationally gated EPUB metadata writer."""
 
 from foliotone.metadata_write import contracts as _contracts
 from foliotone.metadata_write.authorization import (

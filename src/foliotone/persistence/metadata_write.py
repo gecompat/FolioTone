@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -10,7 +10,8 @@ from sqlalchemy import Engine, insert, select
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError
 
-from foliotone.core import EntityId
+from foliotone.core import EntityId, PresenceState
+from foliotone.core._validation import require_relative_path
 from foliotone.metadata_correction import MetadataCorrectionPlan
 from foliotone.metadata_write.authorization import (
     MAX_METADATA_WRITE_EVENTS,
@@ -19,6 +20,11 @@ from foliotone.metadata_write.authorization import (
     MetadataWriteExecutionRun,
     MetadataWriteRunStatus,
 )
+from foliotone.metadata_write.contracts import (
+    LINUX_METADATA_WRITE_BACKEND_PROFILE,
+    LINUX_METADATA_WRITE_PROBE_PROFILE,
+)
+from foliotone.persistence import schema
 from foliotone.persistence._mapping import datetime_from_db, datetime_to_db
 from foliotone.persistence.metadata_correction import (
     MetadataCorrectionStoreError,
@@ -26,6 +32,7 @@ from foliotone.persistence.metadata_correction import (
 )
 from foliotone.persistence.metadata_write_schema import (
     metadata_write_authorizations,
+    metadata_write_backend_bindings,
     metadata_write_events,
     metadata_write_runs,
 )
@@ -67,6 +74,79 @@ class MetadataWriteStatusSnapshot:
     events: tuple[MetadataWriteStatusEventSnapshot, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class MetadataWriteBackendBinding:
+    """Immutable path-free selection of the one accepted MW04 backend."""
+
+    run_id: EntityId
+    bound_at: datetime
+    backend_profile: str = LINUX_METADATA_WRITE_BACKEND_PROFILE
+    conformance_profile: str = LINUX_METADATA_WRITE_PROBE_PROFILE
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.run_id, EntityId)
+            or self.backend_profile != LINUX_METADATA_WRITE_BACKEND_PROFILE
+            or self.conformance_profile != LINUX_METADATA_WRITE_PROBE_PROFILE
+            or not isinstance(self.bound_at, datetime)
+            or self.bound_at.tzinfo is None
+            or self.bound_at.utcoffset() is None
+        ):
+            raise MetadataWriteStoreError("metadata write backend binding is invalid")
+        object.__setattr__(self, "bound_at", self.bound_at.astimezone(UTC))
+
+
+@dataclass(frozen=True, slots=True)
+class MetadataWriteSourceSnapshot:
+    """Private persistence-derived locator for one exact authorized source."""
+
+    run_id: EntityId
+    authorization_id: EntityId
+    plan_id: EntityId
+    scan_root_id: EntityId
+    file_id: EntityId
+    observation_id: EntityId
+    relative_path: str = field(repr=False)
+    source_sha256: str = field(repr=False)
+    source_size_bytes: int
+    expected_modified_at: datetime
+
+    def __post_init__(self) -> None:
+        if not all(
+            isinstance(value, EntityId)
+            for value in (
+                self.run_id,
+                self.authorization_id,
+                self.plan_id,
+                self.scan_root_id,
+                self.file_id,
+                self.observation_id,
+            )
+        ):
+            raise MetadataWriteStoreError("metadata write source binding is invalid")
+        try:
+            relative_path = require_relative_path(self.relative_path)
+        except (TypeError, ValueError):
+            raise MetadataWriteStoreError("metadata write source binding is invalid") from None
+        if (
+            len(self.source_sha256) != 64
+            or any(value not in "0123456789abcdef" for value in self.source_sha256)
+            or isinstance(self.source_size_bytes, bool)
+            or not isinstance(self.source_size_bytes, int)
+            or self.source_size_bytes <= 0
+            or not isinstance(self.expected_modified_at, datetime)
+            or self.expected_modified_at.tzinfo is None
+            or self.expected_modified_at.utcoffset() is None
+        ):
+            raise MetadataWriteStoreError("metadata write source binding is invalid")
+        object.__setattr__(self, "relative_path", relative_path)
+        object.__setattr__(
+            self,
+            "expected_modified_at",
+            self.expected_modified_at.astimezone(UTC),
+        )
+
+
 _FAIL_BEFORE_EXCHANGE = frozenset(
     {
         MetadataWriteRunStatus.STALE,
@@ -78,10 +158,18 @@ _FAIL_BEFORE_EXCHANGE = frozenset(
 )
 _NEXT: dict[MetadataWriteRunStatus, frozenset[MetadataWriteRunStatus]] = {
     MetadataWriteRunStatus.CREATED: frozenset(
-        {MetadataWriteRunStatus.PREPARED, *_FAIL_BEFORE_EXCHANGE}
+        {
+            MetadataWriteRunStatus.PREPARED,
+            MetadataWriteRunStatus.MANUAL_RECOVERY_REQUIRED,
+            *_FAIL_BEFORE_EXCHANGE,
+        }
     ),
     MetadataWriteRunStatus.PREPARED: frozenset(
-        {MetadataWriteRunStatus.EXCHANGED, *_FAIL_BEFORE_EXCHANGE}
+        {
+            MetadataWriteRunStatus.EXCHANGED,
+            MetadataWriteRunStatus.MANUAL_RECOVERY_REQUIRED,
+            *_FAIL_BEFORE_EXCHANGE,
+        }
     ),
     MetadataWriteRunStatus.EXCHANGED: frozenset(
         {
@@ -126,6 +214,17 @@ _RECOVERABLE_FAILURES = frozenset(
 _RECOVERY_OUTCOMES = frozenset(
     {
         MetadataWriteRunStatus.RECOVERED,
+        MetadataWriteRunStatus.MANUAL_RECOVERY_REQUIRED,
+    }
+)
+_RECOVERY_SOURCE_STATUSES = frozenset(
+    {
+        MetadataWriteRunStatus.CREATED,
+        MetadataWriteRunStatus.PREPARED,
+        MetadataWriteRunStatus.EXCHANGED,
+        MetadataWriteRunStatus.ORIGINAL_PRESERVED,
+        MetadataWriteRunStatus.VALIDATION_FAILED,
+        MetadataWriteRunStatus.FENCED_OUT,
         MetadataWriteRunStatus.MANUAL_RECOVERY_REQUIRED,
     }
 )
@@ -255,6 +354,244 @@ class SQLiteMetadataWriteStore:
         except (IntegrityError, MetadataCorrectionStoreError, ScanRootWriteLeaseError) as error:
             raise MetadataWriteStoreError("metadata write run could not be created") from error
         return value
+
+    def bind_backend(
+        self,
+        run: MetadataWriteExecutionRun,
+        authorization: MetadataWriteAuthorizationSnapshot,
+        plan: MetadataCorrectionPlan,
+        lease: OwnedScanRootWriteLease,
+        *,
+        bound_at: datetime,
+    ) -> MetadataWriteBackendBinding:
+        """Select the fixed backend once under the current authorization fence."""
+
+        self._require_active_run_lease(run, authorization, lease, bound_at)
+        binding = MetadataWriteBackendBinding(run.id, bound_at)
+        try:
+            with self._engine.begin() as connection:
+                SQLiteScanRootWriteLeaseStore(self._engine).fence(
+                    connection,
+                    lease,
+                    binding.bound_at,
+                )
+                self._require_persisted_execution_material(
+                    connection,
+                    run,
+                    authorization,
+                )
+                if not (
+                    authorization.authorized_at
+                    <= binding.bound_at
+                    < authorization.expires_at
+                ):
+                    raise MetadataWriteStoreError(
+                        "metadata write authorization is unavailable"
+                    )
+                self._require_latest_status(
+                    connection,
+                    run,
+                    frozenset({MetadataWriteRunStatus.CREATED}),
+                )
+                self._require_plan(connection, authorization, plan)
+                existing = (
+                    connection.execute(
+                        select(metadata_write_backend_bindings).where(
+                            metadata_write_backend_bindings.c.run_id == str(run.id)
+                        )
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+                if existing is not None:
+                    persisted = _backend_binding_from_row(existing)
+                    if (
+                        persisted.backend_profile != binding.backend_profile
+                        or persisted.conformance_profile
+                        != binding.conformance_profile
+                        or persisted.bound_at < run.created_at
+                        or not authorization.authorized_at
+                        <= persisted.bound_at
+                        < authorization.expires_at
+                        or persisted.bound_at > binding.bound_at
+                    ):
+                        raise MetadataWriteStoreError(
+                            "metadata write backend binding differs"
+                        )
+                    return persisted
+                connection.execute(
+                    insert(metadata_write_backend_bindings).values(
+                        **_backend_binding_row(binding)
+                    )
+                )
+        except MetadataWriteStoreError:
+            raise
+        except (
+            IntegrityError,
+            MetadataCorrectionStoreError,
+            ScanRootWriteLeaseError,
+            ValueError,
+        ) as error:
+            raise MetadataWriteStoreError(
+                "metadata write backend could not be bound"
+            ) from error
+        return binding
+
+    def require_execution_source(
+        self,
+        run: MetadataWriteExecutionRun,
+        authorization: MetadataWriteAuthorizationSnapshot,
+        plan: MetadataCorrectionPlan,
+        lease: OwnedScanRootWriteLease,
+        *,
+        checked_at: datetime,
+    ) -> MetadataWriteSourceSnapshot:
+        """Return the private locator only while every live gate remains current."""
+
+        return self._require_live_execution_source(
+            run,
+            authorization,
+            plan,
+            lease,
+            checked_at=checked_at,
+            required_status=MetadataWriteRunStatus.CREATED,
+        )
+
+    def require_prepared_execution_source(
+        self,
+        run: MetadataWriteExecutionRun,
+        authorization: MetadataWriteAuthorizationSnapshot,
+        plan: MetadataCorrectionPlan,
+        lease: OwnedScanRootWriteLease,
+        *,
+        checked_at: datetime,
+    ) -> MetadataWriteSourceSnapshot:
+        """Recheck every live gate immediately before the atomic exchange."""
+
+        return self._require_live_execution_source(
+            run,
+            authorization,
+            plan,
+            lease,
+            checked_at=checked_at,
+            required_status=MetadataWriteRunStatus.PREPARED,
+        )
+
+    def _require_live_execution_source(
+        self,
+        run: MetadataWriteExecutionRun,
+        authorization: MetadataWriteAuthorizationSnapshot,
+        plan: MetadataCorrectionPlan,
+        lease: OwnedScanRootWriteLease,
+        *,
+        checked_at: datetime,
+        required_status: MetadataWriteRunStatus,
+    ) -> MetadataWriteSourceSnapshot:
+        self._require_active_run_lease(run, authorization, lease, checked_at)
+        try:
+            with self._engine.begin() as connection:
+                SQLiteScanRootWriteLeaseStore(self._engine).fence(
+                    connection,
+                    lease,
+                    checked_at,
+                )
+                self._require_persisted_execution_material(
+                    connection,
+                    run,
+                    authorization,
+                )
+                if not (
+                    authorization.authorized_at <= checked_at < authorization.expires_at
+                ):
+                    raise MetadataWriteStoreError(
+                        "metadata write authorization is unavailable"
+                    )
+                self._require_latest_status(
+                    connection,
+                    run,
+                    frozenset({required_status}),
+                )
+                self._require_backend_binding(
+                    connection,
+                    run,
+                    authorization,
+                    checked_at=checked_at,
+                )
+                self._require_plan(connection, authorization, plan)
+                return self._source_snapshot(
+                    connection,
+                    run,
+                    authorization,
+                    plan,
+                    require_current_file=True,
+                )
+        except MetadataWriteStoreError:
+            raise
+        except (
+            MetadataCorrectionStoreError,
+            ScanRootWriteLeaseError,
+            ValueError,
+        ) as error:
+            raise MetadataWriteStoreError(
+                "metadata write execution source is unavailable"
+            ) from error
+
+    def require_recovery_source(
+        self,
+        run: MetadataWriteExecutionRun,
+        authorization: MetadataWriteAuthorizationSnapshot,
+        plan: MetadataCorrectionPlan,
+        lease: OwnedScanRootWriteLease,
+        *,
+        checked_at: datetime,
+    ) -> MetadataWriteSourceSnapshot:
+        """Return the historical locator for bounded recovery under a fresh fence."""
+
+        self._require_active_run_lease(run, authorization, lease, checked_at)
+        try:
+            with self._engine.begin() as connection:
+                SQLiteScanRootWriteLeaseStore(self._engine).fence(
+                    connection,
+                    lease,
+                    checked_at,
+                )
+                self._require_persisted_execution_material(
+                    connection,
+                    run,
+                    authorization,
+                )
+                self._require_backend_binding(
+                    connection,
+                    run,
+                    authorization,
+                    checked_at=checked_at,
+                )
+                self._require_latest_status(
+                    connection,
+                    run,
+                    _RECOVERY_SOURCE_STATUSES,
+                )
+                self._require_plan_binding(authorization, plan)
+                SQLiteMetadataCorrectionStore(
+                    self._engine
+                ).require_persisted_approved_plan_in_transaction(connection, plan)
+                return self._source_snapshot(
+                    connection,
+                    run,
+                    authorization,
+                    plan,
+                    require_current_file=False,
+                )
+        except MetadataWriteStoreError:
+            raise
+        except (
+            MetadataCorrectionStoreError,
+            ScanRootWriteLeaseError,
+            ValueError,
+        ) as error:
+            raise MetadataWriteStoreError(
+                "metadata write recovery source is unavailable"
+            ) from error
 
     def append_event(
         self,
@@ -386,6 +723,22 @@ class SQLiteMetadataWriteStore:
             )
             return None if row is None else _run_from_row(row)
 
+    def get_backend_binding(
+        self,
+        run_id: EntityId,
+    ) -> MetadataWriteBackendBinding | None:
+        with self._engine.connect() as connection:
+            row = (
+                connection.execute(
+                    select(metadata_write_backend_bindings).where(
+                        metadata_write_backend_bindings.c.run_id == str(run_id)
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            return None if row is None else _backend_binding_from_row(row)
+
     def events_for_run(
         self,
         run_id: EntityId,
@@ -509,6 +862,16 @@ class SQLiteMetadataWriteStore:
         value: MetadataWriteAuthorizationSnapshot,
         plan: MetadataCorrectionPlan,
     ) -> None:
+        self._require_plan_binding(value, plan)
+        SQLiteMetadataCorrectionStore(
+            self._engine
+        ).require_current_approved_plan_in_transaction(connection, plan)
+
+    @staticmethod
+    def _require_plan_binding(
+        value: MetadataWriteAuthorizationSnapshot,
+        plan: MetadataCorrectionPlan,
+    ) -> None:
         candidate = plan.candidate
         if (
             value.plan_id != plan.id
@@ -520,9 +883,200 @@ class SQLiteMetadataWriteStore:
             or value.source_size_bytes != candidate.expected_size_bytes
         ):
             raise MetadataWriteStoreError("metadata write plan binding differs")
-        SQLiteMetadataCorrectionStore(
-            self._engine
-        ).require_current_approved_plan_in_transaction(connection, plan)
+
+    @staticmethod
+    def _require_active_run_lease(
+        run: MetadataWriteExecutionRun,
+        authorization: MetadataWriteAuthorizationSnapshot,
+        lease: OwnedScanRootWriteLease,
+        checked_at: datetime,
+    ) -> None:
+        if (
+            not isinstance(run, MetadataWriteExecutionRun)
+            or not isinstance(authorization, MetadataWriteAuthorizationSnapshot)
+            or run.authorization_id != authorization.id
+            or run.authorization_content_hash != authorization.content_hash
+            or run.plan_id != authorization.plan_id
+            or run.scan_root_id != authorization.scan_root_id
+            or run.file_id != authorization.file_id
+            or run.metadata_write_capability_id
+            != authorization.metadata_write_capability_id
+            or not isinstance(lease, OwnedScanRootWriteLease)
+            or lease.owner_kind is not ScanRootWriteOwnerKind.METADATA_WRITE_RUN
+            or lease.owner_run_id != run.id
+            or lease.scan_root_id != run.scan_root_id
+            or not isinstance(checked_at, datetime)
+            or checked_at.tzinfo is None
+            or checked_at.utcoffset() is None
+            or checked_at < run.created_at
+            or checked_at < lease.acquired_at
+            or checked_at >= lease.lease_expires_at
+        ):
+            raise MetadataWriteStoreError("metadata write run lease is unavailable")
+
+    @staticmethod
+    def _require_persisted_execution_material(
+        connection: Any,
+        run: MetadataWriteExecutionRun,
+        authorization: MetadataWriteAuthorizationSnapshot,
+    ) -> None:
+        persisted_run = (
+            connection.execute(
+                select(metadata_write_runs).where(
+                    metadata_write_runs.c.id == str(run.id)
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        persisted_authorization = (
+            connection.execute(
+                select(metadata_write_authorizations).where(
+                    metadata_write_authorizations.c.id == str(authorization.id)
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if (
+            persisted_run is None
+            or dict(persisted_run) != _run_row(run)
+            or persisted_authorization is None
+            or dict(persisted_authorization) != _authorization_row(authorization)
+        ):
+            raise MetadataWriteStoreError("metadata write persisted binding differs")
+
+    @staticmethod
+    def _require_latest_status(
+        connection: Any,
+        run: MetadataWriteExecutionRun,
+        allowed: frozenset[MetadataWriteRunStatus],
+    ) -> MetadataWriteRunStatus:
+        row = connection.execute(
+            select(metadata_write_events.c.status)
+            .where(metadata_write_events.c.run_id == str(run.id))
+            .order_by(metadata_write_events.c.sequence_no.desc())
+            .limit(1)
+        ).one_or_none()
+        if row is None:
+            raise MetadataWriteStoreError("metadata write CREATED event is missing")
+        status = MetadataWriteRunStatus(str(row.status))
+        if status not in allowed:
+            raise MetadataWriteStoreError("metadata write run status is unavailable")
+        return status
+
+    @staticmethod
+    def _require_backend_binding(
+        connection: Any,
+        run: MetadataWriteExecutionRun,
+        authorization: MetadataWriteAuthorizationSnapshot,
+        *,
+        checked_at: datetime,
+    ) -> MetadataWriteBackendBinding:
+        row = (
+            connection.execute(
+                select(metadata_write_backend_bindings).where(
+                    metadata_write_backend_bindings.c.run_id == str(run.id)
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            raise MetadataWriteStoreError("metadata write backend binding is missing")
+        binding = _backend_binding_from_row(row)
+        if (
+            binding.run_id != run.id
+            or binding.bound_at < run.created_at
+            or not authorization.authorized_at
+            <= binding.bound_at
+            < authorization.expires_at
+            or binding.bound_at > checked_at
+        ):
+            raise MetadataWriteStoreError("metadata write backend binding differs")
+        return binding
+
+    @staticmethod
+    def _source_snapshot(
+        connection: Any,
+        run: MetadataWriteExecutionRun,
+        authorization: MetadataWriteAuthorizationSnapshot,
+        plan: MetadataCorrectionPlan,
+        *,
+        require_current_file: bool,
+    ) -> MetadataWriteSourceSnapshot:
+        row = (
+            connection.execute(
+                select(
+                    schema.file_records.c.scan_root_id,
+                    schema.file_records.c.relative_path.label("file_relative_path"),
+                    schema.file_records.c.size_bytes.label("file_size_bytes"),
+                    schema.file_records.c.modified_at.label("file_modified_at"),
+                    schema.file_records.c.media_type,
+                    schema.file_records.c.presence_state,
+                    schema.file_observations.c.file_id.label("observation_file_id"),
+                    schema.file_observations.c.relative_path.label(
+                        "observation_relative_path"
+                    ),
+                    schema.file_observations.c.size_bytes.label(
+                        "observation_size_bytes"
+                    ),
+                    schema.file_observations.c.modified_at.label(
+                        "observation_modified_at"
+                    ),
+                )
+                .select_from(
+                    schema.file_records.join(
+                        schema.file_observations,
+                        schema.file_observations.c.file_id == schema.file_records.c.id,
+                    )
+                )
+                .where(
+                    schema.file_records.c.id == str(authorization.file_id),
+                    schema.file_observations.c.id
+                    == str(authorization.observation_id),
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        candidate = plan.candidate
+        if row is None:
+            raise MetadataWriteStoreError("metadata write source binding is missing")
+        observation_modified_at = _required_datetime(row["observation_modified_at"])
+        observation_path = str(row["observation_relative_path"])
+        if (
+            str(row["scan_root_id"]) != str(run.scan_root_id)
+            or str(row["media_type"]) != "EBOOK"
+            or str(row["observation_file_id"]) != str(run.file_id)
+            or int(row["observation_size_bytes"])
+            != authorization.source_size_bytes
+            or observation_modified_at != candidate.expected_modified_at
+            or (
+                require_current_file
+                and (
+                    str(row["presence_state"]) != PresenceState.PRESENT.value
+                    or str(row["file_relative_path"]) != observation_path
+                    or int(row["file_size_bytes"])
+                    != authorization.source_size_bytes
+                    or _required_datetime(row["file_modified_at"])
+                    != candidate.expected_modified_at
+                )
+            )
+        ):
+            raise MetadataWriteStoreError("metadata write source binding differs")
+        return MetadataWriteSourceSnapshot(
+            run_id=run.id,
+            authorization_id=authorization.id,
+            plan_id=plan.id,
+            scan_root_id=run.scan_root_id,
+            file_id=run.file_id,
+            observation_id=authorization.observation_id,
+            relative_path=observation_path,
+            source_sha256=authorization.source_sha256,
+            source_size_bytes=authorization.source_size_bytes,
+            expected_modified_at=observation_modified_at,
+        )
 
     @staticmethod
     def _require_run_material(
@@ -683,6 +1237,24 @@ def _run_from_row(row: RowMapping) -> MetadataWriteExecutionRun:
     )
 
 
+def _backend_binding_row(value: MetadataWriteBackendBinding) -> dict[str, object]:
+    return {
+        "run_id": str(value.run_id),
+        "backend_profile": value.backend_profile,
+        "conformance_profile": value.conformance_profile,
+        "bound_at": datetime_to_db(value.bound_at),
+    }
+
+
+def _backend_binding_from_row(row: RowMapping) -> MetadataWriteBackendBinding:
+    return MetadataWriteBackendBinding(
+        run_id=EntityId.parse(str(row["run_id"])),
+        backend_profile=str(row["backend_profile"]),
+        conformance_profile=str(row["conformance_profile"]),
+        bound_at=_required_datetime(row["bound_at"]),
+    )
+
+
 def _event_row(value: MetadataWriteExecutionEvent) -> dict[str, object]:
     return {
         "run_id": str(value.run_id),
@@ -754,6 +1326,8 @@ def _required_datetime(value: object) -> datetime:
 
 
 __all__ = [
+    "MetadataWriteBackendBinding",
+    "MetadataWriteSourceSnapshot",
     "MetadataWriteStatusEventSnapshot",
     "MetadataWriteStatusSnapshot",
     "MetadataWriteStoreError",

@@ -278,10 +278,25 @@ nur Staging-Evidence und keine Mutationsfreigabe.
 Validatoren. `S-W10-MW03` ergänzt die content-addressed Preparation/
 Authorization, private Capability-Auflösung, gefencete insert-only Run-/
 Eventpersistenz und einen read-only Status. Die Capability-Pfade bleiben
-außerhalb von SQLite und Standardreports; Authorization und Journal besitzen
-weiterhin weder Source-I/O noch Executor- oder CLI-Anbindung. Erst
-`S-W10-MW04` darf den eng begrenzten Linux-Commit und dessen Recovery auf
-synthetischen Filesystemen implementieren.
+außerhalb von SQLite und Standardreports. `S-W10-MW04` implementiert den eng
+begrenzten internen Linux-Commit und dessen Recovery auf synthetischen
+Filesystemen. Das Backend verlangt Linux x86_64 mit glibc, feste no-follow
+Directory-FDs, eine erlaubte lokale Same-Filesystem-Instanz, einen erfolgreichen
+persistenten `RENAME_EXCHANGE`-/`RENAME_NOREPLACE`-Probevertrag sowie reguläre
+owner-eigene Source-Dateien ohne weitere Links, Special Bits oder xattrs.
+Unmittelbar vor dem Exchange werden gültige Authorization, aktuelle Plan-/
+Review-/File-Lineage, Backend-Binding, Full-SHA-256 und Root-Fence erneut
+geprüft. Recovery ignoriert Ablauf oder spätere fachliche Änderungen nur, um
+unter einer neuen Fence die exakten Originalbytes derselben bereits begonnenen
+Operation wiederherzustellen. Uneindeutige Zustände werden nicht weiter
+mutiert. Delete, Copy+Delete, Overwrite, Cross-Volume, Cleanup und ein
+caller-gesteuerter Rename bleiben ausgeschlossen.
+
+MW04 bietet bewusst weder CLI noch automatische Ausführung und endet im
+Erfolgsfall bei `ORIGINAL_PRESERVED`. Erst `S-W10-MW05` darf die feste zweite
+Bestätigung, unmittelbare Verifikation, neuen Scan, Reconciliation und den
+Übergang `VERIFIED` anbinden. Bis dahin bleibt der Metadata-Writer operativ
+nicht verfügbar.
 
 Ein ausführbarer Consolidation-Teil darf nicht lediglich durch einen CLI-
 Schalter aktiviert werden. Er benötigt weiterhin mindestens:
