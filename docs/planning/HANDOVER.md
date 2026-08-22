@@ -13,26 +13,36 @@ bleiben eine eigene technische Operations-ADR, die vollständige Capability-/
 Authorize-/Execute-/Recovery-Kette und eine konkrete lokale Authorization
 verpflichtend.
 
-ADR-0062 schließt jetzt `FG-W9-006`: Vor jedem Metadata-Writer entsteht zuerst
-ein immutable `MetadataCorrectionCandidate` als Gegenstand eines append-only
-Reviews. Erst die neueste kompatible Review Decision wird in einen separaten,
-content-addressed `MetadataCorrectionPlan` gebunden. Candidate und Plan bleiben
-bounded, path-free und dauerhaft `NOT_EXECUTABLE`; ein akzeptiertes Review ist
-keine W10-Authorization.
+ADR-0062 schließt `FG-W9-006` und ist über PR #229 einschließlich grünem
+Post-Merge-Contract auf `main` integriert. Vor jedem Metadata-Writer entsteht
+zuerst ein immutable `MetadataCorrectionCandidate` als Gegenstand eines
+append-only Reviews. Erst die neueste kompatible Review Decision wird in einen
+separaten, content-addressed `MetadataCorrectionPlan` gebunden. Candidate und
+Plan bleiben bounded, path-free und dauerhaft `NOT_EXECUTABLE`.
 
-Die Umsetzung folgt in drei kleinen Waves. `S-W9-006A` ist `READY` und enthält
-nur DTOs, Reducer, kanonische Serialisierung, Golden Values und den statischen
-Non-Execution-Vertrag. `S-W9-006B` ergänzt Migration `0026`, Review-Literale
-und insert-only Persistenz. `S-W9-006C` liefert den echten SQLite-Read-only-
-Report samt CLI und schließt `W9-006`. `W10-005` bleibt parallel `READY`.
+`S-W9-006A` ist umgesetzt. `foliotone.metadata_correction` enthält die reinen
+Candidate-/Plan-DTOs, fünf getrennte Zielträger, drei vollständige Dependency-
+Achsen, eine bounded E-Book-Feldgrammatik, private mehrwertige Feldselektionen,
+reine Reducer sowie deterministische UUIDv5-/`canonical-json/v1`-Identitäten.
+Der Plan bildet feste Source-, Target-, Dependency-, Review- und Writer-
+Preconditions sowie die Post-write-Verifikation ab, bietet aber ausschließlich
+den Execution-State `NOT_EXECUTABLE` an.
 
-Der ADR-0062-Gate-Slice ändert keinen Python-Writer, öffnet keine Source Media
-und berührt keine reale Sammlung. Sieben fokussierte Planungs- und neun
-Dokumentationsvertragstests bestanden; eine anfängliche veraltete Text-
-Assertion wurde korrigiert und nur die betroffene Testdatei wiederholt.
-`git diff --check` war ohne Befund. Eine vollständige lokale Suite wurde
-ressourcenschonend nicht dupliziert; der einmalige vollständige PR-CI-Gate
-bleibt Merge-Voraussetzung.
+54 fokussierte synthetische Unit-, Golden-Value-, Blocker-, Privacy- und
+Non-Execution-Tests bestanden nach der Korrektur zweier anfänglicher Golden-
+Platzhalter und einer zu groben Scannerregel. Gezielte Ruff- und Mypy-Prüfungen
+des neuen Pakets waren grün. Der statische Gate bestätigt zusätzlich, dass das
+Paket weder Persistenz, CLI, Tooling noch Filesystem-/Subprocessmodule
+importiert. Zusätzlich bestanden sieben Planungs- und neun
+Dokumentationsvertragstests; `git diff --check` war ohne Befund. Eine
+vollständige lokale Suite wurde ressourcenschonend nicht dupliziert; der
+einmalige vollständige PR-CI-Gate bleibt Merge-Voraussetzung.
+
+`S-W9-006B` ist jetzt `READY`: ReviewType und ReviewCandidateKind werden
+additiv erweitert; Migration `0026` und der insert-only Store müssen Candidate
+und Plan bounded rehydrieren und alle Hashes sowie Source-/Review-Lineage in
+einer kurzen Transaktion erneut prüfen. `S-W9-006C` folgt erst danach mit dem
+echten SQLite-Read-only-Report und der CLI. `W10-005` bleibt parallel `READY`.
 
 W0 bis W2 sind abgeschlossen. Der W2-Slice umfasst Incremental Index, Hashing, Filename-/Path-Kandidaten, konfigurierbare Parsing-Profile und eine generische read-only ToolProvider Runtime. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
 
