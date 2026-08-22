@@ -2593,8 +2593,8 @@ Namen, Pfade, Inhalte oder Secrets und ändert weder Toolruntime noch
 öffentliches Reportprofil. ADR-0056 entscheidet nun das enge W10-Vertragsgate
 für eine restartbare Ein-Datei-Quarantäne. S-W10-01 mit reinen DTOs und
 Reducern sowie S-W10-02 mit getrennter Persistenz sind abgeschlossen. Als
-nächstes folgt `FG-W10-MOVE-BACKEND`; reale Source-Mutation bleibt bis zum akzeptierten
-`FG-W10-MOVE-BACKEND` gesperrt.
+`FG-W10-MOVE-BACKEND` bleibt als spätere Frontier-Wave im Backlog; reale
+Source-Mutation bleibt bis zum akzeptierten Gate gesperrt.
 FG-A3-MEMBER-BYTE bleibt bis vollständiger Member-SHA-256-Evidence blockiert.
 Passwortversuche bleiben bis FG-A-SECRET blockiert. Jede
 Filesystem-Mutation, mutierende Calibre-Operation und ausführbare W10-Strecke

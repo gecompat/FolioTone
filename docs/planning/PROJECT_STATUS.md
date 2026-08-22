@@ -13,7 +13,8 @@ liefert die additive Migration `0022`, die neue Root-Lease-Owner-Klasse
 Source-I/O. Es gibt
 weiterhin keine reale Mutation; sie
 bleibt bis zum
-separaten `FG-W10-MOVE-BACKEND` blockiert; der Vertrag verlangt kein
+separaten `FG-W10-MOVE-BACKEND` blockiert. Das Gate ist für eine spätere
+Frontier-Wave im Backlog erfasst; der Vertrag verlangt kein
 bestimmtes Dateisystem und besitzt keinen Copy+Delete-Fallback.
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
