@@ -4,58 +4,61 @@ Stand: 2026-08-22
 
 ## Aktuelle Welle
 
-**S-W10-MW01 abgeschlossen — der begrenzte EPUB-3-Titelpatch ist rein prüfbar**
+**S-W10-MW02 abgeschlossen — privates EPUB-Staging ist unabhängig verifizierbar**
 
-Das neue Paket `foliotone.metadata_write` implementiert
-`ebook-source-metadata-write/epub3-title-replace/v1` ausschließlich als
-immutable Bytes-Vertrag. `preflight_epub3_title_write` akzeptiert nur einen
-kanonisch revalidierten `APPROVED_NON_EXECUTABLE`-Plan für EPUB 3,
-`SOURCE_METADATA`, genau einen `title`-`REPLACE` und die Dependency-Zustände
-`CALIBRE = KNOWN_NONE`, `SIDECAR = KNOWN_NONE` sowie
-`ARCHIVE = NOT_APPLICABLE`. Plan-, Candidate-, Evidence-, Feld- und Writer-
-Fingerprints werden erneut berechnet. Der Input muss außerdem Größe und Full-
-SHA-256 des Plans sowie eine auf denselben Hash gebundene
-`epubcheck-5.3.0-input-conformance/v1`-Evidence mit `CONFORMANT` und `EPUB3`
-erfüllen.
+`foliotone.metadata_write` ergänzt den reinen MW01-Preflight/Patch um
+`epub3-title-private-staging/v1`. Der Builder erhält keinen Source-Pfad,
+sondern ausschließlich einen Bytestrom, kopiert ihn einmal bounded und mit
+Full-SHA-256-Revalidierung in einen exklusiv neu angelegten privaten Ordner
+und erzeugt dort feste `input.epub`-/`output.epub`-Einträge ohne
+Überschreiben. Unveränderte ZIP-Member werden komprimiert roh und inkrementell
+kopiert; nur das gebundene Package Document wird gemäß seiner bisherigen
+Stored-/Deflate-Methode neu komprimiert.
 
-Der bounded OCF-Preflight liest nur die übergebenen Bytes. Er prüft Single-
-Disk-ZIP ohne ZIP64, eindeutige UTF-8-Entry-Namen, feste Kompressionsmethoden,
-vollständig lesbare Entries, das erste unkomprimierte `mimetype`, genau ein
-Package Document, fehlende Signatur/Verschlüsselung sowie begrenzte XML-
-Größe und -Tiefe. Ein no-network Semantikparser und ein getrennter
-namespacebewusster lexikalischer Scanner akzeptieren nur EPUB 3 mit genau
-einem einfachen `dc:title` und einem nicht verfeinerten
-`dcterms:modified`. `DOCTYPE`, Entity-Deklarationen, CDATA im Ziel,
-Title-Refinements, EPUB 2, KEPUB- und nicht positive Conformance-Evidence
-schlagen fail-closed fehl.
+Entry-Menge und -Reihenfolge, rohe Namen, General-Purpose-Flags,
+Kompressionsmethoden, DOS-Zeitwerte, lokale und zentrale Extra Fields,
+Entry-/Archivkommentare sowie interne/externe Attribute bleiben erhalten.
+Data Descriptors werden unterstützt, ZIP64 bleibt geschlossen. Der
+anschließende streaming-basierte Read-back berechnet jeden unkomprimierten
+Memberhash neu, verlangt den exakten Zwei-Spannen-Patch und liefert denselben
+`EpubTitleArchiveDiff`-Vertrag wie die reine kleine Bytes-Prüfung.
 
-`build_epub3_title_package_patch` ersetzt bytegenau nur die zwei ermittelten
-Textspannen. XML-Sonderzeichen und Wagenrückläufe werden semantikerhaltend
-escaped; der technische UTC-Sekundenwert folgt der durch ADR-0063 gebundenen
-Zeitregel. `verify_epub3_title_archive_diff` akzeptiert danach nur dieselbe
-Entry-Menge und -Reihenfolge, identische Archiv-/Membermetadaten, identische
-Hashes und Längen aller Nicht-Package-Entries sowie genau den erwarteten
-Package-Document-Output. Full-SHA-256 von Input und Output müssen verschieden
-sein.
+`FixedEpubTitleStagingValidator` führt danach genau sieben feste, nicht
+persistierende Prüfungen ausschließlich gegen die privaten Kopien aus:
+`ebook-meta` für Input und Output, EPUBCheck für den Output, `ebook-convert`
+für beide Textprojektionen sowie den bestehenden `calibre-debug`-Coverhelper
+für beide Coverprojektionen. Prozesse laufen ohne Shell, mit festen
+Argumenten, isolierten Calibre-/Temp-Verzeichnissen, Version Policy, Timeout
+und bounded privaten Artefakten. Calibre bleibt Reader, nicht Writer.
 
-Das Paket besitzt keine Pfad-, Datei-, Persistenz-, Netzwerk-, Tool-, CLI-,
-Capability-, Authorization- oder Execute-Schnittstelle. Es erzeugt weder ein
-Staging-EPUB noch einen Source-Commit. Fehler und Standardrepräsentationen
-bleiben frei von Metadatenwerten, internen Entry-Namen und Hashes.
+Der Validator verlangt den normalisierten ausgewählten Titel, identische
+nicht zielbezogene Metadatenprojektionen, `CONFORMANT` durch EPUBCheck,
+identische normalisierte Textfingerprints und identische Coverzustände/-
+fingerprints. Input und Output werden vor und nach allen Toolaufrufen erneut
+vollständig gehasht. `epub3-title-staged-validation/v1` speichert im Ergebnis
+nur Hashes, Status und Toolversionen; Pfade und Titel sind nicht repräsentiert
+und nichts wird in SQLite persistiert. Nur Calibres bei jedem OPF-Export neu
+erzeugte volatile `identifier:calibre`-Projektion wird aus dem unabhängigen
+Preserved-Field-Vergleich entfernt; der native Memberdiff belegt weiterhin den
+Erhalt jedes Source-Identifier-Bytes.
 
-Lokal bestanden 114 fokussierte neue und direkt betroffene Unit-, Privacy-,
-Non-Execution- und Dokumentationsvertragstests in 0,57 Sekunden. Ruff war für
-das neue Paket und seine Tests grün; Mypy meldete für die drei neuen Source-
-Dateien keine Findings.
-Die vollständige lokale Suite, Docker-/Toolchain-Läufe, reale E-Books und
-produktive Runtime-Datenbanken wurden ressourcenschonend nicht verwendet.
-Der stabile Pull-Request-Head erhält genau einen vollständigen CI-Gate.
+Der Slice besitzt weiterhin keine Capability, Authorization, Lease,
+Run-/Eventpersistenz, CLI, Source-Ersetzung oder Recovery. Reale E-Books und
+produktive Runtime-Datenbanken wurden nicht verwendet. Am finalen lokalen
+Stand bestanden 76 fokussierte synthetische MW01-/MW02-, Privacy-, Non-
+Execution-, W10- und Dokumentationsvertragstests in 0,63 Sekunden. Ruff war
+für den geänderten Python-Scope grün, Mypy prüfte 219 Source-Dateien ohne
+Befund und `git diff --check` war sauber. Ein zusätzlich begonnener breiterer
+Windows-Lauf erreichte 71 erfolgreiche Fälle und stoppte ausschließlich am
+bereits dokumentierten `\\?\`-Pfadpräfix der unveränderten Calibre-Analyzer-
+Regression; der Linux-PR-Gate bleibt dafür kanonisch. Die vollständige lokale
+Suite wird nicht dupliziert; der stabile Pull-Request-Head erhält genau einen
+vollständigen CI-Gate.
 
-`S-W10-MW02` ist die nächste reguläre Wave. Sie ergänzt ausschließlich den
-privaten streaming-basierten Containerneuaufbau und feste unabhängige Read-
-back-, EPUBCheck-, Text-, Cover- und Preserved-Field-Verifikation, weiterhin
-ohne Source-Commit. Authorization/Persistenz, Capability, Linux-Executor,
-Crash-Recovery, CLI und Reconciliation bleiben `S-W10-MW03` bis
+`S-W10-MW03` ist die nächste reguläre Wave. Sie ergänzt immutable
+Authorization-/Run-/Eventpersistenz, private Capability-Auflösung,
+`ScanRootWriteLease`-/Fence-Vertrag und privacy-begrenzten read-only Status.
+Linux-Commit/Recovery sowie CLI/Reconciliation bleiben `S-W10-MW04` und
 `S-W10-MW05` vorbehalten. Reale Source-Metadata-Mutation bleibt operativ nicht
 verfügbar.
 
@@ -120,8 +123,9 @@ nun ausdrücklich; andere Reviewzustände bleiben an ihre persistierten
 `ReviewItem`-/`ReviewDecision`-Lineage gebunden.
 
 `W9-006` ist abgeschlossen. ADR-0063 hat `FG-W10-METADATA-WRITE` anschließend
-für den begrenzten EPUB-3-Titelwriter entschieden; `S-W10-MW01` liefert den
-reinen Patchvertrag und `S-W10-MW02` ist der nächste reguläre Slice.
+für den begrenzten EPUB-3-Titelwriter entschieden; `S-W10-MW01` und
+`S-W10-MW02` liefern Patch, privates Staging und unabhängige Verifikation,
+`S-W10-MW03` ist der nächste reguläre Slice.
 `W10-005` bleibt parallel `READY`; reale Mutation,
 Music, Bilder, REST-API und grafische Oberfläche werden durch diesen Abschluss
 nicht aktiviert. Am finalen lokalen Stand von S-W9-006C bestanden 41

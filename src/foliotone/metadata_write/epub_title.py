@@ -340,36 +340,9 @@ def verify_epub3_title_archive_diff(
     output_epub_bytes: bytes,
 ) -> EpubTitleArchiveDiff:
     """Require exactly one package member change and the exact two-span patch."""
-    if (
-        not isinstance(preflight, EpubTitleWritePreflight)
-        or not isinstance(patch, EpubTitlePackagePatch)
-        or not isinstance(output_epub_bytes, bytes)
-        or patch.plan_id != preflight.plan_id
-        or patch.plan_content_hash != preflight.plan_content_hash
-        or patch.source_sha256 != preflight.source_sha256
-        or patch.original_package_sha256 != preflight.package_document_sha256
-        or patch.selected_title != preflight.selected_title
-        or patch.title_span != preflight.title_span
-        or patch.modified_span != preflight.modified_span
-        or patch.patched_package_sha256 != _sha256(patch.patched_package_document)
-    ):
+    validate_epub3_title_package_patch(preflight, patch)
+    if not isinstance(output_epub_bytes, bytes):
         _fail(EpubTitleWriteErrorCode.ARCHIVE_DIFF_INVALID)
-    _validate_preflight_snapshot(preflight)
-    try:
-        _parse_modified_timestamp(patch.dcterms_modified)
-        modified_bytes = patch.dcterms_modified.encode("ascii")
-    except (EpubTitleWriteContractError, UnicodeEncodeError) as error:
-        raise EpubTitleWriteContractError(EpubTitleWriteErrorCode.PATCH_DIFF_INVALID) from error
-
-    expected_package = _apply_text_replacements(
-        preflight.package_document,
-        (
-            (preflight.title_span, _escape_xml_text(patch.selected_title)),
-            (preflight.modified_span, modified_bytes),
-        ),
-    )
-    if patch.patched_package_document != expected_package:
-        _fail(EpubTitleWriteErrorCode.PATCH_DIFF_INVALID)
 
     output = _inspect_archive(output_epub_bytes)
     output_sha256 = output.source_sha256
@@ -422,6 +395,42 @@ def verify_epub3_title_archive_diff(
         member_count=len(preflight.members),
         preserved_member_count=len(preflight.members) - 1,
     )
+
+
+def validate_epub3_title_package_patch(
+    preflight: EpubTitleWritePreflight,
+    patch: EpubTitlePackagePatch,
+) -> None:
+    """Validate the exact pure patch linkage without requiring archive bytes."""
+    if (
+        not isinstance(preflight, EpubTitleWritePreflight)
+        or not isinstance(patch, EpubTitlePackagePatch)
+        or patch.plan_id != preflight.plan_id
+        or patch.plan_content_hash != preflight.plan_content_hash
+        or patch.source_sha256 != preflight.source_sha256
+        or patch.original_package_sha256 != preflight.package_document_sha256
+        or patch.selected_title != preflight.selected_title
+        or patch.title_span != preflight.title_span
+        or patch.modified_span != preflight.modified_span
+        or patch.patched_package_sha256 != _sha256(patch.patched_package_document)
+    ):
+        _fail(EpubTitleWriteErrorCode.ARCHIVE_DIFF_INVALID)
+    _validate_preflight_snapshot(preflight)
+    try:
+        _parse_modified_timestamp(patch.dcterms_modified)
+        modified_bytes = patch.dcterms_modified.encode("ascii")
+    except (EpubTitleWriteContractError, UnicodeEncodeError) as error:
+        raise EpubTitleWriteContractError(EpubTitleWriteErrorCode.PATCH_DIFF_INVALID) from error
+
+    expected_package = _apply_text_replacements(
+        preflight.package_document,
+        (
+            (preflight.title_span, _escape_xml_text(patch.selected_title)),
+            (preflight.modified_span, modified_bytes),
+        ),
+    )
+    if patch.patched_package_document != expected_package:
+        _fail(EpubTitleWriteErrorCode.PATCH_DIFF_INVALID)
 
 
 def _validate_preflight_snapshot(preflight: EpubTitleWritePreflight) -> None:
@@ -1332,5 +1341,6 @@ def _apply_text_replacements(
 __all__ = [
     "build_epub3_title_package_patch",
     "preflight_epub3_title_write",
+    "validate_epub3_title_package_patch",
     "verify_epub3_title_archive_diff",
 ]
