@@ -1,7 +1,8 @@
-"""Focused synthetic coverage for S-W9-006B metadata correction persistence."""
+"""Focused synthetic coverage for S-W9-006B/C persistence and reporting."""
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -11,6 +12,7 @@ from alembic import command
 from sqlalchemy import func, insert, inspect, select, text
 from sqlalchemy.exc import IntegrityError
 
+from foliotone.cli.main import build_parser, main
 from foliotone.core import (
     EntityId,
     EntityKind,
@@ -61,6 +63,9 @@ from foliotone.persistence import (
 )
 from foliotone.persistence import metadata_correction_schema as mc_schema
 from foliotone.persistence import resolution_review_schema as review_schema
+from foliotone.persistence.metadata_correction_report import (
+    SQLiteMetadataCorrectionPlanReportReader,
+)
 
 NOW = datetime(2026, 8, 22, 18, 0, tzinfo=UTC)
 ROOT_ID = EntityId.parse("91000000-0000-0000-0000-000000000001")
@@ -634,3 +639,247 @@ def test_metadata_review_literals_require_the_exact_candidate_contract(
                     "created_at": NOW.isoformat(),
                 },
             )
+
+
+def _persisted_report_plan(database: Path):
+    engine = create_sqlite_engine(database)
+    _seed_source(engine)
+    store = SQLiteMetadataCorrectionStore(engine)
+    candidate = store.create_or_get_candidate(_candidate())
+    plan = _plan(candidate, store.get_latest_review(candidate.id))
+    persisted = store.create_or_get_plan(plan)
+    engine.dispose()
+    return persisted
+
+
+@pytest.mark.parametrize("output", ["json", "text"])
+def test_metadata_correction_report_cli_is_strictly_read_only_and_private(
+    head_database: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    output: str,
+) -> None:
+    plan = _persisted_report_plan(head_database)
+    before = head_database.read_bytes()
+    original_read = SQLiteMetadataCorrectionPlanReportReader.read
+
+    def _read_with_query_only_assertion(
+        reader: SQLiteMetadataCorrectionPlanReportReader,
+        plan_id: EntityId,
+    ):
+        with reader._engine.connect() as connection:
+            assert connection.execute(text("PRAGMA query_only")).scalar_one() == 1
+        return original_read(reader, plan_id)
+
+    monkeypatch.setattr(
+        "foliotone.cli.main.migrate",
+        lambda _path: pytest.fail("read-only report must not migrate"),
+    )
+    monkeypatch.setattr(
+        "foliotone.cli.main.create_sqlite_engine",
+        lambda _path: pytest.fail("read-only report must not open a writable engine"),
+    )
+    monkeypatch.setattr(
+        SQLiteMetadataCorrectionPlanReportReader,
+        "read",
+        _read_with_query_only_assertion,
+    )
+
+    assert (
+        main(
+            [
+                "ebook-metadata-correction-report",
+                "--plan",
+                str(plan.id),
+                "--database",
+                str(head_database),
+                "--output",
+                output,
+            ]
+        )
+        == 0
+    )
+    assert head_database.read_bytes() == before
+    rendered = capsys.readouterr().out
+    for private_material in (
+        PRIVATE_PATH,
+        OBSERVED_TITLE,
+        SELECTED_TITLE,
+        FULL_HASH,
+        str(ROOT_ID),
+        str(SCAN_ID),
+        str(FILE_ID),
+        str(OBSERVATION_ID),
+        _sha("8"),
+        _sha("9"),
+    ):
+        assert private_material not in rendered
+
+    if output == "text":
+        assert f"Plan: {plan.id}" in rendered
+        assert f"Candidate: {plan.candidate.id}" in rendered
+        assert "Status: BLOCKED" in rendered
+        assert "Execution state: NOT_EXECUTABLE" in rendered
+        assert "Target carrier: SOURCE_METADATA" in rendered
+        assert "Format: EPUB" in rendered
+        assert "Review status: MISSING" in rendered
+        assert "Field: title operation=REPLACE" in rendered
+        assert "Blocker code: REVIEW_MISSING" in rendered
+        return
+
+    payload = json.loads(rendered)
+    assert set(payload) == {
+        "schema_version",
+        "command",
+        "ok",
+        "plan_id",
+        "candidate_id",
+        "plan_profile",
+        "candidate_profile",
+        "status",
+        "execution_state",
+        "content_hash",
+        "target_carrier",
+        "format",
+        "review_status",
+        "fields",
+        "counts",
+        "blocker_codes",
+    }
+    assert payload["command"] == "ebook-metadata-correction-report"
+    assert payload["plan_id"] == str(plan.id)
+    assert payload["candidate_id"] == str(plan.candidate.id)
+    assert payload["plan_profile"] == plan.profile
+    assert payload["candidate_profile"] == plan.candidate.profile
+    assert payload["status"] == "BLOCKED"
+    assert payload["execution_state"] == "NOT_EXECUTABLE"
+    assert payload["content_hash"] == plan.content_hash
+    assert payload["target_carrier"] == "SOURCE_METADATA"
+    assert payload["format"] == "EPUB"
+    assert payload["review_status"] == "MISSING"
+    assert payload["fields"] == [
+        {
+            "field_path": "title",
+            "operation": "REPLACE",
+            "observed_value_count": 1,
+            "selected_value_count": 1,
+            "evidence_ref_count": 2,
+        }
+    ]
+    assert payload["counts"] == {
+        "fields": 1,
+        "observed_values": 1,
+        "selected_values": 1,
+        "field_evidence_refs": 2,
+        "candidate_evidence_refs": 2,
+        "dependencies": 3,
+        "preconditions": 10,
+        "verification_fields": 1,
+        "verification_dependencies": 0,
+        "blockers": 1,
+        "blocker_evidence_refs": 2,
+        "review_items": 0,
+        "decisions": 0,
+    }
+    assert payload["blocker_codes"] == ["REVIEW_MISSING"]
+
+
+def test_metadata_correction_report_rejects_invalid_plan_token() -> None:
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["ebook-metadata-correction-report", "--plan", "not-a-uuid"])
+
+
+def test_metadata_correction_report_missing_plan_is_path_free(
+    head_database: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert (
+        main(
+            [
+                "ebook-metadata-correction-report",
+                "--plan",
+                "00000000-0000-0000-0000-000000000001",
+                "--database",
+                str(head_database),
+                "--output",
+                "json",
+            ]
+        )
+        == 2
+    )
+    assert json.loads(capsys.readouterr().out) == {
+        "schema_version": 1,
+        "command": "ebook-metadata-correction-report",
+        "ok": False,
+        "error": {"code": "PLAN_UNAVAILABLE"},
+    }
+
+
+def test_metadata_correction_report_older_schema_is_not_migrated(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database = tmp_path / "older-metadata-correction-schema.db"
+    migrate(database, "0025_library_health")
+    monkeypatch.setattr(
+        "foliotone.cli.main.migrate",
+        lambda _path: pytest.fail("read-only report must not migrate"),
+    )
+
+    assert (
+        main(
+            [
+                "ebook-metadata-correction-report",
+                "--plan",
+                "00000000-0000-0000-0000-000000000001",
+                "--database",
+                str(database),
+                "--output",
+                "json",
+            ]
+        )
+        == 2
+    )
+    assert json.loads(capsys.readouterr().out) == {
+        "schema_version": 1,
+        "command": "ebook-metadata-correction-report",
+        "ok": False,
+        "error": {"code": "SCHEMA_UNAVAILABLE"},
+    }
+
+
+def test_metadata_correction_report_internal_failure_does_not_leak_details(
+    head_database: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _boom(
+        _reader: SQLiteMetadataCorrectionPlanReportReader,
+        _plan_id: EntityId,
+    ) -> object:
+        raise RuntimeError(f"synthetic private failure: {PRIVATE_PATH}")
+
+    monkeypatch.setattr(SQLiteMetadataCorrectionPlanReportReader, "read", _boom)
+    assert (
+        main(
+            [
+                "ebook-metadata-correction-report",
+                "--plan",
+                "00000000-0000-0000-0000-000000000001",
+                "--database",
+                str(head_database),
+                "--output",
+                "json",
+            ]
+        )
+        == 2
+    )
+    rendered = capsys.readouterr().out
+    assert PRIVATE_PATH not in rendered
+    assert json.loads(rendered) == {
+        "schema_version": 1,
+        "command": "ebook-metadata-correction-report",
+        "ok": False,
+        "error": {"code": "INTERNAL_READ_ERROR"},
+    }

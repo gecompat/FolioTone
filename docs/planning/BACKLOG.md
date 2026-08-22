@@ -13,7 +13,7 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | `S-W9-006C` | Candidate-/Plan-Verträge, Review-Integration und insert-only Persistenz sind abgeschlossen. Als letzter W9-006-Slice folgt ausschließlich der privacy-begrenzte echte SQLite-Read-only-Report samt CLI; Writer und Source-Zugriff bleiben geschlossen. |
+| NOW | `FG-W10-METADATA-WRITE` | `W9-006` ist einschließlich privacy-begrenztem echten SQLite-Read-only-Report abgeschlossen. Als nächstes entscheidet eine eigene `FRONTIER`-ADR genau einen Format-/Zielträgervertrag; bis zu ihrer Annahme bleibt jeder Metadata-Writer geschlossen. |
 | PARALLEL READY | `W10-005` | Die von ADR-0056 erlaubte Ein-Datei-Quarantäne erhält eine vollständige Authorize-/Execute-/Recovery-Bedienkette, ohne den Mutationstyp zu erweitern. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
 | NEXT WAVES | `FG-W10-METADATA-WRITE`, danach kleinster Metadata-Writer | Die Entwicklungsfreigabe ist vorhanden; Format, Zielträger und technische Safety-Grenze werden vor Writer-Code in einer eigenen ADR entschieden. |
@@ -251,11 +251,11 @@ Interim-Quarantäneexecutor öffnen.
 | W9-003 | DONE | Represent changed-since-analysis checks needed by future execution. |
 | W9-004 | DONE | Produce a complete non-executable, content-addressed e-book deduplication plan with Keeper, quarantine, verification, rollback, purge, Calibre, sidecar, archive and empty-directory preconditions. |
 | W9-005 | DONE | Require Review approval for Keep preference and every future mutation candidate; keep exact duplicate identity, quality ranking and physical operation separate. |
-| W9-006 | NEXT | Implement a non-executable, content-addressed `MetadataCorrectionPlan` that binds observed values, reviewed canonical candidates, one explicit target carrier, dependencies, writer profile, changed-since-analysis preconditions and post-write verification without exposing a writer. |
+| W9-006 | DONE | Implemented a non-executable, content-addressed `MetadataCorrectionPlan` that binds observed values, reviewed canonical candidates, one explicit target carrier, dependencies, writer profile, changed-since-analysis preconditions and post-write verification without exposing a writer. |
 | FG-W9-006 | DONE | ADR-0062 definiert den separaten immutable `MetadataCorrectionCandidate`, den append-only Reviewvertrag, content-addressed Candidate und Plan, fünf getrennte Zielträger, feste Preconditions, Post-write-Verifikation, Privacy und die permanente `NOT_EXECUTABLE`-Grenze. |
 | S-W9-006A | DONE | Immutable Candidate-/Plan-DTOs, bounded Feld-/Ziel-/Dependency-/Review-/Precondition-/Verification-Verträge, reine Reducer, deterministische UUIDv5-/`canonical-json/v1`-Identitäten, Golden Values und ein statischer Non-Execution-Gate sind implementiert. Das Paket importiert weder Persistenz, CLI, Tooling noch Filesystemmodule. |
 | S-W9-006B | DONE | Review-Core additiv erweitert; Migration `0026` erhält bestehende Review-Historien und persistiert den normalisierten Candidate-/Plan-Graph insert-only. Der bounded Store prüft Content-Identitäten, den kanonischen Reducer, Source-/Evidence-/Dependency-/Target-/Review-Lineage und idempotente Retries atomar. |
-| S-W9-006C | READY | Ergänze den echten SQLite-Read-only-Report `ebook-metadata-correction-report`, die CLI-Adaptergrenze sowie Privacy-, Bootstrap- und Abschlussverträge. |
+| S-W9-006C | DONE | `ebook-metadata-correction-report` liest genau einen persistierten Plan über `mode=ro` und `query_only=ON`. Text und JSON enthalten nur erlaubte IDs, Profile, Status, Content Hash, Zielträger, Format, Feld-/Operationsnamen, Counts, Reviewstatus und Blockerliterale; Bootstrap und Fehler bleiben pfad- und metadatenwertfrei. |
 | W9-007 | PLANNED | Implement non-executable, reproducible recipes for rename, reorganization, import/export, transformation and archive/container changes; keep every operation behind its own W10 gate. |
 
 ## W10 — Controlled Consolidation

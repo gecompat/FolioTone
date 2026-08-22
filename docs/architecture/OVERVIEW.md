@@ -316,6 +316,13 @@ inkonsistente Teilprojektion bricht den Build ab. `library-health-report`
 Evidence-Digests aus und kann zwei kompatible Snapshots ohne
 Kausalitätsbehauptung vergleichen. ADR-0060 dokumentiert diesen Vertrag.
 
+Der getrennte `ebook-metadata-correction-report` liest genau einen immutable
+`MetadataCorrectionPlan` ebenfalls mit `mode=ro` und `query_only=ON`. Seine
+Text- und JSON-Projektionen bleiben pfad- und metadatenwertfrei; sie zeigen
+nur die durch ADR-0062 erlaubten IDs, Profile, Status-, Feld-, Operations-,
+Count-, Review- und Blockerinformationen. Der Report besitzt keine Mutation
+Authority und öffnet keine Source Media.
+
 ### Music Analysis
 
 Coordinates music-specific observations using suitable specialists such as `ffprobe`, Chromaprint/`fpcalc`, beets, SongKong and optionally Picard. FolioTone keeps the distinction between MusicWork, Recording, ReleaseGroup and Release regardless of a tool's internal model.

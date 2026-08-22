@@ -41,14 +41,31 @@ abweichende Payloads und fehlende oder fremde Lineage schlagen atomar fehl.
 Private Werte werden ausschließlich in Runtime-Valuezeilen gespeichert und
 nicht in Fehlermeldungen übernommen. Der Store besitzt keinen Pfadparameter,
 öffnet keine Source Media und bietet keine Execute-/Apply-/Write-Fläche.
-`S-W9-006C` ist als nächster regulärer Slice `READY` und ergänzt erst danach
-den echten SQLite-Read-only-Report und die CLI. `W10-005` bleibt parallel
-`READY`. Am finalen lokalen Stand bestanden 37 gezielte Candidate-/Plan-,
-Migration-, Review-, Head-Schema-, Privacy-, Dokumentations- und Non-
-Execution-Fälle in 32,46 Sekunden. Gezieltes Ruff für alle geänderten Python-
-Dateien und Mypy für die vier betroffenen Source-Module waren grün;
-`git diff --check` war ohne Befund. Die vollständige lokale Suite wurde nicht
-dupliziert; genau ein vollständiger PR-CI-Gate bleibt Merge-Voraussetzung.
+
+`S-W9-006C` ist umgesetzt und schließt `W9-006` ab.
+`ebook-metadata-correction-report` liest genau einen Plan mit `mode=ro` und
+`query_only=ON`. Seine Text- und JSON-Projektionen zeigen ausschließlich die
+durch ADR-0062 erlaubten IDs, Profile, Statuswerte, den Plan-Content-Hash,
+Zielträger, Format, Feldpfade, Operationen, Counts, Reviewstatus und
+Blockerliterale. Private Werte, Pfade, Dateinamen, File-/Observation-/Root-IDs,
+Source-/Target-Fingerprints und Evidence-Materialien werden nicht ausgegeben.
+Der CLI-Pfad führt keine Migration aus und liefert für Bootstrap-, Schema-,
+Plan- und interne Lesefehler nur feste pfadfreie Codes.
+
+Die Reportintegration korrigiert außerdem den historischen Read-Path für
+persistierte `MISSING`-Review-Snapshots ohne `ReviewItem`; andere Zustände
+bleiben an ihre Review-Lineage gebunden. Am finalen lokalen Stand bestanden
+41 fokussierte Report-, Privacy-, Schema-, Bootstrap-, Store-, Consolidation-
+Regression- und statische Tests in 26,36 Sekunden. Ruff war für alle
+geänderten Python-Dateien und Mypy für die drei betroffenen Source-Module
+grün; `git diff --check` war ohne Befund. Die vollständige lokale Suite wird
+nicht dupliziert; genau ein vollständiger PR-CI-Gate bleibt
+Merge-Voraussetzung.
+
+`FG-W10-METADATA-WRITE` ist als nächste reguläre `FRONTIER`-Wave `DECISION`
+und wählt genau einen Format-/Zielträgervertrag vor dem ersten Writer-Slice.
+`W10-005` bleibt parallel `READY`. Reale Source-Media-Mutation, Music, Bilder,
+REST-API und grafische Oberfläche werden durch W9-006 nicht aktiviert.
 
 W0 bis W2 sind abgeschlossen. Der W2-Slice umfasst Incremental Index, Hashing, Filename-/Path-Kandidaten, konfigurierbare Parsing-Profile und eine generische read-only ToolProvider Runtime. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
 
