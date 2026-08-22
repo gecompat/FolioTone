@@ -328,7 +328,10 @@ Bis alle fünf Pakete einschließlich des exakten Runtime-Konformitätsgates
 abgeschlossen sind, bleibt die reale Source-Metadata-Mutation operativ nicht
 verfügbar. `S-W10-MW01` implementiert den reinen Preflight-, Patch- und Diff-
 Vertrag; `S-W10-MW02` implementiert privates Streaming-Staging und die festen
-unabhängigen Validatoren. `S-W10-MW03` ist der nächste reguläre Slice.
+unabhängigen Validatoren. `S-W10-MW03` implementiert die immutable
+Authorization-/Run-/Eventpersistenz, private Capability-Auflösung,
+Root-Lease/Fencing und read-only Status. `S-W10-MW04` ist der nächste reguläre
+Slice; eine operative Source-Mutation besteht weiterhin nicht.
 
 ## Synthetische Konformitätsmatrix
 

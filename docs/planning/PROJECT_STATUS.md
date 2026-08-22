@@ -4,6 +4,60 @@ Stand: 2026-08-22
 
 ## Aktuelle Welle
 
+**S-W10-MW03 abgeschlossen — Authorization und Journal bleiben nicht ausführbar**
+
+`foliotone.metadata_write` ergänzt `metadata-write-preparation/v1` und
+`metadata-write-authorization/v1`. Der content-addressed Prepare-Snapshot
+bindet den verifizierten privaten Staging-Output an den exakten aktuellen
+`MetadataCorrectionPlan`, Input-/Outputidentität, `dcterms:modified`,
+Writer-/Patcher-/Staging-/Validatorprofile, konkrete Toolversionen,
+Capability-ID sowie die tatsächlich gehaltene Preparation-Fence. Die daraus
+abgeleitete Authorization ist höchstens 15 Minuten gültig und kann nur von
+genau einem Run verbraucht werden.
+
+Der private `MetadataWriteCapabilityResolver` löst
+`FOLIOTONE_METADATA_WRITE_CAPABILITIES_FILE` bounded und fail-closed auf. Die
+owner-only geschützte POSIX-Konfiguration wird no-follow geöffnet und nach dem
+Open erneut über Inode, Owner, Mode und Linkzahl geprüft. Sie darf nur opaque
+Capability-/`ScanRoot`-IDs, das feste Writerprofil und zwei existierende,
+disjunkte absolute Verzeichnisse desselben gemeldeten Filesystems enthalten.
+Pfade bleiben aus DTO-Repräsentationen, Persistenz und Reports ausgeschlossen;
+native Windows-Auflösung bleibt `TOOL_UNAVAILABLE`.
+
+Migration `0027_metadata_write_operations` ergänzt die Lease-Owner
+`METADATA_WRITE_PREPARATION` und `METADATA_WRITE_RUN` sowie drei insert-only
+Tabellen für Authorization, einmaligen Run und gapless Events. Trigger
+verhindern Update und Delete; ein belegter Zustand sperrt den Downgrade.
+`SQLiteMetadataWriteStore` revalidiert vor Authorization und Run den
+unveränderten W9-Plan, seine aktuelle Source-/Evidence-/Dependency-Lineage und
+die neueste kompatible akzeptierte Review Decision. Preparation, Runerzeugung
+und jedes Folgeevent sind an eine tatsächlich aktuelle Root-Fence gebunden;
+Run und `CREATED`-Event entstehen atomar. Ungültige oder nicht monotone
+Statusfolgen schlagen auch beim Lesen fail-closed fehl.
+
+`metadata-write-status-report/v1` ist eine interne echte Read-only-Projektion.
+Sie selektiert nur opaque IDs, Profile, Zeitpunkte und Zustände und enthält
+keine Pfade, Titelwerte, Hashes, Capability-Inhalte, Fences, Findings oder
+Confirmation-Digests. Es gibt weiterhin keine CLI, keinen Source-Commit,
+keinen `renameat2`-Adapter, keinen Executor und keine Recovery. Reale E-Books
+und produktive Runtime-Datenbanken wurden nicht verwendet. Änderungen an den
+gebundenen Writer-, Patcher-, Staging-, Validator- oder Toolversionen erfordern
+eine neue Preparation und Authorization.
+
+Am stabilen lokalen Stand bestanden 71 fokussierte synthetische MW01-/MW02-/
+MW03-, Capability-, Privacy-, Fencing-, Migration-, Journal-, Status- und
+Non-Execution-Tests in 34,17 Sekunden. Ruff war für den gesamten geänderten
+Python-Scope grün; Mypy prüfte 12 direkt betroffene Source-Dateien ohne
+Befund. `git diff --check` war sauber. Die vollständige lokale Suite wird
+ressourcenschonend nicht dupliziert; der stabile Pull-Request-Head erhält
+genau einen vollständigen CI-Gate.
+
+`S-W10-MW04` ist die nächste reguläre Wave. Sie implementiert ausschließlich
+das Linux-`renameat2`-Backend, den Ein-Datei-Executor und idempotente
+Crash-Recovery auf synthetischen Filesystemen. CLI und Reconciliation bleiben
+`S-W10-MW05` vorbehalten; reale Source-Metadata-Mutation bleibt operativ nicht
+verfügbar.
+
 **S-W10-MW02 abgeschlossen — privates EPUB-Staging ist unabhängig verifizierbar**
 
 `foliotone.metadata_write` ergänzt den reinen MW01-Preflight/Patch um
@@ -55,12 +109,11 @@ Regression; der Linux-PR-Gate bleibt dafür kanonisch. Die vollständige lokale
 Suite wird nicht dupliziert; der stabile Pull-Request-Head erhält genau einen
 vollständigen CI-Gate.
 
-`S-W10-MW03` ist die nächste reguläre Wave. Sie ergänzt immutable
-Authorization-/Run-/Eventpersistenz, private Capability-Auflösung,
-`ScanRootWriteLease`-/Fence-Vertrag und privacy-begrenzten read-only Status.
-Linux-Commit/Recovery sowie CLI/Reconciliation bleiben `S-W10-MW04` und
-`S-W10-MW05` vorbehalten. Reale Source-Metadata-Mutation bleibt operativ nicht
-verfügbar.
+`S-W10-MW03` ergänzt inzwischen immutable Authorization-/Run-/
+Eventpersistenz, private Capability-Auflösung, `ScanRootWriteLease`-/
+Fence-Vertrag und privacy-begrenzten read-only Status. Linux-Commit/Recovery
+sowie CLI/Reconciliation bleiben `S-W10-MW04` und `S-W10-MW05` vorbehalten.
+Reale Source-Metadata-Mutation bleibt operativ nicht verfügbar.
 
 **S-W9-006C abgeschlossen — Metadatenkorrekturpläne sind read-only berichtbar**
 
@@ -124,8 +177,9 @@ nun ausdrücklich; andere Reviewzustände bleiben an ihre persistierten
 
 `W9-006` ist abgeschlossen. ADR-0063 hat `FG-W10-METADATA-WRITE` anschließend
 für den begrenzten EPUB-3-Titelwriter entschieden; `S-W10-MW01` und
-`S-W10-MW02` liefern Patch, privates Staging und unabhängige Verifikation,
-`S-W10-MW03` ist der nächste reguläre Slice.
+`S-W10-MW02` liefern Patch, privates Staging und unabhängige Verifikation;
+`S-W10-MW03` liefert Authorization, Journal, Capability/Fencing und read-only
+Status. `S-W10-MW04` ist der nächste reguläre Slice.
 `W10-005` bleibt parallel `READY`; reale Mutation,
 Music, Bilder, REST-API und grafische Oberfläche werden durch diesen Abschluss
 nicht aktiviert. Am finalen lokalen Stand von S-W9-006C bestanden 41

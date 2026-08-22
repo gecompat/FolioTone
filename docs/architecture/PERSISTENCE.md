@@ -519,6 +519,41 @@ einen Plan bounded über den Store und projiziert nur erlaubte opaque IDs,
 Profile, Statuswerte, Content Hash, Zielträger, Format, Feldpfade,
 Operationen, Counts, Reviewstatus und Blockerliterale.
 
+### Gefencete Metadaten-Write-Authorization und Journal
+
+Migration `0027_metadata_write_operations` erweitert den bestehenden
+`ScanRootWriteLease`-Owner-Vertrag um `METADATA_WRITE_PREPARATION` und
+`METADATA_WRITE_RUN`. Die neuen Tabellen `metadata_write_authorizations`,
+`metadata_write_runs` und `metadata_write_events` speichern genau den durch
+ADR-0063 begrenzten EPUB-Titelwriter. Authorization und Run sind durch
+No-Update-/No-Delete-Trigger immutable; Events sind gapless, append-only und
+auf höchstens 16 Sequenzeinträge je Run begrenzt.
+Die eindeutige `authorization_id` im Run macht jede Authorization genau einmal
+verbrauchbar. Ein Downgrade wird verweigert, sobald eine der drei Tabellen
+Daten enthält.
+
+Die content-addressed Authorization übernimmt den vollständigen Prepare-
+Snapshot: W9-Plan-ID und -Content-Hash, File-/Observation-/Root-Identität,
+erwartete Input-/Output-Hashes und -Größen, `dcterms:modified`, Capability-ID,
+Writer-/Patcher-/Staging-/Validatorprofile, konkrete Toolversionen, den
+Validator-Set-Fingerprint, Preparation-Fence und ein höchstens 15 Minuten
+offenes Zeitfenster. Vor dem Insert revalidiert
+`SQLiteMetadataWriteStore` den unveränderten aktuellen Plan, seine Source-/
+Evidence-/Dependency-Lineage und die neueste kompatible akzeptierte Review
+Decision in derselben gefenceten Transaktion.
+
+Ein Run entsteht nur unter einer neuen `METADATA_WRITE_RUN`-Lease und
+verbraucht die Authorization zusammen mit seinem `CREATED`-Event atomar.
+Jedes Folgeevent muss die tatsächlich aktuelle Fence-Epoch, die nächste
+gapless Sequenz, einen erlaubten Statusübergang und einen monotonen Zeitpunkt
+tragen. Der Status-Read selektiert ausschließlich opaque IDs, Profile,
+Zeitpunkte und Zustände. Pfade, Titelwerte, Source-/Output-Hashes,
+Capability-Inhalte, Fence-Epochs, Findings und Confirmation-Digests werden
+nicht gelesen oder projiziert. Capability-Pfade stammen ausschließlich aus
+einer privaten, bounded und owner-only geschützten Runtime-Konfiguration und
+werden nicht in SQLite übernommen. Migration und Store führen keine Source-
+Media-Operation aus.
+
 ## Current constraints and deferred integrity
 
 Implemented SQL constraints include:

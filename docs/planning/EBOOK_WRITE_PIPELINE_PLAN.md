@@ -9,9 +9,11 @@ E-Book-Writer mit synthetischen Fixtures. Reale Mutation bleibt an
 vollständige Capability-/Authorize-/Execute-/Recovery-Kette gebunden.
 ADR-0063 entscheidet davon nur den ersten EPUB-3-Titelwriter. `S-W10-MW01`
 liefert dessen reine Preflight-, Patch- und Diff-Verträge, `S-W10-MW02` das
-private Streaming-Staging und die unabhängige Verifikation. Seine reale
-Source-Mutation bleibt bis zum Abschluss von `S-W10-MW03` bis
-`S-W10-MW05` geschlossen.
+private Streaming-Staging und die unabhängige Verifikation. `S-W10-MW03`
+liefert content-addressed Preparation/Authorization, einmaligen Run,
+append-only Journal, private Capability-Auflösung, Root-Fencing und read-only
+Status. Seine reale Source-Mutation bleibt bis zum Abschluss von
+`S-W10-MW04` und `S-W10-MW05` geschlossen.
 
 ## Zweck und Autorität
 
@@ -160,6 +162,17 @@ diesem Profil nicht, sondern liefert zusammen mit EPUBCheck unabhängige
 Read-back- und Konformitäts-Evidence. Andere Felder, Formate und Zielträger
 bleiben eigene spätere Verträge.
 
+`S-W10-MW03` bindet den verifizierten privaten Output zuerst an einen
+content-addressed Prepare-Snapshot unter einer kurz gehaltenen Root-Fence.
+Die daraus bestätigte Authorization übernimmt exakt Plan, Input-/Output-
+Identität, `dcterms:modified`, Capability-ID und technische Versionen, läuft
+nach höchstens 15 Minuten ab und ist durch den persistierten Run genau einmal
+verbrauchbar. Authorization, Run und gapless Events sind insert-only; jeder
+Write auf diese Tabellen ist an die aktuelle Preparation- oder Run-Fence
+gebunden. Die private Capability-Konfiguration und der read-only Status öffnen
+keine Source Media. Der Status projiziert weder Pfade, Metadatenwerte, Hashes,
+Capability-Inhalte, Fences noch private Findings oder Digests.
+
 Die Zielträger bleiben getrennte Operationstypen:
 
 1. ausschließlich interne FolioTone-Projektion;
@@ -219,7 +232,7 @@ Capability und Authorization.
 | nicht ausführbarer Duplicate-Plan | vorhanden | W9-Vertrag unverändert lassen |
 | eine reguläre Same-Filesystem-Datei quarantänisieren | enger Interim-Executor vorhanden; Bedienkette unvollständig | `W10-005`, danach optional `FG-W10-MOVE-BACKEND` |
 | atomarer/generalisierter Quarantäne-Move | nicht autorisiert | `FG-W10-MOVE-BACKEND` mit No-Replace, no-follow, Race- und Crash-Nachweis |
-| Metadaten in Source Media schreiben | ADR-0063 entscheidet nur EPUB 3 plus einen `title`-`REPLACE`; Preflight/Patch/Diff sowie privates Staging/Verifikation vorhanden, operativ nicht verfügbar | `S-W10-MW03` bis `S-W10-MW05` einschließlich Linux-/Filesystem-Konformitätsgate |
+| Metadaten in Source Media schreiben | ADR-0063 entscheidet nur EPUB 3 plus einen `title`-`REPLACE`; Preflight/Patch/Diff, privates Staging/Verifikation sowie Authorization/Journal/Capability/Fencing/read-only Status vorhanden, operativ nicht verfügbar | `S-W10-MW04` und `S-W10-MW05` einschließlich Linux-/Filesystem-Konformitätsgate |
 | Sidecar erzeugen oder ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-SIDECAR-WRITE` |
 | Calibre oder anderes externes System ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-EXTERNAL-LIBRARY-WRITE` |
 | Datei umbenennen oder reorganisieren | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-RENAME` |
@@ -316,7 +329,8 @@ ADR-0061, ADR-0062 und ADR-0063 aktivieren die folgenden getrennt prüfbaren Wav
    `renameat2`-Exchange mit Same-Filesystem-Recovery.
 6. `S-W10-MW01` implementiert Preflight, Patch und Diff ohne Source-Commit;
    `S-W10-MW02` ergänzt Staging und unabhängige Verifikation. `S-W10-MW03`
-   bis `S-W10-MW05` ergänzen Authorization/Persistenz, Linux-
+   ergänzt Preparation/Authorization, Persistenz, Capability/Fencing und
+   read-only Status. `S-W10-MW04` und `S-W10-MW05` ergänzen Linux-
    Executor/Recovery sowie CLI, neuen Scan und Reconciliation in getrennten
    Waves.
 

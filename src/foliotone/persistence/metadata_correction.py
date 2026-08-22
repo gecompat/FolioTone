@@ -222,6 +222,39 @@ class SQLiteMetadataCorrectionStore:
             )
             return None if row is None else self._read_plan(connection, row)
 
+    def require_current_approved_plan_in_transaction(
+        self,
+        connection: Connection,
+        plan: MetadataCorrectionPlan,
+    ) -> None:
+        """Revalidate one exact persisted plan before a separate W10 authorization."""
+
+        _validate_plan_identity(plan)
+        _validate_plan_reducer(plan)
+        row = (
+            connection.execute(
+                select(mc_schema.metadata_correction_plans).where(
+                    mc_schema.metadata_correction_plans.c.id == str(plan.id)
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None or self._read_plan(connection, row) != plan:
+            raise MetadataCorrectionStoreError("metadata correction plan differs")
+        if (
+            plan.status is not MetadataCorrectionPlanStatus.APPROVED_NON_EXECUTABLE
+            or plan.execution_state is not MetadataCorrectionExecutionState.NOT_EXECUTABLE
+            or plan.blockers
+        ):
+            raise MetadataCorrectionStoreError("metadata correction plan is not approved")
+        self._validate_candidate_lineage(
+            connection,
+            plan.candidate,
+            require_current_file=True,
+        )
+        self._validate_latest_review(connection, plan)
+
     def _candidate_by_id(
         self,
         connection: Connection,

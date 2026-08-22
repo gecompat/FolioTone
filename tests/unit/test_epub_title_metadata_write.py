@@ -52,12 +52,22 @@ from foliotone.metadata_write import (
     EpubTitleWriteContractError,
     EpubTitleWriteErrorCode,
     FixedEpubTitleStagingValidator,
+    MetadataWriteAuthorizationError,
+    MetadataWriteAuthorizationErrorCode,
+    ResolvedMetadataWriteCapability,
     build_and_verify_private_epub3_title_stage,
     build_epub3_title_package_patch,
+    build_epub3_title_write_preparation,
+    build_metadata_write_authorization,
+    build_metadata_write_run,
     build_private_epub3_title_stage,
     preflight_epub3_title_write,
     verify_epub3_title_archive_diff,
     verify_private_epub3_title_stage,
+)
+from foliotone.persistence.scan_root_lease import (
+    OwnedScanRootWriteLease,
+    ScanRootWriteOwnerKind,
 )
 
 NOW = datetime(2026, 8, 22, 10, 0, tzinfo=UTC)
@@ -1176,3 +1186,193 @@ def test_fixed_staging_validation_fails_closed_on_independent_mismatch(
     assert str(caught.value) == expected.value
     assert PRIVATE_SELECTED_TITLE not in repr(caught.value)
     assert str(stage.private_directory) not in repr(caught.value)
+
+
+def _prepare_authorization_material(tmp_path: Path):
+    source = _epub()
+    plan = _approved_plan(source)
+    preflight = preflight_epub3_title_write(plan, source, _conformance(source))
+    patch = build_epub3_title_package_patch(preflight, authorized_at=NOW)
+    validator = FixedEpubTitleStagingValidator(
+        runner=_SyntheticValidationRunner(preflight.original_title, patch.selected_title)
+    )
+    verified = build_and_verify_private_epub3_title_stage(
+        tmp_path / "private-stage",
+        io.BytesIO(source),
+        preflight,
+        patch,
+        validator=validator,
+    )
+    scan_root = tmp_path / "source-root"
+    recovery = tmp_path / "recovery"
+    scan_root.mkdir()
+    recovery.mkdir()
+    capability = ResolvedMetadataWriteCapability(
+        metadata_write_capability_id=_id(61),
+        scan_root_id=plan.candidate.scan_root_id,
+        scan_root_directory=scan_root,
+        recovery_directory=recovery,
+    )
+    lease = OwnedScanRootWriteLease(
+        scan_root_id=plan.candidate.scan_root_id,
+        owner_kind=ScanRootWriteOwnerKind.METADATA_WRITE_PREPARATION,
+        owner_run_id=_id(62),
+        lease_token="synthetic-preparation-lease",
+        fence_epoch=7,
+        acquired_at=NOW - timedelta(seconds=1),
+        heartbeat_at=NOW - timedelta(seconds=1),
+        lease_expires_at=NOW + timedelta(minutes=5),
+    )
+    preparation = build_epub3_title_write_preparation(
+        plan=plan,
+        preflight=preflight,
+        patch=patch,
+        verified_stage=verified,
+        capability=capability,
+        preparation_lease=lease,
+        authorized_at=NOW,
+        prepared_at=NOW + timedelta(seconds=1),
+    )
+    return plan, preflight, patch, verified, capability, lease, preparation
+
+
+def test_preparation_authorization_and_run_bind_exact_verified_material(
+    tmp_path: Path,
+) -> None:
+    plan, preflight, patch, verified, capability, lease, preparation = (
+        _prepare_authorization_material(tmp_path)
+    )
+
+    repeated = build_epub3_title_write_preparation(
+        plan=plan,
+        preflight=preflight,
+        patch=patch,
+        verified_stage=verified,
+        capability=capability,
+        preparation_lease=lease,
+        authorized_at=NOW,
+        prepared_at=NOW + timedelta(seconds=1),
+    )
+    authorization = build_metadata_write_authorization(
+        preparation,
+        expires_at=NOW + timedelta(minutes=10),
+    )
+    run_id = _id(63)
+    run_lease = replace(
+        lease,
+        owner_kind=ScanRootWriteOwnerKind.METADATA_WRITE_RUN,
+        owner_run_id=run_id,
+        lease_token="synthetic-run-lease",
+        fence_epoch=8,
+        acquired_at=NOW + timedelta(seconds=2),
+        heartbeat_at=NOW + timedelta(seconds=2),
+        lease_expires_at=NOW + timedelta(minutes=6),
+    )
+    run = build_metadata_write_run(
+        authorization,
+        capability,
+        run_lease,
+        run_id=run_id,
+        created_at=NOW + timedelta(seconds=2),
+    )
+
+    assert preparation == repeated
+    assert preparation.plan_id == plan.id
+    assert preparation.source_sha256 == verified.staged_files.input_sha256
+    assert preparation.expected_output_sha256 == verified.staged_files.output_sha256
+    assert preparation.dcterms_modified == patch.dcterms_modified
+    assert authorization.preparation_id == preparation.id
+    assert authorization.expected_output_sha256 == preparation.expected_output_sha256
+    assert run.authorization_id == authorization.id
+    assert run.initial_fence_epoch == run_lease.fence_epoch
+    for private_value in (
+        PRIVATE_SELECTED_TITLE,
+        str(verified.staged_files.private_directory),
+        preparation.source_sha256,
+        preparation.expected_output_sha256,
+    ):
+        assert private_value not in repr(preparation)
+        assert private_value not in repr(authorization)
+
+
+def test_preparation_rejects_wrong_capability_and_fence_without_private_output(
+    tmp_path: Path,
+) -> None:
+    plan, preflight, patch, verified, capability, lease, _preparation = (
+        _prepare_authorization_material(tmp_path)
+    )
+    wrong_capability = replace(capability, scan_root_id=_id(99))
+    with pytest.raises(MetadataWriteAuthorizationError) as capability_error:
+        build_epub3_title_write_preparation(
+            plan=plan,
+            preflight=preflight,
+            patch=patch,
+            verified_stage=verified,
+            capability=wrong_capability,
+            preparation_lease=lease,
+            authorized_at=NOW,
+            prepared_at=NOW + timedelta(seconds=1),
+        )
+    assert capability_error.value.code is MetadataWriteAuthorizationErrorCode.CAPABILITY_INVALID
+
+    wrong_lease = replace(
+        lease,
+        owner_kind=ScanRootWriteOwnerKind.METADATA_WRITE_RUN,
+    )
+    with pytest.raises(MetadataWriteAuthorizationError) as lease_error:
+        build_epub3_title_write_preparation(
+            plan=plan,
+            preflight=preflight,
+            patch=patch,
+            verified_stage=verified,
+            capability=capability,
+            preparation_lease=wrong_lease,
+            authorized_at=NOW,
+            prepared_at=NOW + timedelta(seconds=1),
+        )
+    assert lease_error.value.code is MetadataWriteAuthorizationErrorCode.LEASE_INVALID
+    assert PRIVATE_SELECTED_TITLE not in str(capability_error.value)
+    assert str(verified.staged_files.private_directory) not in str(lease_error.value)
+
+
+def test_authorization_and_run_fail_closed_on_window_or_material_change(
+    tmp_path: Path,
+) -> None:
+    _plan, _preflight_value, _patch, _verified, capability, lease, preparation = (
+        _prepare_authorization_material(tmp_path)
+    )
+    with pytest.raises(MetadataWriteAuthorizationError) as expired:
+        build_metadata_write_authorization(
+            preparation,
+            expires_at=preparation.prepared_at,
+        )
+    assert expired.value.code is MetadataWriteAuthorizationErrorCode.AUTHORIZATION_WINDOW_INVALID
+
+    authorization = build_metadata_write_authorization(
+        preparation,
+        expires_at=NOW + timedelta(minutes=10),
+    )
+    with pytest.raises(MetadataWriteAuthorizationError) as tampered:
+        replace(authorization, expected_output_sha256="f" * 64)
+    assert tampered.value.code is MetadataWriteAuthorizationErrorCode.AUTHORIZATION_INVALID
+
+    run_id = _id(64)
+    wrong_lease = replace(
+        lease,
+        owner_kind=ScanRootWriteOwnerKind.METADATA_WRITE_RUN,
+        owner_run_id=_id(65),
+        lease_token="wrong-run-lease",
+        fence_epoch=9,
+        acquired_at=NOW + timedelta(seconds=2),
+        heartbeat_at=NOW + timedelta(seconds=2),
+        lease_expires_at=NOW + timedelta(minutes=6),
+    )
+    with pytest.raises(MetadataWriteAuthorizationError) as fenced:
+        build_metadata_write_run(
+            authorization,
+            capability,
+            wrong_lease,
+            run_id=run_id,
+            created_at=NOW + timedelta(seconds=2),
+        )
+    assert fenced.value.code is MetadataWriteAuthorizationErrorCode.LEASE_INVALID

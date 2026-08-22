@@ -1,11 +1,36 @@
-"""Pure contracts for planned, still non-executable source-metadata writes."""
+"""Bounded contracts for the still non-executable EPUB metadata writer."""
 
 from foliotone.metadata_write import contracts as _contracts
+from foliotone.metadata_write.authorization import (
+    MAX_METADATA_WRITE_AUTHORIZATION_LIFETIME,
+    MAX_METADATA_WRITE_EVENTS,
+    METADATA_WRITE_AUTHORIZATION_PROFILE,
+    METADATA_WRITE_PREPARATION_PROFILE,
+    METADATA_WRITE_RUN_PROFILE,
+    EpubTitleWritePreparationSnapshot,
+    MetadataWriteAuthorizationError,
+    MetadataWriteAuthorizationErrorCode,
+    MetadataWriteAuthorizationSnapshot,
+    MetadataWriteExecutionEvent,
+    MetadataWriteExecutionRun,
+    MetadataWriteLeaseSnapshot,
+    MetadataWriteRunStatus,
+    build_epub3_title_write_preparation,
+    build_metadata_write_authorization,
+    build_metadata_write_run,
+)
+from foliotone.metadata_write.capabilities import (
+    METADATA_WRITE_CAPABILITIES_FILE_ENV,
+    MetadataWriteCapabilityResolver,
+    MetadataWriteCapabilityUnavailable,
+    ResolvedMetadataWriteCapability,
+)
 from foliotone.metadata_write.contracts import *  # noqa: F403
 from foliotone.metadata_write.epub_title import (
     build_epub3_title_package_patch,
     preflight_epub3_title_write,
     validate_epub3_title_package_patch,
+    validate_epub3_title_write_plan,
     verify_epub3_title_archive_diff,
 )
 from foliotone.metadata_write.staging import (
@@ -37,9 +62,13 @@ __all__ = [
     *_contracts.__all__,
     "build_epub3_title_package_patch",
     "build_and_verify_private_epub3_title_stage",
+    "build_epub3_title_write_preparation",
+    "build_metadata_write_authorization",
+    "build_metadata_write_run",
     "build_private_epub3_title_stage",
     "preflight_epub3_title_write",
     "validate_epub3_title_package_patch",
+    "validate_epub3_title_write_plan",
     "verify_epub3_title_archive_diff",
     "verify_private_epub3_title_stage",
     "EPUB_TITLE_STAGING_PROFILE",
@@ -59,4 +88,21 @@ __all__ = [
     "EpubTitleValidationToolRunner",
     "EpubTitleVerifiedStage",
     "FixedEpubTitleStagingValidator",
+    "MAX_METADATA_WRITE_AUTHORIZATION_LIFETIME",
+    "MAX_METADATA_WRITE_EVENTS",
+    "METADATA_WRITE_AUTHORIZATION_PROFILE",
+    "METADATA_WRITE_CAPABILITIES_FILE_ENV",
+    "METADATA_WRITE_PREPARATION_PROFILE",
+    "METADATA_WRITE_RUN_PROFILE",
+    "EpubTitleWritePreparationSnapshot",
+    "MetadataWriteAuthorizationError",
+    "MetadataWriteAuthorizationErrorCode",
+    "MetadataWriteAuthorizationSnapshot",
+    "MetadataWriteCapabilityResolver",
+    "MetadataWriteCapabilityUnavailable",
+    "MetadataWriteExecutionEvent",
+    "MetadataWriteExecutionRun",
+    "MetadataWriteLeaseSnapshot",
+    "MetadataWriteRunStatus",
+    "ResolvedMetadataWriteCapability",
 ]

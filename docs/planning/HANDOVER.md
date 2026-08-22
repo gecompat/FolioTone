@@ -71,20 +71,51 @@ Calibres pro OPF-Export neu erzeugte `identifier:calibre`-Projektion; andere
 Identifier bleiben prüfpflichtig, während der native Memberdiff alle Source-
 Bytes erhält.
 
+`S-W10-MW03` ergänzt die nicht ausführende Authority-Schicht. Der
+content-addressed `EpubTitleWritePreparationSnapshot` bindet den verifizierten
+privaten Output, den aktuellen W9-Plan, Input-/Outputidentität,
+`dcterms:modified`, technische Profile/Versionen und Capability-ID an eine
+kurz gehaltene Preparation-Fence. Der daraus erzeugte
+`MetadataWriteAuthorizationSnapshot` ist höchstens 15 Minuten gültig und über
+die Persistenz genau einmal verbrauchbar. Run und `CREATED`-Event entstehen
+atomar unter einer neuen `METADATA_WRITE_RUN`-Lease; jedes Folgeevent bindet
+die tatsächlich aktuelle Fence-Epoch und einen erlaubten gapless Übergang.
+
+Migration `0027_metadata_write_operations` speichert Authorization, Run und
+Events insert-only und sperrt Update, Delete sowie verlustbehafteten
+Downgrade. Der Store revalidiert Planidentität, aktuelle Source-/Evidence-/
+Dependency-Lineage und neueste kompatible Reviewfreigabe. Der private,
+bounded Capability-Resolver verwendet eine owner-only geschützte no-follow
+POSIX-Konfiguration; Pfade werden weder persistiert noch berichtet. Der
+read-only Status enthält nur opaque IDs, Profile, Zeitpunkte und Zustände.
+Source-/Output-Hashes, Metadatenwerte, Capability-Inhalte, Fences, Findings
+und Digests bleiben privat.
+
+Für `S-W10-MW03` bestanden am stabilen lokalen Stand 71 fokussierte
+synthetische MW01-/MW02-/MW03-, Capability-, Privacy-, Fencing-, Migration-,
+Journal-, Status- und Non-Execution-Tests in 34,17 Sekunden. Ruff war für den
+gesamten geänderten Python-Scope grün; Mypy prüfte 12 direkt betroffene
+Source-Dateien ohne Befund. Reale E-Books und produktive Runtime-Datenbanken
+wurden nicht verwendet. Provider-/Toolzugang und Lizenzannahmen änderten sich
+nicht. Geänderte Writer-, Patcher-, Staging-, Validator- oder Toolversionen
+machen eine vorhandene Preparation/Authorization unbrauchbar und verlangen
+eine neue Vorbereitung. Die vollständige lokale Suite wird nicht dupliziert;
+der stabile Pull-Request-Head erhält genau einen vollständigen CI-Gate.
+
 Der spätere Source-Commit ist Linux/Docker-only und tauscht den vollständig
 verifizierten Same-Directory-Output über
 `renameat2(RENAME_EXCHANGE)` atomar mit der Source. Das Original wird danach
 per `RENAME_NOREPLACE` in den capability-gebundenen Recoverybereich desselben
 Filesystems verschoben. Fehlende Flag-/Filesystemunterstützung, NFS, `EXDEV`,
 native Windows-Ausführung oder unklare Crashzustände bleiben fail-closed. Die
-reale Mutation ist bis zum Abschluss von `S-W10-MW03` bis `S-W10-MW05`
+reale Mutation ist bis zum Abschluss von `S-W10-MW04` und `S-W10-MW05`
 weiterhin nicht verfügbar.
 
-`S-W10-MW03` ist die nächste reguläre Wave. Sie ergänzt immutable
-Authorization-/Run-/Eventpersistenz, private Capability-Auflösung,
-`ScanRootWriteLease`-/Fence-Vertrag und privacy-begrenzten read-only Status.
-Auch nach dieser Wave bleiben Source-Commit, Linux-Executor, Recovery und CLI
-geschlossen.
+`S-W10-MW04` ist die nächste reguläre Wave. Sie ergänzt ausschließlich das
+Linux-`renameat2`-Backend, den Ein-Datei-Executor und idempotente Crash-
+Recovery auf synthetischen Filesystemen. CLI, zweiter Bestätigungsschritt,
+neuer Scan und Reconciliation bleiben `S-W10-MW05` vorbehalten. Reale
+Source-Mutation bleibt bis zum Abschluss der gesamten Kette geschlossen.
 
 Für `S-W10-MW01` bestanden lokal 114 fokussierte neue und direkt betroffene
 Unit-, Privacy-, Non-Execution- und Dokumentationsvertragstests in 0,57
@@ -157,11 +188,12 @@ nicht dupliziert; genau ein vollständiger PR-CI-Gate bleibt
 Merge-Voraussetzung.
 
 `FG-W10-METADATA-WRITE` ist durch ADR-0063 entschieden; `S-W10-MW01` und
-`S-W10-MW02` sind umgesetzt und `S-W10-MW03` ist die nächste reguläre Wave.
+`S-W10-MW02` und `S-W10-MW03` sind umgesetzt; `S-W10-MW04` ist die nächste
+reguläre Wave.
 `W10-005` bleibt
 parallel `READY`. Reale Source-Media-
 Mutation, Music, Bilder, REST-API und grafische Oberfläche werden weder durch
-W9-006 noch durch das private Staging aktiviert.
+W9-006 noch durch Preparation, Authorization oder Journal aktiviert.
 
 W0 bis W2 sind abgeschlossen. Der W2-Slice umfasst Incremental Index, Hashing, Filename-/Path-Kandidaten, konfigurierbare Parsing-Profile und eine generische read-only ToolProvider Runtime. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
 
