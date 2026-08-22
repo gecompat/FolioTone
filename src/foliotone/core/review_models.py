@@ -21,6 +21,7 @@ class ReviewType(StrEnum):
     MATCH_RELATION = "MATCH_RELATION"
     KEEP_PREFERENCE = "KEEP_PREFERENCE"
     CONSOLIDATION_CANDIDATE = "CONSOLIDATION_CANDIDATE"
+    METADATA_CORRECTION = "METADATA_CORRECTION"
 
 
 class ReviewCandidateKind(StrEnum):
@@ -29,6 +30,7 @@ class ReviewCandidateKind(StrEnum):
     RELATION = "RELATION"
     KEEP_PREFERENCE = "KEEP_PREFERENCE"
     CONSOLIDATION_CANDIDATE = "CONSOLIDATION_CANDIDATE"
+    METADATA_CORRECTION_CANDIDATE = "METADATA_CORRECTION_CANDIDATE"
 
 
 class ReviewItemState(StrEnum):
@@ -99,6 +101,16 @@ class ReviewItem:
             and self.candidate_kind is not ReviewCandidateKind.RELATION
         ):
             raise ValueError("matching review requires a relation candidate")
+        if (
+            self.review_type is ReviewType.METADATA_CORRECTION
+            and self.candidate_kind is not ReviewCandidateKind.METADATA_CORRECTION_CANDIDATE
+        ):
+            raise ValueError("metadata correction review requires its candidate kind")
+        if (
+            self.candidate_kind is ReviewCandidateKind.METADATA_CORRECTION_CANDIDATE
+            and self.review_type is not ReviewType.METADATA_CORRECTION
+        ):
+            raise ValueError("metadata correction candidate requires its review type")
         require_aware_datetime(self.created_at, "created_at")
 
 

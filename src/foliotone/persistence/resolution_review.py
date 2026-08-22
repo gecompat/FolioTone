@@ -23,6 +23,12 @@ from foliotone.core import (
     ReviewItemState,
     ReviewType,
 )
+from foliotone.metadata_correction import (
+    METADATA_CORRECTION_DECISION_COMPATIBILITY,
+    METADATA_CORRECTION_PRODUCER_NAME,
+    METADATA_CORRECTION_PRODUCER_VERSION,
+)
+from foliotone.persistence import metadata_correction_schema as mc_schema
 from foliotone.persistence import resolution_review_schema as rr_schema
 from foliotone.persistence import schema
 from foliotone.persistence._mapping import datetime_to_db
@@ -182,19 +188,24 @@ class SQLiteResolutionReviewStore:
     def enqueue_or_get_review(self, item: ReviewItem) -> ReviewItem:
         """Insert one exact review case without overwriting prior history."""
 
-        if item.review_type is not ReviewType.AUTHORITY_RESOLUTION:
-            raise ResolutionReviewStoreError("EB-02 only accepts authority review items")
-        if item.candidate_kind is not ReviewCandidateKind.RESOLUTION_CANDIDATE:
-            raise ResolutionReviewStoreError("authority review requires a resolution candidate")
         if item.state is not ReviewItemState.PENDING:
             raise ResolutionReviewStoreError("new review items must be PENDING")
         with self._engine.begin() as connection:
-            candidate = self._get_candidate(connection, item.candidate_id)
-            if candidate is None:
-                raise ResolutionReviewStoreError("resolution candidate does not exist")
-            _require_item_matches_candidate(item, candidate)
-            if candidate.disposition is ResolutionDisposition.AUTO_SAFE:
-                raise ResolutionReviewStoreError("AUTO_SAFE candidates must not enter review")
+            if item.review_type is ReviewType.AUTHORITY_RESOLUTION:
+                if item.candidate_kind is not ReviewCandidateKind.RESOLUTION_CANDIDATE:
+                    raise ResolutionReviewStoreError(
+                        "authority review requires a resolution candidate"
+                    )
+                candidate = self._get_candidate(connection, item.candidate_id)
+                if candidate is None:
+                    raise ResolutionReviewStoreError("resolution candidate does not exist")
+                _require_item_matches_candidate(item, candidate)
+                if candidate.disposition is ResolutionDisposition.AUTO_SAFE:
+                    raise ResolutionReviewStoreError("AUTO_SAFE candidates must not enter review")
+            elif item.review_type is ReviewType.METADATA_CORRECTION:
+                _require_metadata_correction_review(connection, item)
+            else:
+                raise ResolutionReviewStoreError("review type is not supported by this store")
             result = connection.execute(
                 insert(rr_schema.review_items)
                 .values(**self._review_codec.encode(item))
@@ -598,6 +609,35 @@ def _require_item_matches_candidate(
         or item.candidate_set_fingerprint != candidate.candidate_set_fingerprint
     ):
         raise ResolutionReviewStoreError("review snapshot does not match candidate")
+
+
+def _require_metadata_correction_review(
+    connection: Connection,
+    item: ReviewItem,
+) -> None:
+    if item.candidate_kind is not ReviewCandidateKind.METADATA_CORRECTION_CANDIDATE:
+        raise ResolutionReviewStoreError("metadata correction review requires its candidate kind")
+    candidate = (
+        connection.execute(
+            select(mc_schema.metadata_correction_candidates).where(
+                mc_schema.metadata_correction_candidates.c.id == str(item.candidate_id)
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if candidate is None:
+        raise ResolutionReviewStoreError("metadata correction candidate does not exist")
+    if (
+        item.subject_kind is not EntityKind.FILE
+        or str(item.subject_id) != str(candidate["file_id"])
+        or item.producer_name != METADATA_CORRECTION_PRODUCER_NAME
+        or item.producer_version != METADATA_CORRECTION_PRODUCER_VERSION
+        or item.decision_compatibility_version != METADATA_CORRECTION_DECISION_COMPATIBILITY
+        or item.evidence_fingerprint != str(candidate["evidence_fingerprint"])
+        or item.candidate_set_fingerprint != str(candidate["content_hash"])
+    ):
+        raise ResolutionReviewStoreError("metadata correction review does not match candidate")
 
 
 def _material_descriptors(

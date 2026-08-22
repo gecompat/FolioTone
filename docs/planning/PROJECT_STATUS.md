@@ -4,7 +4,7 @@ Stand: 2026-08-22
 
 ## Aktuelle Welle
 
-**S-W9-006A abgeschlossen — reine Metadatenkorrekturverträge sind implementiert**
+**S-W9-006B abgeschlossen — Metadatenkorrekturpläne sind insert-only persistiert**
 
 Das neue Paket `foliotone.metadata_correction` implementiert immutable,
 path-free und bounded DTOs für `MetadataCorrectionCandidate` und
@@ -23,26 +23,41 @@ Review-Snapshot an feste Preconditions und Post-write-Verifikation und liefert
 nur `BLOCKED`, `REVIEW_REQUIRED` oder `APPROVED_NON_EXECUTABLE`. Der einzige
 Execution-State bleibt permanent `NOT_EXECUTABLE`.
 
-Der statische Non-Execution-Gate verbietet im gesamten neuen Paket mutierende
-Filesystem-/Subprocessimporte und öffentliche Apply-/Execute-/Write-Flächen.
-Private Metadatenwerte und materielle Hashes fehlen aus `repr`; Canonical Bytes
-dienen nur der internen content-addressed Identität. Es gibt keine Migration,
-keine Review-Core-Änderung, keine CLI, keinen Source-Zugriff und keinen Writer.
+Der Review-Core enthält additiv `ReviewType.METADATA_CORRECTION` und
+`ReviewCandidateKind.METADATA_CORRECTION_CANDIDATE` mit fester Paarung.
+Migration `0026_metadata_correction_plans` erhält vorhandene Review- und
+Consolidation-Review-Historien beim Constraint-Rebuild und ergänzt 14
+normalisierte Candidate-/Plan-Tabellen. Parent- und Childzeilen sind durch
+Trigger immutable; deklarierte Counts begrenzen jeden Child-Graph. Ein
+Downgrade wird bei vorhandenen Metadata-Correction-Daten oder Reviewfällen
+verweigert.
 
-54 fokussierte synthetische Unit-, Golden-Value-, Blocker-, Privacy- und
-Non-Execution-Tests bestanden nach der Korrektur zweier anfänglicher Golden-
-Platzhalter und einer zu groben Scannerregel. Gezielte Ruff- und Mypy-Prüfungen
-des neuen Pakets waren grün. Zusätzlich bestanden die sieben betroffenen
-Planungs- und neun Dokumentationsvertragstests; `git diff --check` war ohne
-Befund. Eine vollständige lokale Suite wurde nicht dupliziert; der einmalige
-vollständige PR-CI-Gate bleibt Merge-Voraussetzung.
+`SQLiteMetadataCorrectionStore` persistiert Candidate und Plan atomar,
+rehydriert alle Values, Evidence, Dependencies, Reviews, Preconditions,
+Verifikation und Blocker bounded und berechnet Candidate-, Evidence-, Feld-,
+Writer- und Planidentitäten erneut. Vor einem Insert prüft er den
+abgeschlossenen book-only `ScanRun`, File-/Observation-Snapshot,
+`FILE_SHA256`, polymorphe Evidence, Dependency- und Ziel-Lineage sowie die
+neueste kompatible Review Decision in derselben kurzen Transaktion. Der Plan
+muss zusätzlich dem kanonischen Reducer entsprechen. Exakte Retries verwenden
+den vorhandenen Snapshot; abweichende Payloads schlagen fail-closed fehl.
 
-`S-W9-006B` ist jetzt `READY` und ergänzt ausschließlich die beiden Review-
-Literale, Migration `0026` und insert-only Persistenz mit vollständiger Hash-/
-Lineage-/Idempotenzprüfung. `S-W9-006C` bleibt danach für echten SQLite-
-Read-only-Report und CLI geplant. `W10-005` bleibt parallel `READY`; reale
+Private Metadatenwerte liegen nur in den dafür vorgesehenen Runtime-
+Valuezeilen und erscheinen weder in Fehlern noch in Standardrepräsentationen.
+Der erweiterte Non-Execution-Gate bestätigt auch für den Store: kein
+Filesystem-/Subprocessimport, keine Source-Media-Öffnung und keine öffentliche
+Apply-/Execute-/Write-Fläche. Es gibt weiterhin keine CLI und keinen Writer.
+
+`S-W9-006C` ist jetzt der nächste reguläre Slice für den echten SQLite-
+Read-only-Report und die CLI. `W10-005` bleibt parallel `READY`; reale
 Mutation, Music, Bilder, REST-API und grafische Oberfläche sind nicht
-aktiviert.
+aktiviert. Am finalen lokalen Stand bestanden 37 gezielte Candidate-/Plan-,
+Migration-, Review-, Head-Schema-, Privacy-, Dokumentations- und Non-
+Execution-Fälle in 32,46 Sekunden. Gezieltes Ruff für alle geänderten Python-
+Dateien und Mypy für die vier betroffenen Source-Module waren ohne Befund;
+`git diff --check` blieb sauber. Eine vollständige lokale Suite wurde
+ressourcenschonend nicht dupliziert. Der stabile Pull-Request-Head erhält genau
+einen vollständigen CI-Gate.
 
 **CS-03 abgeschlossen — die book-only Produktprojektionen sind vollständig**
 

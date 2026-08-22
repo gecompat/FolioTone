@@ -9,6 +9,13 @@ from pathlib import Path
 import foliotone.metadata_correction as metadata_correction
 
 ROOT = Path(__file__).resolve().parents[2] / "src" / "foliotone" / "metadata_correction"
+PERSISTENCE = (
+    Path(__file__).resolve().parents[2]
+    / "src"
+    / "foliotone"
+    / "persistence"
+    / "metadata_correction.py"
+)
 FORBIDDEN_IMPORT_PREFIXES = (
     "foliotone.adapters",
     "foliotone.cli",
@@ -125,3 +132,27 @@ def execute(path):
     assert {"os", "pathlib", "subprocess"} <= set(imports)
     assert {"write_bytes", "os.rename", "run"} <= set(calls)
     assert surfaces == ["execute"]
+
+
+def test_metadata_correction_store_has_no_source_media_or_execution_surface() -> None:
+    tree = ast.parse(PERSISTENCE.read_text(encoding="utf-8"), filename=str(PERSISTENCE))
+    findings: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.startswith(("os", "pathlib", "shutil", "subprocess")):
+                    findings.append(f"import:{alias.name}")
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if module.startswith(("os", "pathlib", "shutil", "subprocess")):
+                findings.append(f"import:{module}")
+        elif isinstance(node, ast.Call):
+            qualified = _qualified_name(node.func)
+            leaf = None if qualified is None else qualified.rsplit(".", 1)[-1]
+            if qualified in FORBIDDEN_CALLS or leaf in FORBIDDEN_METHOD_LEAVES:
+                findings.append(f"call:{qualified}")
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if not node.name.startswith("_") and FORBIDDEN_PUBLIC_SURFACE.match(node.name):
+                findings.append(f"surface:{node.name}")
+
+    assert findings == []

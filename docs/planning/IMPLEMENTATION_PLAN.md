@@ -66,8 +66,8 @@ definiert dafür zuerst einen separaten, reviewbaren
 `MetadataCorrectionCandidate` und danach den dauerhaft nicht ausführbaren
 `MetadataCorrectionPlan`. `S-W9-006A` hat die reinen Verträge, Reducer,
 Serialisierung, Golden Values und den Non-Execution-Gate geliefert.
-`S-W9-006B` folgt mit Persistenz und Review-Integration; `S-W9-006C` liefert
-danach den read-only Report samt CLI. Das technische
+`S-W9-006B` hat Persistenz und Review-Integration geliefert; `S-W9-006C`
+liefert als nächster Slice den read-only Report samt CLI. Das technische
 `FG-W10-METADATA-WRITE` und erst danach der kleinste Writer-Slice bilden
 weiterhin zwei getrennte `FRONTIER`-Waves.
 
@@ -467,11 +467,11 @@ Build on the W3 calibre ToolProvider and implement read-only library integration
 
 Create non-executable `ConsolidationPlan` data from confirmed/reviewed relations. Plans may describe KEEP and candidate operations but must be marked non-executable.
 
-ADR-0062 teilt `W9-006` in drei begrenzte Pakete. `S-W9-006A` ist umgesetzt:
-immutable Candidate-/Plan-DTOs, reine Reducer, kanonische Serialisierung und
-der Non-Execution-Vertrag sind vorhanden. `S-W9-006B` ergänzt als nächstes
-Migration `0026`, Review-Literale und insert-only Persistenz. `S-W9-006C`
-liefert anschließend den echten SQLite-Read-only-Report und die CLI-Grenze.
+ADR-0062 teilt `W9-006` in drei begrenzte Pakete. `S-W9-006A` und
+`S-W9-006B` sind umgesetzt: immutable Candidate-/Plan-DTOs, reine Reducer,
+kanonische Serialisierung, Review-Literale, Migration `0026`, insert-only
+Persistenz und der Non-Execution-Vertrag sind vorhanden. `S-W9-006C` liefert
+als nächstes den echten SQLite-Read-only-Report und die CLI-Grenze.
 Erst danach folgt `W9-007` für
 reproduzierbare Rename-, Reorganisations-, Import-/Export-, Transformations-
 und Containerrezepte. Ein Zielträger oder Rezept öffnet keinen Writer. Die

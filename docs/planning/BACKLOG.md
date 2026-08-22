@@ -13,7 +13,7 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | `S-W9-006B` | Die reinen Candidate-/Plan-Verträge aus `S-W9-006A` sind abgeschlossen. Als nächster begrenzter Slice folgen ausschließlich Review-Literale, Migration `0026` und insert-only Persistenz; Writer, Source-Zugriff und Produktoberflächen bleiben geschlossen. |
+| NOW | `S-W9-006C` | Candidate-/Plan-Verträge, Review-Integration und insert-only Persistenz sind abgeschlossen. Als letzter W9-006-Slice folgt ausschließlich der privacy-begrenzte echte SQLite-Read-only-Report samt CLI; Writer und Source-Zugriff bleiben geschlossen. |
 | PARALLEL READY | `W10-005` | Die von ADR-0056 erlaubte Ein-Datei-Quarantäne erhält eine vollständige Authorize-/Execute-/Recovery-Bedienkette, ohne den Mutationstyp zu erweitern. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
 | NEXT WAVES | `FG-W10-METADATA-WRITE`, danach kleinster Metadata-Writer | Die Entwicklungsfreigabe ist vorhanden; Format, Zielträger und technische Safety-Grenze werden vor Writer-Code in einer eigenen ADR entschieden. |
@@ -254,8 +254,8 @@ Interim-Quarantäneexecutor öffnen.
 | W9-006 | NEXT | Implement a non-executable, content-addressed `MetadataCorrectionPlan` that binds observed values, reviewed canonical candidates, one explicit target carrier, dependencies, writer profile, changed-since-analysis preconditions and post-write verification without exposing a writer. |
 | FG-W9-006 | DONE | ADR-0062 definiert den separaten immutable `MetadataCorrectionCandidate`, den append-only Reviewvertrag, content-addressed Candidate und Plan, fünf getrennte Zielträger, feste Preconditions, Post-write-Verifikation, Privacy und die permanente `NOT_EXECUTABLE`-Grenze. |
 | S-W9-006A | DONE | Immutable Candidate-/Plan-DTOs, bounded Feld-/Ziel-/Dependency-/Review-/Precondition-/Verification-Verträge, reine Reducer, deterministische UUIDv5-/`canonical-json/v1`-Identitäten, Golden Values und ein statischer Non-Execution-Gate sind implementiert. Das Paket importiert weder Persistenz, CLI, Tooling noch Filesystemmodule. |
-| S-W9-006B | READY | Ergänze Migration `0026`, die neuen Review-Literale und einen insert-only Store mit bounded Rehydration, Hash-/Lineage-/Idempotenzprüfung. |
-| S-W9-006C | PLANNED | Ergänze den echten SQLite-Read-only-Report `ebook-metadata-correction-report`, die CLI-Adaptergrenze sowie Privacy-, Bootstrap- und Abschlussverträge. |
+| S-W9-006B | DONE | Review-Core additiv erweitert; Migration `0026` erhält bestehende Review-Historien und persistiert den normalisierten Candidate-/Plan-Graph insert-only. Der bounded Store prüft Content-Identitäten, den kanonischen Reducer, Source-/Evidence-/Dependency-/Target-/Review-Lineage und idempotente Retries atomar. |
+| S-W9-006C | READY | Ergänze den echten SQLite-Read-only-Report `ebook-metadata-correction-report`, die CLI-Adaptergrenze sowie Privacy-, Bootstrap- und Abschlussverträge. |
 | W9-007 | PLANNED | Implement non-executable, reproducible recipes for rename, reorganization, import/export, transformation and archive/container changes; keep every operation behind its own W10 gate. |
 
 ## W10 — Controlled Consolidation
