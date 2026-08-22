@@ -26,8 +26,25 @@ atomarer Move ohne Überschreiben. Fehlt dieser Beweis, bleibt die Operation
 ## Entscheidung
 
 W10 wird in kleine, getrennte Pakete geöffnet. ADR-0056 akzeptiert zunächst
-Vertrag, Persistenz und read-only Status einer Quarantäneoperation. Eine reale
-Mutation bleibt bis zum separaten `FG-W10-MOVE-BACKEND` gesperrt.
+Vertrag, Persistenz und read-only Status einer Quarantäneoperation.
+
+### Interim amendment (2026-08-22)
+
+Für den eng begrenzten ersten Executor ist eine reale Ein-Datei-Quarantäne
+zulässig. Er verwendet ausschließlich `os.rename` innerhalb desselben vom
+Betriebssystem gemeldeten Filesystems, prüft das opaque Ziel unmittelbar davor
+auf Abwesenheit und führt weder Copy+Delete noch einen Cross-Volume-Fallback
+aus. Er persistiert `PREPARED` vor der Mutation sowie `MOVED`, `VERIFIED` und
+`COMPLETED` danach und prüft am Ziel erneut den vollständigen SHA-256.
+
+Diese Zielprüfung ist auf einigen Plattformen **nicht atomar**: Zwischen
+Prüfung und `os.rename` bleibt eine konkurrierende Erzeugungs-/Replace-Race
+möglich. Der Interim-Executor behauptet deshalb keine atomare No-Replace-
+Semantik und ist kein generischer Move-Backendvertrag. `FG-W10-MOVE-BACKEND`
+bleibt als getrennte Frontier-Härtung im Backlog; erst dort werden atomarer
+No-Replace, no-follow Elternverzeichnisse sowie Crash-, Race- und
+Cross-Device-Nachweise verbindlich. Bis dahin dürfen keine weiteren
+Mutationstypen oder Fallbacks hinzukommen.
 
 ### Zulässiger Gegenstand
 
@@ -202,10 +219,11 @@ nicht Teil von ADR-0056.
    Preconditions; kein I/O.
 2. `S-W10-02`: additive immutable Parent-/append-only Eventpersistenz,
    Root-Lease-Owner, bounded Store und Recovery-State; keine Source-Mutation.
-3. `FG-W10-MOVE-BACKEND`: docs-only Auswahl und echter Plattformnachweis für
-   atomaren No-Replace-Move. Kein Dateisystem wird vorab vorausgesetzt.
-4. `S-W10-03`: genau ein fest freigegebener Backendadapter und der gefencete
-   Ein-Datei-Executor; erst nach akzeptiertem Gate.
+3. `S-W10-03`: Interim-Executor mit `os.rename`, Same-Filesystem-Prüfung,
+   Ziel-Abwesenheitsprüfung und Revalidierung; keine atomare No-Replace-
+   Behauptung.
+4. `FG-W10-MOVE-BACKEND`: spätere Frontier-Härtung für atomaren No-Replace-
+   Move, no-follow Elternverzeichnisse und Crash-/Race-/Cross-Device-Nachweis.
 5. `S-W10-04`: read-only Status/Report und fokussierter End-to-End-Abschluss.
 
 Jedes Paket erhält einen eigenen kleinen PR. Vollständige Tests laufen einmal
@@ -214,7 +232,8 @@ ausgeführt.
 
 ## Nicht autorisiert
 
-ADR-0056 autorisiert noch keine reale Mutation. Insbesondere verboten bleiben:
+Außer der im Interim amendment beschriebenen Ein-Datei-Quarantäne bleiben
+insbesondere verboten:
 
 - Copy+Delete, Überschreiben, Cross-Volume-Fallback und generische Pfad- oder
   Command-APIs;
@@ -227,8 +246,9 @@ ADR-0056 autorisiert noch keine reale Mutation. Insbesondere verboten bleiben:
 
 ## Folgen
 
-W10-001 wechselt von `BLOCKED` zu `DECISION`; W10-002 bleibt bis
-`FG-W10-MOVE-BACKEND` ohne realen Adapter technisch blockiert. W10-003,
-W10-004 und alle Metadatenwrites bleiben blockiert. Die bestehende W9-
-Non-Execution-Grenze wird nicht gelockert; ausschließlich die neuen W10-
-Profile dürfen später eine ausdrücklich autorisierte Quarantäne ausführen.
+W10-001 wechselt von `BLOCKED` zu `DECISION`; W10-002 und der eng begrenzte
+S-W10-03-Executor dürfen die dokumentierte Interim-Quarantäne ausführen.
+`FG-W10-MOVE-BACKEND`, W10-004 und alle Metadatenwrites bleiben getrennte
+Arbeit. Die bestehende W9-Non-Execution-Grenze wird nicht gelockert;
+ausschließlich die neuen W10-Profile dürfen eine ausdrücklich autorisierte
+Quarantäne ausführen.
