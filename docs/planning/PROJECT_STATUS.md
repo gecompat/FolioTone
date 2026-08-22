@@ -1,20 +1,21 @@
 # Projektstatus
 
-Stand: 2026-08-21
+Stand: 2026-08-22
 
 ## Aktuelle Welle
 
-**W3 abgeschlossen — S-W10-02 persistiert die W10-Vertragsstrecke ohne Mutation**
+**W10-Interim abgeschlossen — ein gefenceter Ein-Datei-Executor ist vorhanden**
 
 ADR-0056 akzeptiert als erste W10-Grenze ausschließlich reine Quarantäne-
-DTOs sowie immutable Authorization-/Run- und lückenlose Event-Persistenz. S-W10-02
-liefert die additive Migration `0022`, die neue Root-Lease-Owner-Klasse
-`CONSOLIDATION_QUARANTINE_RUN`, Fence-Prüfungen und bounded Reads ohne
-Source-I/O. Es gibt
-weiterhin keine reale Mutation; sie
-bleibt bis zum
-separaten `FG-W10-MOVE-BACKEND` blockiert; der Vertrag verlangt kein
-bestimmtes Dateisystem und besitzt keinen Copy+Delete-Fallback.
+DTOs sowie immutable Authorization-/Run- und lückenlose Event-Persistenz.
+S-W10-02 liefert die additive Migration `0022`, die neue Root-Lease-Owner-
+Klasse `CONSOLIDATION_QUARANTINE_RUN`, Fence-Prüfungen und bounded Reads.
+S-W10-03 ergänzt den bewusst engen Interim-Executor: nur `os.rename` im
+gleichen vom Betriebssystem gemeldeten Filesystem, Ziel-Abwesenheitsprüfung,
+vollständige SHA-256-Revalidierung und kein Copy+Delete-/Cross-Volume-
+Fallback. Die Zielprüfung ist nicht atomar; `FG-W10-MOVE-BACKEND` bleibt als
+spätere Frontier-Härtung für atomaren No-Replace, no-follow und Race-/Crash-
+Nachweise im Backlog.
 
 **Abgeschlossene Voraussetzungen:** EB-04 DONE; EB-03B DONE.
 
@@ -1523,9 +1524,11 @@ S-EBA3-03 sind auf `main` umgesetzt. Sie liefern den reinen
 Source-Dependency-Vertrag, bounded Query-/Store-Revalidierung und die strikt
 nicht ausführbare Planintegration. Member-Byte-Identity,
 EA9/EA10-Abschluss und Source-Operations bleiben getrennt. Reale
-Passwortversuche bleiben bis FG-A-SECRET blockiert. W10 bleibt unverändert
-gesperrt. Music W4 bleibt bis zur E-Book-Reife zurückgestellt. Die
-Produktoberfläche bleibt ausschließlich die CLI.
+Passwortversuche bleiben bis FG-A-SECRET blockiert. W10 erlaubt ausschließlich
+die in ADR-0056 dokumentierte Interim-Ein-Datei-Quarantäne; die atomare
+No-Replace-Härtung bleibt als `FG-W10-MOVE-BACKEND` getrennt geplant. Music W4
+bleibt bis zur E-Book-Reife zurückgestellt. Die Produktoberfläche bleibt
+ausschließlich die CLI.
 
 ADR-0055 und S-EBAR-07A schließen den historischen W3-019-Vertrag ab.
 Archive-/Volume-Evidence, Missing-Volume-Findings, der pfadfreie

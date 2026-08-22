@@ -2592,13 +2592,14 @@ indexierte direkte Nachbardateien je ArchiveObservation ab. Er speichert keine
 Namen, Pfade, Inhalte oder Secrets und ändert weder Toolruntime noch
 öffentliches Reportprofil. ADR-0056 entscheidet nun das enge W10-Vertragsgate
 für eine restartbare Ein-Datei-Quarantäne. S-W10-01 mit reinen DTOs und
-Reducern sowie S-W10-02 mit getrennter Persistenz sind abgeschlossen. Als
-nächstes folgt `FG-W10-MOVE-BACKEND`; reale Source-Mutation bleibt bis zum akzeptierten
-`FG-W10-MOVE-BACKEND` gesperrt.
+Reducern sowie S-W10-02 mit getrennter Persistenz sind abgeschlossen.
+S-W10-03 liefert den bewussten Interim-Executor über `os.rename` im gleichen
+Filesystem mit Ziel-Abwesenheits- und Full-SHA-256-Prüfung.
+`FG-W10-MOVE-BACKEND` bleibt als spätere Frontier-Wave für atomaren
+No-Replace-/Race-/Crash-/no-follow-Nachweis im Backlog.
 FG-A3-MEMBER-BYTE bleibt bis vollständiger Member-SHA-256-Evidence blockiert.
-Passwortversuche bleiben bis FG-A-SECRET blockiert. Jede
-Filesystem-Mutation, mutierende Calibre-Operation und ausführbare W10-Strecke
-bleibt ausgeschlossen.
+Passwortversuche bleiben bis FG-A-SECRET blockiert. Jede weitere
+Filesystem-Mutation und jede mutierende Calibre-Operation bleibt ausgeschlossen.
 
 ---
 
