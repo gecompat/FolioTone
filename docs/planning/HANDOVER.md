@@ -136,6 +136,47 @@ Einstiegspunkt. Die echten Linux-tmpfs-/`renameat2`-Fälle bleiben lokal auf
 Windows ausgelassen und sind durch den einmaligen vollständigen Linux-PR-CI-
 Gate des stabilen Heads zu bestätigen.
 
+`S-W10-MW05` implementiert inzwischen ADR-0064 und schließt genau diesen
+Operatorpfad. Authorize erzeugt unter einer Preparation-Lease aus einem
+vorhandenen aktuellen, reviewten Plan und der privaten Capability einen
+vollständig validierten Output und eine höchstens 15 Minuten gültige
+Authorization. Execute fordert exakt
+`CONFIRM METADATA WRITE <Authorization-ID>` als eine nicht geloggte
+`stdin`-Zeile; der persistierte Digest bindet zusätzlich Plan-ID,
+Plan-Content-Hash und Capability-ID. Die tatsächliche Source wird nach dem
+Exchange bytegenau und mit allen festen Validatoren erneut gelesen.
+
+Nach `ORIGINAL_PRESERVED` erfolgt ein expliziter Lease-Handoff zu genau einem
+vollständigen inkrementellen Scan mit einem Worker. Eine neue Observation mit
+dem autorisierten Full-SHA-256 und der daraus gebaute `CollectionState` werden
+unter einer neuen Run-Fence erneut physisch geprüft. Migration
+`0029_metadata_write_reconciliation` persistiert diesen Snapshot immutable;
+Reconciliation und `VERIFIED`-Event entstehen atomar. Recovery verwendet
+dieselbe Folge für den Originalhash und endet bei `RECOVERED` ohne
+`VERIFIED`. Die vier festen CLI-Kommandos sind in
+`docs/operations/EBOOK_METADATA_WRITE.md` beschrieben; sie öffnen keine
+anderen Felder, Formate oder Zielträger.
+
+Für MW05 bestanden lokal 46 fokussierte Fälle; sieben Linux-/tmpfs-Fälle
+blieben auf Windows erwartungsgemäß ausgelassen und 14 nicht betroffene Fälle
+abgewählt. Zwei zusätzliche Composition-Tests für Runtime-Toolkonfiguration
+und Engine-Freigabe nach fehlgeschlagener Erzeugung waren ebenfalls grün.
+Der strikte Nachher-Zeitpunkt des Reconciliation-Scans sowie beide
+vollständigen synthetischen Operatorpfade zu `VERIFIED` und `RECOVERED` wurden
+nach den Härtungen gezielt erneut bestätigt. Der Head-Tabelleninventarfall
+bestätigte Revision und neue Reconciliation-Tabelle.
+Ruff und Mypy waren für den betroffenen Scope ohne Befund, `compileall` war
+erfolgreich. Reale E-Books und produktive Runtime-Datenbanken wurden nicht
+verwendet. Der stabile Head benötigt genau einen vollständigen Linux-PR-CI-
+Gate. Danach ist `W10-005` die kanonische nächste Wave; sie bleibt von
+`FG-W10-MOVE-BACKEND` getrennt.
+
+Der erste PR-Gate bestand 2.030 Tests bei acht erwarteten Skips und scheiterte
+ausschließlich an einer noch auf `W10-005 | READY` festgelegten statischen
+Erwartung. Sie wurde auf die bereits dokumentierte kanonische Front
+`W10-005 | NEXT` synchronisiert; Produktionscode war nicht betroffen. Der
+korrigierte stabile Head benötigt deshalb erneut den vollständigen Gate.
+
 Für `S-W10-MW01` bestanden lokal 114 fokussierte neue und direkt betroffene
 Unit-, Privacy-, Non-Execution- und Dokumentationsvertragstests in 0,57
 Sekunden. Ruff war für das neue Paket und seine Tests grün; Mypy meldete für
@@ -206,13 +247,11 @@ grün; `git diff --check` war ohne Befund. Die vollständige lokale Suite wird
 nicht dupliziert; genau ein vollständiger PR-CI-Gate bleibt
 Merge-Voraussetzung.
 
-`FG-W10-METADATA-WRITE` ist durch ADR-0063 entschieden; `S-W10-MW01` und
-`S-W10-MW02`, `S-W10-MW03` und `S-W10-MW04` sind umgesetzt; `S-W10-MW05` ist
-die nächste reguläre Wave.
-`W10-005` bleibt
-parallel `READY`. Reale Source-Media-
+`FG-W10-METADATA-WRITE` ist durch ADR-0063 entschieden; `S-W10-MW01` bis
+`S-W10-MW05` sind umgesetzt und schließen genau den begrenzten EPUB-
+Titelwriter. `W10-005` ist die nächste reguläre Wave. Allgemeine Source-Media-
 Mutation, Music, Bilder, REST-API und grafische Oberfläche werden weder durch
-W9-006 noch durch Preparation, Authorization oder Journal aktiviert.
+W9-006 noch durch den einen operation-spezifischen Writer aktiviert.
 
 W0 bis W2 sind abgeschlossen. Der W2-Slice umfasst Incremental Index, Hashing, Filename-/Path-Kandidaten, konfigurierbare Parsing-Profile und eine generische read-only ToolProvider Runtime. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
 

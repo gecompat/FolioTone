@@ -14,7 +14,9 @@ from foliotone.metadata_write.authorization import (
     MetadataWriteRunStatus,
 )
 from foliotone.metadata_write.contracts import EPUB_TITLE_WRITE_PROFILE
+from foliotone.metadata_write.reconciliation import MetadataWriteReconciliationOutcome
 from foliotone.persistence.metadata_write import (
+    MetadataWriteStatusReconciliationSnapshot,
     MetadataWriteStatusSnapshot,
     MetadataWriteStoreError,
     SQLiteMetadataWriteStore,
@@ -38,6 +40,28 @@ class MetadataWriteStatusEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class MetadataWriteStatusReconciliation:
+    outcome: MetadataWriteReconciliationOutcome
+    scan_run_id: EntityId
+    observation_id: EntityId
+    collection_state_snapshot_id: EntityId
+    reconciled_at: datetime
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        snapshot: MetadataWriteStatusReconciliationSnapshot,
+    ) -> MetadataWriteStatusReconciliation:
+        return cls(
+            outcome=snapshot.outcome,
+            scan_run_id=snapshot.scan_run_id,
+            observation_id=snapshot.observation_id,
+            collection_state_snapshot_id=snapshot.collection_state_snapshot_id,
+            reconciled_at=snapshot.reconciled_at,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class MetadataWriteStatusReport:
     run_id: EntityId
     authorization_id: EntityId
@@ -48,6 +72,7 @@ class MetadataWriteStatusReport:
     expires_at: datetime
     status: MetadataWriteRunStatus
     events: tuple[MetadataWriteStatusEvent, ...]
+    reconciliation: MetadataWriteStatusReconciliation | None = None
     writer_profile: str = EPUB_TITLE_WRITE_PROFILE
     run_profile: str = METADATA_WRITE_RUN_PROFILE
     authorization_profile: str = METADATA_WRITE_AUTHORIZATION_PROFILE
@@ -72,6 +97,11 @@ class MetadataWriteStatusReport:
             or self.status is not self.events[-1].status
             or tuple(event.sequence_no for event in self.events)
             != tuple(range(1, len(self.events) + 1))
+            or (
+                self.reconciliation is not None
+                and self.status.value != self.reconciliation.outcome.value
+            )
+            or (self.status is MetadataWriteRunStatus.VERIFIED and self.reconciliation is None)
         ):
             raise ValueError("metadata write status report is invalid")
 
@@ -96,6 +126,11 @@ class MetadataWriteStatusReport:
             expires_at=snapshot.expires_at,
             status=events[-1].status,
             events=events,
+            reconciliation=(
+                None
+                if snapshot.reconciliation is None
+                else MetadataWriteStatusReconciliation.from_snapshot(snapshot.reconciliation)
+            ),
             writer_profile=snapshot.writer_profile,
             run_profile=snapshot.run_profile,
             authorization_profile=snapshot.authorization_profile,
@@ -126,6 +161,19 @@ class MetadataWriteStatusReport:
                 }
                 for event in self.events
             ],
+            "reconciliation": (
+                None
+                if self.reconciliation is None
+                else {
+                    "outcome": self.reconciliation.outcome.value,
+                    "scan_run_id": str(self.reconciliation.scan_run_id),
+                    "observation_id": str(self.reconciliation.observation_id),
+                    "collection_state_snapshot_id": str(
+                        self.reconciliation.collection_state_snapshot_id
+                    ),
+                    "reconciled_at": self.reconciliation.reconciled_at.isoformat(),
+                }
+            ),
         }
 
 
@@ -152,6 +200,7 @@ class SQLiteMetadataWriteStatusReportReader:
 __all__ = [
     "METADATA_WRITE_STATUS_REPORT_PROFILE",
     "MetadataWriteStatusEvent",
+    "MetadataWriteStatusReconciliation",
     "MetadataWriteStatusReport",
     "MetadataWriteStatusReportError",
     "SQLiteMetadataWriteStatusReportReader",

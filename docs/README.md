@@ -23,6 +23,7 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 10. [E-Book-Archive und kontrollierte Deduplizierung](planning/EBOOK_DEDUPLICATION_ARCHIVE_ROADMAP.md) dokumentiert die abgeschlossene read-only Archivbasis, offene Extraction-/Secret-/Member-Byte-Gates und die getrennten W10-Grenzen.
 11. [Lokaler W2-Smoke-Test](quality/LOCAL_SMOKE_TEST.md) dokumentiert den abgeschlossenen manuellen Windows-/Docker-Testpunkt mit ausschließlich synthetischen Dateien.
 12. [E-Book-Toolchain unter Windows](operations/WINDOWS_EBOOK_TOOLCHAIN.md) beschreibt das explizite Docker-/WSL2-Provisioning und den formatspezifischen Doctor.
+13. [Begrenzter EPUB-Titelwriter](operations/EBOOK_METADATA_WRITE.md) beschreibt Voraussetzungen, Runtime-Konfiguration, Bestätigung, Status und Recovery des einzigen freigegebenen Source-Metadata-Profils.
 
 ## Architektur
 
@@ -72,6 +73,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0061](decisions/ADR-0061-controlled-ebook-write-development.md) hält die Owner-Freigabe für kontrollierte E-Book-Writer-Entwicklung mit synthetischen Fixtures fest und trennt sie von operation-spezifischer technischer und operativer Authorization.
 - [ADR-0062](decisions/ADR-0062-non-executable-metadata-correction-plans.md) definiert immutable, content-addressed und reviewte `MetadataCorrectionCandidate`- und `MetadataCorrectionPlan`-Snapshots mit permanenter `NOT_EXECUTABLE`-Grenze.
 - [ADR-0063](decisions/ADR-0063-bounded-epub-title-source-metadata-writer.md) entscheidet den ersten Source-Metadata-Writer ausschließlich für EPUB 3, einen `title`-`REPLACE`, einen lexikalischen rohwerterhaltenden Patch und Linux-`renameat2`-Exchange mit Same-Filesystem-Recovery.
+- [ADR-0064](decisions/ADR-0064-metadata-write-operator-and-reconciliation.md) bindet dessen feste CLI, zweite Bestätigung, unmittelbare Source-Verifikation, Lease-Handoff, neuen Scan, `CollectionState` und immutable Reconciliation.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

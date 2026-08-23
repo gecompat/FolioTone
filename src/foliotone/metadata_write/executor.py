@@ -43,6 +43,7 @@ from foliotone.metadata_write.validation import (
     EpubTitleVerifiedStage,
     FixedEpubTitleStagingValidator,
     build_and_verify_private_epub3_title_stage,
+    verify_postwrite_epub3_title_source,
 )
 from foliotone.persistence.metadata_write import (
     MetadataWriteSourceSnapshot,
@@ -91,6 +92,8 @@ class MetadataWriteFilesystemSession(Protocol):
     def close(self) -> None: ...
 
     def read_source_bytes(self) -> bytes: ...
+
+    def read_output_bytes(self) -> bytes: ...
 
     def prepare_output(self, staged_output: Path) -> LinuxMetadataWritePhysicalSnapshot: ...
 
@@ -328,6 +331,68 @@ def recover_epub3_title_metadata_write(
             _close_session(session)
 
 
+def verify_epub3_title_metadata_write_physical_state(
+    *,
+    store: SQLiteMetadataWriteStore,
+    run: MetadataWriteExecutionRun,
+    authorization: MetadataWriteAuthorizationSnapshot,
+    plan: MetadataCorrectionPlan,
+    capability: ResolvedMetadataWriteCapability,
+    lease: OwnedScanRootWriteLease,
+    expected_status: MetadataWriteRunStatus,
+    clock: Callable[[], datetime] | None = None,
+    backend: MetadataWriteFilesystemBackend | None = None,
+) -> LinuxMetadataWritePhysicalSnapshot:
+    """Revalidate the exact final physical state under a fresh handoff fence."""
+
+    expected_physical = {
+        MetadataWriteRunStatus.ORIGINAL_PRESERVED: (
+            LinuxMetadataWritePhysicalState.SOURCE_OUTPUT_WITH_PRESERVED_ORIGINAL
+        ),
+        MetadataWriteRunStatus.RECOVERED: (
+            LinuxMetadataWritePhysicalState.SOURCE_ORIGINAL_WITH_OUTPUT_DRAFT
+        ),
+    }.get(expected_status)
+    if expected_physical is None:
+        _raise(MetadataWriteExecutorErrorCode.VALIDATION_FAILED)
+    events = _events_or_fenced(store, run.id)
+    if _latest_status(events) is not expected_status:
+        _raise(MetadataWriteExecutorErrorCode.VALIDATION_FAILED)
+    active_clock = clock if clock is not None else _system_clock
+    checked_at = _clock_time(active_clock)
+    session: MetadataWriteFilesystemSession | None = None
+    try:
+        source = store.require_recovery_source(
+            run,
+            authorization,
+            plan,
+            lease,
+            checked_at=checked_at,
+        )
+        filesystem = backend if backend is not None else LinuxMetadataWriteBackend()
+        session = filesystem.open_session(
+            capability=capability,
+            source_relative_path=source.relative_path,
+            authorization=authorization,
+            run=run,
+            expected_modified_at=source.expected_modified_at,
+        )
+        physical = session.classify()
+        _require_state(physical, expected_physical)
+        if expected_status is MetadataWriteRunStatus.ORIGINAL_PRESERVED:
+            session.read_output_bytes()
+        else:
+            session.read_source_bytes()
+        confirmed = session.classify()
+        _require_state(confirmed, expected_physical)
+        return confirmed
+    except Exception as error:
+        _raise(_error_code(error))
+    finally:
+        if session is not None:
+            _close_session(session)
+
+
 def _execute_session(
     *,
     store: SQLiteMetadataWriteStore,
@@ -436,6 +501,14 @@ def _execute_session(
     _require_state(
         preserved,
         LinuxMetadataWritePhysicalState.SOURCE_OUTPUT_WITH_PRESERVED_ORIGINAL,
+    )
+    postwrite_bytes = session.read_output_bytes()
+    verify_postwrite_epub3_title_source(
+        postwrite_bytes,
+        verified,
+        preflight,
+        patch,
+        validator=validator,
     )
     _append_phase(
         store,
@@ -570,10 +643,7 @@ def _recover_session(
         restored = session.restore_original()
     except LinuxMetadataWriteBackendError:
         restored = session.classify()
-    if (
-        restored.state
-        is not LinuxMetadataWritePhysicalState.SOURCE_ORIGINAL_WITH_OUTPUT_DRAFT
-    ):
+    if restored.state is not LinuxMetadataWritePhysicalState.SOURCE_ORIGINAL_WITH_OUTPUT_DRAFT:
         _require_manual_event(store, run, lease, _clock_time(clock))
         _raise(MetadataWriteExecutorErrorCode.MANUAL_RECOVERY_REQUIRED)
     _append_simple(
@@ -614,8 +684,7 @@ def _synchronize_exchange_events(
         )
         latest = MetadataWriteRunStatus.EXCHANGED
     if (
-        physical.state
-        is LinuxMetadataWritePhysicalState.SOURCE_OUTPUT_WITH_PRESERVED_ORIGINAL
+        physical.state is LinuxMetadataWritePhysicalState.SOURCE_OUTPUT_WITH_PRESERVED_ORIGINAL
         and latest is MetadataWriteRunStatus.EXCHANGED
     ):
         _append_phase(
@@ -657,8 +726,7 @@ def _require_authorized_stage(
         or validation.epubcheck_tool_version != authorization.epubcheck_tool_version
         or validation.text_tool_version != authorization.text_tool_version
         or validation.cover_tool_version != authorization.cover_tool_version
-        or validation.validator_set_fingerprint
-        != authorization.validator_set_fingerprint
+        or validation.validator_set_fingerprint != authorization.validator_set_fingerprint
     ):
         _raise(MetadataWriteExecutorErrorCode.VALIDATION_FAILED)
 
@@ -686,9 +754,7 @@ def _private_stage_directory(
         or root.is_symlink()
         or int(getattr(details, "st_file_attributes", 0)) & _REPARSE_POINT
         or any(
-            resolved == value
-            or resolved in value.parents
-            or value in resolved.parents
+            resolved == value or resolved in value.parents or value in resolved.parents
             for value in protected
         )
     ):
@@ -746,9 +812,7 @@ def _append_simple(
             occurred_at=occurred_at,
             fence_epoch=lease.fence_epoch,
             finding_code=finding_code,
-            confirmation_digest=(
-                None if snapshot is None else snapshot.confirmation_digest
-            ),
+            confirmation_digest=(None if snapshot is None else snapshot.confirmation_digest),
         ),
         lease,
     )
@@ -849,8 +913,7 @@ def _require_state(
         raise LinuxMetadataWriteBackendError(
             LinuxMetadataWriteBackendErrorCode.STATE_AMBIGUOUS,
             mutation_may_have_occurred=(
-                expected
-                is not LinuxMetadataWritePhysicalState.SOURCE_ORIGINAL_WITH_OUTPUT_DRAFT
+                expected is not LinuxMetadataWritePhysicalState.SOURCE_ORIGINAL_WITH_OUTPUT_DRAFT
             ),
         )
 
@@ -878,9 +941,7 @@ def _status_for_error(
 ) -> MetadataWriteRunStatus:
     return {
         MetadataWriteExecutorErrorCode.STALE: MetadataWriteRunStatus.STALE,
-        MetadataWriteExecutorErrorCode.TOOL_UNAVAILABLE: (
-            MetadataWriteRunStatus.TOOL_UNAVAILABLE
-        ),
+        MetadataWriteExecutorErrorCode.TOOL_UNAVAILABLE: (MetadataWriteRunStatus.TOOL_UNAVAILABLE),
         MetadataWriteExecutorErrorCode.VALIDATION_FAILED: (
             MetadataWriteRunStatus.VALIDATION_FAILED
         ),
@@ -896,9 +957,7 @@ def _error_code(error: Exception) -> MetadataWriteExecutorErrorCode:
         return error.code
     if isinstance(error, LinuxMetadataWriteBackendError):
         return {
-            LinuxMetadataWriteBackendErrorCode.SOURCE_STALE: (
-                MetadataWriteExecutorErrorCode.STALE
-            ),
+            LinuxMetadataWriteBackendErrorCode.SOURCE_STALE: (MetadataWriteExecutorErrorCode.STALE),
             LinuxMetadataWriteBackendErrorCode.TOOL_UNAVAILABLE: (
                 MetadataWriteExecutorErrorCode.TOOL_UNAVAILABLE
             ),
@@ -928,11 +987,7 @@ def _clock_time(clock: Callable[[], datetime]) -> datetime:
         value = clock()
     except Exception:
         _raise(MetadataWriteExecutorErrorCode.FENCED_OUT)
-    if (
-        not isinstance(value, datetime)
-        or value.tzinfo is None
-        or value.utcoffset() is None
-    ):
+    if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
         _raise(MetadataWriteExecutorErrorCode.FENCED_OUT)
     return value.astimezone(UTC)
 
@@ -943,8 +998,7 @@ def _require_mutation_window(
 ) -> None:
     if (
         checked_at < lease.acquired_at
-        or checked_at + MIN_METADATA_WRITE_MUTATION_LEASE_REMAINING
-        >= lease.lease_expires_at
+        or checked_at + MIN_METADATA_WRITE_MUTATION_LEASE_REMAINING >= lease.lease_expires_at
     ):
         _raise(MetadataWriteExecutorErrorCode.FENCED_OUT)
 
@@ -962,4 +1016,5 @@ __all__ = [
     "MetadataWriteFilesystemSession",
     "execute_epub3_title_metadata_write",
     "recover_epub3_title_metadata_write",
+    "verify_epub3_title_metadata_write_physical_state",
 ]

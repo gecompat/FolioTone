@@ -360,9 +360,10 @@ Review can create durable local knowledge such as confirmed aliases or rejected 
 W9 plant mögliche Aktionen ausschließlich nicht ausführbar. ADR-0061 erlaubt
 die kontrollierte Entwicklung operation-spezifischer E-Book-Writer; eine reale
 W10-Mutation benötigt zusätzlich die eigene akzeptierte technische ADR, die
-vollständige Bedien-/Recoverykette und eine konkrete lokale Authorization. Die
-enge ADR-0056-Interim-Quarantäne ist derzeit der einzige ausführbare
-Mutationstyp.
+vollständige Bedien-/Recoverykette und eine konkrete lokale Authorization.
+Ausführbar sind ausschließlich die enge ADR-0056-Interim-Quarantäne und der
+durch ADR-0063/ADR-0064 begrenzte EPUB-Titelwriter; beide besitzen getrennte
+Capabilities und Authorizations.
 
 ADR-0063 entscheidet als ersten weiteren technischen Vertrag ausschließlich
 einen EPUB-3-`SOURCE_METADATA`-Writer für genau einen
@@ -374,10 +375,12 @@ Field-Validatoren. `S-W10-MW03` ergänzt content-addressed Preparation und
 Authorization, einmalige gefencete Runs, append-only Events, private
 Capability-Auflösung und einen read-only Status. `S-W10-MW04` ergänzt den
 internen, fest profilierten Linux-x86_64-glibc-`renameat2`-Exchange, den
-gefenceten Ein-Datei-Executor und die idempotente Exact-State-Recovery. Das
-öffentliche Application-/CLI-Entry, zweite Bestätigung, Post-write-
-Verifikation, neuer Scan und Reconciliation bleiben `S-W10-MW05` vorbehalten.
-Bis zu dessen Abschluss entsteht keine neue operative Mutation Authority.
+gefenceten Ein-Datei-Executor und die idempotente Exact-State-Recovery.
+`S-W10-MW05` stellt ausschließlich die festen Authorize-/Execute-/Recover-/
+Status-Application- und CLI-Einstiege bereit. Die zweite Bestätigung kommt
+exakt über `stdin`; unmittelbarer Source-Read-back, neuer inkrementeller
+Vollscan, `CollectionState` und immutable Reconciliation schließen den Run
+unter einer frischen Fence als `VERIFIED` oder `RECOVERED` ab.
 
 ### Adapters
 

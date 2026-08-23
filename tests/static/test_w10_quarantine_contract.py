@@ -40,7 +40,7 @@ def test_w10_backlog_keeps_atomic_hardening_separate_from_interim_execution() ->
     assert "| W10-001 | DECISION |" in backlog
     assert "| W10-002 | DONE |" in backlog
     assert "FG-W10-MOVE-BACKEND" in backlog
-    assert "| W10-005 | READY |" in backlog
+    assert "| W10-005 | NEXT |" in backlog
     assert "S-W10-01" in status and "abgeschlossen" in status
     assert "S-W10-02" in status
     assert "Interim" in status

@@ -522,7 +522,7 @@ cover read-backs and EPUBCheck conformance through path-free fingerprints and
 tool versions. `EpubTitleVerifiedStage` combines both results but is still not
 an Authorization, Run, Event, Capability, executable plan or source commit.
 
-`S-W10-MW03` adds the non-executing W10 authority layer.
+`S-W10-MW03` adds the initially non-executing W10 authority layer.
 `EpubTitleWritePreparationSnapshot` binds the verified private output and the
 exact current W9 plan to a short-lived preparation fence.
 `MetadataWriteAuthorizationSnapshot` is content-addressed, valid for at most
@@ -530,8 +530,23 @@ exact current W9 plan to a short-lived preparation fence.
 `MetadataWriteExecutionEvent` is append-only, gapless and bound to the fresh
 `ScanRootWriteLease` fence actually held for that event. The private capability
 maps an opaque ID to one `ScanRoot`, recovery directory and writer profile;
-paths remain outside persistence and status projections. These contracts do
-not open a source file and provide no executor or CLI write operation.
+paths remain outside persistence and status projections.
+
+`S-W10-MW04` binds each Run immutably to the fixed Linux x86_64 glibc
+`renameat2` backend and its capability probe. The executor revalidates the
+Authorization, plan, review, file identity, full hash and root fence before an
+atomic exchange, preserves the original no-replace in the same-filesystem
+recovery directory and exposes only exact-state Recovery.
+
+`S-W10-MW05` adds the sole operator surface for this profile. A
+domain-separated confirmation digest binds the exact non-logged `stdin`
+confirmation to Authorization, plan, plan content hash and Capability. A
+successful exchange must pass an immediate physical and validator read-back.
+After an explicit lease handoff, a new completed `ScanRun`, its new
+`FileObservation` and an immutable `CollectionState` are bound in one
+`MetadataWriteReconciliationSnapshot`. Only an atomic reconciliation insert
+plus a fresh-fence event may produce `VERIFIED`; Recovery binds the restored
+original through the same scan sequence and ends at `RECOVERED`.
 
 ## Related decisions
 
@@ -541,6 +556,7 @@ not open a source file and provide no executor or CLI write operation.
 - `ADR-0037-book-classification-assertions-and-projections.md`
 - `ADR-0062-non-executable-metadata-correction-plans.md`
 - `ADR-0063-bounded-epub-title-source-metadata-writer.md`
+- `ADR-0064-metadata-write-operator-and-reconciliation.md`
 - `ADR-0009-external-enrichment-and-privacy.md`
 - `ADR-0010-tool-provider-orchestration.md`
 - `AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`

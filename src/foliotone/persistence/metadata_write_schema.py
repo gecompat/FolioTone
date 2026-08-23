@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, Table, Text, UniqueConstraint
 
+from foliotone.persistence.collection_state_schema import collection_state_snapshots
 from foliotone.persistence.schema import DATETIME, ID, metadata
 
 
@@ -168,6 +169,65 @@ metadata_write_backend_bindings = Table(
 )
 
 
+metadata_write_reconciliations = Table(
+    "metadata_write_reconciliations",
+    metadata,
+    Column(
+        "run_id",
+        ID,
+        ForeignKey("metadata_write_runs.id"),
+        primary_key=True,
+    ),
+    Column("profile", Text, nullable=False),
+    Column(
+        "authorization_id",
+        ID,
+        ForeignKey("metadata_write_authorizations.id"),
+        nullable=False,
+    ),
+    Column("authorization_content_hash", Text, nullable=False),
+    Column("outcome_status", Text, nullable=False),
+    Column("scan_run_id", ID, ForeignKey("scan_runs.id"), nullable=False),
+    Column(
+        "observation_id",
+        ID,
+        ForeignKey("file_observations.id"),
+        nullable=False,
+    ),
+    Column(
+        "collection_state_snapshot_id",
+        ID,
+        ForeignKey(f"{collection_state_snapshots.name}.id"),
+        nullable=False,
+    ),
+    Column("collection_state_content_digest", Text, nullable=False),
+    Column("physical_confirmation_digest", Text, nullable=False),
+    Column("reconciled_at", DATETIME, nullable=False),
+    Column("content_hash", Text, nullable=False),
+    CheckConstraint(
+        "profile='metadata-write-reconciliation/v1' AND outcome_status IN ('VERIFIED','RECOVERED')",
+        name="ck_metadata_write_reconciliations_contract",
+    ),
+    _sha("metadata_write_reconciliations", "collection_state_content_digest"),
+    _sha("metadata_write_reconciliations", "authorization_content_hash"),
+    _sha("metadata_write_reconciliations", "physical_confirmation_digest"),
+    _sha("metadata_write_reconciliations", "content_hash"),
+    UniqueConstraint(
+        "profile",
+        "content_hash",
+        name="uq_metadata_write_reconciliations_content",
+    ),
+    UniqueConstraint(
+        "scan_run_id",
+        name="uq_metadata_write_reconciliations_scan_run",
+    ),
+    UniqueConstraint(
+        "collection_state_snapshot_id",
+        name="uq_metadata_write_reconciliations_collection_state",
+    ),
+)
+
+
 METADATA_WRITE_TABLES = (
     metadata_write_authorizations,
     metadata_write_runs,
@@ -176,12 +236,16 @@ METADATA_WRITE_TABLES = (
 
 METADATA_WRITE_BACKEND_TABLES = (metadata_write_backend_bindings,)
 
+METADATA_WRITE_RECONCILIATION_TABLES = (metadata_write_reconciliations,)
+
 
 __all__ = [
     "METADATA_WRITE_TABLES",
     "METADATA_WRITE_BACKEND_TABLES",
+    "METADATA_WRITE_RECONCILIATION_TABLES",
     "metadata_write_authorizations",
     "metadata_write_backend_bindings",
     "metadata_write_events",
+    "metadata_write_reconciliations",
     "metadata_write_runs",
 ]

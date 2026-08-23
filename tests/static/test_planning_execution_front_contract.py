@@ -18,6 +18,9 @@ METADATA_CORRECTION_ADR = (
 METADATA_WRITE_ADR = (
     ROOT / "docs/decisions/ADR-0063-bounded-epub-title-source-metadata-writer.md"
 )
+METADATA_WRITE_OPERATOR_ADR = (
+    ROOT / "docs/decisions/ADR-0064-metadata-write-operator-and-reconciliation.md"
+)
 
 
 def _text(path: Path) -> str:
@@ -30,14 +33,16 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `S-W10-MW05` |" in backlog
-    assert "keinen operativen Einstiegspunkt" in backlog
+    assert "| NOW | `W10-005` |" in backlog
+    assert "CLI und vollständige Recovery-Bedienkette" in backlog
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
     assert "| S-W9-006A | DONE |" in backlog
     assert "| S-W9-006B | DONE |" in backlog
     assert "| S-W9-006C | DONE |" in backlog
-    assert "| W10-005 | READY |" in backlog
+    assert "| W10-005 | NEXT |" in backlog
+    assert "| W10-006 | DONE |" in backlog
+    assert "| S-W10-MW05 | DONE |" in backlog
     assert "| OPS-001 | READY |" in backlog
     assert "Andere Planungsdokumente erläutern diese Aufgaben" in backlog
 
@@ -176,8 +181,9 @@ def test_metadata_correction_gate_is_reviewed_bounded_and_non_executable() -> No
     assert "| FG-W9-006 | DONE |" in backlog
 
 
-def test_first_source_metadata_writer_gate_is_narrow_and_non_operational() -> None:
+def test_first_source_metadata_writer_gate_is_narrow_and_reconciled() -> None:
     adr = _text(METADATA_WRITE_ADR)
+    operator_adr = _text(METADATA_WRITE_OPERATOR_ADR)
     documentation_index = _text(ROOT / "docs/README.md")
     backlog = _text(BACKLOG)
 
@@ -199,10 +205,25 @@ def test_first_source_metadata_writer_gate_is_narrow_and_non_operational() -> No
     )
     assert all(marker in adr for marker in required)
     assert "ADR-0063" in documentation_index
+    assert "ADR-0064" in documentation_index
+    assert all(
+        marker in operator_adr
+        for marker in (
+            "- Status: Accepted",
+            "metadata-write-authorize",
+            "metadata-write-execute",
+            "metadata-write-recover",
+            "CONFIRM METADATA WRITE",
+            "metadata-write-reconciliation/v1",
+            "0029_metadata_write_reconciliation",
+            "VERIFIED",
+            "RECOVERED",
+        )
+    )
     assert "| FG-W10-METADATA-WRITE | DONE |" in backlog
     assert "| S-W10-MW01 | DONE |" in backlog
     assert "| S-W10-MW02 | DONE |" in backlog
     assert "| S-W10-MW03 | DONE |" in backlog
     assert "| S-W10-MW04 | DONE |" in backlog
-    assert "| S-W10-MW05 | NEXT |" in backlog
-    assert "| W10-006 | PLANNED |" in backlog
+    assert "| S-W10-MW05 | DONE |" in backlog
+    assert "| W10-006 | DONE |" in backlog

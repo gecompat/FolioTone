@@ -88,9 +88,7 @@ class LinuxMetadataWritePhysicalState(StrEnum):
     SOURCE_ORIGINAL_ONLY = "SOURCE_ORIGINAL_ONLY"
     SOURCE_ORIGINAL_WITH_OUTPUT_DRAFT = "SOURCE_ORIGINAL_WITH_OUTPUT_DRAFT"
     SOURCE_OUTPUT_WITH_ORIGINAL_DRAFT = "SOURCE_OUTPUT_WITH_ORIGINAL_DRAFT"
-    SOURCE_OUTPUT_WITH_PRESERVED_ORIGINAL = (
-        "SOURCE_OUTPUT_WITH_PRESERVED_ORIGINAL"
-    )
+    SOURCE_OUTPUT_WITH_PRESERVED_ORIGINAL = "SOURCE_OUTPUT_WITH_PRESERVED_ORIGINAL"
     AMBIGUOUS = "AMBIGUOUS"
 
 
@@ -167,9 +165,7 @@ class LinuxMetadataWriteSession(AbstractContextManager["LinuxMetadataWriteSessio
         self._run = run
         self._expected_modified_at = expected_modified_at.astimezone(UTC)
         self._draft_name = f".foliotone-metadata-write-{run.id}.draft.epub"
-        self._recovery_name = (
-            f"original-{authorization.source_sha256}-{run.id}.epub"
-        )
+        self._recovery_name = f"original-{authorization.source_sha256}-{run.id}.epub"
         if self._source_name == self._draft_name:
             _fail(LinuxMetadataWriteBackendErrorCode.SOURCE_STALE)
         self._closed = False
@@ -189,9 +185,7 @@ class LinuxMetadataWriteSession(AbstractContextManager["LinuxMetadataWriteSessio
         try:
             descriptor = os.open(
                 self._source_name,
-                os.O_RDONLY
-                | int(getattr(os, "O_NOFOLLOW", 0))
-                | int(getattr(os, "O_CLOEXEC", 0)),
+                os.O_RDONLY | int(getattr(os, "O_NOFOLLOW", 0)) | int(getattr(os, "O_CLOEXEC", 0)),
                 dir_fd=self._source_parent_fd,
             )
             details = os.fstat(descriptor)
@@ -205,10 +199,10 @@ class LinuxMetadataWriteSession(AbstractContextManager["LinuxMetadataWriteSessio
             if descriptor >= 0:
                 os.close(descriptor)
             _fail(LinuxMetadataWriteBackendErrorCode.SOURCE_STALE)
-        if (
-            (details.st_dev, details.st_ino) != (named.st_dev, named.st_ino)
-            or details.st_dev != parent.st_dev
-        ):
+        if (details.st_dev, details.st_ino) != (
+            named.st_dev,
+            named.st_ino,
+        ) or details.st_dev != parent.st_dev:
             os.close(descriptor)
             _fail(LinuxMetadataWriteBackendErrorCode.SOURCE_STALE)
         _verify_source_preconditions(
@@ -237,6 +231,58 @@ class LinuxMetadataWriteSession(AbstractContextManager["LinuxMetadataWriteSessio
             or digest != self._authorization.source_sha256
         ):
             _fail(LinuxMetadataWriteBackendErrorCode.SOURCE_STALE)
+        return data
+
+    def read_output_bytes(self) -> bytes:
+        """Read back the exact exchanged output after preservation."""
+
+        if (
+            self.classify().state
+            is not LinuxMetadataWritePhysicalState.SOURCE_OUTPUT_WITH_PRESERVED_ORIGINAL
+        ):
+            _fail(LinuxMetadataWriteBackendErrorCode.STATE_AMBIGUOUS)
+        descriptor = -1
+        try:
+            descriptor = os.open(
+                self._source_name,
+                os.O_RDONLY | int(getattr(os, "O_NOFOLLOW", 0)) | int(getattr(os, "O_CLOEXEC", 0)),
+                dir_fd=self._source_parent_fd,
+            )
+            details = os.fstat(descriptor)
+            named = os.stat(
+                self._source_name,
+                dir_fd=self._source_parent_fd,
+                follow_symlinks=False,
+            )
+            if (
+                (details.st_dev, details.st_ino) != (named.st_dev, named.st_ino)
+                or not stat.S_ISREG(details.st_mode)
+                or details.st_nlink != 1
+                or details.st_size != self._authorization.expected_output_size_bytes
+            ):
+                _fail(LinuxMetadataWriteBackendErrorCode.OUTPUT_INVALID)
+            _require_no_xattrs(
+                descriptor,
+                LinuxMetadataWriteBackendErrorCode.OUTPUT_INVALID,
+            )
+            before = _stable_identity(details)
+            data, digest = _read_all(descriptor, MAX_EPUB_ARCHIVE_BYTES)
+            after = os.fstat(descriptor)
+        except LinuxMetadataWriteBackendError:
+            raise
+        except OSError:
+            _fail(LinuxMetadataWriteBackendErrorCode.OUTPUT_INVALID)
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+        if (
+            before != _stable_identity(after)
+            or len(data) != self._authorization.expected_output_size_bytes
+            or digest != self._authorization.expected_output_sha256
+            or self.classify().state
+            is not LinuxMetadataWritePhysicalState.SOURCE_OUTPUT_WITH_PRESERVED_ORIGINAL
+        ):
+            _fail(LinuxMetadataWriteBackendErrorCode.OUTPUT_INVALID)
         return data
 
     def prepare_output(self, staged_output: Path) -> LinuxMetadataWritePhysicalSnapshot:
@@ -452,9 +498,7 @@ class LinuxMetadataWriteSession(AbstractContextManager["LinuxMetadataWriteSessio
             "MISSING",
             "ORIGINAL",
         ) and _metadata_matches(source, recovery):
-            state = (
-                LinuxMetadataWritePhysicalState.SOURCE_OUTPUT_WITH_PRESERVED_ORIGINAL
-            )
+            state = LinuxMetadataWritePhysicalState.SOURCE_OUTPUT_WITH_PRESERVED_ORIGINAL
         return LinuxMetadataWritePhysicalSnapshot(
             state,
             _confirmation_digest(self._run, self._authorization, state),
@@ -517,6 +561,85 @@ class LinuxMetadataWriteBackend:
             _close_quietly(root_fd)
 
 
+class LinuxMetadataWriteSourceReader:
+    """Read one preparation source no-follow without opening mutation authority."""
+
+    def read_source(
+        self,
+        *,
+        capability: ResolvedMetadataWriteCapability,
+        source_relative_path: str,
+        expected_sha256: str,
+        expected_size_bytes: int,
+        expected_modified_at: datetime,
+    ) -> bytes:
+        _require_platform()
+        if (
+            not isinstance(capability, ResolvedMetadataWriteCapability)
+            or not isinstance(expected_sha256, str)
+            or len(expected_sha256) != 64
+            or any(value not in "0123456789abcdef" for value in expected_sha256)
+            or isinstance(expected_size_bytes, bool)
+            or not isinstance(expected_size_bytes, int)
+            or not 0 < expected_size_bytes <= MAX_EPUB_ARCHIVE_BYTES
+            or not isinstance(expected_modified_at, datetime)
+            or expected_modified_at.tzinfo is None
+            or expected_modified_at.utcoffset() is None
+        ):
+            _fail(LinuxMetadataWriteBackendErrorCode.SOURCE_STALE)
+        _require_disjoint_capability_directories(capability)
+        parent_parts, source_name = _source_locator(source_relative_path)
+        root_fd = _open_absolute_directory(capability.scan_root_directory)
+        recovery_fd = -1
+        parent_fd = -1
+        descriptor = -1
+        try:
+            recovery_fd = _open_absolute_directory(capability.recovery_directory)
+            _require_private_recovery_directory(recovery_fd)
+            parent_fd = _open_descendant_directory(root_fd, parent_parts)
+            _require_supported_filesystem(parent_fd, recovery_fd)
+            descriptor = os.open(
+                source_name,
+                os.O_RDONLY | int(getattr(os, "O_NOFOLLOW", 0)) | int(getattr(os, "O_CLOEXEC", 0)),
+                dir_fd=parent_fd,
+            )
+            details = os.fstat(descriptor)
+            named = os.stat(source_name, dir_fd=parent_fd, follow_symlinks=False)
+            if (details.st_dev, details.st_ino) != (
+                named.st_dev,
+                named.st_ino,
+            ) or details.st_dev != os.fstat(parent_fd).st_dev:
+                _fail(LinuxMetadataWriteBackendErrorCode.SOURCE_STALE)
+            _verify_expected_source_preconditions(
+                descriptor,
+                details,
+                expected_size_bytes,
+                expected_modified_at,
+            )
+            before = _stable_identity(details)
+            data, digest = _read_all(descriptor, MAX_EPUB_ARCHIVE_BYTES)
+            after = os.fstat(descriptor)
+            if (
+                before != _stable_identity(after)
+                or len(data) != expected_size_bytes
+                or digest != expected_sha256
+            ):
+                _fail(LinuxMetadataWriteBackendErrorCode.SOURCE_STALE)
+            return data
+        except LinuxMetadataWriteBackendError:
+            raise
+        except OSError:
+            _fail(LinuxMetadataWriteBackendErrorCode.SOURCE_STALE)
+        finally:
+            if descriptor >= 0:
+                _close_quietly(descriptor)
+            if parent_fd >= 0:
+                _close_quietly(parent_fd)
+            if recovery_fd >= 0:
+                _close_quietly(recovery_fd)
+            _close_quietly(root_fd)
+
+
 def _require_platform() -> None:
     required = (
         getattr(os, "O_DIRECTORY", 0),
@@ -568,11 +691,9 @@ def _require_bindings(
         or run.plan_id != authorization.plan_id
         or run.scan_root_id != authorization.scan_root_id
         or run.file_id != authorization.file_id
-        or run.metadata_write_capability_id
-        != authorization.metadata_write_capability_id
+        or run.metadata_write_capability_id != authorization.metadata_write_capability_id
         or capability.scan_root_id != run.scan_root_id
-        or capability.metadata_write_capability_id
-        != run.metadata_write_capability_id
+        or capability.metadata_write_capability_id != run.metadata_write_capability_id
     ):
         _fail(LinuxMetadataWriteBackendErrorCode.TOOL_UNAVAILABLE)
 
@@ -582,11 +703,7 @@ def _require_disjoint_capability_directories(
 ) -> None:
     source = capability.scan_root_directory
     recovery = capability.recovery_directory
-    if (
-        source == recovery
-        or source in recovery.parents
-        or recovery in source.parents
-    ):
+    if source == recovery or source in recovery.parents or recovery in source.parents:
         _fail(LinuxMetadataWriteBackendErrorCode.TOOL_UNAVAILABLE)
 
 
@@ -597,9 +714,7 @@ def _source_locator(value: str) -> tuple[tuple[str, ...], str]:
         normalized = value.replace("\\", "/")
         path = PurePosixPath(normalized)
         parts = tuple(path.parts)
-        oversized = any(
-            len(os.fsencode(part)) > _MAX_COMPONENT_BYTES for part in parts
-        )
+        oversized = any(len(os.fsencode(part)) > _MAX_COMPONENT_BYTES for part in parts)
     except (OSError, UnicodeError, ValueError):
         _fail(LinuxMetadataWriteBackendErrorCode.SOURCE_STALE)
     if (
@@ -844,6 +959,20 @@ def _verify_source_preconditions(
     authorization: MetadataWriteAuthorizationSnapshot,
     expected_modified_at: datetime,
 ) -> None:
+    _verify_expected_source_preconditions(
+        descriptor,
+        details,
+        authorization.source_size_bytes,
+        expected_modified_at,
+    )
+
+
+def _verify_expected_source_preconditions(
+    descriptor: int,
+    details: os.stat_result,
+    expected_size_bytes: int,
+    expected_modified_at: datetime,
+) -> None:
     geteuid = getattr(os, "geteuid", None)
     if (
         not callable(geteuid)
@@ -851,7 +980,7 @@ def _verify_source_preconditions(
         or details.st_nlink != 1
         or details.st_uid != geteuid()
         or stat.S_IMODE(details.st_mode) & 0o7000
-        or details.st_size != authorization.source_size_bytes
+        or details.st_size != expected_size_bytes
         or datetime.fromtimestamp(details.st_mtime, tz=UTC) != expected_modified_at
     ):
         _fail(LinuxMetadataWriteBackendErrorCode.SOURCE_STALE)
@@ -865,9 +994,7 @@ def _open_staged_output(path: Path) -> int:
     try:
         descriptor = os.open(
             path,
-            os.O_RDONLY
-            | int(getattr(os, "O_NOFOLLOW", 0))
-            | int(getattr(os, "O_CLOEXEC", 0)),
+            os.O_RDONLY | int(getattr(os, "O_NOFOLLOW", 0)) | int(getattr(os, "O_CLOEXEC", 0)),
         )
         details = os.fstat(descriptor)
     except OSError:
@@ -970,9 +1097,7 @@ def _entry_view(
     try:
         descriptor = os.open(
             name,
-            os.O_RDONLY
-            | int(getattr(os, "O_NOFOLLOW", 0))
-            | int(getattr(os, "O_CLOEXEC", 0)),
+            os.O_RDONLY | int(getattr(os, "O_NOFOLLOW", 0)) | int(getattr(os, "O_CLOEXEC", 0)),
             dir_fd=directory_fd,
         )
         try:
@@ -1211,4 +1336,5 @@ __all__ = [
     "LinuxMetadataWritePhysicalSnapshot",
     "LinuxMetadataWritePhysicalState",
     "LinuxMetadataWriteSession",
+    "LinuxMetadataWriteSourceReader",
 ]

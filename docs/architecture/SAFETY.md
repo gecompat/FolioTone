@@ -13,7 +13,8 @@ Capability und eine kurzlebige Authorization gebunden.
 - source media mounts are read-only in the standard container configuration;
 - no source-media delete command exists;
 - no source-media move or rename command exists;
-- no executable metadata-write command exists for source media;
+- no general metadata-write command exists; the sole source-metadata exception
+  is the ADR-0063/ADR-0064 EPUB-3 `title`-`REPLACE` operator;
 - no Calibre write adapter exists;
 - external enrichment does not write back to source media;
 - external ToolProviders may use only analysis-safe operations against source media;
@@ -258,13 +259,12 @@ ausschließlich für EPUB 3, `SOURCE_METADATA` und genau einen reviewten
 `title`-`REPLACE`. Der Writer patcht im privaten Staging nur `dc:title` und
 das formatbedingt aktualisierte `dcterms:modified`; alle übrigen Package-
 Document-Bytes und alle Nicht-Package-Entry-Inhalte müssen erhalten bleiben.
-Der spätere Linux-Commit tauscht vorbereiteten Output und Source nur über
+Der Linux-Commit tauscht vorbereiteten Output und Source nur über
 `renameat2(RENAME_EXCHANGE)` und bewahrt das herausgetauschte Original per
 `RENAME_NOREPLACE` im capability-gebundenen Same-Filesystem-Recoverybereich.
-Es gibt keinen Copy+Delete-, Overwrite- oder Cross-Volume-Fallback. Bis
-Staging, Capability, Authorization, Journal, Executor, Recovery, CLI und
-Reconciliation vollständig implementiert und synthetisch belegt sind, bleibt
-auch dieser Metadatenwrite operativ nicht verfügbar.
+Es gibt keinen Copy+Delete-, Overwrite- oder Cross-Volume-Fallback. ADR-0064
+öffnet ausschließlich die vollständige Bedien- und Reconciliation-Kette
+dieses Profils; andere Felder, Formate, Zielträger und Writer bleiben gesperrt.
 
 `S-W10-MW01` schwächt diese Grenze nicht. Das Paket
 `foliotone.metadata_write` nimmt ausschließlich einen immutable Plan,
@@ -292,11 +292,14 @@ Operation wiederherzustellen. Uneindeutige Zustände werden nicht weiter
 mutiert. Delete, Copy+Delete, Overwrite, Cross-Volume, Cleanup und ein
 caller-gesteuerter Rename bleiben ausgeschlossen.
 
-MW04 bietet bewusst weder CLI noch automatische Ausführung und endet im
-Erfolgsfall bei `ORIGINAL_PRESERVED`. Erst `S-W10-MW05` darf die feste zweite
-Bestätigung, unmittelbare Verifikation, neuen Scan, Reconciliation und den
-Übergang `VERIFIED` anbinden. Bis dahin bleibt der Metadata-Writer operativ
-nicht verfügbar.
+MW04 endet intern bei `ORIGINAL_PRESERVED`. `S-W10-MW05` ergänzt die einzige
+feste Authorize-/Execute-/Recover-/Status-CLI, eine exakte zweite Bestätigung
+über nicht geloggtes `stdin`, unmittelbare physische und semantische
+Verifikation sowie einen expliziten Lease-Handoff. Erst ein neuer
+`COMPLETED`-Scan, die neue Observation, ein passender `CollectionState`, eine
+frische physische Revalidierung und der atomare Reconciliation-Insert dürfen
+`VERIFIED` erzeugen. Recovery durchläuft dieselbe Reconciliation und endet
+ohne `VERIFIED` bei `RECOVERED`.
 
 Ein ausführbarer Consolidation-Teil darf nicht lediglich durch einen CLI-
 Schalter aktiviert werden. Er benötigt weiterhin mindestens:
@@ -317,7 +320,7 @@ Schalter aktiviert werden. Er benötigt weiterhin mindestens:
 
 `/data` is intentionally writable so scans, hashes, normalized metadata, tool execution records, authority/provider cache, decisions, and future plans can be persisted. `/media/...` is read-only in the default compose file.
 
-Ein späterer W10-Writer erhält keine allgemeine Schreibfreigabe für
+Ein W10-Writer erhält keine allgemeine Schreibfreigabe für
 `/media`. Er verwendet ausschließlich die engste lokal aufgelöste Capability
 seines Operationstyps. Fehlt sie oder ist ihre Revalidierung nicht eindeutig,
 endet die Operation fail-closed vor der Mutation.
