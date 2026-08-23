@@ -110,6 +110,15 @@ FolioTone-eigenen lexikalischen Zwei-Spannen-Patch im privaten Staging.
 EPUBCheck 5.3.0 die unabhängige Formatprüfung. Diese Entscheidung öffnet weder
 allgemeine calibre-Setter noch `ebook-polish` als `ToolProvider`-Writer.
 
+ADR-0066 wählt auch für den ersten E-Book-Datei-Rename keinen ToolProvider.
+Calibre, Shell-`mv` und frei parametrierbare Prozessaufrufe können die exakte
+Plan-/Capability-/Fence-/Journalgrenze sowie atomare Target-Abwesenheit nicht
+als FolioTone-Vertrag garantieren. Das feste FolioTone-native Linuxprofil
+verwendet deshalb direkt `openat2` und genau ein
+`renameat2(RENAME_NOREPLACE)` relativ zu demselben Parent-FD. Externe Tools
+bleiben Evidence Sources beziehungsweise hinter ihren eigenen Write-Gates;
+sie erhalten durch den Rename-Slice keine Mutationsfläche.
+
 Metadata adapter version `ebook-meta-opf/2` retains provider-shaped raw OPF
 observations and additionally projects OPF 2 attributes plus OPF 3 refinements
 under `ebook-metadata-candidate/v1`. Grouped candidates cover identifier

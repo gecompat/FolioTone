@@ -104,6 +104,15 @@ The path shape is classified as:
 
 These are `RelocationCandidateKind` values, not confirmed filesystem-history statements. Source remains a separate `MISSING` `FileRecord`, Target remains a separate `NEW` `FileRecord`, and no source-media operation occurs. See ADR-0014.
 
+ADR-0066 ändert diese Identity-Regel für einen später ausgeführten
+Same-Parent-Rename nicht. Der verpflichtende Folgescan markiert den alten
+Source-`FileRecord` als `MISSING` und erzeugt für den zuvor historisch
+unbenutzten Target-Locator einen getrennten `NEW`-`FileRecord`. Der immutable
+`EbookRenameReconciliationSnapshot` belegt die konkrete autorisierte
+Operationslineage zwischen beiden Records. Ein zusätzlich erzeugter
+`FileRelocationCandidate` bleibt heuristische Evidence, wird weder als
+Voraussetzung verlangt noch in eine Identity-Vereinigung umgedeutet.
+
 ## Filename/path candidate generation
 
 Before entity resolution, filenames and directory context may emit `FieldCandidate` values such as possible author/artist, title, series, track/disc number, year, language or edition hints.

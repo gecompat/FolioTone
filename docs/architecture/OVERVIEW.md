@@ -379,6 +379,18 @@ getrennte `ebook-operation-recipe-report` liest genau einen Plan über SQLite
 read-only und projiziert ausschließlich opaque IDs, Profile, Operationstyp,
 Status, Counts, Review und Blocker.
 
+ADR-0066 akzeptiert davon als nächsten getrennten Writer ausschließlich
+`FILE_RENAME` auf einen anderen, historisch unbenutzten Basename im selben
+vorhandenen Parent. `S-W10-RN01` ergänzt zuerst den weiterhin nicht
+mutierenden Proposal-/Preview-/Review-/Plan-Pfad. Die späteren RN02 bis RN04
+verwenden eine private einzelne Capability, ein festes Linux-
+`openat2`-/`renameat2(RENAME_NOREPLACE)`-Backend, One-use-Authorization,
+rootweites Fencing, append-only Journal, Exact-State-Recovery und einen neuen
+Scan samt `CollectionState`. Die Reconciliation bindet getrennte alte
+`MISSING`- und neue `NEW`-`FileRecord`-Identitäten; sie schreibt keine
+Relocation als Identity-Merge um. `FILE_REORGANIZE` bleibt hinter
+`FG-W10-REORGANIZE`.
+
 Für die Interim-Quarantäne stellen `S-W10-05A` bis `S-W10-05D` private
 Capability-Auflösung, current-state-gebundenes Authorize, das einmalige
 gefencete Execute und no-move Exact-State-Recovery bereit. Die zweite

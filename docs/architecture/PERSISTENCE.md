@@ -559,6 +559,36 @@ Operationstyp, Status, Counts, Reviewstatus und Blockerliterale. Locator,
 Source-/Target-IDs, Content-/Materialhashes und Processorwerte bleiben aus
 allen Standardausgaben ausgeschlossen.
 
+### Geplante E-Book-Rename-Authority und Reconciliation
+
+ADR-0066 reserviert für `S-W10-RN02` die additive Migration
+`0031_ebook_rename_operations`. Sie erweitert den bestehenden
+`ScanRootWriteLease`-Owner-Vertrag ausschließlich um
+`EBOOK_RENAME_PREPARATION` und `EBOOK_RENAME_RUN` und persistiert
+content-addressed Preparation/Authorization, genau einen Run je Authorization,
+höchstens 16 gapless append-only Events sowie das immutable Backend-/
+Probe-Binding. No-Update-/No-Delete-Trigger und bounded Child-Counts gelten
+für den gesamten Graph. Ein belegter Zustand blockiert den Downgrade.
+
+Die Persistenz enthält die für Revalidierung und Recovery notwendigen
+privaten Source-/Target-Digests, Full-SHA-256-, Inode- und Attributbinder.
+Standardprojektionen lesen oder zeigen diese Werte, Locator, Basenames,
+absolute Pfade, Capability-Inhalte und Fences nicht. Capability-Pfade stammen
+ausschließlich aus `FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE` und werden nicht
+in SQLite übernommen. RN02 besitzt noch keinen Executor.
+
+`S-W10-RN04` reserviert getrennt die additive Migration
+`0032_ebook_rename_reconciliation`. Genau eine immutable Reconciliation je Run
+bindet bei `VERIFIED` den alten Source-`FileRecord` samt neuer `MISSING`-
+Observation und den neuen Target-`FileRecord` samt `NEW`-Observation. Bei
+`RECOVERED` bindet sie die wieder aktuelle `PRESENT`-Source und historische
+Target-Abwesenheit. Beide Outcomes enthalten abgeschlossenen Folgescan,
+Full-SHA-256, `CollectionState` und content-addressed Reconciliation-Digest.
+Nur ein atomarer Insert unter einer frischen `EBOOK_RENAME_RUN`-Fence darf das
+passende terminale `VERIFIED` oder `RECOVERED` erzeugen. Die Persistenz
+schreibt keine `FileRecord`-Identity um und setzt keinen
+`FileRelocationCandidate` voraus.
+
 ### Gefencete Metadaten-Write-Authorization und Journal
 
 Migration `0027_metadata_write_operations` erweitert den bestehenden
