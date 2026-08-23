@@ -192,8 +192,15 @@ direkt betroffene bestehende Fälle; ein hostabhängiger Symlink-Fall wurde auf
 Windows ausgelassen. Zusätzlich bestanden 20 betroffene Planungs- und
 Dokumentationsverträge. Repository-Ruff und Mypy für 234 Source-Dateien waren
 grün. Es wurden nur synthetische temporäre Dateien und SQLite-Datenbanken
-verwendet. Der
-stabile 05B-Head benötigt genau einen vollständigen PR-CI-Gate.
+verwendet. Der stabile 05B-Head benötigt genau einen vollständigen PR-CI-Gate.
+
+Der erste 05B-Gate stoppte nach grünen Install-, Ruff- und Mypy-Schritten bei
+der Test-Collection, weil ein installiertes Fremdpaket das bisher implizite
+lokale `tests`-Namespace verdeckte. Ein explizites `tests/__init__.py` behebt
+nur diese Importauflösung; Produktionscode blieb unverändert. Die lokale
+Collection fand danach 2.051 Tests fehlerfrei, und die vier neuen
+Autorisierungs-Integrationsfälle blieben grün. Der korrigierte Head benötigt
+erneut den vollständigen Gate.
 
 Für `S-W10-MW01` bestanden lokal 114 fokussierte neue und direkt betroffene
 Unit-, Privacy-, Non-Execution- und Dokumentationsvertragstests in 0,57

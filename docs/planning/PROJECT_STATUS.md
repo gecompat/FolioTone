@@ -44,6 +44,15 @@ wurden ausschließlich synthetische temporäre Dateien und SQLite-Datenbanken;
 reale E-Books und private Runtime-Daten wurden nicht geöffnet. Der vollständige
 PR-CI-Gate bleibt dem exakten stabilen Head vorbehalten.
 
+Der erste 05B-PR-Gate erreichte erfolgreich Install, Ruff und Mypy, stoppte
+aber während der Test-Collection: Auf dem Linux-Runner wurde das lokale
+Namespace-Verzeichnis `tests` durch ein fremdes installiertes Paket gleichen
+Namens verdeckt. `tests/__init__.py` markiert den bestehenden Testbaum nun
+explizit als lokales Paket; Produktionscode und Sicherheitsverhalten blieben
+unverändert. Die lokale Collection fand danach 2.051 Tests fehlerfrei; die vier
+neuen Autorisierungs-Integrationsfälle blieben grün. Der korrigierte Head
+benötigt erneut den vollständigen Gate.
+
 **S-W10-MW05 implementiert — EPUB-Titelwriter besitzt Bedienung und Reconciliation**
 
 ADR-0064 schließt die Bedien- und Reconciliation-Grenze des einzigen durch
