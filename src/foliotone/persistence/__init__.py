@@ -159,6 +159,7 @@ if TYPE_CHECKING:
         SQLiteConsolidationStore,
     )
     from foliotone.persistence.ebook_rename import (
+        EbookRenameSourceSnapshot,
         EbookRenameStatusEventSnapshot,
         EbookRenameStatusSnapshot,
         EbookRenameStoreError,
@@ -211,6 +212,7 @@ def __getattr__(name: str) -> Any:
 
         return getattr(metadata_write, name)
     if name in {
+        "EbookRenameSourceSnapshot",
         "EbookRenameStatusEventSnapshot",
         "EbookRenameStatusSnapshot",
         "EbookRenameStoreError",
@@ -269,6 +271,7 @@ __all__ = [
     "EbookOperationRecipeStoreError",
     "EbookRenameStatusEventSnapshot",
     "EbookRenameStatusSnapshot",
+    "EbookRenameSourceSnapshot",
     "EbookRenameStoreError",
     "ProviderCacheStoreCapacityError",
     "ProviderCacheStoreCandidate",

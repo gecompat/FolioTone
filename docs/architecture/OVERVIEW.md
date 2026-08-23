@@ -390,10 +390,11 @@ W9-Stores. Standardausgaben bleiben locatorfrei; nur die explizite lokale
 Text-Preview darf relative Source-/Target-Locators zeigen. `S-W10-RN02`
 implementiert die private einzelne Capability, erfolgreichen persistenten
 Probe, content-addressed Preparation/Authorization, One-use-Run, Root-Fencing,
-gapless insert-only Journal und locatorfreien SQLite-read-only Status. Es gibt
-noch keinen Executor. RN03 und RN04 verwenden anschließend ein festes Linux-
-`openat2`-/`renameat2(RENAME_NOREPLACE)`-Backend, One-use-Authorization,
-Exact-State-Recovery und einen neuen Scan samt `CollectionState`. Die
+gapless insert-only Journal und locatorfreien SQLite-read-only Status. RN03
+ergänzt das feste interne Linux-`openat2`-/
+`renameat2(RENAME_NOREPLACE)`-Backend, erneute Live-Binder, unmittelbare
+Verifikation und Exact-State-Recovery. RN04 ergänzt anschließend Bedienung,
+Lease-Handoff und einen neuen Scan samt `CollectionState`. Die
 Reconciliation bindet getrennte alte
 `MISSING`- und neue `NEW`-`FileRecord`-Identitäten; sie schreibt keine
 Relocation als Identity-Merge um. `FILE_REORGANIZE` bleibt hinter

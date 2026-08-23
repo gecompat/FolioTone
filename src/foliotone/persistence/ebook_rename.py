@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import PurePosixPath
 from typing import Any, TypeVar
 
 from sqlalchemy import Engine, func, insert, select
@@ -60,6 +61,17 @@ class EbookRenameStoreError(RuntimeError):
 
 _T = TypeVar("_T")
 
+_RECOVERY_SOURCE_STATUSES = frozenset(
+    {
+        EbookRenameRunStatus.PREPARED,
+        EbookRenameRunStatus.RELOCATED,
+        EbookRenameRunStatus.IMMEDIATE_VERIFIED,
+        EbookRenameRunStatus.RECOVERY_RELOCATED,
+        EbookRenameRunStatus.RECOVERY_VERIFIED,
+        EbookRenameRunStatus.SCAN_HANDOFF,
+    }
+)
+
 
 @dataclass(frozen=True, slots=True)
 class EbookRenameStatusEventSnapshot:
@@ -92,6 +104,55 @@ class EbookRenameStatusSnapshot:
     @property
     def status(self) -> EbookRenameRunStatus:
         return self.events[-1].status
+
+
+@dataclass(frozen=True, slots=True)
+class EbookRenameSourceSnapshot:
+    """Private persistence-derived locators for one exact authorized run."""
+
+    run_id: EntityId
+    authorization_id: EntityId
+    preparation_id: EntityId
+    plan_id: EntityId
+    scan_root_id: EntityId
+    source_file_id: EntityId
+    source_relative_locator: str = field(repr=False)
+    target_relative_locator: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if not all(
+            isinstance(value, EntityId)
+            for value in (
+                self.run_id,
+                self.authorization_id,
+                self.preparation_id,
+                self.plan_id,
+                self.scan_root_id,
+                self.source_file_id,
+            )
+        ):
+            raise EbookRenameStoreError("e-book rename source binding is invalid")
+        try:
+            source = PurePosixPath(self.source_relative_locator)
+            target = PurePosixPath(self.target_relative_locator)
+            ebook_rename_locator_digest(
+                self.scan_root_id,
+                self.source_relative_locator,
+                target=False,
+            )
+            ebook_rename_locator_digest(
+                self.scan_root_id,
+                self.target_relative_locator,
+                target=True,
+            )
+        except (TypeError, ValueError):
+            raise EbookRenameStoreError("e-book rename source binding is invalid") from None
+        if (
+            source.parent != target.parent
+            or source.name == target.name
+            or self.source_relative_locator == self.target_relative_locator
+        ):
+            raise EbookRenameStoreError("e-book rename source binding is invalid")
 
 
 @contextmanager
@@ -295,6 +356,158 @@ class SQLiteEbookRenameStore:
         except (ScanRootWriteLeaseError, ValueError):
             raise EbookRenameStoreError("e-book rename run could not be created") from None
         return run
+
+    def require_execution_source(
+        self,
+        plan: EbookOperationRecipePlan,
+        preparation: EbookRenamePreparationSnapshot,
+        authorization: EbookRenameAuthorizationSnapshot,
+        capability: ResolvedEbookRenameCapability,
+        probe: EbookRenameCapabilityProbeSnapshot,
+        binding: EbookRenameBackendBinding,
+        run: EbookRenameExecutionRun,
+        lease: OwnedScanRootWriteLease,
+        *,
+        checked_at: datetime,
+    ) -> EbookRenameSourceSnapshot:
+        """Return private locators only while every live execution gate is current."""
+
+        return self._require_operation_source(
+            plan,
+            preparation,
+            authorization,
+            capability,
+            probe,
+            binding,
+            run,
+            lease,
+            checked_at=checked_at,
+            allowed_statuses=frozenset({EbookRenameRunStatus.PREPARED}),
+            require_current_plan=True,
+            require_active_authorization=True,
+        )
+
+    def require_recovery_source(
+        self,
+        plan: EbookOperationRecipePlan,
+        preparation: EbookRenamePreparationSnapshot,
+        authorization: EbookRenameAuthorizationSnapshot,
+        capability: ResolvedEbookRenameCapability,
+        probe: EbookRenameCapabilityProbeSnapshot,
+        binding: EbookRenameBackendBinding,
+        run: EbookRenameExecutionRun,
+        lease: OwnedScanRootWriteLease,
+        *,
+        checked_at: datetime,
+    ) -> EbookRenameSourceSnapshot:
+        """Return historical locators for exact-state recovery under a fresh fence."""
+
+        return self._require_operation_source(
+            plan,
+            preparation,
+            authorization,
+            capability,
+            probe,
+            binding,
+            run,
+            lease,
+            checked_at=checked_at,
+            allowed_statuses=_RECOVERY_SOURCE_STATUSES,
+            require_current_plan=False,
+            require_active_authorization=False,
+        )
+
+    def _require_operation_source(
+        self,
+        plan: EbookOperationRecipePlan,
+        preparation: EbookRenamePreparationSnapshot,
+        authorization: EbookRenameAuthorizationSnapshot,
+        capability: ResolvedEbookRenameCapability,
+        probe: EbookRenameCapabilityProbeSnapshot,
+        binding: EbookRenameBackendBinding,
+        run: EbookRenameExecutionRun,
+        lease: OwnedScanRootWriteLease,
+        *,
+        checked_at: datetime,
+        allowed_statuses: frozenset[EbookRenameRunStatus],
+        require_current_plan: bool,
+        require_active_authorization: bool,
+    ) -> EbookRenameSourceSnapshot:
+        checked = _utc_timestamp(checked_at, "source check timestamp")
+        self._require_active_run_lease(run, lease, checked)
+        self._require_operation_bindings(
+            plan,
+            preparation,
+            authorization,
+            capability,
+            probe,
+            binding,
+            run,
+        )
+        try:
+            with _transaction(self._engine) as connection:
+                SQLiteScanRootWriteLeaseStore(self._engine).fence(
+                    connection,
+                    lease,
+                    checked,
+                )
+                self._require_persisted_operation_material(
+                    connection,
+                    preparation,
+                    authorization,
+                    probe,
+                    binding,
+                    run,
+                )
+                latest = self._require_latest_status(connection, run)
+                if latest not in allowed_statuses:
+                    raise EbookRenameStoreError(
+                        "e-book rename execution status is unavailable"
+                    )
+                if require_active_authorization and not (
+                    authorization.authorized_at <= checked < authorization.expires_at
+                ):
+                    raise EbookRenameStoreError(
+                        "e-book rename authorization is unavailable"
+                    )
+                recipe_store = SQLiteEbookOperationRecipeStore(self._engine)
+                if require_current_plan:
+                    recipe_store.require_current_approved_plan_in_transaction(
+                        connection,
+                        plan,
+                    )
+                    self._require_current_source_and_target(
+                        connection,
+                        plan,
+                        preparation,
+                    )
+                else:
+                    recipe_store.require_persisted_approved_plan_in_transaction(
+                        connection,
+                        plan,
+                    )
+                source = plan.candidate.sources[0]
+                return EbookRenameSourceSnapshot(
+                    run_id=run.id,
+                    authorization_id=authorization.id,
+                    preparation_id=preparation.id,
+                    plan_id=plan.id,
+                    scan_root_id=source.scan_root_id,
+                    source_file_id=source.file_id,
+                    source_relative_locator=source.relative_locator,
+                    target_relative_locator=plan.candidate.target.relative_locator,
+                )
+        except EbookRenameStoreError:
+            raise
+        except (
+            EbookOperationRecipeStoreError,
+            ScanRootWriteLeaseError,
+            TypeError,
+            ValueError,
+        ):
+            raise EbookRenameStoreError(
+                "e-book rename operation source is unavailable"
+            ) from None
 
     def append_event(
         self,
@@ -575,6 +788,186 @@ class SQLiteEbookRenameStore:
             connection.execute(insert(table).values(**row))
         elif dict(existing) != row:
             raise EbookRenameStoreError(error_message)
+
+    @staticmethod
+    def _require_active_run_lease(
+        run: EbookRenameExecutionRun,
+        lease: OwnedScanRootWriteLease,
+        checked_at: datetime,
+    ) -> None:
+        if (
+            not isinstance(run, EbookRenameExecutionRun)
+            or not isinstance(lease, OwnedScanRootWriteLease)
+            or lease.owner_kind is not ScanRootWriteOwnerKind.EBOOK_RENAME_RUN
+            or lease.owner_run_id != run.id
+            or lease.scan_root_id != run.scan_root_id
+            or lease.acquired_at > checked_at
+            or checked_at < run.created_at
+            or checked_at >= lease.lease_expires_at
+        ):
+            raise EbookRenameStoreError("e-book rename run lease is unavailable")
+
+    @staticmethod
+    def _require_operation_bindings(
+        plan: EbookOperationRecipePlan,
+        preparation: EbookRenamePreparationSnapshot,
+        authorization: EbookRenameAuthorizationSnapshot,
+        capability: ResolvedEbookRenameCapability,
+        probe: EbookRenameCapabilityProbeSnapshot,
+        binding: EbookRenameBackendBinding,
+        run: EbookRenameExecutionRun,
+    ) -> None:
+        if (
+            not isinstance(plan, EbookOperationRecipePlan)
+            or not isinstance(preparation, EbookRenamePreparationSnapshot)
+            or not isinstance(authorization, EbookRenameAuthorizationSnapshot)
+            or not isinstance(capability, ResolvedEbookRenameCapability)
+            or not isinstance(probe, EbookRenameCapabilityProbeSnapshot)
+            or not isinstance(binding, EbookRenameBackendBinding)
+            or not isinstance(run, EbookRenameExecutionRun)
+        ):
+            raise EbookRenameStoreError("e-book rename operation binding is invalid")
+        try:
+            source = plan.candidate.sources[0]
+            source_locator_digest = ebook_rename_locator_digest(
+                source.scan_root_id,
+                source.relative_locator,
+                target=False,
+            )
+            target_locator_digest = ebook_rename_locator_digest(
+                source.scan_root_id,
+                plan.candidate.target.relative_locator,
+                target=True,
+            )
+            dependencies = ebook_rename_dependencies_fingerprint(plan)
+        except (IndexError, TypeError, ValueError, RuntimeError):
+            raise EbookRenameStoreError("e-book rename operation binding is invalid") from None
+        if (
+            preparation.plan_id != plan.id
+            or preparation.plan_content_hash != plan.content_hash
+            or preparation.candidate_id != plan.candidate.id
+            or preparation.candidate_content_hash != plan.candidate.content_hash
+            or preparation.scan_root_id != source.scan_root_id
+            or preparation.source_scan_run_id != source.source_scan_run_id
+            or preparation.source_file_id != source.file_id
+            or preparation.source_observation_id != source.observation_id
+            or preparation.source_locator_digest != source_locator_digest
+            or preparation.target_locator_digest != target_locator_digest
+            or preparation.source_format_label != source.format_label
+            or preparation.source_full_sha256 != source.expected_full_sha256
+            or preparation.source_size_bytes != source.expected_size_bytes
+            or preparation.source_modified_at != source.expected_modified_at
+            or preparation.dependencies_fingerprint != dependencies
+            or preparation.ebook_rename_capability_id
+            != capability.ebook_rename_capability_id
+            or preparation.capability_configuration_fingerprint
+            != capability.configuration_fingerprint
+            or preparation.probe_id != probe.id
+            or preparation.probe_content_hash != probe.content_hash
+            or capability.scan_root_id != source.scan_root_id
+            or probe.ebook_rename_capability_id
+            != capability.ebook_rename_capability_id
+            or probe.scan_root_id != capability.scan_root_id
+            or probe.capability_configuration_fingerprint
+            != capability.configuration_fingerprint
+            or authorization.preparation_id != preparation.id
+            or authorization.preparation_content_hash != preparation.content_hash
+            or authorization.plan_id != preparation.plan_id
+            or authorization.plan_content_hash != preparation.plan_content_hash
+            or authorization.candidate_id != preparation.candidate_id
+            or authorization.scan_root_id != preparation.scan_root_id
+            or authorization.source_file_id != preparation.source_file_id
+            or authorization.ebook_rename_capability_id
+            != preparation.ebook_rename_capability_id
+            or authorization.capability_configuration_fingerprint
+            != preparation.capability_configuration_fingerprint
+            or authorization.probe_id != preparation.probe_id
+            or authorization.probe_content_hash != preparation.probe_content_hash
+            or authorization.authorized_at != preparation.authorized_at
+            or authorization.prepared_at != preparation.prepared_at
+            or run.authorization_id != authorization.id
+            or run.authorization_content_hash != authorization.content_hash
+            or run.plan_id != authorization.plan_id
+            or run.scan_root_id != authorization.scan_root_id
+            or run.source_file_id != authorization.source_file_id
+            or run.ebook_rename_capability_id
+            != authorization.ebook_rename_capability_id
+            or run.probe_id != authorization.probe_id
+            or binding.run_id != run.id
+            or binding.ebook_rename_capability_id
+            != run.ebook_rename_capability_id
+            or binding.capability_configuration_fingerprint
+            != authorization.capability_configuration_fingerprint
+            or binding.probe_id != run.probe_id
+            or binding.probe_content_hash != probe.content_hash
+            or binding.bound_at != run.created_at
+        ):
+            raise EbookRenameStoreError("e-book rename operation binding differs")
+
+    @staticmethod
+    def _require_persisted_operation_material(
+        connection: Connection,
+        preparation: EbookRenamePreparationSnapshot,
+        authorization: EbookRenameAuthorizationSnapshot,
+        probe: EbookRenameCapabilityProbeSnapshot,
+        binding: EbookRenameBackendBinding,
+        run: EbookRenameExecutionRun,
+    ) -> None:
+        rows = (
+            (
+                ebook_rename_preparations,
+                ebook_rename_preparations.c.id == str(preparation.id),
+                _preparation_row(preparation),
+            ),
+            (
+                ebook_rename_authorizations,
+                ebook_rename_authorizations.c.id == str(authorization.id),
+                _authorization_row(authorization),
+            ),
+            (
+                ebook_rename_runs,
+                ebook_rename_runs.c.id == str(run.id),
+                _run_row(run),
+            ),
+            (
+                ebook_rename_capability_probes,
+                ebook_rename_capability_probes.c.id == str(probe.id),
+                _probe_row(probe),
+            ),
+            (
+                ebook_rename_backend_bindings,
+                ebook_rename_backend_bindings.c.run_id == str(run.id),
+                _backend_binding_row(binding),
+            ),
+        )
+        for table, condition, expected in rows:
+            row = connection.execute(select(table).where(condition)).mappings().one_or_none()
+            if row is None or dict(row) != expected:
+                raise EbookRenameStoreError(
+                    "e-book rename persisted operation binding differs"
+                )
+
+    @staticmethod
+    def _require_latest_status(
+        connection: Connection,
+        run: EbookRenameExecutionRun,
+    ) -> EbookRenameRunStatus:
+        rows = (
+            connection.execute(
+                select(ebook_rename_events)
+                .where(ebook_rename_events.c.run_id == str(run.id))
+                .order_by(ebook_rename_events.c.sequence_no)
+                .limit(MAX_EBOOK_RENAME_EVENTS + 1)
+            )
+            .mappings()
+            .all()
+        )
+        events = tuple(_event_from_row(row) for row in rows)
+        try:
+            validate_ebook_rename_event_history(events)
+        except (TypeError, ValueError):
+            raise EbookRenameStoreError("e-book rename journal is invalid") from None
+        return events[-1].status
 
     @staticmethod
     def _require_probe(
@@ -1199,6 +1592,7 @@ def _utc_timestamp(value: object, label: str) -> datetime:
 
 
 __all__ = [
+    "EbookRenameSourceSnapshot",
     "EbookRenameStatusEventSnapshot",
     "EbookRenameStatusSnapshot",
     "EbookRenameStoreError",

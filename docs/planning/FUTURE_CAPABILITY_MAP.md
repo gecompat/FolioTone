@@ -68,9 +68,8 @@ abgeschlossen. ADR-0065 und `S-W9-007A` bis `S-W9-007C` liefern den
 vollständigen content-addressed, reviewten und read-only sichtbaren Vertrag
 der dauerhaft nicht ausführbaren Operationsrezepte. ADR-0066 entscheidet
 davon ausschließlich den Same-Parent-`FILE_RENAME`; die Implementierung folgt
-in vier Waves. `S-W10-RN01` und `S-W10-RN02` sind umgesetzt;
-`S-W10-RN03` und `S-W10-RN04` schließen Backend sowie Bedien-/
-Reconciliation-Kette. `FILE_REORGANIZE` bleibt getrennt hinter
+in vier Waves. `S-W10-RN01`, `S-W10-RN02` und `S-W10-RN03` sind umgesetzt;
+`S-W10-RN04` schließt die Bedien-/Reconciliation-Kette. `FILE_REORGANIZE` bleibt getrennt hinter
 `FG-W10-REORGANIZE`. Eine weitere Medienlinie ist nicht automatisch
 aktiviert. Der genaue Paketstatus wird hier nicht dupliziert.
 
@@ -280,7 +279,7 @@ ist, existiert dafür weder REST-Endpunkt noch aktivierbares UI-Control.
 | Confidence-Kalibrierung | profilgebundene Scores an geprüfter Ground Truth bewerten | Forschungsfrage | FUT-005 berührt Review-Lernen | relationstypbezogener Korpus und Eval-Vertrag |
 | KI-Query/Explanation | natürliche Sprache sicher übersetzen und Evidence erklären | Forschungsfrage | keine | gleicher Query-AST; keine Decision Authority |
 | API/MCP/UI | stabile Application-Verträge außerhalb der CLI mit eigenen Einstiegen je Medienlinie anbieten | Forschungsfrage | ADR-0016 stellt zurück; FUT-011; `EBOOK_WRITE_PIPELINE_PLAN.md` | neue Produktoberflächen-ADR einschließlich REST/OpenAPI, Auth, Privacy, Audit und strikt getrennten W10-Capabilities |
-| kontrollierte Mutation | geprüfte Pläne entsprechend ihrer Reversibilitätsklasse ausführen | ADR-0056-Quarantäne und ADR-0063/ADR-0064-EPUB-Titelwriter operativ; ADR-0065 plant sechs weitere Typen nicht ausführbar; ADR-0066 entscheidet davon nur Same-Parent-Rename, dessen RN01-Planung und RN02-Authority umgesetzt sind | ADR-0056, ADR-0061, ADR-0063 bis ADR-0066, `W10-005`, `FG-W10-MOVE-BACKEND` und verbleibende operation-spezifische Write-Gates | `S-W10-RN03` und `S-W10-RN04` abschließen; Sidecar-, externe Library-, Reorganisations-, Archive-, Rollback-, Purge- und Cleanup-Verträge getrennt entscheiden |
+| kontrollierte Mutation | geprüfte Pläne entsprechend ihrer Reversibilitätsklasse ausführen | ADR-0056-Quarantäne und ADR-0063/ADR-0064-EPUB-Titelwriter operativ; ADR-0065 plant sechs weitere Typen nicht ausführbar; ADR-0066 entscheidet davon nur Same-Parent-Rename, dessen RN01-Planung, RN02-Authority und RN03-Backend/Recovery umgesetzt sind | ADR-0056, ADR-0061, ADR-0063 bis ADR-0066, `W10-005`, `FG-W10-MOVE-BACKEND` und verbleibende operation-spezifische Write-Gates | `S-W10-RN04` abschließen; Sidecar-, externe Library-, Reorganisations-, Archive-, Rollback-, Purge- und Cleanup-Verträge getrennt entscheiden |
 
 ## Medienabdeckung
 

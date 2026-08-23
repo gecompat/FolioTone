@@ -4,7 +4,8 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
-`S-W10-RN01` und `S-W10-RN02` sind umgesetzt. RN01 liefert Proposal, private
+`S-W10-RN01`, `S-W10-RN02` und `S-W10-RN03` sind umgesetzt. RN01 liefert
+Proposal, private
 Preview, append-only Review und den dauerhaft `NOT_EXECUTABLE` bleibenden Plan
 für genau einen aktuellen Same-Parent-`FILE_RENAME`. RN02 bindet diesen Plan
 an content-addressed Preparation und höchstens 15 Minuten gültige
@@ -19,7 +20,7 @@ neueste abgeschlossene Scan-/Observation-/Full-SHA-256-Lineage, aktueller
 Review, alle fünf Dependencies samt Scope-Material, historische Target-
 Abwesenheit, Probe und Fence geprüft. Die unter derselben Fence vorab
 erhobene physische Source- und Target-Evidence wird unveränderlich gebunden;
-RN03 muss sie unmittelbar vor jeder Mutation erneut erheben und vergleichen.
+RN03 erhebt und vergleicht sie unmittelbar vor jeder Mutation erneut.
 Run, Binding und bestätigtes `PREPARED` verbrauchen die Authorization atomar.
 Ein Retry kann nur denselben Run fortsetzen; `VERIFIED` und `RECOVERED`
 bleiben RN04
@@ -31,7 +32,48 @@ der owner-geschützten Datei `FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE`; sie
 werden nicht persistiert. Der read-only Status selektiert nur opaque IDs, Profile,
 Zeitpunkte, Zustände und feste Finding-Codes. Locator, Basenames, Hashes,
 Inodes, Attribute, Capability-Inhalte, Fences und Confirmation-Digests bleiben
-ausgeschlossen. RN02 besitzt keinen Executor und keine neue CLI.
+ausgeschlossen. RN02 besitzt allein keinen Executor. RN03 ergänzt inzwischen
+den internen Executor und Recovery, aber weiterhin keine neue CLI.
+
+Das RN03-Backend ist fest auf Linux x86_64 plus glibc begrenzt. Es prüft Root
+und privates Probeverzeichnis als dieselbe lokale `ext4`-, `btrfs`-, `xfs`-
+oder `tmpfs`-Instanz, verwendet ausschließlich eigene zufällige
+Probe-Fixtures und öffnet den Same-Parent-FD mit Raw-`openat2` beneath,
+no-follow, no-magiclink und no-xdev. Source-Evidence umfasst Inode,
+Linkanzahl eins, Mode, Owner, Group, Größe, `mtime_ns`, vollständigen SHA-256,
+Format und bounded Xattr-Digest. Der einzige Forward- und gegebenenfalls
+pre-success Reverse-Aufruf ist Raw-`renameat2(RENAME_NOREPLACE)` mit Source-
+und Parent-`fsync`; es existiert kein Fallback.
+
+Der Executor revalidiert aktuellen Plan, Capability, Probe, Backend-Binding,
+Authorization und Fence unmittelbar vor dem Forward-Rename und stoppt bei
+`IMMEDIATE_VERIFIED`. Recovery verwendet den unveränderlichen historischen
+Plan und eine frische Run-Fence. Exakte unveränderte Source wird `CANCELLED`,
+exakt verschobene Source wird vor Erfolg no-replace zurückbenannt und
+`RECOVERY_VERIFIED`; jede uneindeutige Verteilung bleibt ohne weitere
+Mutation `MANUAL_RECOVERY_REQUIRED`. RN04 besitzt exklusiv CLI, zweite
+Bestätigung, Scan-Handoff, `CollectionState`, Reconciliation sowie die
+terminalen Zustände `VERIFIED` und `RECOVERED`.
+
+Eine Änderung an `ebook-file-rename-linux-renameat2-noreplace/v1`,
+`ebook-file-rename-capability-probe/v1`, `linux-x86_64-glibc/v1`,
+`ebook-file-xattrs/v1` oder der Capability-Konfiguration invalidiert die
+gebundene Probe beziehungsweise Preparation. RN04 darf sie nicht still
+wiederverwenden, sondern muss neu vorbereiten und autorisieren.
+
+Für RN03 bestanden lokal 53 direkt betroffene Authority-, Capability-,
+Executor-, Persistenz-, Safety-, Planfront- und Dokumentationsfälle in 16,05
+Sekunden. Zwei native Raw-Syscall-/Recovery-Fälle sind unter Windows
+erwartungsgemäß übersprungen und müssen im einmaligen Linux-PR-CI-Gate des
+stabilen Heads laufen. Ruff war für elf geänderte Python-Dateien grün, Mypy
+für fünf geänderte Source-Dateien ohne Befund und `git diff --check` sauber.
+Der vollständige lokale Testbestand, reale E-Books, private Runtime-Daten,
+Docker und externe Tools wurden bewusst nicht verwendet. Der vollständige
+PR-CI-Gate ist noch nicht ausgeführt.
+
+Es ist kein weiterer bekannter Blocker vor RN04 offen. Der ausstehende
+Linux-CI-Nachweis ist ein Verifikationspunkt. ADR-0066 bleibt `Accepted`, und
+RN03 ändert keine Provider-, Tool-, Lizenz- oder Netzwerkannahme.
 
 63 direkt betroffene Unit-, Planungs-, Safety-, Dokumentations-, Persistenz-,
 Migrations- und Testeffizienzfälle bestanden gezielt. Alle fünf RN02-
@@ -59,7 +101,7 @@ unbenutzten Basename im selben vorhandenen Parent und `ScanRoot`.
 Verzeichnisvertrags hinter `FG-W10-REORGANIZE`. Das Gate selbst implementiert
 noch keinen Writer.
 
-Der spätere feste Backendvertrag ist Linux x86_64 plus glibc,
+Der umgesetzte feste Backendvertrag ist Linux x86_64 plus glibc,
 `openat2`-Auflösung beneath/no-follow/no-xdev und genau ein
 `renameat2(RENAME_NOREPLACE)` relativ zu demselben Parent-FD. Source und
 Target müssen bereits NFC-kanonisch, casefold-verschieden und im engen
@@ -87,11 +129,10 @@ freien Target-Slot, bevor `RECOVERED` terminal wird.
 
 RN01 liefert Proposal, explizite private Preview, append-only Review und den
 nicht ausführbaren Plan. RN02 liefert Authority, Capability, Probe, Fencing,
-Persistenz und read-only Status ohne Executor. Die nächsten zwei Waves sind
-fest: `S-W10-RN03` Backend, Executor und Exact-State-Recovery sowie
-`S-W10-RN04` Bedienoberfläche, zweite Bestätigung, Scan, `CollectionState` und
-Reconciliation. `S-W10-RN03` ist die nächste kanonische Wave. Reale E-Books
-werden dafür nicht benötigt.
+Persistenz und read-only Status; RN03 Backend, Executor und Exact-State-
+Recovery. `S-W10-RN04` mit Bedienoberfläche, zweiter Bestätigung, Scan,
+`CollectionState` und Reconciliation ist die nächste kanonische Wave. Reale
+E-Books werden dafür nicht benötigt.
 
 Für das Gate bestanden 23 gezielt betroffene Planungsfront-, Dokumentations-
 und W10-Safety-Verträge auf dem finalen Stand in 0,11 Sekunden. Ruff für die
@@ -130,9 +171,9 @@ Fälle in 1,17 Sekunden. Der stabile Remote-Head
 Post-Merge-Run `32617838103` war ebenfalls grün.
 
 `S-W10-RN01` setzt die rein nicht mutierende Proposal-/Preview-/Review-/Plan-
-Wave nach dem akzeptierten ADR-0066-Gate um. RN02 ergänzt inzwischen die
-nicht ausführende Authority-/Persistenzschicht; als Nächstes folgt RN03 ohne
-CLI.
+Wave nach dem akzeptierten ADR-0066-Gate um. RN02 ergänzt die Authority-/
+Persistenzschicht und RN03 den internen Executor samt Recovery; als Nächstes
+folgt RN04 mit der festen Bedien-/Scan-/Reconciliation-Kette.
 
 `S-W9-007B` ergänzt den reinen ADR-0065-Vertrag um die feste Review-Paarung,
 Migration `0030_ebook_operation_recipe_plans` und zehn bounded insert-only
@@ -551,8 +592,8 @@ Merge-Voraussetzung.
 Titelwriter. `S-W10-05B` schließt Quarantäne-Authorize; `S-W10-05C` ist der
 gefencete Execute-Slice und `S-W10-05D` schließt die no-move Recovery ab.
 In `W9-007` sind `S-W9-007A` bis `S-W9-007C` umgesetzt; ADR-0066 und
-`S-W10-RN01` sowie `S-W10-RN02` sind ebenfalls abgeschlossen. Als Nächstes
-folgt `S-W10-RN03` ohne CLI. Allgemeine Source-Media-
+`S-W10-RN01` bis `S-W10-RN03` sind ebenfalls abgeschlossen. Als Nächstes
+folgt `S-W10-RN04` mit der engen Bedien-/Scan-/Reconciliation-Kette. Allgemeine Source-Media-
 Mutation, Music, Bilder, REST-API und
 grafische Oberfläche werden weder durch W9-006/W9-007 noch durch den einen
 operation-spezifischen Writer aktiviert.
@@ -1515,8 +1556,8 @@ vorhanden. Kein Slice erweitert die Ein-Datei-/Same-Filesystem-Grenze oder
 behauptet atomare No-Replace-Semantik. Die zweite Bestätigung bleibt auf nicht
 geloggtes `stdin` beschränkt. In `W9-007` sind `S-W9-007A` bis `S-W9-007C`
 umgesetzt. ADR-0066 hat `FG-W10-RENAME` danach nur für Same-Parent-
-`FILE_RENAME` entschieden; `S-W10-RN01` und `S-W10-RN02` sind umgesetzt.
-`S-W10-RN03` ist die nächste Backend-/Recovery-Wave ohne CLI.
+`FILE_RENAME` entschieden; `S-W10-RN01` bis `S-W10-RN03` sind umgesetzt.
+`S-W10-RN04` ist die nächste Bedien-/Scan-/Reconciliation-Wave.
 
 `OPS-001` ist ein getrenntes lokales Betriebsverfahren für den vollständigen
 privaten Inventory-/Hash-/Collection-/Verifier-Lauf. Es verwendet den

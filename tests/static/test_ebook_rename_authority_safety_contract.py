@@ -8,6 +8,8 @@ AUTHORITY = ROOT / "src/foliotone/ebook_rename/authority.py"
 CAPABILITIES = ROOT / "src/foliotone/ebook_rename/capabilities.py"
 STORE = ROOT / "src/foliotone/persistence/ebook_rename.py"
 STATUS = ROOT / "src/foliotone/workflows/ebook_rename_status.py"
+BACKEND = ROOT / "src/foliotone/ebook_rename/linux_backend.py"
+EXECUTOR = ROOT / "src/foliotone/ebook_rename/executor.py"
 CLI = ROOT / "src/foliotone/cli/main.py"
 
 
@@ -98,7 +100,7 @@ def test_rn02_status_contract_excludes_every_private_binder() -> None:
         assert required in source
 
 
-def test_rn02_migration_and_lease_owners_exist_without_executor_or_cli() -> None:
+def test_rn03_backend_exists_while_cli_and_reconciliation_remain_closed() -> None:
     migration = (
         ROOT
         / "src/foliotone/persistence/alembic/versions/0031_ebook_rename_operations.py"
@@ -112,8 +114,12 @@ def test_rn02_migration_and_lease_owners_exist_without_executor_or_cli() -> None
     assert "no_update" in source
     assert "no_delete" in source
     assert "events_append_only" in source
-    assert not (ROOT / "src/foliotone/ebook_rename/executor.py").exists()
-    assert not (ROOT / "src/foliotone/ebook_rename/linux_backend.py").exists()
+    assert EXECUTOR.exists()
+    assert BACKEND.exists()
+    assert not (
+        ROOT
+        / "src/foliotone/persistence/alembic/versions/0032_ebook_rename_reconciliation.py"
+    ).exists()
 
     cli = CLI.read_text(encoding="utf-8")
     for command in (
@@ -123,3 +129,43 @@ def test_rn02_migration_and_lease_owners_exist_without_executor_or_cli() -> None
         "ebook-rename-status",
     ):
         assert command not in cli
+
+
+def test_rn03_uses_only_the_fixed_linux_noreplace_boundary() -> None:
+    backend_source = BACKEND.read_text(encoding="utf-8")
+    executor_source = EXECUTOR.read_text(encoding="utf-8")
+    combined = backend_source + executor_source
+    for forbidden in (
+        "os.rename(",
+        "os.replace(",
+        "shutil.",
+        "subprocess.",
+        "metadata_write",
+        "quarantine",
+        "copyfile(",
+    ):
+        assert forbidden not in combined
+    for required in (
+        "_SYS_OPENAT2_X86_64: Final = 437",
+        "_SYS_RENAMEAT2_X86_64: Final = 316",
+        "_RENAME_NOREPLACE: Final = 1",
+        "_RESOLVE_BENEATH",
+        "_RESOLVE_NO_SYMLINKS",
+        "_RESOLVE_NO_MAGICLINKS",
+        "_RESOLVE_NO_XDEV",
+        "MIN_EBOOK_RENAME_MUTATION_LEASE_REMAINING",
+    ):
+        assert required in combined
+
+    tree = ast.parse(backend_source, filename=str(BACKEND))
+    unlink_functions: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        if any(
+            isinstance(child, ast.Call)
+            and _qualified_name(child.func) == "os.unlink"
+            for child in ast.walk(node)
+        ):
+            unlink_functions.append(node.name)
+    assert unlink_functions == ["_probe_noreplace"]
