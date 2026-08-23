@@ -18,6 +18,7 @@ from foliotone.persistence.quarantine import (
     QuarantineExecutionRun,
     SQLiteQuarantineStore,
 )
+from foliotone.persistence.quarantine_schema import quarantine_authorizations
 from foliotone.persistence.scan_root_lease import (
     ScanRootWriteOwnerKind,
     SQLiteScanRootWriteLeaseStore,
@@ -56,7 +57,7 @@ def test_migration_0022_persists_only_immutable_gapless_quarantine_events(
     _seed(engine)
     authorization = _authorization()
     store = SQLiteQuarantineStore(engine)
-    assert store.create_or_get_authorization(authorization) == authorization
+    _seed_authorization(engine, authorization)
     lease = SQLiteScanRootWriteLeaseStore(engine).acquire(
         ROOT,
         ScanRootWriteOwnerKind.CONSOLIDATION_QUARANTINE_RUN,
@@ -116,7 +117,7 @@ def test_interim_executor_renames_one_synthetic_candidate_and_persists_events(
     candidate_path.write_bytes(candidate_bytes)
     authorization = _authorization(hashlib.sha256(candidate_bytes).hexdigest())
     store = SQLiteQuarantineStore(engine)
-    store.create_or_get_authorization(authorization)
+    _seed_authorization(engine, authorization)
     lease = SQLiteScanRootWriteLeaseStore(engine).acquire(
         ROOT,
         ScanRootWriteOwnerKind.CONSOLIDATION_QUARANTINE_RUN,
@@ -159,7 +160,7 @@ def test_interim_executor_refuses_existing_target_without_touching_source(tmp_pa
     candidate_path.write_bytes(candidate_bytes)
     authorization = _authorization(hashlib.sha256(candidate_bytes).hexdigest())
     store = SQLiteQuarantineStore(engine)
-    store.create_or_get_authorization(authorization)
+    _seed_authorization(engine, authorization)
     lease = SQLiteScanRootWriteLeaseStore(engine).acquire(
         ROOT,
         ScanRootWriteOwnerKind.CONSOLIDATION_QUARANTINE_RUN,
@@ -201,7 +202,7 @@ def test_quarantine_status_is_read_only_and_excludes_private_execution_material(
     engine = _head_engine_from_migration(tmp_path, database)
     authorization = _authorization()
     store = SQLiteQuarantineStore(engine)
-    store.create_or_get_authorization(authorization)
+    _seed_authorization(engine, authorization)
     lease = SQLiteScanRootWriteLeaseStore(engine).acquire(
         ROOT,
         ScanRootWriteOwnerKind.CONSOLIDATION_QUARANTINE_RUN,
@@ -320,6 +321,33 @@ def _run(authorization: QuarantineAuthorizationSnapshot) -> QuarantineExecutionR
     return QuarantineExecutionRun(
         RUN, authorization.id, PLAN, ROOT, KEEPER, CANDIDATE, "e" * 64, NOW
     )
+
+
+def _seed_authorization(engine, value: QuarantineAuthorizationSnapshot) -> None:
+    """Seed an already-authorized parent for low-level S-W10-02/03 tests."""
+
+    with engine.begin() as connection:
+        connection.execute(
+            quarantine_authorizations.insert(),
+            {
+                "id": str(value.id),
+                "profile": value.profile,
+                "plan_id": str(value.plan_id),
+                "plan_content_hash": value.plan_content_hash,
+                "scan_root_id": str(value.scan_root_id),
+                "keeper_file_id": str(value.keeper_file_id),
+                "candidate_file_id": str(value.candidate_file_id),
+                "keeper_observation_id": str(value.keeper_observation_id),
+                "candidate_observation_id": str(value.candidate_observation_id),
+                "keeper_full_sha256": value.keeper_full_sha256,
+                "candidate_full_sha256": value.candidate_full_sha256,
+                "quarantine_capability_id": str(value.quarantine_capability_id),
+                "review_fingerprint": value.review_fingerprint,
+                "authorized_at": value.authorized_at.isoformat(),
+                "expires_at": value.expires_at.isoformat(),
+                "content_hash": value.content_hash,
+            },
+        )
 
 
 def _head_engine_from_migration(tmp_path: Path, database: Path | None = None):

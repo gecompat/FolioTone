@@ -83,10 +83,12 @@ festen Authorize-/Execute-/Recover-/Status-Kommandos, zweiter Bestätigung über
 `stdin`, unmittelbarer Verifikation, explizitem Lease-Handoff, neuem Scan,
 `CollectionState` und immutable Reconciliation ab.
 
-`W10-005` ist die nächste getrennte `FRONTIER`-Wave. Sie vervollständigt
-Capability-Auflösung, Authorize, Execute und Recovery für die bereits durch
-ADR-0056 erlaubte Interim-Ein-Datei-Quarantäne, ohne einen weiteren
-Mutationstyp oder atomare No-Replace-Semantik zu behaupten.
+`W10-005` bleibt die nächste getrennte `FRONTIER`-Wave. Capability-Auflösung
+und `quarantine-authorize` sind durch `S-W10-05A` und `S-W10-05B`
+abgeschlossen. `S-W10-05C` ergänzt als Nächstes Execute, zweite Bestätigung
+und One-use-Fencing; `S-W10-05D` schließt Recovery und synthetische Crash-
+Abnahme. Kein Paket öffnet einen weiteren Mutationstyp oder behauptet atomare
+No-Replace-Semantik.
 
 ## W0 — Project Foundation
 
@@ -528,12 +530,12 @@ Library-, Rename- und Archivewrites bleiben an
 beziehungsweise `FG-W10-ARCHIVE-REWRITE` gebunden. W10-003 und W10-004
 halten Rollback/Purge und Verzeichnisbereinigung weiterhin getrennt.
 
-Die Quarantäne besitzt noch keine vollständige Bedienkette. `W10-005` ergänzt
-auf Basis des vorhandenen privaten `QuarantineCapabilityResolver`
-`quarantine-authorize`, `quarantine-execute` mit zweiter Bestätigung über
-nicht geloggtes `stdin` und `quarantine-recover`. CLI-Argumente enthalten nur
-opaque IDs und Content Hashes. Der bestehende `quarantine-status` bleibt die
-maschinenlesbare read-only Statusprojektion.
+Die Quarantäne besitzt noch keine vollständige Bedienkette. Der private
+`QuarantineCapabilityResolver` und `quarantine-authorize` sind vorhanden;
+`S-W10-05C` ergänzt `quarantine-execute` mit zweiter Bestätigung über nicht
+geloggtes `stdin`, `S-W10-05D` danach `quarantine-recover`. CLI-Argumente
+enthalten nur opaque IDs und Content Hashes. Der bestehende
+`quarantine-status` bleibt die maschinenlesbare read-only Statusprojektion.
 
 Spätere Operationen wie Rollback, Purge, Metadatenupdate, Calibrewrite und
 explizit autorisierte externe Toolwrites benötigen jeweils eine eigene

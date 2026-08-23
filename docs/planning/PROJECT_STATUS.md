@@ -4,6 +4,46 @@ Stand: 2026-08-23
 
 ## Aktuelle Welle
 
+**S-W10-05B implementiert — Quarantäne-Authorization ist operativ erreichbar**
+
+`quarantine-authorize` vervollständigt den ersten Teil der festen
+ADR-0056-Bedienkette. Das Kommando akzeptiert ausschließlich opaque Plan- und
+Capability-IDs, den vollständigen kleingeschriebenen Plan-Content-Hash und die
+Darstellungswahl. Datenbank und private Capability-Konfiguration stammen aus
+lokaler Runtime-Konfiguration; freie Source-/Zielpfade, Batchlisten und
+Command-Fragmente sind keine Argumente.
+
+Vor jeder erfolgreichen Authorization rehydriert der Operator den exakten
+persistierten `ConsolidationPlan`, prüft Status, bestätigte
+`EXACT_DUPLICATE`-Identity, gerichtete Keeper-/Candidate-Entscheidung, neueste
+kompatible Reviews, `KNOWN_NONE`-Dependencies und die aktuelle
+File-/Observation-Lineage. Keeper und Candidate werden anschließend über
+private relative Locator als stabile reguläre Einzeldateien ohne
+Hardlink-Mehrfachreferenz streaming-basiert gegen Größe, Modified-Zeitpunkt und
+vollständigen SHA-256 geprüft. Dieselbe aktuelle Plan-Lineage wird in der
+SQLite-Transaktion unmittelbar vor dem insert-only Authorization-Insert erneut
+validiert. Bei Plan-, Review-, Dependency-, Locator- oder physischer Drift
+entsteht kein Datensatz.
+
+Die höchstens 15 Minuten gültige Ausgabe enthält nur Authorization-, Plan- und
+ScanRoot-ID, Profil, Status und Zeitfenster. Pfade, Dateinamen,
+Material-/Review-Hashes und Capability-Inhalte bleiben privat. Authorize liest
+Source Media ausschließlich und ruft weder `os.rename` noch den vorhandenen
+Interim-Executor auf. `quarantine-execute` samt zweiter Bestätigung und
+One-use-Fencing ist der nächste getrennte Slice `S-W10-05C`;
+`quarantine-recover` folgt danach in `S-W10-05D`. Die begrenzte nicht atomare
+Interim-Semantik und `FG-W10-MOVE-BACKEND` bleiben unverändert.
+
+Lokal bestanden sieben neue Source-/CLI-Unit-Tests, vier neue
+Authorization-/SQLite-Integrationsfälle sowie 24 direkt betroffene bestehende
+Quarantäne-Verträge; ein hostabhängiger Symlink-Fall wurde auf Windows wie
+vorgesehen übersprungen. Zusätzlich bestanden 20 betroffene Planungs- und
+Dokumentationsverträge. Repository-Ruff war grün, Mypy prüfte 234
+Source-Dateien ohne Befund. Verwendet
+wurden ausschließlich synthetische temporäre Dateien und SQLite-Datenbanken;
+reale E-Books und private Runtime-Daten wurden nicht geöffnet. Der vollständige
+PR-CI-Gate bleibt dem exakten stabilen Head vorbehalten.
+
 **S-W10-MW05 implementiert — EPUB-Titelwriter besitzt Bedienung und Reconciliation**
 
 ADR-0064 schließt die Bedien- und Reconciliation-Grenze des einzigen durch
@@ -71,9 +111,10 @@ erwartet. Der Vertragsassert wurde ohne Produktionscodeänderung auf die bereits
 dokumentierte Ausführungsfront synchronisiert; der korrigierte Head benötigt
 erneut den vollständigen Gate.
 
-`W10-005` ist der nächste reguläre Slice. Er vervollständigt ausschließlich
-die bereits durch ADR-0056 erlaubte Interim-Ein-Datei-Quarantäne mit fester
-Authorize-/Execute-/Recovery-Bedienung. Die separate
+`S-W10-05C` ist der nächste reguläre Slice. Er ergänzt ausschließlich die
+bereits durch ADR-0056 erlaubte Interim-Ein-Datei-Quarantäne um Execute,
+zweite Bestätigung und One-use-Fencing; Authorize ist durch `S-W10-05B`
+vorhanden. Die separate
 `FG-W10-MOVE-BACKEND`-Härtung und alle weiteren Mutationstypen bleiben davon
 unberührt.
 
@@ -1930,10 +1971,11 @@ CLI-Profil oder Ausführungsauthority. ADR-0056 entscheidet inzwischen das
 enge W10-Vertragsgate für Quarantäne. S-W10-01 bis S-W10-04 sind
 abgeschlossen: reine Authorization-/Eligibility-Verträge, immutable
 Persistenz, Interim-Executor und read-only Status sind vorhanden. Der
-Capability Resolver aus S-W10-05A ist ebenfalls umgesetzt. Es fehlen die
-Authorize-/Execute-/Recovery-CLI und deren synthetische Crash-/Recovery-
-Abnahme; `W10-005` plant diese Bedienkette ohne einen weiteren Mutationstyp zu
-öffnen.
+Capability Resolver aus S-W10-05A und die current-state-gebundene
+`quarantine-authorize`-CLI aus S-W10-05B sind ebenfalls umgesetzt. Es fehlen
+Execute mit zweiter Bestätigung und One-use-Fencing sowie Recovery und deren
+synthetische Crash-/Recovery-Abnahme; `S-W10-05C` ist der nächste Teil der
+Bedienkette.
 
 ADR-0058 legt die aktuelle reguläre Produktfolge fest. `CS-01` ist
 abgeschlossen und erzeugt `collection-state/v1` als immutable, rebuildbare
@@ -2026,11 +2068,10 @@ Noch nicht vorhanden sind unter anderem:
   Bibliothekskennzeichnung; ADR-0042 ist nur `Proposed`;
 - weitere externe Knowledge Provider über den implementierten Open-Library-
   Slice und den persistierten Provider Cache hinaus;
-- die vollständige W10-Authorize-/Execute-/Recovery-Bedienkette, atomarer
-  No-Replace-Move, Rollback, Purge, operativer Metadatenwrite und
-  Verzeichnisbereinigung; ihre Entwicklung ist durch ADR-0061 freigegeben und
-  der erste EPUB-Titelvertrag durch ADR-0063 entschieden, operativ vorhanden
-  ist weiterhin nur der enge Interim-Executor;
+- Quarantäne-Execute/-Recovery, atomarer No-Replace-Move, Rollback, Purge und
+  Verzeichnisbereinigung; ihre Entwicklung ist durch ADR-0061 freigegeben,
+  `quarantine-authorize` und der begrenzte EPUB-Titelwriter sind operativ
+  vorhanden, weitere Writer bleiben operation-spezifisch geschlossen;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 
 ## Sicherheitsgrenze
