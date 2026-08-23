@@ -559,6 +559,21 @@ Operationstyp, Status, Counts, Reviewstatus und Blockerliterale. Locator,
 Source-/Target-IDs, Content-/Materialhashes und Processorwerte bleiben aus
 allen Standardausgaben ausgeschlossen.
 
+RN01 verwendet dieselben Tabellen ohne Migration. `ebook-rename-propose`
+persistiert den content-addressed `FILE_RENAME`-Candidate und eröffnet über
+den vorhandenen Review-Store genau einen exakten Reviewfall. Reviewentscheid
+und Plan bleiben append-only beziehungsweise insert-only. Der Recipe-Store
+akzeptiert zusätzlich die lokal revalidierten Dependency-Snapshotarten
+`TOOL_RESULT`, `CALIBRE_SNAPSHOT`, `ARCHIVE_COLLECTION_RUN` und die
+konfigurationsgebundene Scope-Erklärung. Sein kanonischer Plan-Rebuild erhält
+auch feste externe Blocker, ohne einen Plan ausführbar zu machen.
+
+Die owner-only Dependency-Scope-Datei wird nicht in SQLite gespiegelt. Nur
+ihre opaque ID und Konfigurations-/Snapshot-Semantik wirken über die fünf
+Material-Fingerprints. Relative Locator liegen wie zuvor ausschließlich in
+den privaten Candidate-Source-/Target-Spalten; Standard-Preview, Review- und
+Plan-Ausgabe enthalten sie nicht.
+
 ### Geplante E-Book-Rename-Authority und Reconciliation
 
 ADR-0066 reserviert für `S-W10-RN02` die additive Migration

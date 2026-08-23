@@ -4,6 +4,31 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
+`S-W10-RN01` ist umgesetzt. `ebook-rename-propose`,
+`ebook-rename-preview`, `ebook-rename-review` und `ebook-rename-plan` bilden
+genau einen aktuellen Same-Parent-`FILE_RENAME` auf dem bestehenden W9-
+Recipe-/Review-Store ab. Der Ziel-Basename wird bounded über eine nicht
+zurückgespiegelte `stdin`-Zeile eingelesen. Ein owner-eigener lokaler
+`EbookRenameDependencyScope` bindet jede der fünf Achsen explizit an aktuelle
+Coverage oder `NOT_APPLICABLE`; bestehende Calibre-, Sidecar-, Archive-,
+Volume- und streng profilierte ToolResult-Beziehungen erzwingen
+`KNOWN_PRESENT`, fehlende Coverage bleibt `UNKNOWN`. Preview und Plan
+revalidieren Source, Target und Dependency-Scope.
+
+Der Slice schreibt nur Proposal-, Review- und Planhistorie in die bestehende
+SQLite-Persistenz. Es gibt keine Migration, Capability, Authorization,
+Source-Media-Öffnung, Dateisystemmutation, Tool- oder Netzwerkoperation.
+Standardausgaben bleiben Locator-, Pfad- und Hash-frei; relative Locator sind
+nur mit `ebook-rename-preview --private-details --output text` sichtbar. 31
+fokussierte RN01-Fälle bestanden in 16,63 Sekunden. Die 85 direkt betroffenen
+W9-Store-, CLI-Bootstrap-, Planungs- und Dokumentationsregressionen sind nach
+der Aktualisierung von vier veralteten Status-/CLI-Erwartungen ebenfalls
+grün; Ruff und Mypy waren für den betroffenen Python-Scope ohne Befund. Reale
+E-Books und die vollständige lokale Suite wurden nicht verwendet. Der
+vollständige PR-CI-Gate läuft genau einmal. `S-W10-RN02` ist als reiner
+Authority-/Capability-/Preparation-/Journal-/Status-Slice ohne Executor als
+Nächstes vorgesehen.
+
 ADR-0066 schließt `FG-W10-RENAME` als docs-only Frontier-Gate. Akzeptiert ist
 ausschließlich ein byte-identischer `FILE_RENAME` auf einen historisch
 unbenutzten Basename im selben vorhandenen Parent und `ScanRoot`.
@@ -37,12 +62,12 @@ vereinigen. Nach einem Reverse-Rename bindet die Recovery-Reconciliation
 stattdessen die wieder aktuelle `PRESENT`-Source und den weiterhin historisch
 freien Target-Slot, bevor `RECOVERED` terminal wird.
 
-Die nächsten vier Waves sind fest: `S-W10-RN01` liefert zuerst Proposal,
-explizite private Preview, append-only Review und nicht ausführbaren Plan;
-`S-W10-RN02` Authority/Persistenz/Capability/Status; `S-W10-RN03` Backend,
-Executor und Exact-State-Recovery; `S-W10-RN04` Bedienoberfläche, zweite
-Bestätigung, Scan, `CollectionState` und Reconciliation. `S-W10-RN01` ist die
-nächste kanonische Wave. Reale E-Books werden dafür nicht benötigt.
+RN01 liefert Proposal, explizite private Preview, append-only Review und den
+nicht ausführbaren Plan. Die nächsten drei Waves sind fest: `S-W10-RN02`
+Authority/Persistenz/Capability/Status; `S-W10-RN03` Backend, Executor und
+Exact-State-Recovery; `S-W10-RN04` Bedienoberfläche, zweite Bestätigung, Scan,
+`CollectionState` und Reconciliation. `S-W10-RN02` ist die nächste kanonische
+Wave. Reale E-Books werden dafür nicht benötigt.
 
 Für das Gate bestanden 23 gezielt betroffene Planungsfront-, Dokumentations-
 und W10-Safety-Verträge auf dem finalen Stand in 0,11 Sekunden. Ruff für die
@@ -53,7 +78,10 @@ identische kleine Auswahl wurde danach mit dieser repositoryüblichen
 Importkonfiguration erfolgreich ausgeführt. Reale E-Books, private Runtime-
 Daten, Source-Mutation, SQLite-Runtime, Docker, externe Tools und die
 vollständige lokale Suite wurden ressourcenschonend nicht verwendet. Der
-vollständige PR-CI-Gate bleibt dem exakten stabilen Head vorbehalten.
+stabile Remote-Head `41f9ab9b178b59b97c59147d9bbd09b8f8c77729` bestand
+Quality-Run `32619355986` und E-Book-Toolchain-Run `32619355944`. PR #245
+wurde als `5dd9c5d5829c8241e5de709e705810cec8a5481c` auf `main`
+integriert; Post-Merge-Run `32619517705` war ebenfalls grün.
 
 `S-W9-007C` schließt `W9-007` mit dem echten SQLite-read-only Befehl
 `ebook-operation-recipe-report` ab. Er nimmt genau eine opaque Plan-ID, öffnet
@@ -77,8 +105,9 @@ Fälle in 1,17 Sekunden. Der stabile Remote-Head
 `0a249e7230680aa03ac868d02065dab9ddb1e07d` auf `main` integriert;
 Post-Merge-Run `32617838103` war ebenfalls grün.
 
-Als Nächstes folgt `S-W10-RN01` als rein nicht mutierende Proposal-/Review-/
-Plan-Wave nach dem akzeptierten ADR-0066-Gate.
+`S-W10-RN01` setzt die rein nicht mutierende Proposal-/Preview-/Review-/Plan-
+Wave nach dem akzeptierten ADR-0066-Gate um. Als Nächstes folgt RN02 ohne
+Executor.
 
 `S-W9-007B` ergänzt den reinen ADR-0065-Vertrag um die feste Review-Paarung,
 Migration `0030_ebook_operation_recipe_plans` und zehn bounded insert-only
@@ -496,8 +525,9 @@ Merge-Voraussetzung.
 `S-W10-MW05` sind umgesetzt und schließen genau den begrenzten EPUB-
 Titelwriter. `S-W10-05B` schließt Quarantäne-Authorize; `S-W10-05C` ist der
 gefencete Execute-Slice und `S-W10-05D` schließt die no-move Recovery ab.
-In `W9-007` sind `S-W9-007A` bis `S-W9-007C` umgesetzt. Als Nächstes folgt das
-docs-only Entscheidungsgate `FG-W10-RENAME`. Allgemeine Source-Media-
+In `W9-007` sind `S-W9-007A` bis `S-W9-007C` umgesetzt; ADR-0066 und
+`S-W10-RN01` sind ebenfalls abgeschlossen. Als Nächstes folgt
+`S-W10-RN02` ohne Executor. Allgemeine Source-Media-
 Mutation, Music, Bilder, REST-API und
 grafische Oberfläche werden weder durch W9-006/W9-007 noch durch den einen
 operation-spezifischen Writer aktiviert.
@@ -1460,7 +1490,8 @@ vorhanden. Kein Slice erweitert die Ein-Datei-/Same-Filesystem-Grenze oder
 behauptet atomare No-Replace-Semantik. Die zweite Bestätigung bleibt auf nicht
 geloggtes `stdin` beschränkt. In `W9-007` sind `S-W9-007A` bis `S-W9-007C`
 umgesetzt. ADR-0066 hat `FG-W10-RENAME` danach nur für Same-Parent-
-`FILE_RENAME` entschieden; `S-W10-RN01` ist die nächste nicht mutierende Wave.
+`FILE_RENAME` entschieden; `S-W10-RN01` ist umgesetzt und `S-W10-RN02` die
+nächste nicht mutierende Authority-/Persistenz-Wave.
 
 `OPS-001` ist ein getrenntes lokales Betriebsverfahren für den vollständigen
 privaten Inventory-/Hash-/Collection-/Verifier-Lauf. Es verwendet den

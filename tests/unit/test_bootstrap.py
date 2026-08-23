@@ -99,5 +99,10 @@ def test_status_command_is_non_destructive_bootstrap(
             "available through quarantine-authorize, quarantine-execute, and "
             "quarantine-recover."
         ),
+        (
+            "Non-mutating same-parent e-book rename planning is available through "
+            "ebook-rename-propose, ebook-rename-preview, ebook-rename-review, and "
+            "ebook-rename-plan."
+        ),
         "Other source-media and external-tool mutation commands remain unavailable.",
     ]

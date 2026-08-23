@@ -40,9 +40,9 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `S-W10-RN01` |" in backlog
+    assert "| NOW | `S-W10-RN02` |" in backlog
     assert (
-        "`S-W10-RN01` -> `S-W10-RN02` -> `S-W10-RN03` -> `S-W10-RN04`"
+        "`S-W10-RN02` -> `S-W10-RN03` -> `S-W10-RN04`"
         in backlog
     )
     assert "| W9-006 | DONE |" in backlog
@@ -56,8 +56,8 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert "| S-W9-007B | DONE |" in backlog
     assert "| S-W9-007C | DONE |" in backlog
     assert "| FG-W10-RENAME | DONE |" in backlog
-    assert "| S-W10-RN01 | NEXT |" in backlog
-    assert "| S-W10-RN02 | PLANNED |" in backlog
+    assert "| S-W10-RN01 | DONE |" in backlog
+    assert "| S-W10-RN02 | NEXT |" in backlog
     assert "| S-W10-RN03 | PLANNED |" in backlog
     assert "| S-W10-RN04 | PLANNED |" in backlog
     assert "| FG-W10-REORGANIZE | DECISION |" in backlog
@@ -157,7 +157,8 @@ def test_ebook_write_pipeline_is_development_authorized_and_remains_gate_bound()
     assert "| FG-W10-WRITE-DEVELOPMENT | DONE |" in backlog
     assert "| FG-W10-METADATA-WRITE | DONE |" in backlog
     assert "| FG-W10-RENAME | DONE |" in backlog
-    assert "| S-W10-RN01 | NEXT |" in backlog
+    assert "| S-W10-RN01 | DONE |" in backlog
+    assert "| S-W10-RN02 | NEXT |" in backlog
     for gate in (
         "FG-W10-SIDECAR-WRITE",
         "FG-W10-EXTERNAL-LIBRARY-WRITE",
@@ -273,7 +274,8 @@ def test_first_ebook_file_rename_gate_is_narrow_recoverable_and_reconciled() -> 
     assert all(marker in adr for marker in required)
     assert "ADR-0066" in documentation_index
     assert "| FG-W10-RENAME | DONE |" in backlog
-    assert "| S-W10-RN01 | NEXT |" in backlog
+    assert "| S-W10-RN01 | DONE |" in backlog
+    assert "| S-W10-RN02 | NEXT |" in backlog
     assert "| FG-W10-REORGANIZE | DECISION |" in backlog
     assert all(
         marker in safety

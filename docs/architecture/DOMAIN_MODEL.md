@@ -510,6 +510,17 @@ persistiert Candidate, Review und Plan als bounded insert-only Historie. Der
 `EbookOperationRecipePlanReport` bildet daraus nur die standardmäßig erlaubte
 opaque, locator-, material- und hashfreie Projektion.
 
+`S-W10-RN01` spezialisiert diesen Vertrag ohne neues persistiertes
+Domainobjekt für genau `FILE_RENAME`. Der private
+`ResolvedEbookRenameDependencyScope` ist Runtime-Konfiguration und kein
+SQLite-Datensatz. Seine fünf aktuellen Achsen werden in die vorhandenen
+`EbookOperationDependencySnapshot`s projiziert. Ein fehlender verwalteter
+Snapshot bleibt `UNKNOWN`; `NOT_APPLICABLE` benötigt die exakte aktuelle
+Scope-Erklärung, und persistierte `KNOWN_PRESENT`-Beziehungen besitzen Vorrang.
+Proposal erzeugt genau ein Review Item. Reviewentscheidungen bleiben
+append-only, und auch ein akzeptierter Plan behält
+`execution_state = NOT_EXECUTABLE`.
+
 ADR-0066 führt für genau `FILE_RENAME` vier davon getrennte W10-Objekte ein.
 `EbookRenamePreparationSnapshot` bindet den exakten blockerfreien Plan,
 private Locator-Digests, Source-Inode/-Attribute/-Bytes, Target-Abwesenheit,

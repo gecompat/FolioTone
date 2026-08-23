@@ -119,6 +119,35 @@ bloße frühere Reviewentscheidung konserviert keine veraltete Dependency-
 Erklärung. RN01 verwendet dafür die bestehenden Recipe-Dependency-Zeilen und
 benötigt keine neue Persistenztabelle.
 
+RN01 konkretisiert die private Datei als JSON-Objekt mit genau dem Rootfeld
+`dependency_scopes`. Jeder Eintrag enthält `dependency_scope_id`,
+`scan_root_id`, das feste Profil, eine positive `version` und unter `axes`
+genau die fünf kanonischen Dependency-Namen. Pro Datei sind Scope-ID und
+ScanRoot-ID eindeutig. Eine Achse besitzt genau eine der beiden Formen:
+
+```json
+{"mode":"NOT_APPLICABLE"}
+{"mode":"MANAGED","snapshot_kind":"TOOL_RESULT","snapshot_id":"UUID"}
+```
+
+Neben `TOOL_RESULT` sind `CALIBRE_SNAPSHOT` für Calibre-, Sidecar- und
+External-Library-Coverage sowie `ARCHIVE_COLLECTION_RUN` für Archive- und
+Volume-Group-Coverage zulässig. Nur ein vollständiger aktueller
+`COMPLETED`-Snapshot ohne begrenzten oder fehlerhaften Archive-Plan kann
+`KNOWN_NONE` liefern. Der FolioTone-eigene `TOOL_RESULT` muss das feste Profil
+`ebook-rename-dependency-coverage/v1`, den exakten Observation- und
+Achsenbezug, `COMPLETENESS_ANALYSIS`, erfolgreichen Abschluss und Confidence
+eins besitzen. Ein fehlender, fremder, unvollständiger oder nicht aktueller
+Snapshot wird als `UNKNOWN` materialisiert.
+
+Aktuelle persistierte Calibre-Format-/Sidecar-, Archive-/Volume- und
+Archive-Sidecar-Beziehungen sowie ein gültiges `KNOWN_PRESENT`-Coverage-
+Resultat werden vor der Scope-Erklärung ausgewertet und überstimmen
+`NOT_APPLICABLE`. Der Scope-Resolver liest höchstens 64 KiB, akzeptiert weder
+Symlink noch Hardlink und verlangt unter Linux eine reguläre owner-only Datei
+mit Modus `0600`. RN01 erzeugt solche Coverage nicht stillschweigend und
+startet dafür weder Tool noch Scan.
+
 ## Zulässiger W9-Plan
 
 Eine W10-Vorbereitung akzeptiert nur einen Plan, der alle folgenden
