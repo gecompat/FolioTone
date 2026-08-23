@@ -38,8 +38,13 @@ geänderten Python-Dateien grün, Mypy für 260 Source-Dateien ohne Befund und
 `git diff --check` sauber. Ein irrtümlich mit Unix-Zeilenfortsetzungen
 gestarteter PowerShell-Testaufruf wurde wegen potenziell zu breiter Collection
 ohne Ergebnis abgebrochen; danach lief kein Pytest-Prozess weiter. Die
-vollständige lokale Suite blieb unberührt, der einmalige PR-CI-Gate steht bis
-zum stabilen Head aus.
+vollständige lokale Suite blieb unberührt. Der einmalige PR-CI-Gate ist auf
+dem stabilen Head abgeschlossen: Head
+`97791b6acef00548cc864bad85bf45e0d87db7e9` bestand Quality-Run
+`32631068788` und Linux-Image-Run `32631068820`. PR #250 wurde als regulärer
+Zwei-Eltern-Merge-Commit `dad693b7e07d34736141f64066c11b3527345eac`
+integriert; Merge- und Feature-Tree sind identisch. Post-Merge-Run
+`32631240306` bestand den kurzen Vertrag.
 
 Der nächste Schritt ist keine freigegebene Implementierungswave. `FUT-011`
 bleibt das Architektur-Gate vor REST/API/UI und muss Produktshell,
@@ -112,16 +117,19 @@ wiederverwenden, sondern muss neu vorbereiten und autorisieren.
 Für RN03 bestanden lokal 53 direkt betroffene Authority-, Capability-,
 Executor-, Persistenz-, Safety-, Planfront- und Dokumentationsfälle in 16,05
 Sekunden. Zwei native Raw-Syscall-/Recovery-Fälle sind unter Windows
-erwartungsgemäß übersprungen und müssen im einmaligen Linux-PR-CI-Gate des
-stabilen Heads laufen. Ruff war für elf geänderte Python-Dateien grün, Mypy
-für fünf geänderte Source-Dateien ohne Befund und `git diff --check` sauber.
+erwartungsgemäß übersprungen und liefen im einmaligen Linux-PR-CI-Gate des
+stabilen Heads. Ruff war für elf geänderte Python-Dateien grün, Mypy für fünf
+geänderte Source-Dateien ohne Befund und `git diff --check` sauber.
 Der vollständige lokale Testbestand, reale E-Books, private Runtime-Daten,
 Docker und externe Tools wurden bewusst nicht verwendet. Der vollständige
-PR-CI-Gate ist noch nicht ausgeführt.
+PR-CI-Gate ist abgeschlossen: Head
+`b0283d0215be75a26590c104eff9bb569be57111` bestand Quality-Run
+`32628627937` und Linux-Image-Run `32628627929`; PR #249 wurde als
+Zwei-Eltern-Merge `be825f39e12fdb11a478a3cd1436b587c1b8b27c`
+integriert und Post-Merge-Run `32628774073` war grün.
 
-Es ist kein weiterer bekannter Blocker vor RN04 offen. Der ausstehende
-Linux-CI-Nachweis ist ein Verifikationspunkt. ADR-0066 bleibt `Accepted`, und
-RN03 ändert keine Provider-, Tool-, Lizenz- oder Netzwerkannahme.
+Vor RN04 war kein weiterer Blocker offen. ADR-0066 bleibt `Accepted`, und RN03
+ändert keine Provider-, Tool-, Lizenz- oder Netzwerkannahme.
 
 63 direkt betroffene Unit-, Planungs-, Safety-, Dokumentations-, Persistenz-,
 Migrations- und Testeffizienzfälle bestanden gezielt. Alle fünf RN02-

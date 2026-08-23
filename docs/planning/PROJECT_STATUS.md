@@ -52,7 +52,14 @@ abgebrochen, weil Unix-Zeilenfortsetzungen in PowerShell einen zu breiten
 Collection-Pfad erzeugen konnten. Danach lief kein Pytest-Prozess weiter; die
 identische Zielauswahl wurde über ein PowerShell-Argumentarray ausgeführt.
 Die vollständige lokale Suite wurde nicht ausgeführt. Der einmalige
-PR-CI-Gate bleibt bis zum stabilen Remote-Head ausstehend.
+PR-CI-Gate auf dem stabilen Head
+`97791b6acef00548cc864bad85bf45e0d87db7e9` ist abgeschlossen: Quality-Run
+`32631068788` und Linux-Image-Run `32631068820` waren grün. PR #250 wurde als
+regulärer Zwei-Eltern-Merge-Commit
+`dad693b7e07d34736141f64066c11b3527345eac` in `origin/main` integriert; sein
+Tree ist identisch zum geprüften Feature-Tree. Post-Merge-Run `32631240306`
+bestand ausschließlich den kurzen `post-merge-contract`; der vollständige
+`quality`-Job wurde auf `main` erwartungsgemäß übersprungen.
 
 Alle lokalen Tests verwenden nur kleine synthetische Bytes und temporäre
 SQLite-Datenbanken unter `C:\rep\tmp`. Die freigegebene reale Sammlung war
@@ -129,14 +136,15 @@ wurde daher nicht als bestanden gewertet.
 Die gezielte lokale RN03-Prüfung verwendet ausschließlich synthetische
 Authority-, SQLite-, Executor- und Dateisystemzustände. Reale E-Books, private
 Runtime-Daten, Docker, externe Tools und die vollständige lokale Suite wurden
-nicht verwendet. Der vollständige PR-CI-Gate ist vor dem Push noch nicht
-ausgeführt und wird gemäß Testpolicy genau einmal am stabilen Remote-Head
-gestartet.
+nicht verwendet. Der stabile Head
+`b0283d0215be75a26590c104eff9bb569be57111` bestand Quality-Run
+`32628627937` und Linux-Image-Run `32628627929`. PR #249 wurde als regulärer
+Zwei-Eltern-Merge-Commit `be825f39e12fdb11a478a3cd1436b587c1b8b27c`
+integriert; Post-Merge-Run `32628774073` war grün.
 
-Für den Start von RN04 ist derzeit kein fachlicher oder technischer Blocker
-bekannt. Die noch ausstehende Linux-CI-Ausführung ist ein Verifikationspunkt,
-kein Architekturentscheid. ADR-0066 bleibt `Accepted`; Provider-, Tool-,
-Lizenz- und Netzwerkannahmen haben sich in RN03 nicht geändert.
+Für den Start von RN04 war kein fachlicher oder technischer Blocker offen.
+ADR-0066 bleibt `Accepted`; Provider-, Tool-, Lizenz- und Netzwerkannahmen
+haben sich in RN03 nicht geändert.
 
 **S-W10-RN02 implementiert — Rename-Authority ist persistent, aber nicht ausführbar**
 
