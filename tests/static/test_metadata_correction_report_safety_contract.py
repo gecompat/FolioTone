@@ -70,7 +70,7 @@ def test_metadata_correction_cli_is_true_read_only_and_non_executable() -> None:
     assert "migrate(" not in runner
 
     parser_start = cli.index("metadata_correction_report = subparsers.add_parser")
-    parser_end = cli.index("archive_collection_status = subparsers.add_parser", parser_start)
+    parser_end = cli.index("ebook_rename_propose = subparsers.add_parser", parser_start)
     parser_block = cli[parser_start:parser_end]
     assert '"--private-details"' not in parser_block
     for forbidden in (
