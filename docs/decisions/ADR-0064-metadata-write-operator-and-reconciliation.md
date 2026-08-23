@@ -184,8 +184,9 @@ blockiert den Downgrade.
   ist ein expliziter Lease-Handoff mit erneuter physischer Prüfung.
 - `CollectionState` macht veraltete abgeleitete Evidence sichtbar; MW05
   behauptet keine kostenintensive vollständige Neuanalyse der Sammlung.
-- REST-API und GUI bleiben gemäß FUT-011 geschlossen und dürfen später nur
-  dieselben Application-Verträge aufrufen.
+- ADR-0067 entscheidet REST-API und Browser-UI inzwischen stufenweise. Der
+  EPUB-Titelwriter bleibt ohne eigene spätere Surface-Wave geschlossen; ein
+  Adapter darf nur dieselben Application-Verträge aufrufen.
 - Andere Formate, Felder, Zielträger und Mutationstypen bleiben hinter ihren
   eigenen Gates geschlossen.
 

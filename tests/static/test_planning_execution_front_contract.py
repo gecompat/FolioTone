@@ -28,6 +28,9 @@ OPERATION_RECIPE_ADR = (
 EBOOK_RENAME_ADR = (
     ROOT / "docs/decisions/ADR-0066-bounded-ebook-file-rename.md"
 )
+PRODUCT_SURFACE_ADR = (
+    ROOT / "docs/decisions/ADR-0067-local-single-operator-product-surface.md"
+)
 
 
 def _text(path: Path) -> str:
@@ -40,8 +43,8 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `FUT-011` (`DECISION`) |" in backlog
-    assert "| NEXT WAVES | keine freigegebene Implementierungswave |" in backlog
+    assert "| NOW | `S-FUT11-01` (`NEXT`) |" in backlog
+    assert "| NEXT WAVES | `S-FUT11-02` -> `S-FUT11-03` -> `S-FUT11-04` |" in backlog
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
     assert "| S-W9-006A | DONE |" in backlog
@@ -57,7 +60,11 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert "| S-W10-RN02 | DONE |" in backlog
     assert "| S-W10-RN03 | DONE |" in backlog
     assert "| S-W10-RN04 | DONE |" in backlog
-    assert "| FUT-011 | DECISION |" in backlog
+    assert "| FUT-011 | DONE |" in backlog
+    assert "| S-FUT11-01 | NEXT |" in backlog
+    assert "| S-FUT11-02 | PLANNED |" in backlog
+    assert "| S-FUT11-03 | PLANNED |" in backlog
+    assert "| S-FUT11-04 | PLANNED |" in backlog
     assert "| FG-W10-REORGANIZE | DECISION |" in backlog
     assert "| W10-005 | DONE |" in backlog
     assert "| W10-006 | DONE |" in backlog
@@ -107,9 +114,12 @@ def test_current_planning_sources_agree_on_delivery_front() -> None:
         assert "CS-03" in content, path
         assert "W9-007" in content, path
         assert "ADR-0066" in content, path
+        assert "ADR-0067" in content, path
         assert "S-W10-RN01" in content, path
         assert "S-W10-RN02" in content, path
         assert "S-W10-RN03" in content, path
+        assert "S-FUT11-01" in content, path
+        assert "S-FUT11-04" in content, path
 
 
 def test_current_status_does_not_reintroduce_superseded_w10_claims() -> None:
@@ -146,6 +156,8 @@ def test_ebook_write_pipeline_is_development_authorized_and_remains_gate_bound()
         "FG-W10-ARCHIVE-REWRITE",
         "REST-API und grafische Oberfläche",
         "Anfangs ist nur `E-Books` aktiv",
+        "local-single-operator/v1",
+        "S-FUT11-04",
         "kontrollierte Entwicklung",
         "Reale Mutation bleibt an",
     )
@@ -337,3 +349,56 @@ def test_first_source_metadata_writer_gate_is_narrow_and_reconciled() -> None:
     assert "| S-W10-MW04 | DONE |" in backlog
     assert "| S-W10-MW05 | DONE |" in backlog
     assert "| W10-006 | DONE |" in backlog
+
+
+def test_local_single_operator_surface_is_bounded_and_wave_planned() -> None:
+    adr = _text(PRODUCT_SURFACE_ADR)
+    documentation_index = _text(ROOT / "docs/README.md")
+    backlog = _text(BACKLOG)
+    safety = _text(SAFETY)
+
+    required = (
+        "- Status: Accepted",
+        "local-single-operator/v1",
+        "/api/v1",
+        "foliotone auth-bootstrap",
+        "foliotone auth-reset",
+        "Argon2id",
+        "15 bis 1.024 Unicode-Codepoints",
+        "SameSite=Strict",
+        "CSRF-Protection",
+        "OperatorGrant",
+        "/api/v1/private",
+        "Cache-Control: no-store",
+        "OpenAPI-3.1",
+        "RFC 9457",
+        "ApplicationJob",
+        "surface-api",
+        "analysis-worker",
+        "operator-worker",
+        "network=none",
+        "S-FUT11-01",
+        "S-FUT11-02",
+        "S-FUT11-03",
+        "S-FUT11-04",
+        "CONFIRM EBOOK RENAME",
+        "keinen Source-Media-Mount",
+        "Remote-/LAN-/öffentlichen oder Mehrbenutzerbetrieb",
+    )
+    assert all(marker in adr for marker in required)
+    assert "ADR-0067" in documentation_index
+    assert "| FUT-011 | DONE |" in backlog
+    assert "| S-FUT11-01 | NEXT |" in backlog
+    assert "| S-FUT11-02 | PLANNED |" in backlog
+    assert "| S-FUT11-03 | PLANNED |" in backlog
+    assert "| S-FUT11-04 | PLANNED |" in backlog
+    assert all(
+        marker in safety
+        for marker in (
+            "ADR-0067",
+            "local-single-operator/v1",
+            "operator-worker",
+            "ApplicationJob",
+            "Absolute Pfade bleiben auch dort verboten",
+        )
+    )

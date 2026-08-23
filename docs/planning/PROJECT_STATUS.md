@@ -4,6 +4,74 @@ Stand: 2026-08-23
 
 ## Aktuelle Welle
 
+**FUT-011 entschieden — lokale Einzelbenutzer-Produktoberfläche ist in vier Waves ausführbar geplant**
+
+ADR-0067 akzeptiert `local-single-operator/v1`. Die geplante Oberfläche
+verwendet eine loopback-only same-origin REST-API unter `/api/v1`, eine
+deutschsprachige responsive Browser-UI und dieselben adapterneutralen
+`ApplicationCommand`-/`ApplicationQuery`-Verträge wie CLI und Worker. Nur die
+E-Book-Linie wird aktiviert. Musik und Bilder erhalten getrennte, als nicht
+aktiviert erkennbare Navigationseinstiege; ein universeller `Asset`-Typ wird
+nicht eingeführt.
+
+Der erste Benutzer wird nicht durch den ersten beliebigen Webzugriff erzeugt.
+Ein owner-geschützter lokaler `auth-bootstrap`-Befehl liefert einen einmaligen,
+höchstens 15 Minuten gültigen Code nur am Terminal. Setup verlangt diesen
+Code, Benutzername und Passwort und legt atomar das einzige lokale
+Administratorkonto an. Passwörter werden mit Argon2id und versionierten
+Parametern gespeichert. Ein lokaler `auth-reset`-Pfad widerruft alle Sessions
+und Grants; E-Mail-Recovery und Sicherheitsfragen existieren nicht.
+
+Private Ansichten und operative Abläufe benötigen Passwort-Reauthentisierung
+und einen höchstens 15 Minuten gültigen `OperatorGrant`. Normale Projektionen
+bleiben ohne Pfade, Locator, Metadatenwerte, Hashes, Secrets und Capabilities.
+Private `/api/v1/private`-Projektionen verwenden `Cache-Control: no-store`,
+geben höchstens relative Locator aus und dürfen keine absoluten Hostpfade
+offenlegen.
+
+API/UI, read-only `analysis-worker` und netzloser `operator-worker` bleiben
+getrennte Prozessrollen. Der Webprozess besitzt keinen Source-Media-Mount und
+keine W10-Capability-Datei. Dauerhafte `ApplicationJob`-Datensätze verwenden
+Lease und Fencing, ersetzen aber weder `ScanRootWriteLease` noch eine
+operation-spezifische Authorization. Nach einer möglichen irreversiblen
+Grenze wird ein W10-Job nie still wiederholt.
+
+Die kanonische Folge ist jetzt:
+
+1. `S-FUT11-01` (`NEXT`): Application-Verträge, Composition Root,
+   Media-Line-Registry sowie erste gemeinsame Readiness-/`Library Health`-
+   Queries ohne HTTP/Auth/Worker;
+2. `S-FUT11-02` (`PLANNED`): lokale Auth-, Session-, OpenAPI-, Job-, Audit-
+   und getrennte Workerbasis ohne registrierte W10-Capability;
+3. `S-FUT11-03` (`PLANNED`): vollständige read-only E-Book-Oberfläche mit
+   Keyset-Pagination und begrenzten Private-Projektionen;
+4. `S-FUT11-04` (`PLANNED`): ausschließlich der vorhandene ADR-0066-Same-
+   Parent-Rename als erster GUI-Writer einschließlich Reauthentisierung,
+   exakter Bestätigung, Recovery, Folgescan und Reconciliation.
+
+Titelwriter und Interim-Quarantäne erhalten später getrennte UI-Waves.
+Remote-/Mehrbenutzerbetrieb, MCP, Music-/Image-Domainendpunkte und alle
+weiteren Writer bleiben außerhalb dieses Scopes. Die Annahme der ADR hat noch
+keinen HTTP-Server, Benutzer, Worker oder UI-Code implementiert. Reale E-Books
+und private Runtime-Daten wurden nicht verwendet. Provider-, Tool- und
+Lizenzannahmen ändern sich nicht; die Auth-/Session-/API-Grenzen wurden am
+2026-08-23 gegen die in ADR-0067 aufgeführten NIST-, OWASP-, OpenAPI- und
+RFC-9457-Quellen geprüft.
+
+Für `S-FUT11-01` ist kein bekannter fachlicher oder technischer Blocker offen.
+Die ressourcenschonende lokale Verifikation dieser docs-only
+Entscheidungswave ist abgeschlossen: 21 Planungs-/Dokumentationsverträge und
+21 direkt betroffene W10-/Rename-/Titelwrite-/`Library Health`-
+Sicherheitsverträge bestanden. Ruff war für die geänderte statische Testdatei
+grün; `git diff --check` war sauber. Ein erster Pytest-Aufruf ohne
+`PYTHONPATH=src` endete vor der Collection; die anschließend korrekt
+konfigurierte Zielauswahl bestand vollständig. Mypy, Docker, reale E-Books und
+die vollständige lokale Suite wurden für den reinen Dokumentations-/
+Vertragsscope nicht ausgeführt. Der einmalige vollständige PR-CI-Gate bleibt
+dem stabilen Head vorbehalten.
+
+## Vorherige abgeschlossene Wellen
+
 **S-W10-RN04 implementiert — enger Same-Parent-Rename ist über CLI vollständig reconciled**
 
 Die feste Bedienkette `ebook-rename-authorize`, `ebook-rename-execute`,
@@ -67,14 +135,11 @@ nicht erforderlich und wurde weder gelesen noch kopiert. Provider-, Tool-,
 Lizenz- und Netzwerkannahmen ändern sich durch RN04 nicht.
 
 Für das enge Same-Parent-Rename-Profil ist kein bekannter Implementierungs-
-blocker mehr offen. Die nächste gewünschte Produktoberfläche ist jedoch ein
-bewusstes Architektur-Gate: `FUT-011` muss vor REST/API/UI Authentisierung,
-Autorisierung, Deployment, OpenAPI, Pagination, Privacy, Audit und getrennte
-E-Book-/Musik-/Bilder-Einstiege entscheiden. Weitere E-Book-Writer bleiben
-hinter ihren separaten Sidecar-, External-Library-, Reorganize-, Archive-,
-Rollback-, Purge- oder Cleanup-Gates; RN04 gibt sie nicht frei.
-
-## Vorherige abgeschlossene Wellen
+blocker mehr offen. Das damals anschließende Architektur-Gate FUT-011 ist
+inzwischen durch ADR-0067 entschieden; die Umsetzung beginnt getrennt mit
+`S-FUT11-01`. Weitere E-Book-Writer bleiben hinter ihren separaten Sidecar-,
+External-Library-, Reorganize-, Archive-, Rollback-, Purge- oder Cleanup-
+Gates; RN04 und ADR-0067 geben sie nicht frei.
 
 **S-W10-RN03 implementiert — interner Rename-Executor ist verifizierbar, aber noch ohne Bedienkette**
 
@@ -950,10 +1015,9 @@ desselben `ScanRoot` ohne Kausalitätsbehauptung vergleichen. Weder Projektion
 noch Report erzeugen Identity-, Keep- oder Mutationsentscheidungen.
 
 Nach Abschluss von `CS-01` bis `CS-03` ist keine weitere Medienlinie
-automatisch aktiviert. Music W4 und Bilder bleiben geplant. FUT-011 verlangt
-vor REST-API oder grafischer Oberfläche eine eigene Produktoberflächen-ADR
-mit getrennten Einstiegspunkten je Medienlinie und strikt separaten W10-
-Capabilities; die aktive Oberfläche bleibt die CLI.
+automatisch aktiviert. Music W4 und Bilder bleiben geplant. Die damals noch
+offene FUT-011-Produktoberflächen-ADR ist inzwischen als ADR-0067 akzeptiert;
+die aktive Runtime bleibt bis zu den neuen Implementierungswaves bei der CLI.
 
 `EBOOK_WRITE_PIPELINE_PLAN.md` dokumentiert nun zusätzlich die vollständige
 book-only Leserichtung von Scan, Analyse, Quality, Resolution, Matching und
@@ -964,8 +1028,8 @@ kontrollierte Entwicklung, nicht eine pauschale reale Mutation. `W9-006` und
 `W9-007` sowie `S-W10-RN01` bis `S-W10-RN04` sind abgeschlossen. Der erste
 Metadata-Write-Vertrag ist abgeschlossen. ADR-0066 hat das rein
 dokumentarische `FG-W10-RENAME` nur für Same-Parent-`FILE_RENAME` entschieden;
-FUT-011 sowie Reorganisation, Sidecar-, externe Library- und Archive-Write-
-Gates bleiben getrennte `DECISION`s.
+FUT-011 ist durch ADR-0067 entschieden. Reorganisation, Sidecar-, externe
+Library- und Archive-Write-Gates bleiben getrennte `DECISION`s.
 
 **W10-Interim abgeschlossen — Executor und read-only Quarantänestatus sind vorhanden**
 
@@ -1437,7 +1501,7 @@ folgenden E-Book-Wellen.
 
 W0 bis W2 sind abgeschlossen. Der Incremental Index, die generische read-only ToolProvider Runtime, Filename-/Path-Kandidaten und versionierte Parsing-Profile wurden vollständig lokal geprüft. `W2-011` ergänzt begrenzte strict-JSON-Auswertung persistierter Tool-Artefakte und eine konservative Reanalyse-Entscheidung. Der Docker-Build-Kontext ist durch eine allowlist-basierte `.dockerignore` auf die tatsächlich paketierten Anwendungsdateien begrenzt.
 
-Die anfängliche Produktoberfläche bleibt auf ausdrückliche Benutzerentscheidung
+Die anfängliche Produktoberfläche war auf ausdrückliche Benutzerentscheidung
 ausschließlich die CLI. ADR-0016 dokumentiert diese Grenze. `W3-001` bewertet
 calibre, EPUBCheck, Poppler und qpdf; `W3-002` implementiert die erste feste,
 read-only `ebook-meta`-Befehlsform. `W3-003` ergänzt feste EPUB-
@@ -2504,8 +2568,9 @@ EA9/EA10-Abschluss und Source-Operations bleiben getrennt. Reale
 Passwortversuche bleiben bis FG-A-SECRET blockiert. W10 erlaubt ausschließlich
 die in ADR-0056 dokumentierte Interim-Ein-Datei-Quarantäne; die atomare
 No-Replace-Härtung bleibt als `FG-W10-MOVE-BACKEND` getrennt geplant. Music W4
-bleibt bis nach den drei book-only Produktprojektionen zurückgestellt. Die
-Produktoberfläche bleibt ausschließlich die CLI.
+bleibt bis nach den drei book-only Produktprojektionen zurückgestellt. Dieser
+historische Slice lieferte ausschließlich die CLI; ADR-0067 entscheidet die
+spätere lokale REST-/Browser-Oberfläche getrennt.
 
 ADR-0055 und S-EBAR-07A schließen den historischen W3-019-Vertrag ab.
 Archive-/Volume-Evidence, Missing-Volume-Findings, der pfadfreie
@@ -2616,7 +2681,7 @@ Noch nicht vorhanden sind unter anderem:
   Verzeichnisbereinigung; die enge Interim-Quarantäne einschließlich Execute
   und no-move Recovery sowie der begrenzte EPUB-Titelwriter sind operativ
   vorhanden, weitere Writer bleiben operation-spezifisch geschlossen;
-- Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
+- implementierte Web-API, Browser- oder Desktop-Oberfläche; ADR-0067 plant die lokale REST-/Browser-Produktoberfläche inzwischen in `S-FUT11-01` bis `S-FUT11-04`, die aktuelle Runtime bleibt bis dahin CLI-only.
 
 ## Sicherheitsgrenze
 

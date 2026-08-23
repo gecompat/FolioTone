@@ -15,7 +15,11 @@ die kontrollierte Entwicklung dieser E-Book-Writer mit synthetischen
 Fixtures, aber keine pauschale reale Mutation. Das Dokument erzeugt keine
 konkurrierende Statusachse.
 
-Under ADR-0016, the initial product surface remains CLI-only. W3 and the following early vertical slices do not add a web API, desktop interface or dashboard layer. The CLI stays a thin adapter to application/core contracts.
+ADR-0016 bleibt für die anfängliche CLI-only Implementierung historisch und
+fachlich gültig. ADR-0067 entscheidet inzwischen die stufenweise lokale
+Einzelbenutzer-Produktoberfläche. Bis die jeweilige FUT-011-Wave umgesetzt
+ist, bleibt die CLI der einzige ausführbare Adapter. CLI, REST und Worker
+verwenden danach dieselben Application-Verträge.
 
 ## Aktuelle Lieferfolge nach dem E-Book-Endgame
 
@@ -104,8 +108,40 @@ Authority, Capability, Probe, Fencing, insert-only Persistenz und read-only
 Status. `S-W10-RN03` ergänzt das feste interne Linux-No-Replace-Backend,
 unmittelbare Verifikation und Exact-State-Recovery. `S-W10-RN04` schließt die
 vier festen CLI-Kommandos, zweite Bestätigung, Scan-Handoff,
-`CollectionState` und immutable Reconciliation ab. Vor REST/API/UI oder einem
-weiteren Writer steht nun jeweils ein eigenes `DECISION`-Gate.
+`CollectionState` und immutable Reconciliation ab. ADR-0067 entscheidet die
+Produktoberfläche; weitere Writer behalten jeweils ihr eigenes technisches
+Gate und benötigen zusätzlich einen operation-spezifischen UI-Slice.
+
+## Lokale Produktoberfläche nach FUT-011
+
+Die nächste reguläre Produktfolge besteht aus genau vier kleinen Waves:
+
+1. `S-FUT11-01` ergänzt adapterneutrale `ApplicationCommand`-,
+   `ApplicationQuery`-, Context- und Error-Verträge, eine Composition Root
+   sowie die Media-Line-Registry. Tool-/Format-Readiness und `Library Health`
+   bilden den ersten doppelten CLI-/Application-Nachweis. Es entstehen noch
+   keine HTTP-, Auth-, Worker- oder Migrationsabhängigkeiten.
+2. `S-FUT11-02` implementiert `local-single-operator/v1` mit lokalem
+   One-time-Bootstrap, Username/Argon2id-Passwort, Session-, CSRF-, Reauth-,
+   Grant- und Audit-Vertrag, loopback-only `/api/v1`, gepinntem OpenAPI-3.1-
+   Schema sowie dauerhaften `ApplicationJob`-Events und Worker-Leases. API,
+   read-only Analyseworker und netzloser Operator-Worker bleiben getrennte
+   Prozessrollen; noch ist keine W10-Capability registriert.
+3. `S-FUT11-03` liefert die deutschsprachige responsive read-only E-Book-UI
+   für Scan/Status, Readiness, `CollectionState`, Suche, `Library Health`,
+   Analyse/Quality, Duplicate-/Varianten-Evidence, Review und nicht
+   ausführbare Pläne. Private relative Locator benötigen Reauthentisierung,
+   zeitbegrenzten `PRIVATE_READ`-Grant und getrennte `no-store`-Endpunkte.
+4. `S-FUT11-04` adaptiert ausschließlich den bestehenden ADR-0066-Same-
+   Parent-Rename. Passwort-Reauthentisierung und exakte aktionsspezifische
+   Bestätigung ergänzen, ersetzen aber weder One-use-W10-Authorization noch
+   Capability, Fencing, Recovery, Folgescan und Reconciliation. Nur der
+   Operator-Worker erhält den operation-spezifischen Source-Mount.
+
+Nur `EBOOK` ist aktiv. `MUSIC` und `IMAGE` besitzen getrennte als nicht
+aktiviert erkennbare Einstiege, aber keine vorgetäuschten Domainendpunkte. Ein
+Remote-/Mehrbenutzerprofil, MCP, Titelwriter-/Quarantäne-Controls und alle
+weiteren Writer bleiben außerhalb dieser vier Waves.
 
 ## W0 — Project Foundation
 
@@ -593,11 +629,10 @@ Diese späteren Erweiterungen blockieren die aktuelle Lieferfolge nicht:
 
 - medienübergreifende Generalisierung der durch `CS-03` zunächst book-only
   implementierten `Library Health`-Projektion;
-- eine Produktoberflächen-ADR vor REST-API, MCP, Web- oder Desktop-UI. Sie
-  muss stabile Application-Commands/-Queries, getrennte Einstiegspunkte für
-  E-Books, Musik, Bilder und spätere Linien, Authentisierung/Autorisierung,
-  Pagination, Privacy und Audit festlegen. Schreibende Endpunkte bleiben von
-  read-only Oberflächen getrennt und benötigen weiterhin eigene W10-Gates;
+- Remote-/Mehrbenutzerbetrieb, MCP oder eine native Desktop-UI über die durch
+  ADR-0067 akzeptierte lokale REST-/Browser-Oberfläche hinaus. Schreibende
+  Endpunkte bleiben von read-only Oberflächen getrennt und benötigen
+  weiterhin eigene W10-Gates sowie einen operation-spezifischen UI-Slice;
 - completeness/gap detection for series/albums/classical works;
 - cover/image perceptual fingerprints for editions/releases;
 - e-book structural/quality/content-diff analysis using mature tools where suitable;

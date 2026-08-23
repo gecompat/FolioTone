@@ -327,16 +327,20 @@ und read-only Diagnose.
 
 ## 7. REST-API und grafische Oberfläche
 
-FUT-011 verlangt vor API- oder UI-Code eine eigene Produktoberflächen-ADR.
-Bis zu deren Annahme bleibt die CLI der einzige aktive Adapter.
-
-Der planbare Zielvertrag ist:
+ADR-0067 entscheidet FUT-011 als `local-single-operator/v1`. Bis die
+jeweilige Implementierungswave abgeschlossen ist, bleibt die CLI der einzige
+aktive Adapter. Der akzeptierte Zielvertrag ist:
 
 - versionierte REST-Routen über denselben Application-Commands und -Queries,
   keine zweite Domainlogik;
-- OpenAPI-Schema, Authentisierung, rollen- und capability-basierte
-  Autorisierung, Keyset-Pagination, harte Request-/Response-Limits,
-  Idempotenz, Privacy-Redaction und Audit;
+- loopback-only same-origin Deployment, lokaler One-time-Bootstrap,
+  Benutzername/Argon2id-Passwort, serverseitige Sessions, CSRF-Schutz und
+  höchstens 15 Minuten gültige Private-/Operator-Grants;
+- gepinntes OpenAPI-3.1-Schema, scope- und capability-basierte Autorisierung,
+  Keyset-Pagination, harte Request-/Response-Limits, Idempotenz,
+  Privacy-Redaction und append-only Audit;
+- dauerhafte `ApplicationJob`-Ressourcen mit Status-Polling, Lease und
+  Fencing sowie getrennte passive Analyse- und Operator-Worker;
 - standardmäßig read-only Endpunkte für Scanstatus, Evidence, Quality,
   CollectionState, Diff, Suche, Library Health, Review und Planvorschau;
 - Write-Endpunkte ausschließlich für einzeln akzeptierte W10-Capabilities;
@@ -345,16 +349,19 @@ Der planbare Zielvertrag ist:
 - eine grafische Oberfläche als dünner Client mit getrennten Ansichten für
   Evidence, Vorschlag, Review, Plan, Authorization, Ausführung, Verifikation
   und Recovery;
-- keine absolute Source-Pfad-, Secret-, private Metadaten- oder
-  Collection-Inventar-Ausgabe ohne ausdrücklich begrenztes lokales
-  Berechtigungsprofil.
+- getrennte `/api/v1/private`-Projektionen mit `Cache-Control: no-store` und
+  Passwort-Reauthentisierung; auch sie geben keine absoluten Pfade, Secrets,
+  Capability-Inhalte oder vollständigen Collection-Exporte aus;
+- keine Source-Media-Mounts oder W10-Capability-Dateien im API-/UI-Prozess.
 
 Die Produktoberfläche erhält eine medienneutrale Shell und eine Registry der
 fachlichen Linien. `E-Books`, `Musik`, `Bilder` und spätere Linien besitzen
 eigene Menü-/Navigationseinstiege, Capability-Sets und Application-Routen.
 Anfangs ist nur `E-Books` aktiv. Gemeinsame Infrastruktur darf die getrennten
 fachlichen Identitätsebenen nicht in einen universellen Asset-Vertrag
-zusammenziehen.
+zusammenziehen. Die erste schreibende UI-Wave adaptiert ausschließlich den
+bereits vollständigen ADR-0066-Same-Parent-Rename; Titelwriter und Quarantäne
+folgen nur in getrennten späteren Produktoberflächen-Waves.
 
 ## 8. Lieferfolge in kleinen Waves
 
@@ -391,16 +398,23 @@ ADR-0061, ADR-0062 und ADR-0063 aktivieren die folgenden getrennt prüfbaren Wav
    Fencing, Journal, Exact-State-Recovery, Scan und Reconciliation. Parent-
    wechsel bleiben hinter `FG-W10-REORGANIZE`.
 
-RN01 bis RN04 sind abgeschlossen. Es gibt danach keine automatisch
-freigegebene Implementierungswave:
+RN01 bis RN04 sind abgeschlossen. ADR-0067 aktiviert danach genau diese vier
+aufeinander aufbauenden Implementierungswaves:
 
-1. `FUT-011` entscheidet vor jedem REST/API/UI-Code die medienneutrale Shell,
-   getrennte E-Book-/Musik-/Bilder-Einstiege, OpenAPI, Authentisierung,
-   Autorisierung, Pagination, Privacy, Audit und Deployment;
-2. schreibende Controls benötigen zusätzlich die jeweils vollständig
-   implementierte operation-spezifische W10-Kette;
-3. Sidecar-, externe Library-, Reorganisations-, Archive-, Rollback-, Purge-
-   und Cleanup-Writer bleiben bis zu ihrem eigenen Gate unerreichbar.
+1. `S-FUT11-01` extrahiert Application-Contracts, Composition Root und
+   Media-Line-Registry ohne HTTP-/Auth-/Worker-Abhängigkeit;
+2. `S-FUT11-02` liefert lokale Auth-, Session-, API-, Job- und getrennte
+   Workerbasis, noch ohne registrierte W10-Capability;
+3. `S-FUT11-03` liefert die read-only E-Book-UI und lässt Musik/Bilder
+   ausdrücklich inaktiv;
+4. `S-FUT11-04` adaptiert ausschließlich den vollständigen ADR-0066-Same-
+   Parent-Rename mit Reauthentisierung und exakter Bestätigung.
+
+Schreibende Controls benötigen weiterhin die jeweils vollständig
+implementierte operation-spezifische W10-Kette. Titelwriter und Quarantäne
+erhalten später getrennte Surface-Waves. Sidecar-, externe Library-,
+Reorganisations-, Archive-, Rollback-, Purge- und Cleanup-Writer bleiben bis
+zu ihrem eigenen Gate unerreichbar.
 
 Music, Bilder und weitere Linien starten nur nach ausdrücklicher Aktivierung.
 

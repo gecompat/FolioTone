@@ -305,8 +305,10 @@ Bestätigung erfolgt über nicht geloggtes `stdin`.
 Der normale Analysebetrieb behält read-only `/media`-Mounts. Ein Write-Lauf
 benötigt einen separat gestarteten, explizit read-write bereitgestellten Mount
 für genau die lokale Capability. Die Runtime darf weder Mounts ändern noch
-Tools installieren. REST-API und grafische Oberfläche bleiben bis FUT-011
-geschlossen und können später nur dieselben Application-Verträge aufrufen.
+Tools installieren. ADR-0067 entscheidet REST-API und grafische Oberfläche
+inzwischen stufenweise; der Titelwriter bleibt bis zu seiner eigenen späteren
+Surface-Wave geschlossen und kann dann nur dieselben Application-Verträge
+verwenden.
 
 ## Lieferpakete
 

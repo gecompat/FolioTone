@@ -345,8 +345,10 @@ Scan verwendet Full-SHA-256 und genau einen Worker. Eine frische Run-Fence
 bindet anschließend physischen Zustand, Scan-Evidence, `CollectionState`,
 immutable Reconciliation und Terminalstatus atomar. Uneindeutigkeit endet
 bei `MANUAL_RECOVERY_REQUIRED`; der Folgescan vereinigt keine `FileRecord`-
-Identitäten. Parentwechsel bleiben hinter `FG-W10-REORGANIZE`, REST/API/UI
-hinter FUT-011.
+Identitäten. Parentwechsel bleiben hinter `FG-W10-REORGANIZE`. ADR-0067
+entscheidet die lokale Produktoberfläche, erlaubt als ersten GUI-Writer aber
+ausschließlich einen Adapter für genau diese vorhandene Same-Parent-Rename-
+Kette.
 
 Ein ausführbarer Consolidation-Teil darf nicht lediglich durch einen CLI-
 Schalter aktiviert werden. Er benötigt weiterhin mindestens:
@@ -371,6 +373,30 @@ Ein W10-Writer erhält keine allgemeine Schreibfreigabe für
 `/media`. Er verwendet ausschließlich die engste lokal aufgelöste Capability
 seines Operationstyps. Fehlt sie oder ist ihre Revalidierung nicht eindeutig,
 endet die Operation fail-closed vor der Mutation.
+
+## Produktoberflächen- und Worker-Sicherheit
+
+ADR-0067 akzeptiert ausschließlich `local-single-operator/v1`. Der
+same-origin HTTP-Dienst bindet nur an Loopback, besitzt keinen Source-Media-
+Mount und erhält keine W10-Capability-Datei. Wildcard-, LAN-, öffentliche und
+Trusted-Proxy-Bindungen werden im v1-Profil fail-closed abgewiesen.
+
+Read-only Sourcezugriffe erfolgen im getrennten `analysis-worker`. Nur der
+netzlose `operator-worker` darf einen ausdrücklich registrierten W10-Command
+konsumieren und dafür die operation-spezifische owner-only Capability sowie
+den erforderlichen beschreibbaren Mount erhalten. Ein `ApplicationJob`, eine
+HTTP-Session, ein `OperatorGrant`, ein UI-Control oder ein Idempotency-Key
+ersetzt weder die vorhandene W10-Authorization noch Root-Fencing,
+Bestätigung, Verifikation, Journal und Recovery.
+
+Normale API-Projektionen bleiben pfad-, locator-, metadatawert-, hash-,
+secret- und capabilityfrei. Private Ansichten benötigen Passwort-
+Reauthentisierung und einen höchstens 15 Minuten gültigen `OperatorGrant`,
+liegen unter einem getrennten `no-store`-Endpunkt und geben höchstens
+ScanRoot-relative Locator aus. Absolute Pfade bleiben auch dort verboten.
+Ein W10-Job wird nach einer möglichen irreversiblen Grenze niemals still
+wiederholt; Leaseverlust oder Crash führen in die operation-spezifische
+Status-/Recoverykette.
 
 ## Private data
 

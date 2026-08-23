@@ -77,6 +77,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0064](decisions/ADR-0064-metadata-write-operator-and-reconciliation.md) bindet dessen feste CLI, zweite Bestätigung, unmittelbare Source-Verifikation, Lease-Handoff, neuen Scan, `CollectionState` und immutable Reconciliation.
 - [ADR-0065](decisions/ADR-0065-non-executable-ebook-operation-recipes.md) definiert operationstypisierte, content-addressed `EbookOperationRecipeCandidate`- und `EbookOperationRecipePlan`-Snapshots für sechs Datei-/Containeroperationen mit permanenter `NOT_EXECUTABLE`-Grenze.
 - [ADR-0066](decisions/ADR-0066-bounded-ebook-file-rename.md) entscheidet den ersten Datei-Writer ausschließlich für byte-identischen Same-Parent-Rename mit privater Capability, Linux-`renameat2(RENAME_NOREPLACE)`, Exact-State-Recovery und nicht vereinigender Scan-Reconciliation.
+- [ADR-0067](decisions/ADR-0067-local-single-operator-product-surface.md) entscheidet die lokale Einzelbenutzer-Produktoberfläche mit gemeinsamen Application-Verträgen, loopback-only REST-API, Browser-UI, Bootstrap/Auth, dauerhaften Jobs und getrenntem Operator-Worker.
 
 ## Qualität, Sprache und Dokumentationsregeln
 
