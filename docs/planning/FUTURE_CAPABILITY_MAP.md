@@ -2,7 +2,7 @@
 
 **Status:** Entwurf; die book-only Produktprojektionen wurden in ADR-0058 und
 `BACKLOG.md` übernommen
-**Stand:** 2026-08-22
+**Stand:** 2026-08-23
 **Scope:** langfristige Produktfähigkeiten und Medienlinien
 
 ## Zweck und Autorität
@@ -69,10 +69,12 @@ vollständigen content-addressed, reviewten und read-only sichtbaren Vertrag
 der dauerhaft nicht ausführbaren Operationsrezepte. ADR-0066 entscheidet
 davon ausschließlich den Same-Parent-`FILE_RENAME`; `S-W10-RN01`,
 `S-W10-RN02`, `S-W10-RN03` und `S-W10-RN04` sind umgesetzt.
-`FILE_REORGANIZE` bleibt
-getrennt hinter `FG-W10-REORGANIZE`. Eine weitere Medienlinie oder
-Produktoberfläche ist nicht automatisch aktiviert. Der genaue Paketstatus
-wird hier nicht dupliziert.
+`FILE_REORGANIZE` bleibt getrennt hinter `FG-W10-REORGANIZE`. ADR-0067 hat
+FUT-011 inzwischen als lokale Einzelbenutzer-Produktoberfläche entschieden;
+`S-FUT11-01` bis `S-FUT11-04` liefern Application-Grenze, Auth/API/Worker,
+read-only E-Book-UI und ausschließlich den vorhandenen Same-Parent-Rename als
+ersten GUI-Writer. Eine weitere Medienlinie ist dadurch nicht aktiviert. Der
+genaue Paketstatus wird hier nicht dupliziert.
 
 ## Empfohlene Entwicklungsfolge
 
@@ -222,29 +224,30 @@ Korpusentscheidungen unnötig koppeln.
 
 ### Phase 7: Oberflächen und kontrollierte Ausführung
 
-**Einordnung:** Forschungsfrage; ausführende Teile W10-blockiert
+**Einordnung:** bestehender Plan, aktuell; ausführende Teile bleiben
+operation-spezifisch W10-gate-gebunden
 
-API, MCP, Web- oder Desktop-Oberfläche und ein Watcher/Daemon folgen erst,
-wenn Query-, Policy-, Review- und Plan-Application-Verträge stabil sind.
-Die CLI bleibt bis dahin Referenzadapter.
+ADR-0067 akzeptiert die erste REST-/Browser-Oberfläche ausschließlich als
+`local-single-operator/v1`. MCP, native Desktop-Oberfläche, Remote-/
+Mehrbenutzerbetrieb und ein allgemeiner Watcher/Daemon bleiben spätere
+Entscheidungen. Die CLI bleibt Referenzadapter und wird schrittweise auf die
+gleichen Application-Verträge umgestellt.
 
-Die erste Produktoberflächen-ADR muss eine medienneutrale Shell mit einer
-expliziten Registry fachlicher Linien definieren. E-Books, Musik, Bilder und
-jede spätere Linie erhalten eigene Navigationseinstiege, Capability-Sets und
-Application-Routen; gemeinsam bleiben nur Identity-, Evidence-, Review-,
-Policy- und Persistenzinfrastruktur. Anfangs ist ausschließlich der
-E-Book-Einstieg aktiv. Deaktivierte oder noch nicht implementierte Linien
-werden als solche ausgewiesen und nicht durch leere generische Ansichten
-vorgetäuscht.
+Die medienneutrale Shell verwendet eine explizite Registry fachlicher Linien.
+E-Books, Musik, Bilder und jede spätere Linie erhalten eigene
+Navigationseinstiege, Capability-Sets und Application-Routen; gemeinsam
+bleiben Shell-, Auth-, Job-, Audit- und geeignete Core-Infrastruktur. Anfangs
+ist ausschließlich der E-Book-Einstieg aktiv. Deaktivierte Linien werden als
+solche ausgewiesen und nicht durch leere generische Ansichten vorgetäuscht.
 
-Eine REST-API ist ein versionierter Adapter über dieselben Application-
-Commands und -Queries, keine zweite Domainlogik. Vor Implementierung sind
-OpenAPI-Schema, Authentisierung, rollen- und capability-basierte
-Autorisierung, Keyset-Pagination, Request-/Response-Limits, Idempotenz,
-Fehlerliterale, Privacy-Redaction, Audit und lokale Deployment-Grenzen zu
-entscheiden. Die grafische Oberfläche bleibt ein dünner Client dieses
-Vertrags und muss Planvorschau, Evidence-Erklärung, Review und explizite
-Bestätigungen getrennt darstellen.
+Die REST-API unter `/api/v1` ist ein versionierter Adapter über dieselben
+Application-Commands und -Queries, keine zweite Domainlogik. ADR-0067 bindet
+loopback-only same-origin Deployment, lokalen One-time-Bootstrap,
+Username/Argon2id-Passwort, serverseitige Sessions, Reauthentisierung,
+OpenAPI 3.1, Keyset-Pagination, harte Limits, Idempotenz, Privacy-Redaction,
+Audit und dauerhafte Jobs. Die grafische Oberfläche bleibt ein dünner Client
+dieses Vertrags und stellt Planvorschau, Evidence-Erklärung, Review,
+Authorization, Ausführung und Recovery getrennt dar.
 
 Eine ausführende Ebene ist davon getrennt. W10 benötigt eine eigene
 Sicherheitsentscheidung und darf nicht aus einem UI- oder API-Bedarf
@@ -279,7 +282,7 @@ ist, existiert dafür weder REST-Endpunkt noch aktivierbares UI-Control.
 | Video | technische und später fachliche audiovisuelle Evidence | Forschungsfrage | keine kanonische Welle | Tool-/Domain-/Provider-Gate |
 | Confidence-Kalibrierung | profilgebundene Scores an geprüfter Ground Truth bewerten | Forschungsfrage | FUT-005 berührt Review-Lernen | relationstypbezogener Korpus und Eval-Vertrag |
 | KI-Query/Explanation | natürliche Sprache sicher übersetzen und Evidence erklären | Forschungsfrage | keine | gleicher Query-AST; keine Decision Authority |
-| API/MCP/UI | stabile Application-Verträge außerhalb der CLI mit eigenen Einstiegen je Medienlinie anbieten | Forschungsfrage | ADR-0016 stellt zurück; FUT-011; `EBOOK_WRITE_PIPELINE_PLAN.md` | neue Produktoberflächen-ADR einschließlich REST/OpenAPI, Auth, Privacy, Audit und strikt getrennten W10-Capabilities |
+| REST/API/UI | lokale stabile Application-Verträge außerhalb der CLI mit eigenen Einstiegen je Medienlinie anbieten | bestehender Plan, aktuell | ADR-0067, FUT-011, `S-FUT11-01` bis `S-FUT11-04`, `EBOOK_WRITE_PIPELINE_PLAN.md` | vier Waves in Reihenfolge umsetzen; Remote/Mehrbenutzer, MCP sowie weitere GUI-Writer getrennt entscheiden |
 | kontrollierte Mutation | geprüfte Pläne entsprechend ihrer Reversibilitätsklasse ausführen | ADR-0056-Quarantäne, ADR-0063/ADR-0064-EPUB-Titelwriter und ADR-0066-Same-Parent-Rename einschließlich RN01 bis RN04 operativ; ADR-0065 plant sechs weitere Typen nicht ausführbar | ADR-0056, ADR-0061, ADR-0063 bis ADR-0066, `W10-005`, `FG-W10-MOVE-BACKEND` und verbleibende operation-spezifische Write-Gates | Sidecar-, externe Library-, Reorganisations-, Archive-, Rollback-, Purge- und Cleanup-Verträge getrennt entscheiden |
 
 ## Medienabdeckung

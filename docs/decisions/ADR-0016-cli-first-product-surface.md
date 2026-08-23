@@ -27,3 +27,11 @@ Diese Entscheidung verändert weder den analysis-only Produktmodus noch die W10-
 - CLI-Ausgaben benötigen klare Fehler- und Exit-Code-Semantik; maschinenlesbare Ausgabeformate werden pro Workflow eingeführt, wenn ein konkreter Automationsbedarf besteht.
 - Es entsteht vorerst kein HTTP-Server, kein Browser-Frontend und keine Desktop-GUI-Abhängigkeit.
 - `Library Health` bleibt als spätere Produktoberfläche möglich, ohne die aktuelle Komponenten- und Dependency-Richtung zu ändern.
+
+## Fortschreibung
+
+ADR-0067 entscheidet die hier ausdrücklich vorgesehene spätere Scope-
+Erweiterung als stufenweise lokale Einzelbenutzer-Produktoberfläche. ADR-0016
+bleibt für die anfängliche CLI-only Umsetzung und die Anforderung gemeinsamer
+Application-/Core-Verträge gültig. Bis die jeweilige FUT-011-Wave
+implementiert ist, bleibt die CLI der einzige ausführbare Adapter.

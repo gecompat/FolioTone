@@ -58,9 +58,14 @@ If repository code and documentation disagree, treat the discrepancy as a defect
   development. ADR-0061 authorizes further E-book writer implementation with
   synthetic fixtures; only an operation with its own accepted technical ADR,
   complete Authorize/Execute/Recovery chain and local capability may mutate
-  real Source Media. ADR-0056 interim quarantine is currently the only such
-  mutation contract.
-- Current product surface: CLI only; no web API, desktop UI or dashboard is in the active scope.
+  real Source Media. Operativ vollständig sind nur die enge ADR-0056-Interim-
+  Quarantäne, der ADR-0063/ADR-0064-EPUB-3-Titelwriter und der
+  ADR-0066-Same-Parent-Rename; keine dieser Ketten öffnet einen benachbarten
+  Mutationstyp.
+- Current implemented product surface: CLI. ADR-0067 authorizes only the
+  staged `local-single-operator/v1` REST/browser surface in `S-FUT11-01` to
+  `S-FUT11-04`; no runtime capability exists before its wave is implemented.
+  Remote/multi-user deployment, MCP and native desktop UI remain out of scope.
 - **Orchestration first:** before implementing substantial specialist media functionality, evaluate maintained tools with stable documented automation interfaces.
 - External specialist tools are replaceable `ToolProvider` integrations; their schemas/commands do not define the core model.
 - External tool results are provenance-preserving observations/evidence, never unquestioned canonical truth.

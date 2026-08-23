@@ -20,7 +20,36 @@ See `docs/decisions/ADR-0010-tool-provider-orchestration.md` and `docs/reference
 
 ## Current product surface
 
-Under ADR-0016, FolioTone initially exposes only a CLI. The CLI remains a thin adapter and does not own domain logic. A web API, desktop interface or dashboard is outside the active W3 scope. Any later product surface must reuse the application/core contracts and requires an explicit scope or architecture decision.
+ADR-0016 beschreibt die anfängliche CLI-only Oberfläche; die aktuell
+implementierte Runtime bleibt bis zum Abschluss der jeweiligen neuen Wave bei
+diesem Stand. ADR-0067 akzeptiert inzwischen die stufenweise
+`local-single-operator/v1`-Oberfläche mit loopback-only REST-API,
+same-origin Browser-UI und passiven Workern. CLI, HTTP und Worker verwenden
+dabei dieselben adapterneutralen Application-Verträge.
+
+Nur die E-Book-Linie wird aktiviert. Musik und Bilder erhalten getrennte, als
+nicht aktiviert erkennbare Navigationseinstiege, aber keine vorgetäuschten
+Domainendpunkte. Die gemeinsame Shell führt keinen universellen `Asset`-Typ
+ein. Remote-/Mehrbenutzerbetrieb, MCP und weitere Medienlinien bleiben
+getrennte Entscheidungen.
+
+### Product Surface und Worker
+
+ADR-0067 trennt die lokale Oberfläche in drei Prozessrollen:
+
+- `surface-api` liefert UI und `/api/v1`, verwaltet Auth, Sessions, Jobs und
+  Audit, besitzt aber weder Source-Media-Mount noch W10-Capability-Datei;
+- `analysis-worker` verarbeitet dauerhafte read-only Scan-, Analyse- und
+  Projektionsjobs mit read-only Source Media;
+- `operator-worker` besitzt keine eingehende Netzwerkfläche und konsumiert
+  nur explizit registrierte W10-Commands. Ausschließlich dieser Prozess darf
+  die jeweils enge lokale Capability und den erforderlichen beschreibbaren
+  Mount erhalten.
+
+Ein `ApplicationJob` besitzt eigene Lease-/Fencing-Semantik, ersetzt aber
+weder `ScanRootWriteLease` noch eine operation-spezifische W10-Authorization.
+Nach einer möglichen irreversiblen Grenze wird ein W10-Job nicht automatisch
+wiederholt, sondern in den vorhandenen Status-/Recoveryweg überführt.
 
 ## Components
 
@@ -401,8 +430,10 @@ atomare Reconciliation bindet das alte `MISSING`-`FileRecord` über sein
 Scan-Event und das getrennte neue `NEW`-Target-`FileRecord`; sie schreibt
 keine Relocation als Identity-Merge um. Nach Reverse-Recovery bindet sie die
 wieder aktuelle Source und weiterhin fehlende Target-Historie.
-`FILE_REORGANIZE` bleibt hinter `FG-W10-REORGANIZE`, REST/API/UI hinter
-FUT-011.
+`FILE_REORGANIZE` bleibt hinter `FG-W10-REORGANIZE`. ADR-0067 erlaubt als
+erste schreibende UI-Wave ausschließlich einen Adapter für den bereits
+vollständigen Same-Parent-Rename; Titelwrite, Quarantäne und weitere Writer
+benötigen getrennte Produktoberflächen-Waves.
 
 Für die Interim-Quarantäne stellen `S-W10-05A` bis `S-W10-05D` private
 Capability-Auflösung, current-state-gebundenes Authorize, das einmalige
@@ -443,6 +474,9 @@ Allowed high-level dependency direction:
 
 ```text
 cli -> application/core interfaces
+browser ui -> versioned rest adapter
+rest adapter -> application interfaces
+analysis/operator worker -> application interfaces
 index -> core + persistence interfaces
 filename/path parsing -> core candidate contracts
 tooling -> core tool/evidence contracts + adapter interfaces

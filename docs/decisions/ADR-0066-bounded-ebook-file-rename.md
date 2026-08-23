@@ -469,10 +469,11 @@ Physical-Digests. Nur die ausdrücklich lokale Planungsansicht
 `ebook-rename-preview --private-details` darf relative Source-/Ziel-Locators
 zeigen.
 
-REST-API und grafische Oberfläche bleiben bis FUT-011 geschlossen. Spätere
-Adapter dürfen ausschließlich dieselben Application-Commands und -Queries
-aufrufen und erhalten keine zusätzliche Mutation Authority. Andere
-Medienlinien besitzen später eigene Menü- und Capability-Einstiege.
+ADR-0067 entscheidet REST-API und grafische Oberfläche inzwischen stufenweise.
+`S-FUT11-04` darf ausschließlich diese vollständige Same-Parent-Rename-Kette
+adaptieren. Der Adapter ruft dieselben Application-Commands und -Queries auf
+und erhält keine zusätzliche Mutation Authority. Andere Medienlinien besitzen
+eigene Menü- und Capability-Einstiege.
 
 ## Lieferpakete
 
@@ -495,8 +496,9 @@ Nach jeder Wave bleiben andere Operationsarten unerreichbar. RN01 bis RN04
 sind umgesetzt. RN04 öffnet ausschließlich die vier festen CLI-Befehle des
 hier entschiedenen Same-Parent-Rename-Profils, gibt die Run-Lease vor dem
 Folgescan frei und persistiert Reconciliation plus terminalen Status atomar.
-REST/API/UI bleiben bis FUT-011 geschlossen; alle anderen Operationsarten
-benötigen weiterhin ihr eigenes Gate.
+REST/API/UI für diesen Operationstyp bleiben bis `S-FUT11-04` geschlossen;
+alle anderen Operationsarten benötigen weiterhin ihr eigenes Gate und eine
+getrennte Surface-Wave.
 
 ## Synthetische Verifikation
 

@@ -99,11 +99,12 @@ kleinsten vertikalen Writer-Slice. `W9-007` und die übrigen Writer folgen in
 eigenen Waves; ihre Reihenfolge darf anhand von Produktnutzen und belegter
 Recovery-Fähigkeit angepasst werden, ohne die Operationstrennung zu lockern.
 
-REST-API und grafische Oberfläche bleiben bis FUT-011 und einer eigenen
-Produktoberflächen-ADR zurückgestellt. Eine spätere Oberfläche verwendet
-dieselben Application-Verträge und kann keine zusätzliche Mutation Authority
+ADR-0067 entscheidet FUT-011 inzwischen als stufenweise lokale
+Einzelbenutzer-Produktoberfläche. Die späteren Adapter verwenden dieselben
+Application-Verträge und können keine zusätzliche Mutation Authority
 erzeugen. E-Books, Musik, Bilder und weitere Linien erhalten getrennte
-Einstiege und Capability-Sets; diese ADR aktiviert nur die E-Book-Linie.
+Einstiege und Capability-Sets; diese ADR aktiviert weiterhin nur die E-Book-Linie.
+ADR-0067 aktiviert ebenfalls keine weitere fachliche Linie.
 
 ## Folgen
 

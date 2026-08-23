@@ -13,11 +13,11 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | `FUT-011` (`DECISION`) | Das enge Same-Parent-Rename-Profil ist mit RN04 operativ abgeschlossen. Vor REST/API/UI oder einem weiteren Writer ist nun eine eigene Produkt- beziehungsweise operation-spezifische Architekturentscheidung erforderlich; es gibt keine still freigegebene Implementierungswave. |
+| NOW | `S-FUT11-01` (`NEXT`) | ADR-0067 entscheidet den lokalen Einzelbenutzer-Scope. Der nächste kleinste Slice extrahiert adapterneutrale Application-Verträge und die Media-Line-Registry, ohne bereits HTTP-, Auth-, Worker- oder UI-Abhängigkeiten einzuführen. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
-| NEXT WAVES | keine freigegebene Implementierungswave | `FUT-011` entscheidet zuerst die medienneutrale Produktshell und den REST-/OpenAPI-/Auth-Vertrag. Sidecar-, externe Library-, Reorganisations-, Archive-, Rollback-, Purge- und Cleanup-Writer benötigen weiterhin jeweils ihr eigenes Gate. |
+| NEXT WAVES | `S-FUT11-02` -> `S-FUT11-03` -> `S-FUT11-04` | Danach folgen lokale Auth-/API-/Worker-Basis, read-only E-Book-UI und ausschließlich der bereits vollständig freigegebene Same-Parent-Rename als erster GUI-Writer. Jede Wave bleibt von der erfolgreichen Vorgängerwave abhängig. |
 | LATER | W4 sowie die Music-Anteile aus W5 bis W7 | Music bleibt die nächste vollständige Mediendomäne nach ausdrücklicher Aktivierung; weitere Medien erhalten eigene Einstiegspunkte. |
-| DECISION | `FUT-011`, `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-REORGANIZE`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004 | RN04 öffnet nur die CLI des engen Same-Parent-Rename-Profils. Produktshell/API/UI und alle benachbarten Operationen behalten ihr eigenes Architektur- beziehungsweise technisches Gate. |
+| DECISION | `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-REORGANIZE`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004 | ADR-0067 öffnet keine benachbarte Operation. Titelwrite und Quarantäne benötigen vor UI-Controls jeweils eine getrennte Produktoberflächen-Wave; die übrigen Operationen behalten zusätzlich ihr technisches Gate. |
 | BLOCKED | `FG-A-SECRET`, `FG-A3-MEMBER-BYTE` | Secretkanal und Archive-Member-Byte-Identity sind von der E-Book-Write-Freigabe nicht betroffen. |
 
 Andere Planungsdokumente erläutern diese Aufgaben, setzen aber keine eigene
@@ -308,7 +308,20 @@ Interim-Quarantäneexecutor öffnen.
 | FUT-008 | PLANNED | Reproducible transformation/normalization recipes with versioning, dry-run and replay semantics. |
 | FUT-009 | PLANNED | Integrity/fixity monitoring for unexpected file changes/bit rot independent of duplicate detection. |
 | FUT-010 | DECISION | Decide ADR-0042 and the staged FG-FED-IDENTITY/BUNDLE/MERGE/CARRIER contracts for portable object lineage and bounded, idempotent exchange between FolioTone systems. The first slice uses only synthetic packages and read-only carrier detection; it must define node clone/restore semantics, privacy, trust, replay/conflict handling and Decision Compatibility without introducing a universal Asset type. Embedded metadata, Sidecar and external-library writes remain separate W10-blocked work. |
-| FUT-011 | DECISION | Plane vor API/UI-Code eine eigene Produktoberflächen-ADR: versionierte Application-Commands/-Queries, getrennte Einstiegspunkte für E-Books, Musik, Bilder und spätere Linien, REST-/OpenAPI-Vertrag, Authentisierung/Autorisierung, Pagination, Privacy, Audit sowie strikt getrennte Read- und W10-Write-Capabilities. `EBOOK_WRITE_PIPELINE_PLAN.md` hält die Zielgrenze fest; bis zur ADR bleibt ausschließlich die CLI aktiv. |
+| FUT-011 | DONE | ADR-0067 akzeptiert `local-single-operator/v1`: gemeinsame Application-Verträge für CLI/REST/Worker, getrennte E-Book-/Musik-/Bilder-Einstiege, loopback-only same-origin REST-/Browser-Shell, Username/Passwort mit lokalem One-time-Bootstrap, zeitbegrenzte Private-/Operator-Grants, OpenAPI, Keyset-Pagination, Privacy, Audit, dauerhafte Jobs und einen vom Webprozess getrennten Operator-Worker. Nur E-Books werden aktiviert; jede W10-Oberfläche bleibt operation-spezifisch. |
+
+## Lokale Produktoberfläche (FUT-011)
+
+ADR-0067 bindet genau vier aufeinander aufbauende Waves. Bis eine Wave
+implementiert ist, bleibt der entsprechende Runtime-Teil unverfügbar. Keine
+Wave aktiviert Remote-/Mehrbenutzerbetrieb oder einen neuen Mutationstyp.
+
+| ID | Status | Item |
+|---|---|---|
+| S-FUT11-01 | NEXT | Ergänze versionierte adapterneutrale `ApplicationCommand`-/`ApplicationQuery`-/Context-/Error-Verträge, eine Composition Root und die Media-Line-Registry. Führe Tool-/Format-Readiness und `Library Health` als erste read-only E-Book-Queries darüber; stelle die betroffenen CLI-Wege ohne Ausgabeänderung um. Keine HTTP-, Auth-, Worker-, Migrations- oder Source-Media-Write-Fläche. |
+| S-FUT11-02 | PLANNED | Evaluiere und pinne den gepflegten Python-ASGI-/OpenAPI- und Argon2id-Stack. Implementiere additive Benutzer-, Bootstrap/Reset-, Session-, Grant-, Audit-, `ApplicationJob`-/Event-/Lease-Persistenz, loopback-only `/api/v1`, same-origin Shell und getrennte API-, Analyse- und Operatorprozesse. Der Operator-Worker besitzt noch keine registrierte W10-Capability. |
+| S-FUT11-03 | PLANNED | Liefere die deutschsprachige responsive read-only E-Book-Oberfläche für Scan/Status, Tool-/Format-Readiness, `CollectionState`, Suche, `Library Health`, Analyse-/Quality-Coverage, Duplicate-/Varianten-Evidence, Review und nicht ausführbare Pläne. Verwende Jobs, Keyset-Pagination und getrennte `no-store`-Private-Projektionen; Musik und Bilder bleiben als nicht aktivierte Einstiege sichtbar. |
+| S-FUT11-04 | PLANNED | Adaptiere ausschließlich den ADR-0066-Same-Parent-`FILE_RENAME` mit Proposal, Private Preview, Review, Plan, Authorize, Passwort-Reauthentisierung, exakter Bestätigung, Execute, Status, Recovery, Folgescan und Reconciliation. Nur der getrennte Operator-Worker löst die vorhandene Capability auf; API/UI behalten keinen Source-Mount. |
 
 ## Book-only Produktprojektionen
 

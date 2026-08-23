@@ -4,6 +4,30 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
+FUT-011 ist durch ADR-0067 entschieden. Der akzeptierte erste Surface-Scope
+ist `local-single-operator/v1`: loopback-only same-origin REST unter
+`/api/v1`, deutschsprachige responsive Browser-UI, lokaler One-time-
+Bootstrap für genau ein Username/Argon2id-Passwort-Administratorkonto,
+serverseitige Sessions, Passwort-Reauthentisierung, höchstens 15 Minuten
+gültige Private-/Operator-Grants, OpenAPI 3.1, Keyset-Pagination, Privacy,
+append-only Audit und dauerhafte Jobs.
+
+Die Prozessgrenze ist bindend. `surface-api` besitzt keinen Source-Media-
+Mount und keine W10-Capability-Datei. Ein getrennter `analysis-worker`
+verarbeitet read-only Aufgaben; nur der netzlose `operator-worker` darf einen
+ausdrücklich registrierten W10-Command und dessen engste vorhandene
+Capability erhalten. Joblease, HTTP-Session und `OperatorGrant` ersetzen
+weder `ScanRootWriteLease` noch eine operation-spezifische Authorization.
+Absolute Pfade bleiben auch in privaten `no-store`-Projektionen verboten.
+
+Die freigegebene Reihenfolge lautet `S-FUT11-01` bis `S-FUT11-04`:
+Application-Grenze/Media-Registry, lokale Auth/API/Worker-Basis, read-only
+E-Book-UI und danach ausschließlich der ADR-0066-Same-Parent-Rename als erster
+GUI-Writer. Titelwriter und Interim-Quarantäne benötigen spätere getrennte
+Surface-Waves. Music, Bilder, Remote-/Mehrbenutzerbetrieb, MCP und alle
+anderen Writer werden nicht aktiviert. Die ADR selbst implementiert noch
+keinen Server, Benutzer, Worker oder Browserclient.
+
 `S-W10-RN01` bis `S-W10-RN04` sind umgesetzt. Das ausschließlich durch
 ADR-0066 freigegebene Same-Parent-`FILE_RENAME` besitzt jetzt Proposal,
 private Preview, append-only Review, Plan, owner-only Capability, Probe,
@@ -46,14 +70,24 @@ Zwei-Eltern-Merge-Commit `dad693b7e07d34736141f64066c11b3527345eac`
 integriert; Merge- und Feature-Tree sind identisch. Post-Merge-Run
 `32631240306` bestand den kurzen Vertrag.
 
-Der nächste Schritt ist keine freigegebene Implementierungswave. `FUT-011`
-bleibt das Architektur-Gate vor REST/API/UI und muss Produktshell,
-E-Book-/Musik-/Bilder-Einstiege, OpenAPI, Authentisierung, Autorisierung,
-Pagination, Privacy, Audit und lokales Deployment entscheiden. Alle weiteren
-Writer bleiben hinter ihrem eigenen W10-Gate. Bis zu einer solchen
-Entscheidung darf weder aus RN04 eine allgemeine Write-Capability abgeleitet
-noch ein API-/UI-Control für eine nicht freigegebene Operation angeboten
-werden.
+Der nächste reguläre Produkt-Slice ist `S-FUT11-01`. Er ergänzt ausschließlich
+adapterneutrale `ApplicationCommand`-/`ApplicationQuery`-/Context-/Error-
+Verträge, eine Composition Root, die Media-Line-Registry und erste gemeinsame
+Tool-/Format-Readiness-/`Library Health`-Queries. HTTP-, Frontend-, Auth-,
+Job-, Worker- und Migrationscode bleiben in dieser Wave ausgeschlossen.
+`S-FUT11-02` bis `S-FUT11-04` beginnen erst nach erfolgreichem Abschluss der
+jeweiligen Vorgängerwave. Alle weiteren Writer bleiben hinter ihrem eigenen
+W10-Gate; ADR-0067 leitet aus RN04 keine allgemeine Write-Capability ab.
+
+Für die FUT-011-Entscheidungswave bestanden lokal 21 Planungs-/
+Dokumentationsverträge und 21 direkt betroffene W10-/Rename-/Titelwrite-/
+`Library Health`-Sicherheitsverträge. Ruff war für die geänderte statische
+Testdatei grün, `git diff --check` sauber. Ein erster Pytest-Aufruf ohne
+`PYTHONPATH=src` endete vor der Collection; die korrekt konfigurierte
+Zielauswahl bestand vollständig. Mypy, Docker, reale E-Books und die
+vollständige lokale Suite waren für diesen docs-only Scope nicht erforderlich.
+Der vollständige PR-CI-Gate läuft genau einmal auf dem stabilen Head und ist
+vor dem Merge noch nachzuweisen.
 
 ## Historische Nachweise
 
@@ -669,7 +703,7 @@ bereite Komponenten und `READY` für alle fünf Formatprofile.
 
 `W2-008` und `W2-009` sind vollständig validiert: Basisparser und konfigurierbare, versionierte Regex-Profile erzeugen ausschließlich Provenance-behaftete `FieldCandidate`-Werte und setzen keine kanonischen Metadaten. `W2-011` ergänzt begrenzte, strikte JSON-Auswertung aus `ToolArtifact`-Dateien und konservative Reanalyse-Entscheidungen. Der Docker-Build-Kontext ist auf die tatsächlich paketierten Anwendungsdateien beschränkt.
 
-Die anfängliche Produktoberfläche ist gemäß Benutzerentscheidung und ADR-0016
+Die anfängliche Produktoberfläche war gemäß Benutzerentscheidung und ADR-0016
 ausschließlich die CLI. `W3-001` und `W3-002` sind abgeschlossen: Die aktuelle
 E-Book-Toolchain ist bewertet, und der erste read-only calibre-Metadaten-Slice
 ist implementiert. `W3-003` ergänzt einen festen read-only calibre-EPUB-
@@ -1613,8 +1647,9 @@ behauptet atomare No-Replace-Semantik. Die zweite Bestätigung bleibt auf nicht
 geloggtes `stdin` beschränkt. In `W9-007` sind `S-W9-007A` bis `S-W9-007C`
 umgesetzt. ADR-0066 hat `FG-W10-RENAME` danach nur für Same-Parent-
 `FILE_RENAME` entschieden; `S-W10-RN01` bis `S-W10-RN04` sind umgesetzt.
-`FUT-011` und die verbleibenden operation-spezifischen W10-Gates sind
-Entscheidungen, keine freigegebenen Implementierungswaves.
+FUT-011 ist durch ADR-0067 entschieden; `S-FUT11-01` ist der nächste
+freigegebene Slice. Die verbleibenden operation-spezifischen W10-Gates bleiben
+Entscheidungen und sind keine freigegebenen Implementierungswaves.
 
 `OPS-001` ist ein getrenntes lokales Betriebsverfahren für den vollständigen
 privaten Inventory-/Hash-/Collection-/Verifier-Lauf. Es verwendet den
@@ -1682,12 +1717,12 @@ Abschluss von `CS-03` aber nicht automatisch aktiviert. Book-only Leistungen
 und offene Music-Anteile besitzen im Backlog getrennte IDs und Statuswerte.
 Bilder und weitere Linien bleiben ebenfalls getrennt geplant.
 
-Die Produktoberfläche bleibt ausschließlich die CLI. FUT-011 verlangt vor
-REST-API oder grafischer Oberfläche eine eigene ADR mit stabilen Application-
-Verträgen, getrennten Einstiegen je Medienlinie, Authentisierung,
-Autorisierung, Privacy und Audit. UI- oder API-Bedarf öffnet keine W10-
-Capability. Externe Tool-Ergebnisse werden weiterhin als Evidence behandelt
-und nicht direkt zu kanonischen Metadaten.
+Die aktuell implementierte Produktoberfläche bleibt bis zur Umsetzung der
+neuen Waves ausschließlich die CLI. ADR-0067 entscheidet FUT-011 mit stabilen
+Application-Verträgen, getrennten Einstiegen je Medienlinie, lokaler
+Authentisierung, Autorisierung, Privacy, Audit, Jobs und Workertrennung.
+UI- oder API-Bedarf öffnet keine W10-Capability. Externe Tool-Ergebnisse werden
+weiterhin als Evidence behandelt und nicht direkt zu kanonischen Metadaten.
 
 ## Verbindliche Sicherheitsgrenzen
 
