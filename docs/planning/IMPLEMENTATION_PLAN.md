@@ -95,8 +95,13 @@ Slice `W9-007` in reine Verträge, Persistenz/Review und read-only Ausgabe.
 Reducer, Golden Values und den statischen Non-Execution-Gate. `S-W9-007B`
 liefert Review-Paarung, Migration `0030` und insert-only Persistenz.
 `S-W9-007C` liefert getrennt die echte SQLite-read-only Ausgabe. `W9-007` ist
-damit vollständig und bleibt nicht ausführbar; als nächste docs-only
-Entscheidungswave folgt `FG-W10-RENAME`.
+damit vollständig und bleibt nicht ausführbar. ADR-0066 schließt die danach
+ausgeführte docs-only Wave `FG-W10-RENAME` ausschließlich für byte-identischen
+Same-Parent-`FILE_RENAME`; `FILE_REORGANIZE` bleibt hinter
+`FG-W10-REORGANIZE`. Als nächste vier kleine Waves folgen `S-W10-RN01` bis
+`S-W10-RN04`: nicht mutierende Proposal-/Review-/Plan-Oberfläche,
+Authority/Persistenz, Linux-No-Replace-Backend/Recovery und zuletzt die
+Bedien-/Scan-/Reconciliation-Kette.
 
 ## W0 — Project Foundation
 
@@ -502,8 +507,9 @@ und die bounded insert-only Persistenz einschließlich kanonischem Rebuild und
 vollständiger lokaler Lineage-Revalidierung. `S-W9-007C` ergänzt den echten
 SQLite-Read-only-Report samt privacy-begrenzter CLI und schließt `W9-007` ab.
 Ein Ziel-Slot oder Rezept öffnet keinen Writer. Die vollständige Reihenfolge
-steht in `EBOOK_WRITE_PIPELINE_PLAN.md`; `FG-W10-RENAME` ist das nächste
-getrennte Entscheidungsgate.
+steht in `EBOOK_WRITE_PIPELINE_PLAN.md`; ADR-0066 hat
+`FG-W10-RENAME` inzwischen eng entschieden, und `S-W10-RN01` ist der nächste
+nicht mutierende Produktslice.
 
 Identity and quality are separate inputs: a future quality evaluator may rank which equivalent representation is preferable only after identity is established.
 
@@ -538,11 +544,25 @@ Same-Filesystem-Recovery. ADR-0064 und `S-W10-MW05` ergänzen die feste CLI,
 zweite Bestätigung, unmittelbare Verifikation, einen expliziten Lease-Handoff,
 neuen Scan, `CollectionState` sowie den atomaren `VERIFIED`-/Reconciliation-
 Abschluss. Damit ist genau dieser EPUB-Titelwriter operativ erreichbar.
-Sidecar-, externe
-Library-, Rename- und Archivewrites bleiben an
-`FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME`
-beziehungsweise `FG-W10-ARCHIVE-REWRITE` gebunden. W10-003 und W10-004
-halten Rollback/Purge und Verzeichnisbereinigung weiterhin getrennt.
+Sidecar-, externe Library- und Archivewrites bleiben an
+`FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE` beziehungsweise
+`FG-W10-ARCHIVE-REWRITE` gebunden. Same-Parent-Rename bleibt bis zum Abschluss
+von RN01 bis RN04 operativ geschlossen; Reorganisation bindet
+`FG-W10-REORGANIZE`. W10-003 und W10-004 halten Rollback/Purge und
+Verzeichnisbereinigung weiterhin getrennt.
+
+ADR-0066 entscheidet `FG-W10-RENAME` ausschließlich für einen
+byte-identischen `FILE_RENAME` im selben vorhandenen Parent. Zulässig sind nur
+ein reviewter blockerfreier W9-Plan, fünf durch aktuelle Coverage
+`KNOWN_NONE` oder explizit `NOT_APPLICABLE` belegte Dependencies, ein
+historisch unbenutzter Target-Slot, eine private einzelne Capability und das
+feste Linux-`openat2`-/`renameat2(RENAME_NOREPLACE)`-Profil. Authorization,
+Fencing, Journal, unmittelbare Verifikation, Exact-State-Recovery, Folgescan,
+`CollectionState` und eine Reconciliation mit getrennten alten/neuen
+`FileRecord`-Identitäten sind verpflichtend. `S-W10-RN01` bis
+`S-W10-RN04` liefern diese Kette in vier Waves; erst RN04 öffnet den engen
+operativen Einstieg. `FILE_REORGANIZE` bleibt separat hinter
+`FG-W10-REORGANIZE`.
 
 Die Quarantäne besitzt eine vollständige eng begrenzte Bedienkette. Der
 private `QuarantineCapabilityResolver`, `quarantine-authorize`, die zweite

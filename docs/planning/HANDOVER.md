@@ -4,6 +4,57 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
+ADR-0066 schließt `FG-W10-RENAME` als docs-only Frontier-Gate. Akzeptiert ist
+ausschließlich ein byte-identischer `FILE_RENAME` auf einen historisch
+unbenutzten Basename im selben vorhandenen Parent und `ScanRoot`.
+`FILE_REORGANIZE` bleibt wegen des breiteren Zwei-Parent-/Haltbarkeits-/
+Verzeichnisvertrags hinter `FG-W10-REORGANIZE`. Das Gate selbst implementiert
+noch keinen Writer.
+
+Der spätere feste Backendvertrag ist Linux x86_64 plus glibc,
+`openat2`-Auflösung beneath/no-follow/no-xdev und genau ein
+`renameat2(RENAME_NOREPLACE)` relativ zu demselben Parent-FD. Source und
+Target müssen bereits NFC-kanonisch, casefold-verschieden und im engen
+Basenamevertrag liegen; die Source ist regulär, besitzt Linkanzahl eins und
+wird über Inode, Attribute, Format, Größe und Full-SHA-256 gebunden. Alle fünf
+Recipe-Dependency-Achsen müssen durch aktuelle Coverage `KNOWN_NONE` oder über
+einen expliziten aktuellen Dependency-Scope `NOT_APPLICABLE` sein;
+`KNOWN_PRESENT`, `UNKNOWN` und bloß fehlende Zeilen blockieren. Nur eine
+private einzelne Rename-Capability, eine höchstens 15 Minuten gültige
+One-use-Authorization, zweite `stdin`-Bestätigung, Root-Fence und das
+append-only Journal dürfen
+später genau diesen Aufruf öffnen. Es gibt keinen `os.rename`-, Copy+Delete-,
+Overwrite-, Shell-, ToolProvider- oder Cross-Device-Fallback.
+
+Recovery storniert einen nachweislich unveränderten `PREPARED`-Run oder führt
+vor `IMMEDIATE_VERIFIED` ausschließlich den atomaren Reverse-Rename aus.
+Danach wird nur vorwärts über neuen Scan und Reconciliation abgeschlossen;
+uneindeutige Verteilungen verlangen `MANUAL_RECOVERY_REQUIRED`. Der Folgescan
+behält den alten Source-`FileRecord` als `MISSING` und erzeugt am neuen Locator
+einen getrennten `NEW`-Target-`FileRecord`. Der immutable
+`EbookRenameReconciliationSnapshot` verbindet beide, ohne Identitäten zu
+vereinigen. Nach einem Reverse-Rename bindet die Recovery-Reconciliation
+stattdessen die wieder aktuelle `PRESENT`-Source und den weiterhin historisch
+freien Target-Slot, bevor `RECOVERED` terminal wird.
+
+Die nächsten vier Waves sind fest: `S-W10-RN01` liefert zuerst Proposal,
+explizite private Preview, append-only Review und nicht ausführbaren Plan;
+`S-W10-RN02` Authority/Persistenz/Capability/Status; `S-W10-RN03` Backend,
+Executor und Exact-State-Recovery; `S-W10-RN04` Bedienoberfläche, zweite
+Bestätigung, Scan, `CollectionState` und Reconciliation. `S-W10-RN01` ist die
+nächste kanonische Wave. Reale E-Books werden dafür nicht benötigt.
+
+Für das Gate bestanden 23 gezielt betroffene Planungsfront-, Dokumentations-
+und W10-Safety-Verträge auf dem finalen Stand in 0,11 Sekunden. Ruff für die
+einzige geänderte Python-Testdatei und `git diff --check` waren grün. Ein
+vorausgehender
+Pytest-Aufruf sammelte mangels lokalem `PYTHONPATH=src` keine Tests; die
+identische kleine Auswahl wurde danach mit dieser repositoryüblichen
+Importkonfiguration erfolgreich ausgeführt. Reale E-Books, private Runtime-
+Daten, Source-Mutation, SQLite-Runtime, Docker, externe Tools und die
+vollständige lokale Suite wurden ressourcenschonend nicht verwendet. Der
+vollständige PR-CI-Gate bleibt dem exakten stabilen Head vorbehalten.
+
 `S-W9-007C` schließt `W9-007` mit dem echten SQLite-read-only Befehl
 `ebook-operation-recipe-report` ab. Er nimmt genau eine opaque Plan-ID, öffnet
 die bestehende Datenbank über `mode=ro` und `query_only=ON`, migriert nicht und
@@ -20,13 +71,14 @@ Sekunden. Gezieltes Ruff und Mypy waren grün. Reale E-Books, private
 Runtime-Daten, Docker, externe Tools und die vollständige lokale Suite wurden
 ressourcenschonend nicht verwendet. Zusätzlich bestanden die 22 gezielt
 gebündelten Planungsfront-, Dokumentations-, Testeffizienz- und Report-Safety-
-Fälle in 1,17 Sekunden. Der vollständige PR-Gate ist für den stabilen C-Head
-noch offen.
+Fälle in 1,17 Sekunden. Der stabile Remote-Head
+`e0f9645fc2ce851282776820735a6f710c038528` bestand Quality-Run
+`32617699743` und E-Book-Toolchain-Run `32617699707`. PR #244 wurde als
+`0a249e7230680aa03ac868d02065dab9ddb1e07d` auf `main` integriert;
+Post-Merge-Run `32617838103` war ebenfalls grün.
 
-Als Nächstes folgt `FG-W10-RENAME` als docs-only Frontier-Gate. Es entscheidet
-Root-Grenze, atomaren No-Replace, no-follow, Fencing, Dependencies,
-Collision, Recovery und Scan-Reconciliation für byte-erhaltenden Rename und
-Reorganisation. Es implementiert noch keinen Writer.
+Als Nächstes folgt `S-W10-RN01` als rein nicht mutierende Proposal-/Review-/
+Plan-Wave nach dem akzeptierten ADR-0066-Gate.
 
 `S-W9-007B` ergänzt den reinen ADR-0065-Vertrag um die feste Review-Paarung,
 Migration `0030_ebook_operation_recipe_plans` und zehn bounded insert-only
@@ -1407,7 +1459,8 @@ Bestätigung und One-use-Fencing sowie no-move `quarantine-recover` sind
 vorhanden. Kein Slice erweitert die Ein-Datei-/Same-Filesystem-Grenze oder
 behauptet atomare No-Replace-Semantik. Die zweite Bestätigung bleibt auf nicht
 geloggtes `stdin` beschränkt. In `W9-007` sind `S-W9-007A` bis `S-W9-007C`
-umgesetzt; `FG-W10-RENAME` ist das nächste docs-only Frontier-Gate.
+umgesetzt. ADR-0066 hat `FG-W10-RENAME` danach nur für Same-Parent-
+`FILE_RENAME` entschieden; `S-W10-RN01` ist die nächste nicht mutierende Wave.
 
 `OPS-001` ist ein getrenntes lokales Betriebsverfahren für den vollständigen
 privaten Inventory-/Hash-/Collection-/Verifier-Lauf. Es verwendet den

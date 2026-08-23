@@ -10,6 +10,7 @@ HANDOVER = PLANNING / "HANDOVER.md"
 IMPLEMENTATION = PLANNING / "IMPLEMENTATION_PLAN.md"
 FUTURE_MAP = PLANNING / "FUTURE_CAPABILITY_MAP.md"
 WRITE_PIPELINE = PLANNING / "EBOOK_WRITE_PIPELINE_PLAN.md"
+SAFETY = ROOT / "docs/architecture/SAFETY.md"
 ADR = ROOT / "docs/decisions/ADR-0058-book-collection-state-and-local-projections.md"
 WRITE_AUTHORIZATION_ADR = ROOT / "docs/decisions/ADR-0061-controlled-ebook-write-development.md"
 METADATA_CORRECTION_ADR = (
@@ -24,6 +25,9 @@ METADATA_WRITE_OPERATOR_ADR = (
 OPERATION_RECIPE_ADR = (
     ROOT / "docs/decisions/ADR-0065-non-executable-ebook-operation-recipes.md"
 )
+EBOOK_RENAME_ADR = (
+    ROOT / "docs/decisions/ADR-0066-bounded-ebook-file-rename.md"
+)
 
 
 def _text(path: Path) -> str:
@@ -36,8 +40,11 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `FG-W10-RENAME` |" in backlog
-    assert "Zuerst entscheidet eine eigene Frontier-Wave" in backlog
+    assert "| NOW | `S-W10-RN01` |" in backlog
+    assert (
+        "`S-W10-RN01` -> `S-W10-RN02` -> `S-W10-RN03` -> `S-W10-RN04`"
+        in backlog
+    )
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
     assert "| S-W9-006A | DONE |" in backlog
@@ -48,7 +55,12 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert "| S-W9-007A | DONE |" in backlog
     assert "| S-W9-007B | DONE |" in backlog
     assert "| S-W9-007C | DONE |" in backlog
-    assert "| FG-W10-RENAME | NEXT |" in backlog
+    assert "| FG-W10-RENAME | DONE |" in backlog
+    assert "| S-W10-RN01 | NEXT |" in backlog
+    assert "| S-W10-RN02 | PLANNED |" in backlog
+    assert "| S-W10-RN03 | PLANNED |" in backlog
+    assert "| S-W10-RN04 | PLANNED |" in backlog
+    assert "| FG-W10-REORGANIZE | DECISION |" in backlog
     assert "| W10-005 | DONE |" in backlog
     assert "| W10-006 | DONE |" in backlog
     assert "| S-W10-MW05 | DONE |" in backlog
@@ -96,6 +108,8 @@ def test_current_planning_sources_agree_on_delivery_front() -> None:
         assert "CS-02" in content, path
         assert "CS-03" in content, path
         assert "W9-007" in content, path
+        assert "ADR-0066" in content, path
+        assert "S-W10-RN01" in content, path
 
 
 def test_current_status_does_not_reintroduce_superseded_w10_claims() -> None:
@@ -142,7 +156,8 @@ def test_ebook_write_pipeline_is_development_authorized_and_remains_gate_bound()
     assert "| W9-007 | DONE |" in backlog
     assert "| FG-W10-WRITE-DEVELOPMENT | DONE |" in backlog
     assert "| FG-W10-METADATA-WRITE | DONE |" in backlog
-    assert "| FG-W10-RENAME | NEXT |" in backlog
+    assert "| FG-W10-RENAME | DONE |" in backlog
+    assert "| S-W10-RN01 | NEXT |" in backlog
     for gate in (
         "FG-W10-SIDECAR-WRITE",
         "FG-W10-EXTERNAL-LIBRARY-WRITE",
@@ -217,6 +232,58 @@ def test_operation_recipe_gate_is_typed_private_and_non_executable() -> None:
     assert all(marker in adr for marker in required)
     assert "ADR-0065" in documentation_index
     assert "| FG-W9-007 | DONE |" in backlog
+
+
+def test_first_ebook_file_rename_gate_is_narrow_recoverable_and_reconciled() -> None:
+    adr = _text(EBOOK_RENAME_ADR)
+    documentation_index = _text(ROOT / "docs/README.md")
+    backlog = _text(BACKLOG)
+    safety = _text(SAFETY)
+
+    required = (
+        "- Status: Accepted",
+        "ebook-file-rename-linux-renameat2-noreplace/v1",
+        "ebook-file-rename-dependency-scope/v1",
+        "FILE_RENAME",
+        "FG-W10-REORGANIZE",
+        "FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE",
+        "FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE",
+        "RENAME_NOREPLACE",
+        "RESOLVE_BENEATH",
+        "RESOLVE_NO_SYMLINKS",
+        "RESOLVE_NO_MAGICLINKS",
+        "RESOLVE_NO_XDEV",
+        "KNOWN_NONE",
+        "NOT_APPLICABLE",
+        "LOCATOR_NOT_NFC",
+        "CONFIRM EBOOK RENAME",
+        "EBOOK_RENAME_PREPARATION",
+        "EBOOK_RENAME_RUN",
+        "0031_ebook_rename_operations",
+        "0032_ebook_rename_reconciliation",
+        "MANUAL_RECOVERY_REQUIRED",
+        "EbookRenameReconciliationSnapshot",
+        "S-W10-RN01",
+        "S-W10-RN02",
+        "S-W10-RN03",
+        "S-W10-RN04",
+        "keine gemeinsame `write-all`-Capability",
+        "Kein Test benötigt reale E-Books",
+    )
+    assert all(marker in adr for marker in required)
+    assert "ADR-0066" in documentation_index
+    assert "| FG-W10-RENAME | DONE |" in backlog
+    assert "| S-W10-RN01 | NEXT |" in backlog
+    assert "| FG-W10-REORGANIZE | DECISION |" in backlog
+    assert all(
+        marker in safety
+        for marker in (
+            "ADR-0066",
+            "renameat2(RENAME_NOREPLACE)",
+            "MANUAL_RECOVERY_REQUIRED",
+            "FG-W10-REORGANIZE",
+        )
+    )
 
 
 def test_first_source_metadata_writer_gate_is_narrow_and_reconciled() -> None:

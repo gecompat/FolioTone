@@ -272,14 +272,29 @@ einführen.
 `NOT_EXECUTABLE`; kein Paket darf Source Media oder Ziel-Slots öffnen.
 
 **Status:** `S-W9-007A` bis `S-W9-007C` sind umgesetzt und schließen
-`W9-007`. Als nächste kanonische book-only Wave folgt das docs-only
-Entscheidungsgate `FG-W10-RENAME`; es öffnet noch keinen Writer.
+`W9-007`. ADR-0066 hat das anschließende docs-only Entscheidungsgate
+`FG-W10-RENAME` nur für Same-Parent-`FILE_RENAME` geschlossen; es öffnet
+selbst noch keinen Writer. `S-W10-RN01` ist die nächste kanonische Wave.
 
 | Paket | Ergebnis | Erlaubter Dateibereich | Gezielter Nachweis |
 |---|---|---|---|
 | S-W9-007A | Immutable Candidate-/Plan-DTOs, reine Builder/Reducer und kanonische Content-Identitäten für sechs feste Operationsfamilien. | `src/foliotone/ebook_operation_recipes/`, zwei fokussierte Unit-Testdateien, ADR-0065 und unmittelbar betroffene Architektur-/Planungsdokumente | Operationsmatrix, Bounds, vollständige Source-/Outputbindung, kanonische Reihenfolge, UUIDv5-/Golden Values, Review-/Blockermatrix, Privacy und statischer Non-Execution-Gate. |
 | S-W9-007B | Additive Review-Literale, Migration `0030` und insert-only Candidate-/Plan-Store. | Review-Core, neue Recipe-Schema-/Storedateien, genau eine Migration, fokussierte Unit-/Integrationstests und Statusdokumente | Upgrade/Downgrade, bestehende Review-Historie, bounded Roundtrip, Content-Rebuild, Source-/Evidence-/Dependency-/Review-Lineage, Idempotenz, atomarer Rollback und weiterhin keine Source-Media-Öffnung. |
 | S-W9-007C | Echter SQLite-Read-only-Report und CLI-Abschluss. | neue Recipe-Report-/Workflowdateien, `src/foliotone/cli/main.py`, fokussierte CLI-/Privacy-/Bootstraptests und Statusdokumente | `mode=ro`, `query_only=ON`, keine Migration, keine privaten Locator/Hashes, ausschließlich opaque IDs, Profile, Operationstyp, Status, Counts, Review und Blocker. |
+
+## W10 Rename: vier begrenzte Lieferpakete
+
+**Voraussetzung:** ADR-0066 ist akzeptiert und entscheidet ausschließlich
+`FILE_RENAME` im selben bestehenden Parent. `FILE_REORGANIZE` und alle anderen
+ADR-0065-Operationen bleiben geschlossen. RN01 ist `NEXT`; RN02 bis RN04 sind
+`PLANNED`. Reale E-Books sind kein Testinput.
+
+| Paket | Ergebnis | Erlaubter Dateibereich | Gezielter Nachweis |
+|---|---|---|---|
+| S-W10-RN01 | Nicht mutierende Proposal-/private-Preview-/Review-/Plan-Oberfläche für genau einen aktuellen `FILE_RENAME`-Candidate. | Recipe-/Review-Application-Service, private Dependency-Scope-Auflösung, CLI, bestehender Store, fokussierte Tests und Statusdokumente; keine Migration, Capability oder Source-Mutation | Ziel-Basename nur bounded/ungeloggt über `stdin`; opaque Scope-ID, explizite `KNOWN_NONE`-/`NOT_APPLICABLE`-Coverage und `UNKNOWN` bei bloß fehlenden Zeilen; NFC-/Case-/Suffix-/Parent-/History-Grenzen; append-only Review; reproduzierbarer `APPROVED_NON_EXECUTABLE`-Plan; Standardausgabe path-frei und relative Locator nur mit `--private-details`. |
+| S-W10-RN02 | Reine Preparation-/Authorization-/Run-/Event-Verträge, private einzelne Capability samt persistentem Probevertrag, additive insert-only Persistenz, neue Lease-Owner und echter SQLite-read-only Status. | neues Rename-Core-/Persistence-/Capability-/Report-Package, genau Migration `0031_ebook_rename_operations`, fokussierte Tests und Statusdokumente; kein Executor | höchstens 15 Minuten, One-use, exakte Plan-/Locator-/Source-/Target-/Dependency-/Backendbindung, Root-/Probe-Nonoverlap, Berechtigungen, Fencing, gapless Journal, Migration/Downgrade, Privacy und keine öffentliche Mutationssurface. |
+| S-W10-RN03 | Festes Linux-x86_64-glibc-Backend, genau ein gefenceter `renameat2(RENAME_NOREPLACE)`, unmittelbare Verifikation und Exact-State-Recovery. | internes Rename-Backend/Executor/Recovery, synthetische lokale Filesystemtests und Statusdokumente; keine CLI | `openat2` beneath/no-follow/no-xdev, erlaubte lokale Filesysteme, `EEXIST`/`EXDEV`, Symlink/Mount/Hardlink/Inode/Attribute, Parent-`fsync`, Crashgrenzen, atomarer Reverse-Rename und kein `os.rename`-/Copy/Delete-/Overwrite-/Tool-Fallback. |
+| S-W10-RN04 | Feste Authorize-/Execute-/Recover-/Status-Bedienkette, zweite Bestätigung, Lease-Handoff, Folgescan, `CollectionState` und immutable Reconciliation. | Application-/CLI-Adapter, Reconciliation-Persistenz, genau Migration `0032_ebook_rename_reconciliation`, fokussierte Tests und Statusdokumente | nicht geloggtes `CONFIRM EBOOK RENAME`, Retry/Replay, getrennte `MISSING`-/`NEW`-FileRecords, vollständiger Target-Hash, Stalenessprojektion, atomarer `VERIFIED`-Abschluss, Recovery-Reconciliation und path-freie Standardausgabe. |
 
 ## Abgeschlossene Spark-Vorarbeiten für EB-A1 und EB-A2
 

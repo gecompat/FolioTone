@@ -76,6 +76,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0063](decisions/ADR-0063-bounded-epub-title-source-metadata-writer.md) entscheidet den ersten Source-Metadata-Writer ausschließlich für EPUB 3, einen `title`-`REPLACE`, einen lexikalischen rohwerterhaltenden Patch und Linux-`renameat2`-Exchange mit Same-Filesystem-Recovery.
 - [ADR-0064](decisions/ADR-0064-metadata-write-operator-and-reconciliation.md) bindet dessen feste CLI, zweite Bestätigung, unmittelbare Source-Verifikation, Lease-Handoff, neuen Scan, `CollectionState` und immutable Reconciliation.
 - [ADR-0065](decisions/ADR-0065-non-executable-ebook-operation-recipes.md) definiert operationstypisierte, content-addressed `EbookOperationRecipeCandidate`- und `EbookOperationRecipePlan`-Snapshots für sechs Datei-/Containeroperationen mit permanenter `NOT_EXECUTABLE`-Grenze.
+- [ADR-0066](decisions/ADR-0066-bounded-ebook-file-rename.md) entscheidet den ersten Datei-Writer ausschließlich für byte-identischen Same-Parent-Rename mit privater Capability, Linux-`renameat2(RENAME_NOREPLACE)`, Exact-State-Recovery und nicht vereinigender Scan-Reconciliation.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

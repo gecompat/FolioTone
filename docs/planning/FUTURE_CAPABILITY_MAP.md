@@ -64,10 +64,12 @@ EB-07, EB-08, die read-only Archive-Strecke und S-W10-01 bis S-W10-04 sind
 abgeschlossen. ADR-0058 und der kanonische Backlog haben die zuvor nur
 strategisch skizzierten book-only Produktprojektionen übernommen. `CS-01`,
 `CS-02`, `CS-03`, `W9-006`, die fünf EPUB-Titelwriter-Waves und `W10-005` sind
-abgeschlossen. ADR-0065 und `S-W9-007A` liefern den reinen
-content-addressed Vertrag der dauerhaft nicht ausführbaren
-Operationsrezepte. Persistenz/Review und read-only Ausgabe folgen innerhalb
-von `W9-007` getrennt. Eine weitere Medienlinie ist nicht automatisch
+abgeschlossen. ADR-0065 und `S-W9-007A` bis `S-W9-007C` liefern den
+vollständigen content-addressed, reviewten und read-only sichtbaren Vertrag
+der dauerhaft nicht ausführbaren Operationsrezepte. ADR-0066 entscheidet
+davon ausschließlich den Same-Parent-`FILE_RENAME`; die Implementierung folgt
+in `S-W10-RN01` bis `S-W10-RN04`. `FILE_REORGANIZE` bleibt getrennt hinter
+`FG-W10-REORGANIZE`. Eine weitere Medienlinie ist nicht automatisch
 aktiviert. Der genaue Paketstatus wird hier nicht dupliziert.
 
 ## Empfohlene Entwicklungsfolge
@@ -276,7 +278,7 @@ ist, existiert dafür weder REST-Endpunkt noch aktivierbares UI-Control.
 | Confidence-Kalibrierung | profilgebundene Scores an geprüfter Ground Truth bewerten | Forschungsfrage | FUT-005 berührt Review-Lernen | relationstypbezogener Korpus und Eval-Vertrag |
 | KI-Query/Explanation | natürliche Sprache sicher übersetzen und Evidence erklären | Forschungsfrage | keine | gleicher Query-AST; keine Decision Authority |
 | API/MCP/UI | stabile Application-Verträge außerhalb der CLI mit eigenen Einstiegen je Medienlinie anbieten | Forschungsfrage | ADR-0016 stellt zurück; FUT-011; `EBOOK_WRITE_PIPELINE_PLAN.md` | neue Produktoberflächen-ADR einschließlich REST/OpenAPI, Auth, Privacy, Audit und strikt getrennten W10-Capabilities |
-| kontrollierte Mutation | geprüfte Pläne entsprechend ihrer Reversibilitätsklasse ausführen | ADR-0056-Quarantäne und ADR-0063/ADR-0064-EPUB-Titelwriter operativ; ADR-0065/S-W9-007A plant weitere Typen nur nicht ausführbar | ADR-0056, ADR-0061, ADR-0063, ADR-0064, ADR-0065, `W10-005`, `FG-W10-MOVE-BACKEND` und verbleibende operation-spezifische Write-Gates | `W9-007` um Persistenz/Review und read-only Ausgabe vervollständigen; Sidecar-, externe Library-, Rename-, Archive-, Rollback-, Purge- und Cleanup-Verträge getrennt entscheiden |
+| kontrollierte Mutation | geprüfte Pläne entsprechend ihrer Reversibilitätsklasse ausführen | ADR-0056-Quarantäne und ADR-0063/ADR-0064-EPUB-Titelwriter operativ; ADR-0065 plant sechs weitere Typen nicht ausführbar; ADR-0066 entscheidet davon nur Same-Parent-Rename | ADR-0056, ADR-0061, ADR-0063 bis ADR-0066, `W10-005`, `FG-W10-MOVE-BACKEND` und verbleibende operation-spezifische Write-Gates | `S-W10-RN01` bis `S-W10-RN04` abschließen; Sidecar-, externe Library-, Reorganisations-, Archive-, Rollback-, Purge- und Cleanup-Verträge getrennt entscheiden |
 
 ## Medienabdeckung
 

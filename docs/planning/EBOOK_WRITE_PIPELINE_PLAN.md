@@ -17,7 +17,11 @@ Backend, den gefenceten Ein-Datei-Executor und idempotente Exact-State-
 Recovery. ADR-0064 und `S-W10-MW05` schließen genau dieses Profil mit fester
 CLI, zweiter Bestätigung, unmittelbarer Verifikation, neuem Scan,
 `CollectionState` und immutable Reconciliation ab. Alle anderen Writer
-bleiben operation-spezifisch geschlossen. Für die ADR-0056-Quarantäne sind
+bleiben operation-spezifisch geschlossen. ADR-0066 hat inzwischen den ersten
+Datei-Writer ausschließlich für byte-identischen Same-Parent-`FILE_RENAME`
+entschieden; die vier Implementierungswaves `S-W10-RN01` bis
+`S-W10-RN04` stehen noch aus. `FILE_REORGANIZE` bleibt getrennt hinter
+`FG-W10-REORGANIZE`. Für die ADR-0056-Quarantäne sind
 Capability-Auflösung, current-state-gebundenes `quarantine-authorize`, zweite
 Bestätigung, gefencetes `quarantine-execute` und die no-move Exact-State-
 Recovery durch `S-W10-05A` bis `S-W10-05D` vorhanden.
@@ -239,6 +243,18 @@ Paket erzeugt eine Capability oder Authorization. Rename, Reorganisation,
 Import, Export, Transformation und Archive-Rewrite bleiben jeweils an ihren
 eigenen späteren W10-Vertrag gebunden.
 
+ADR-0066 entscheidet davon nur `FILE_RENAME` und nur für einen anderen
+Basename im selben vorhandenen Parent. Die Source muss aktuell, regulär,
+hardlinkfrei und vollständig gehasht sein; alle fünf Dependency-Achsen müssen
+durch aktuelle Coverage `KNOWN_NONE` oder durch einen expliziten aktuellen
+Dependency-Scope nachweislich `NOT_APPLICABLE` sein. `KNOWN_PRESENT`,
+`UNKNOWN` und bloß fehlende Zeilen blockieren. Der Target-Locator muss
+physisch sowie historisch unbenutzt sein.
+Source und Target sind bereits NFC-kanonisch, nicht case-only verschieden und
+behalten exakt dieselbe E-Book-Dateiendung. Die bislang fehlende nicht
+mutierende Proposal-/private-Preview-/Review-/Plan-Oberfläche entsteht vor
+jeder W10-Authority in `S-W10-RN01`.
+
 Rename ist kein Identitätsbeweis. Archive-Extraction in einen privaten
 Workspace autorisiert weder Source-Rewrite noch Archivlöschung. Eine
 erfolgreiche Konvertierung oder Extraktion macht den Ausgangsdatensatz nicht
@@ -261,7 +277,8 @@ Capability und Authorization.
 | Metadaten in Source Media schreiben | ADR-0063/ADR-0064 erlauben operativ nur EPUB 3 plus einen `title`-`REPLACE`; vollständige Bedien-, Verifikations-, Scan-, Reconciliation- und Recoverykette vorhanden | jedes weitere Feld, Format oder jeder andere Zielträger benötigt ein eigenes Gate |
 | Sidecar erzeugen oder ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-SIDECAR-WRITE` |
 | Calibre oder anderes externes System ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-EXTERNAL-LIBRARY-WRITE` |
-| Datei umbenennen oder reorganisieren | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-RENAME` |
+| Datei im selben Parent umbenennen | ADR-0066 akzeptiert den vollständigen Vertrag; operativ noch nicht verfügbar | `S-W10-RN01` bis `S-W10-RN04`; erst RN04 öffnet das enge Profil |
+| Datei in einen anderen Parent reorganisieren | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-REORGANIZE` |
 | Archiv oder Container umschreiben | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-ARCHIVE-REWRITE` |
 | Quarantäne-Rollback | Entwicklung freigegeben; operativ nicht verfügbar | W10-003 mit eigener Authorization und Zielrevalidierung |
 | Purge nach Retention | Entwicklung freigegeben; operativ nicht verfügbar | W10-003 mit separater Approval- und Recoveryentscheidung |
@@ -363,11 +380,23 @@ ADR-0061, ADR-0062 und ADR-0063 aktivieren die folgenden getrennt prüfbaren Wav
    Candidate-/Plan-Verträge, feste Review-Paarung, bounded insert-only
    Persistenz und den privacy-begrenzten SQLite-Read-only-Report für sechs
    Operationsfamilien. `W9-007` ist damit abgeschlossen.
+8. ADR-0066 schließt `FG-W10-RENAME` ausschließlich für byte-identischen
+   Same-Parent-`FILE_RENAME`. Es bindet private Capability,
+   Linux-`openat2`/`renameat2(RENAME_NOREPLACE)`, One-use-Authorization,
+   Fencing, Journal, Exact-State-Recovery, Scan und Reconciliation. Parent-
+   wechsel bleiben hinter `FG-W10-REORGANIZE`.
 
-Als nächstes operation-spezifisches W10-Gate entscheidet `FG-W10-RENAME`
-docs-only den Sicherheitsvertrag für byte-erhaltenden Rename und
-Reorganisation. Implementierung folgt nur aus einer akzeptierten ADR in
-getrennten Waves.
+Als Nächstes folgen genau vier Rename-Waves:
+
+1. `S-W10-RN01`: nicht mutierende Proposal-/private-Preview-/Review-/
+   Plan-Oberfläche auf dem bestehenden W9-Store;
+2. `S-W10-RN02`: Preparation/Authorization/Run/Event, private Capability,
+   Probe, Persistenz, Lease-Owner und read-only Status ohne Executor;
+3. `S-W10-RN03`: festes Linux-Backend, ein gefenceter No-Replace-Rename,
+   unmittelbare Verifikation und Exact-State-Recovery ohne CLI;
+4. `S-W10-RN04`: feste Bedienkette, zweite `stdin`-Bestätigung,
+   Lease-Handoff, Folgescan, `CollectionState` und immutable Reconciliation.
+
 Read-only REST/API- und UI-Shell beginnen erst nach der
 FUT-011-ADR; schreibende Controls benötigen zusätzlich die jeweils fertige
 W10-Kette. Music, Bilder und weitere Linien starten nur nach ausdrücklicher

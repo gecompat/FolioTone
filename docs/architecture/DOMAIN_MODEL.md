@@ -510,6 +510,25 @@ persistiert Candidate, Review und Plan als bounded insert-only Historie. Der
 `EbookOperationRecipePlanReport` bildet daraus nur die standardmäßig erlaubte
 opaque, locator-, material- und hashfreie Projektion.
 
+ADR-0066 führt für genau `FILE_RENAME` vier davon getrennte W10-Objekte ein.
+`EbookRenamePreparationSnapshot` bindet den exakten blockerfreien Plan,
+private Locator-Digests, Source-Inode/-Attribute/-Bytes, Target-Abwesenheit,
+Dependencies, Capability, Backend, Probe und Fence. Der daraus abgeleitete
+`EbookRenameAuthorizationSnapshot` ist höchstens 15 Minuten gültig und genau
+einmal durch einen `EbookRenameExecutionRun` verbrauchbar. Dessen gapless
+`EbookRenameExecutionEvent`-Historie trennt Vorbereitung, physische
+Relocation, unmittelbare Verifikation, Scan-Handoff, Recovery und terminalen
+Abschluss.
+
+Nach dem Folgescan bindet ein `EbookRenameReconciliationSnapshot` bei
+`VERIFIED` den alten Source-`FileRecord` samt `MISSING` und den getrennten
+neuen Target-`FileRecord` samt `NEW`. Bei `RECOVERED` bindet er stattdessen die
+wieder aktuelle `PRESENT`-Source und den weiterhin historisch freien Target-
+Slot. Beide Outcomes enthalten vollständige Byteidentität, `ScanRun` und
+`CollectionState`. Diese explizite Operationslineage bestätigt Ausführung
+oder Recovery, vereinigt aber keine `FileRecord`-Identitäten und macht einen
+heuristischen `FileRelocationCandidate` weder notwendig noch autoritativ.
+
 ADR-0061 enables operation-specific W10 development but does not reinterpret
 a W9 plan. Only a new W10 Authorization under the accepted technical contract
 may open one concrete operation; `APPROVED_NON_EXECUTABLE` is not such an
@@ -594,6 +613,7 @@ original through the same scan sequence and ends at `RECOVERED`.
 - `ADR-0063-bounded-epub-title-source-metadata-writer.md`
 - `ADR-0064-metadata-write-operator-and-reconciliation.md`
 - `ADR-0065-non-executable-ebook-operation-recipes.md`
+- `ADR-0066-bounded-ebook-file-rename.md`
 - `ADR-0009-external-enrichment-and-privacy.md`
 - `ADR-0010-tool-provider-orchestration.md`
 - `AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`

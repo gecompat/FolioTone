@@ -4,6 +4,52 @@ Stand: 2026-08-23
 
 ## Aktuelle Welle
 
+**FG-W10-RENAME entschieden — ADR-0066 begrenzt den ersten Rename-Writer**
+
+ADR-0066 akzeptiert ausschließlich einen byte-identischen `FILE_RENAME` auf
+einen historisch unbenutzten Basename im selben vorhandenen Parent und
+`ScanRoot`. `FILE_REORGANIZE` bleibt wegen zweier Parentverzeichnisse,
+getrennter Haltbarkeit und möglicher Verzeichniserzeugung hinter dem neuen
+`FG-W10-REORGANIZE`. Das docs-only Gate öffnet selbst keine Mutation.
+
+Der Vertrag bindet eine private einzelne Rename-Capability, aktuelle Plan-/
+Review-/Dependency-Scope- und Scan-Lineage, bereits NFC-kanonische relative
+Locator, reguläre Dateien mit Linkanzahl eins und ein festes Linux-x86_64-
+glibc-Backend. `KNOWN_PRESENT`, `UNKNOWN` und bloß fehlende Dependency-Zeilen
+blockieren; `NOT_APPLICABLE` benötigt einen expliziten aktuellen owner-only
+Scope. Der einzige Mutationsaufruf ist später
+`renameat2(RENAME_NOREPLACE)` relativ zu einem mit `openat2` no-follow und
+beneath geöffneten Same-Parent-FD. Ungeeignete oder remote Filesysteme,
+Target-Collision, Cross-Device, Copy+Delete, Overwrite, `os.rename`, Shell und
+ToolProvider besitzen keinen Fallback.
+
+Preparation, höchstens 15 Minuten gültige One-use-Authorization, zweite
+Bestätigung, rootweites Fencing, gapless Journal, unmittelbare Inode-/Byte-/
+Attributverifikation, Parent-`fsync` und eine feste Exact-State-Recovery-
+Matrix sind entschieden. Nach Erfolg erzeugt ein neuer Scan getrennt den
+alten `MISSING`-Source-`FileRecord` und einen neuen `NEW`-Target-`FileRecord`;
+`EbookRenameReconciliationSnapshot` verbindet diese Historie, ohne
+`FileRecord`-Identitäten zu vereinigen. Nach Reverse-Recovery bindet derselbe
+Vertrag stattdessen die wieder aktuelle `PRESENT`-Source und die weiterhin
+historische Target-Abwesenheit, bevor `RECOVERED` terminal wird. REST/UI und
+andere Operationsarten bleiben geschlossen.
+
+Die nächsten vier kleinen Waves sind `S-W10-RN01` bis `S-W10-RN04`. RN01
+liefert zuerst die bislang fehlende nicht mutierende Proposal-/private-
+Preview-/Review-/Plan-Oberfläche; danach folgen Authority/Persistenz,
+Linux-Backend/Recovery und zuletzt die Bedien-/Scan-/Reconciliation-Kette.
+
+Die 23 gezielt betroffenen Planungsfront-, Dokumentations- und W10-Safety-
+Verträge bestanden auf dem finalen Stand in 0,11 Sekunden. Ruff war für die
+einzige geänderte Python-Testdatei grün; `git diff --check` war sauber. Der
+erste Pytest-Aufruf
+sammelte wegen fehlendem lokalen `PYTHONPATH=src` keine Tests und wurde mit
+dieser repositoryüblichen Importkonfiguration exakt im selben kleinen Scope
+wiederholt. Reale E-Books, private Runtime-Daten, Source-Mutation, SQLite-
+Runtime, Docker, externe Tools und die vollständige lokale Suite wurden nicht
+verwendet. Der vollständige PR-CI-Gate bleibt dem exakten stabilen Head
+vorbehalten.
+
 **S-W9-007C implementiert — W9-007 besitzt eine echte read-only Oberfläche**
 
 `ebook-operation-recipe-report` nimmt genau eine opaque Plan-ID sowie die
@@ -30,13 +76,16 @@ fünf betroffenen Source-/Testdateien ohne Befund. Reale E-Books, private
 Runtime-Daten, Docker, externe Tools und die vollständige lokale Suite wurden
 nicht verwendet. Zusätzlich bestanden die 22 gezielt gebündelten
 Planungsfront-, Dokumentations-, Testeffizienz- und Report-Safety-Fälle in
-1,17 Sekunden. Der vollständige Gate bleibt dem exakten stabilen PR-Head
-vorbehalten.
+1,17 Sekunden. Der stabile Remote-Head
+`e0f9645fc2ce851282776820735a6f710c038528` bestand Quality-Run
+`32617699743` und E-Book-Toolchain-Run `32617699707`. PR #244 wurde als
+`0a249e7230680aa03ac868d02065dab9ddb1e07d` auf `main` integriert;
+Post-Merge-Run `32617838103` war ebenfalls grün.
 
 `W9-007` ist damit vollständig und weiterhin dauerhaft nicht ausführbar. Als
-nächste book-only Wave folgt ausschließlich das docs-only Frontier-Gate
-`FG-W10-RENAME`. Es entscheidet den technischen Sicherheitsvertrag für
-byte-erhaltenden Rename und Reorganisation, öffnet aber noch keinen Writer.
+nächste book-only Wave folgte das docs-only Frontier-Gate
+`FG-W10-RENAME`, das ADR-0066 inzwischen ausschließlich für Same-Parent-Rename
+entschieden hat.
 
 **S-W9-007B implementiert — Review und Recipe-Historie sind insert-only**
 
@@ -704,9 +753,10 @@ operation-spezifischen W10-Gates, Revalidierung, Fencing, Verifikation,
 Recovery und der späteren REST-/UI-Grenze. ADR-0061 autorisiert ihre
 kontrollierte Entwicklung, nicht eine pauschale reale Mutation. `W9-006` und
 `W9-007` sind abgeschlossen. Der erste Metadata-Write-Vertrag ist
-abgeschlossen. `FG-W10-RENAME` ist als nächstes, zunächst rein
-dokumentarisches Frontier-Gate vorgesehen; Sidecar-, externe Library- und
-Archive-Write-Gates bleiben getrennte technische `DECISION`s.
+abgeschlossen. ADR-0066 hat das rein dokumentarische `FG-W10-RENAME`
+inzwischen nur für Same-Parent-`FILE_RENAME` entschieden; `S-W10-RN01` ist
+der nächste Slice. Reorganisation, Sidecar-, externe Library- und Archive-
+Write-Gates bleiben getrennte technische `DECISION`s.
 
 **W10-Interim abgeschlossen — Executor und read-only Quarantänestatus sind vorhanden**
 

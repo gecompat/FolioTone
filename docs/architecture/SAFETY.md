@@ -311,6 +311,30 @@ frische physische Revalidierung und der atomare Reconciliation-Insert dürfen
 `VERIFIED` erzeugen. Recovery durchläuft dieselbe Reconciliation und endet
 ohne `VERIFIED` bei `RECOVERED`.
 
+ADR-0066 entscheidet davon getrennt ausschließlich einen byte-identischen
+`FILE_RENAME` auf einen historisch unbenutzten Basename im selben vorhandenen
+Parent. Fünf Dependency-Achsen müssen durch aktuelle Coverage `KNOWN_NONE`
+oder über einen expliziten aktuellen Scope nachweislich `NOT_APPLICABLE` sein;
+`KNOWN_PRESENT`, `UNKNOWN` und bloß fehlende Daten blockieren. Source und Target
+müssen bereits NFC-kanonisch, casefold-verschieden und unter der festen
+Basename-/Suffixgrenze liegen. Eine private Capability autorisiert genau
+diesen ScanRoot und Writer. Das Linux-Backend löst den Parent mit `openat2`
+beneath/no-follow/no-xdev auf und verwendet genau ein
+`renameat2(RENAME_NOREPLACE)` relativ zu demselben Directory-FD. `os.rename`,
+Copy+Delete, Overwrite, Cross-Device, Shell und ToolProvider sind keine
+Fallbacks. Ein externer Prozess mit eigener Schreibauthority bleibt eine
+explizite betriebliche Restgrenze und darf während der Operation nicht
+parallel mutieren.
+
+`S-W10-RN01` bleibt vollständig nicht mutierend. RN02 ergänzt erst Authority,
+Capability, Fencing, Journal und read-only Status; RN03 den internen Executor
+und die feste Exact-State-Recovery; erst RN04 die Bedien-/Scan-/
+Reconciliation-Kette. Vor `IMMEDIATE_VERIFIED` darf Recovery ausschließlich
+den atomaren Reverse-Rename versuchen. Danach wird nur vorwärts reconciled.
+Uneindeutigkeit endet bei `MANUAL_RECOVERY_REQUIRED`. Der Folgescan vereinigt
+keine `FileRecord`-Identitäten. Parentwechsel bleiben hinter
+`FG-W10-REORGANIZE`.
+
 Ein ausführbarer Consolidation-Teil darf nicht lediglich durch einen CLI-
 Schalter aktiviert werden. Er benötigt weiterhin mindestens:
 
