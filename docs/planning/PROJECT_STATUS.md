@@ -4,6 +4,46 @@ Stand: 2026-08-23
 
 ## Aktuelle Welle
 
+**S-W10-RN01 implementiert — Rename-Planung ist nutzbar und bleibt nicht mutierend**
+
+Die vier Befehle `ebook-rename-propose`, `ebook-rename-preview`,
+`ebook-rename-review` und `ebook-rename-plan` erzeugen, prüfen und reviewen
+genau einen Same-Parent-`FILE_RENAME` auf dem bestehenden insert-only W9-
+Recipe-/Review-Store. Der Ziel-Basename kommt ausschließlich als eine
+begrenzte, nicht zurückgespiegelte `stdin`-Zeile herein. Source-Observation,
+vollständiger SHA-256, aktueller abgeschlossener E-Book-Scan, unveränderter
+`FileRecord`, historisch freier Target-Slot, Suffix, NFC, Casefold und Parent
+werden fail-closed gebunden. Ein akzeptierter blockerfreier Candidate bleibt
+auch als Plan dauerhaft `NOT_EXECUTABLE`.
+
+Der owner-eigene lokale `EbookRenameDependencyScope` ordnet alle fünf
+Dependency-Achsen explizit `MANAGED` oder `NOT_APPLICABLE` zu. Aktuelle
+Calibre-Snapshots, vollständige ungekürzte Archive-Collection-Runs und streng
+profilierte FolioTone-`ToolResult`-Coverage können `KNOWN_NONE` belegen;
+bestehende Calibre-, Sidecar-, Archive-, Volume- oder explizite ToolResult-
+Beziehungen erzwingen `KNOWN_PRESENT`. Fehlende, veraltete oder unvollständige
+Coverage bleibt `UNKNOWN` und blockiert. Preview und Plan lösen den privaten
+Scope erneut auf und akzeptieren nur exakt eine identische aktuelle Bindung.
+
+Proposal, Review und Plan schreiben ausschließlich die vorhandene SQLite-
+Historie; Preview öffnet die Datenbank read-only und migriert nicht. Es gibt
+keine neue Migration, Capability, Authorization, Source-Media-Öffnung,
+Dateisystemmutation, Tool- oder Netzwerkoperation. Standardausgaben bleiben
+Locator-, Pfad- und Hash-frei; relative Locator sind nur mit
+`ebook-rename-preview --private-details --output text` sichtbar. RN02 ist der
+nächste Slice und ergänzt nur Authority, Capability, Preparation, Journal,
+Persistenz und read-only Status ohne Executor.
+
+31 fokussierte RN01-Unit-, Integration-, CLI-, Privacy-, Scope-, Safety- und
+Testeffizienzfälle bestanden in 16,63 Sekunden. Die 85 direkt betroffenen W9-
+Store-, CLI-Bootstrap-, Planungs- und Dokumentationsregressionen sind nach der
+mechanischen Aktualisierung von vier veralteten RN01-Status-/CLI-Erwartungen
+ebenfalls grün. Ruff und Mypy waren für den betroffenen Python-Scope ohne
+Befund. Ausschließlich synthetische Daten wurden verwendet. Reale E-Books,
+private Runtime-Daten, Source-Mutation, Docker, externe Tools und die
+vollständige lokale Suite blieben unberührt. Genau ein vollständiger PR-CI-
+Gate bleibt Merge-Voraussetzung.
+
 **FG-W10-RENAME entschieden — ADR-0066 begrenzt den ersten Rename-Writer**
 
 ADR-0066 akzeptiert ausschließlich einen byte-identischen `FILE_RENAME` auf
@@ -34,10 +74,10 @@ Vertrag stattdessen die wieder aktuelle `PRESENT`-Source und die weiterhin
 historische Target-Abwesenheit, bevor `RECOVERED` terminal wird. REST/UI und
 andere Operationsarten bleiben geschlossen.
 
-Die nächsten vier kleinen Waves sind `S-W10-RN01` bis `S-W10-RN04`. RN01
-liefert zuerst die bislang fehlende nicht mutierende Proposal-/private-
-Preview-/Review-/Plan-Oberfläche; danach folgen Authority/Persistenz,
-Linux-Backend/Recovery und zuletzt die Bedien-/Scan-/Reconciliation-Kette.
+RN01 liefert inzwischen die nicht mutierende Proposal-/private-Preview-/
+Review-/Plan-Oberfläche. Als nächste drei kleine Waves folgen RN02 bis RN04:
+Authority/Persistenz, Linux-Backend/Recovery und zuletzt die Bedien-/Scan-/
+Reconciliation-Kette.
 
 Die 23 gezielt betroffenen Planungsfront-, Dokumentations- und W10-Safety-
 Verträge bestanden auf dem finalen Stand in 0,11 Sekunden. Ruff war für die
@@ -47,8 +87,11 @@ sammelte wegen fehlendem lokalen `PYTHONPATH=src` keine Tests und wurde mit
 dieser repositoryüblichen Importkonfiguration exakt im selben kleinen Scope
 wiederholt. Reale E-Books, private Runtime-Daten, Source-Mutation, SQLite-
 Runtime, Docker, externe Tools und die vollständige lokale Suite wurden nicht
-verwendet. Der vollständige PR-CI-Gate bleibt dem exakten stabilen Head
-vorbehalten.
+verwendet. Der stabile Remote-Head
+`41f9ab9b178b59b97c59147d9bbd09b8f8c77729` bestand Quality-Run
+`32619355986` und E-Book-Toolchain-Run `32619355944`. PR #245 wurde als
+`5dd9c5d5829c8241e5de709e705810cec8a5481c` auf `main` integriert;
+Post-Merge-Run `32619517705` war ebenfalls grün.
 
 **S-W9-007C implementiert — W9-007 besitzt eine echte read-only Oberfläche**
 
@@ -682,9 +725,9 @@ für den begrenzten EPUB-3-Titelwriter entschieden; `S-W10-MW01` und
 `S-W10-MW03` liefert Authorization, Journal, Capability/Fencing und read-only
 Status. `S-W10-MW04` liefert den internen Linux-Executor und Recovery;
 `S-W10-MW05` schließt Bedienung und Reconciliation ab.
-`W10-005` und `W9-007` sind ebenfalls abgeschlossen. Als nächster Schritt ist
-`FG-W10-RENAME` ausschließlich als dokumentarische Frontier-Entscheidung
-vorgesehen; ein Rename-Executor wird dadurch noch nicht aktiviert. Allgemeine
+`W10-005`, `W9-007`, `FG-W10-RENAME` und `S-W10-RN01` sind ebenfalls
+abgeschlossen. Als nächster Schritt ist `S-W10-RN02` ausschließlich für
+Authority-/Persistenzverträge ohne Executor vorgesehen. Allgemeine
 reale Mutation, Music, Bilder, REST-API und grafische Oberfläche werden durch
 diesen Abschluss nicht aktiviert. Am
 finalen lokalen Stand von S-W9-006C bestanden 41
@@ -752,10 +795,10 @@ Review über nicht ausführbare Metadatenkorrektur-/Konsolidierungspläne bis zu
 operation-spezifischen W10-Gates, Revalidierung, Fencing, Verifikation,
 Recovery und der späteren REST-/UI-Grenze. ADR-0061 autorisiert ihre
 kontrollierte Entwicklung, nicht eine pauschale reale Mutation. `W9-006` und
-`W9-007` sind abgeschlossen. Der erste Metadata-Write-Vertrag ist
-abgeschlossen. ADR-0066 hat das rein dokumentarische `FG-W10-RENAME`
-inzwischen nur für Same-Parent-`FILE_RENAME` entschieden; `S-W10-RN01` ist
-der nächste Slice. Reorganisation, Sidecar-, externe Library- und Archive-
+`W9-007` und `S-W10-RN01` sind abgeschlossen. Der erste Metadata-Write-Vertrag
+ist abgeschlossen. ADR-0066 hat das rein dokumentarische `FG-W10-RENAME`
+nur für Same-Parent-`FILE_RENAME` entschieden; `S-W10-RN02` ist der nächste
+Slice. Reorganisation, Sidecar-, externe Library- und Archive-
 Write-Gates bleiben getrennte technische `DECISION`s.
 
 **W10-Interim abgeschlossen — Executor und read-only Quarantänestatus sind vorhanden**

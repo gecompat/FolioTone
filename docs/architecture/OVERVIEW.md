@@ -381,9 +381,14 @@ Status, Counts, Review und Blocker.
 
 ADR-0066 akzeptiert davon als nächsten getrennten Writer ausschließlich
 `FILE_RENAME` auf einen anderen, historisch unbenutzten Basename im selben
-vorhandenen Parent. `S-W10-RN01` ergänzt zuerst den weiterhin nicht
-mutierenden Proposal-/Preview-/Review-/Plan-Pfad. Die späteren RN02 bis RN04
-verwenden eine private einzelne Capability, ein festes Linux-
+vorhandenen Parent. `S-W10-RN01` stellt den weiterhin nicht mutierenden
+Proposal-/Preview-/Review-/Plan-Pfad bereit. Eine bounded `stdin`-Zeile
+liefert nur den Target-Basename; der Application Service bindet die aktuelle
+Observation, Full-SHA-256, Target-History und owner-only Dependency-Scope-
+Coverage und persistiert Candidate, Review und Plan über die bestehenden
+W9-Stores. Standardausgaben bleiben locatorfrei; nur die explizite lokale
+Text-Preview darf relative Source-/Target-Locators zeigen. RN02 bis RN04
+verwenden anschließend eine private einzelne Capability, ein festes Linux-
 `openat2`-/`renameat2(RENAME_NOREPLACE)`-Backend, One-use-Authorization,
 rootweites Fencing, append-only Journal, Exact-State-Recovery und einen neuen
 Scan samt `CollectionState`. Die Reconciliation bindet getrennte alte

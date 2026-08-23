@@ -54,6 +54,7 @@ from foliotone.core import (
     ScanRun,
     ToolExecutionStatus,
 )
+from foliotone.ebook_rename import EbookRenameDependencyScopeResolver
 from foliotone.index import (
     MAX_DUPLICATE_HASH_BATCH_SIZE,
     MAX_DUPLICATE_HASH_WORKERS,
@@ -164,6 +165,14 @@ from foliotone.workflows.archive_collection_report import (
 from foliotone.workflows.classification import (
     ClassificationReportError,
     read_book_classification_report,
+)
+from foliotone.workflows.ebook_rename_planning import (
+    EbookRenamePlanningError,
+    EbookRenamePlanningService,
+    EbookRenamePlanResult,
+    EbookRenamePreview,
+    EbookRenameProposalResult,
+    EbookRenameReviewResult,
 )
 from foliotone.workflows.metadata_write_operation import (
     METADATA_WRITE_STAGE_ROOT_ENV,
@@ -495,6 +504,21 @@ def _add_quarantine_binders(
         choices=("text", "json"),
         default="text",
         help="Path-, filename-, and material-hash-free output; defaults to text.",
+    )
+
+
+def _add_ebook_rename_database_and_output(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="Existing SQLite database path; defaults to /data/foliotone.db.",
+    )
+    parser.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Path-, locator-, and material-hash-free output; defaults to text.",
     )
 
 
@@ -1734,6 +1758,71 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format; both variants remain path- and metadata-value-free.",
     )
 
+    ebook_rename_propose = subparsers.add_parser(
+        "ebook-rename-propose",
+        help="Create one bounded same-parent rename candidate from an stdin basename.",
+    )
+    ebook_rename_propose.add_argument(
+        "--observation-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque current EBOOK FileObservation identifier.",
+    )
+    ebook_rename_propose.add_argument(
+        "--dependency-scope-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque owner-only dependency-scope identifier.",
+    )
+    _add_ebook_rename_database_and_output(ebook_rename_propose)
+
+    ebook_rename_preview = subparsers.add_parser(
+        "ebook-rename-preview",
+        help="Preview one non-executable rename candidate without source access.",
+    )
+    ebook_rename_preview.add_argument(
+        "--candidate-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque persisted rename-candidate identifier.",
+    )
+    ebook_rename_preview.add_argument(
+        "--private-details",
+        action="store_true",
+        help="Show relative source and target locators in local text output only.",
+    )
+    _add_ebook_rename_database_and_output(ebook_rename_preview)
+
+    ebook_rename_review = subparsers.add_parser(
+        "ebook-rename-review",
+        help="Append one decision for an exact rename candidate.",
+    )
+    ebook_rename_review.add_argument(
+        "--candidate-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque persisted rename-candidate identifier.",
+    )
+    ebook_rename_review.add_argument(
+        "--decision",
+        required=True,
+        choices=("ACCEPT", "REJECT", "DEFER"),
+        help="Append-only review decision.",
+    )
+    _add_ebook_rename_database_and_output(ebook_rename_review)
+
+    ebook_rename_plan = subparsers.add_parser(
+        "ebook-rename-plan",
+        help="Persist the current permanently non-executable rename plan.",
+    )
+    ebook_rename_plan.add_argument(
+        "--candidate-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque persisted rename-candidate identifier.",
+    )
+    _add_ebook_rename_database_and_output(ebook_rename_plan)
+
     operation_recipe_report = subparsers.add_parser(
         "ebook-operation-recipe-report",
         help="Read one persisted non-executable e-book operation recipe read-only.",
@@ -2089,6 +2178,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             "available through quarantine-authorize, quarantine-execute, and "
             "quarantine-recover."
         )
+        print(
+            "Non-mutating same-parent e-book rename planning is available through "
+            "ebook-rename-propose, ebook-rename-preview, ebook-rename-review, and "
+            "ebook-rename-plan."
+        )
         print("Other source-media and external-tool mutation commands remain unavailable.")
         return 0
 
@@ -2162,6 +2256,18 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-metadata-correction-report":
         return _run_ebook_metadata_correction_report(args)
+
+    if args.command == "ebook-rename-propose":
+        return _run_ebook_rename_propose(args)
+
+    if args.command == "ebook-rename-preview":
+        return _run_ebook_rename_preview(args)
+
+    if args.command == "ebook-rename-review":
+        return _run_ebook_rename_review(args)
+
+    if args.command == "ebook-rename-plan":
+        return _run_ebook_rename_plan(args)
 
     if args.command == "ebook-operation-recipe-report":
         return _run_ebook_operation_recipe_report(args)
@@ -3693,6 +3799,262 @@ def _ebook_metadata_correction_report_error(args: argparse.Namespace, code: str)
         )
     else:
         print("Metadata correction report failed: read-only state is unavailable.")
+    return 2
+
+
+def _run_ebook_rename_propose(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    if not database.is_file():
+        return _ebook_rename_error(args, "DATABASE_UNAVAILABLE")
+    target_basename = _read_ebook_rename_target_basename()
+    if target_basename is None:
+        return _ebook_rename_error(args, "TARGET_INPUT_INVALID")
+    engine: Engine | None = None
+    try:
+        migrate(database)
+        engine = create_sqlite_engine(database)
+        result = EbookRenamePlanningService(
+            engine,
+            EbookRenameDependencyScopeResolver(),
+        ).propose(
+            args.observation_id,
+            args.dependency_scope_id,
+            target_basename,
+        )
+    except EbookRenamePlanningError as error:
+        return _ebook_rename_error(args, error.code)
+    except (OperationalError, OSError, ValueError):
+        return _ebook_rename_error(args, "DATABASE_UNAVAILABLE")
+    except Exception:
+        return _ebook_rename_error(args, "INTERNAL_ERROR")
+    finally:
+        if engine is not None:
+            engine.dispose()
+    _emit_ebook_rename_proposal(args, result)
+    return 0
+
+
+def _run_ebook_rename_preview(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    if args.private_details and args.output != "text":
+        return _ebook_rename_error(args, "PRIVATE_DETAILS_REQUIRE_TEXT")
+    if not database.is_file():
+        return _ebook_rename_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            preview = EbookRenamePlanningService(
+                engine,
+                EbookRenameDependencyScopeResolver(),
+            ).preview(args.candidate_id)
+        finally:
+            engine.dispose()
+    except EbookRenamePlanningError as error:
+        return _ebook_rename_error(args, error.code)
+    except (OperationalError, OSError, ValueError):
+        return _ebook_rename_error(args, "DATABASE_UNAVAILABLE")
+    except Exception:
+        return _ebook_rename_error(args, "INTERNAL_ERROR")
+    _emit_ebook_rename_preview(args, preview)
+    return 0
+
+
+def _run_ebook_rename_review(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    if not database.is_file():
+        return _ebook_rename_error(args, "DATABASE_UNAVAILABLE")
+    engine: Engine | None = None
+    try:
+        migrate(database)
+        engine = create_sqlite_engine(database)
+        result = EbookRenamePlanningService(
+            engine,
+            EbookRenameDependencyScopeResolver(),
+        ).review(
+            args.candidate_id,
+            ReviewDecisionValue(args.decision),
+        )
+    except EbookRenamePlanningError as error:
+        return _ebook_rename_error(args, error.code)
+    except (OperationalError, OSError, ValueError):
+        return _ebook_rename_error(args, "DATABASE_UNAVAILABLE")
+    except Exception:
+        return _ebook_rename_error(args, "INTERNAL_ERROR")
+    finally:
+        if engine is not None:
+            engine.dispose()
+    _emit_ebook_rename_review(args, result)
+    return 0
+
+
+def _run_ebook_rename_plan(args: argparse.Namespace) -> int:
+    database: Path = args.database
+    if not database.is_file():
+        return _ebook_rename_error(args, "DATABASE_UNAVAILABLE")
+    engine: Engine | None = None
+    try:
+        migrate(database)
+        engine = create_sqlite_engine(database)
+        result = EbookRenamePlanningService(
+            engine,
+            EbookRenameDependencyScopeResolver(),
+        ).plan(args.candidate_id)
+    except EbookRenamePlanningError as error:
+        return _ebook_rename_error(args, error.code)
+    except (OperationalError, OSError, ValueError):
+        return _ebook_rename_error(args, "DATABASE_UNAVAILABLE")
+    except Exception:
+        return _ebook_rename_error(args, "INTERNAL_ERROR")
+    finally:
+        if engine is not None:
+            engine.dispose()
+    _emit_ebook_rename_plan(args, result)
+    return 0
+
+
+def _read_ebook_rename_target_basename() -> str | None:
+    supplied = sys.stdin.readline(1026)
+    if not supplied.endswith("\n") or len(supplied) > 1025:
+        return None
+    supplied = supplied[:-1]
+    if supplied.endswith("\r"):
+        supplied = supplied[:-1]
+    if "\r" in supplied or "\n" in supplied:
+        return None
+    return supplied
+
+
+def _emit_ebook_rename_proposal(
+    args: argparse.Namespace,
+    result: EbookRenameProposalResult,
+) -> None:
+    states = Counter(value.value for value in result.dependency_states)
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": "ebook-rename-propose",
+                "ok": True,
+                "candidate_id": str(result.candidate_id),
+                "review_item_id": str(result.review_item_id),
+                "review_state": result.review_state.value,
+                "dependency_counts": dict(sorted(states.items())),
+            }
+        )
+        return
+    print(f"Candidate: {result.candidate_id}")
+    print(f"Review item: {result.review_item_id}")
+    print(f"Review state: {result.review_state.value}")
+    for state, count in sorted(states.items()):
+        print(f"Dependencies {state}: {count}")
+
+
+def _emit_ebook_rename_preview(
+    args: argparse.Namespace,
+    preview: EbookRenamePreview,
+) -> None:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": "ebook-rename-preview",
+                "ok": True,
+                "candidate_id": str(preview.candidate_id),
+                "candidate_profile": preview.candidate_profile,
+                "operation_kind": preview.operation_kind.value,
+                "status": preview.status.value,
+                "execution_state": "NOT_EXECUTABLE",
+                "review_state": preview.review_state.value,
+                "counts": {
+                    "sources": preview.source_count,
+                    "dependencies": preview.dependency_count,
+                    "evidence_refs": preview.evidence_count,
+                    "blockers": len(preview.blocker_codes),
+                },
+                "blocker_codes": list(preview.blocker_codes),
+            }
+        )
+        return
+    print(f"Candidate: {preview.candidate_id}")
+    print(f"Candidate profile: {preview.candidate_profile}")
+    print(f"Operation kind: {preview.operation_kind.value}")
+    print(f"Status: {preview.status.value}")
+    print("Execution state: NOT_EXECUTABLE")
+    print(f"Review state: {preview.review_state.value}")
+    print(f"Sources: {preview.source_count}")
+    print(f"Dependencies: {preview.dependency_count}")
+    print(f"Evidence refs: {preview.evidence_count}")
+    print(f"Blockers: {len(preview.blocker_codes)}")
+    for code in preview.blocker_codes:
+        print(f"Blocker code: {code}")
+    if args.private_details:
+        print(f"Source relative locator: {preview.source_relative_locator}")
+        print(f"Target relative locator: {preview.target_relative_locator}")
+
+
+def _emit_ebook_rename_review(
+    args: argparse.Namespace,
+    result: EbookRenameReviewResult,
+) -> None:
+    payload = {
+        "schema_version": 1,
+        "command": "ebook-rename-review",
+        "ok": True,
+        "candidate_id": str(result.candidate_id),
+        "review_item_id": str(result.review_item_id),
+        "decision_id": str(result.decision_id),
+        "decision": result.decision.value,
+        "sequence_no": result.sequence_no,
+    }
+    if args.output == "json":
+        _emit_json(payload)
+        return
+    print(f"Candidate: {result.candidate_id}")
+    print(f"Review item: {result.review_item_id}")
+    print(f"Decision: {result.decision.value}")
+    print(f"Sequence: {result.sequence_no}")
+    print(f"Decision ID: {result.decision_id}")
+
+
+def _emit_ebook_rename_plan(
+    args: argparse.Namespace,
+    result: EbookRenamePlanResult,
+) -> None:
+    payload = {
+        "schema_version": 1,
+        "command": "ebook-rename-plan",
+        "ok": True,
+        "plan_id": str(result.plan_id),
+        "candidate_id": str(result.candidate_id),
+        "status": result.status.value,
+        "execution_state": "NOT_EXECUTABLE",
+        "review_state": result.review_state.value,
+        "blocker_codes": list(result.blocker_codes),
+    }
+    if args.output == "json":
+        _emit_json(payload)
+        return
+    print(f"Plan: {result.plan_id}")
+    print(f"Candidate: {result.candidate_id}")
+    print(f"Status: {result.status.value}")
+    print("Execution state: NOT_EXECUTABLE")
+    print(f"Review state: {result.review_state.value}")
+    for code in result.blocker_codes:
+        print(f"Blocker code: {code}")
+
+
+def _ebook_rename_error(args: argparse.Namespace, code: str) -> int:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": args.command,
+                "ok": False,
+                "error": {"code": code},
+            }
+        )
+    else:
+        print(f"E-book rename planning failed: {code}")
     return 2
 
 

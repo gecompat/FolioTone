@@ -326,14 +326,19 @@ Fallbacks. Ein externer Prozess mit eigener Schreibauthority bleibt eine
 explizite betriebliche Restgrenze und darf während der Operation nicht
 parallel mutieren.
 
-`S-W10-RN01` bleibt vollständig nicht mutierend. RN02 ergänzt erst Authority,
-Capability, Fencing, Journal und read-only Status; RN03 den internen Executor
-und die feste Exact-State-Recovery; erst RN04 die Bedien-/Scan-/
-Reconciliation-Kette. Vor `IMMEDIATE_VERIFIED` darf Recovery ausschließlich
-den atomaren Reverse-Rename versuchen. Danach wird nur vorwärts reconciled.
-Uneindeutigkeit endet bei `MANUAL_RECOVERY_REQUIRED`. Der Folgescan vereinigt
-keine `FileRecord`-Identitäten. Parentwechsel bleiben hinter
-`FG-W10-REORGANIZE`.
+`S-W10-RN01` ist vollständig nicht mutierend umgesetzt. Der Ziel-Basename
+kommt ausschließlich als eine begrenzte, nicht zurückgespiegelte `stdin`-
+Zeile herein; Proposal, append-only Review und Plan schreiben nur in die
+bestehende SQLite-Persistenz. Standardausgaben bleiben Locator-, Pfad- und
+Hash-frei; relative Source-/Target-Locators zeigt ausschließlich
+`ebook-rename-preview --private-details --output text`. RN02 ergänzt erst
+Authority, Capability, Fencing, Journal und read-only Status; RN03 den
+internen Executor und die feste Exact-State-Recovery; erst RN04 die Bedien-/
+Scan-/Reconciliation-Kette. Vor `IMMEDIATE_VERIFIED` darf Recovery
+ausschließlich den atomaren Reverse-Rename versuchen. Danach wird nur vorwärts
+reconciled. Uneindeutigkeit endet bei `MANUAL_RECOVERY_REQUIRED`. Der
+Folgescan vereinigt keine `FileRecord`-Identitäten. Parentwechsel bleiben
+hinter `FG-W10-REORGANIZE`.
 
 Ein ausführbarer Consolidation-Teil darf nicht lediglich durch einen CLI-
 Schalter aktiviert werden. Er benötigt weiterhin mindestens:

@@ -103,6 +103,15 @@ from foliotone.workflows.ebook_matching import (
     EbookMatchingOutcome,
     EbookMatchingService,
 )
+from foliotone.workflows.ebook_rename_planning import (
+    EbookRenameDependencyScopePort,
+    EbookRenamePlanningError,
+    EbookRenamePlanningService,
+    EbookRenamePlanResult,
+    EbookRenamePreview,
+    EbookRenameProposalResult,
+    EbookRenameReviewResult,
+)
 from foliotone.workflows.library_health import (
     LIBRARY_HEALTH_REPORT_PROFILE,
     LibraryHealthReport,
@@ -203,6 +212,13 @@ __all__ = [
     "EbookMatchingError",
     "EbookMatchingOutcome",
     "EbookMatchingService",
+    "EbookRenameDependencyScopePort",
+    "EbookRenamePlanningError",
+    "EbookRenamePlanningService",
+    "EbookRenamePlanResult",
+    "EbookRenamePreview",
+    "EbookRenameProposalResult",
+    "EbookRenameReviewResult",
     "EbookQualityAssessment",
     "EbookQualityDimension",
     "EbookQualityDimensionName",

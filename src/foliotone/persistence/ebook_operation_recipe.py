@@ -71,6 +71,7 @@ from foliotone.ebook_operation_recipes import (
     ebook_operation_workspace_requirement_fingerprint,
 )
 from foliotone.persistence import (
+    archive_collection_schema,
     archive_schema,
     calibre_library_schema,
     consolidation_schema,
@@ -918,7 +919,11 @@ class SQLiteEbookOperationRecipeStore:
     ) -> None:
         generic_profile = f"ebook-{dependency.kind.value.lower()}-dependency/v1"
         primary = candidate.sources[0]
-        if dependency.snapshot_kind in {generic_profile, "FILE_OBSERVATION"}:
+        if dependency.snapshot_kind in {
+            generic_profile,
+            "FILE_OBSERVATION",
+            "ebook-file-rename-dependency-scope/v1",
+        }:
             if dependency.snapshot_id != primary.observation_id:
                 raise EbookOperationRecipeStoreError(
                     "dependency snapshot has foreign lineage"
@@ -926,7 +931,18 @@ class SQLiteEbookOperationRecipeStore:
             return
 
         kind = dependency.snapshot_kind
-        if dependency.kind is EbookOperationDependencyKind.CALIBRE:
+        if kind == "TOOL_RESULT":
+            lineage = _tool_result_lineage(
+                connection,
+                dependency.snapshot_id,
+                primary.observation_id,
+            )
+        elif kind == "ARCHIVE_COLLECTION_RUN":
+            lineage = _archive_collection_lineage(
+                connection,
+                dependency.snapshot_id,
+            )
+        elif dependency.kind is EbookOperationDependencyKind.CALIBRE:
             lineage = _calibre_lineage(connection, kind, dependency.snapshot_id)
         elif dependency.kind is EbookOperationDependencyKind.SIDECAR:
             lineage = _sidecar_lineage(connection, kind, dependency.snapshot_id)
@@ -1278,18 +1294,41 @@ def _validate_plan_identity(plan: EbookOperationRecipePlan) -> None:
 
 
 def _validate_plan_reducer(plan: EbookOperationRecipePlan) -> None:
+    blocker_codes = {value.code for value in plan.blockers}
     expected = build_ebook_operation_recipe_plan(
         EbookOperationRecipePlanInputs(
             candidate=plan.candidate,
             review=plan.review,
-            lineage_matches=True,
-            source_evidence_complete=True,
-            target_valid=True,
-            output_identity_valid=True,
-            processor_requirement_valid=True,
-            preconditions_complete=True,
-            recovery_contract_complete=True,
-            verification_contract_complete=True,
+            lineage_matches=(
+                EbookOperationBlockerCode.LINEAGE_MISMATCH not in blocker_codes
+            ),
+            source_evidence_complete=(
+                EbookOperationBlockerCode.SOURCE_EVIDENCE_INCOMPLETE
+                not in blocker_codes
+            ),
+            target_valid=(
+                EbookOperationBlockerCode.TARGET_INVALID not in blocker_codes
+            ),
+            output_identity_valid=(
+                EbookOperationBlockerCode.OUTPUT_IDENTITY_INVALID
+                not in blocker_codes
+            ),
+            processor_requirement_valid=(
+                EbookOperationBlockerCode.PROCESSOR_REQUIREMENT_INVALID
+                not in blocker_codes
+            ),
+            preconditions_complete=(
+                EbookOperationBlockerCode.PRECONDITION_INCOMPLETE
+                not in blocker_codes
+            ),
+            recovery_contract_complete=(
+                EbookOperationBlockerCode.RECOVERY_CONTRACT_INCOMPLETE
+                not in blocker_codes
+            ),
+            verification_contract_complete=(
+                EbookOperationBlockerCode.VERIFICATION_CONTRACT_INCOMPLETE
+                not in blocker_codes
+            ),
         ),
         clock=lambda: plan.created_at,
     )
@@ -1500,6 +1539,44 @@ def _sidecar_lineage(
         )
     ).one_or_none()
     return None if row is None else (str(row.scan_root_id), str(row.source_scan_run_id))
+
+
+def _archive_collection_lineage(
+    connection: Connection,
+    reference_id: EntityId,
+) -> tuple[str, str] | None:
+    table = archive_collection_schema.archive_collection_runs
+    row = connection.execute(
+        select(table.c.scan_root_id, table.c.source_scan_run_id).where(
+            table.c.id == str(reference_id)
+        )
+    ).one_or_none()
+    return None if row is None else (str(row.scan_root_id), str(row.source_scan_run_id))
+
+
+def _tool_result_lineage(
+    connection: Connection,
+    reference_id: EntityId,
+    observation_id: EntityId,
+) -> tuple[str, str] | None:
+    result = schema.tool_results
+    observation = schema.file_observations
+    record = schema.file_records
+    row = connection.execute(
+        select(record.c.scan_root_id, observation.c.scan_run_id)
+        .select_from(
+            result.join(
+                observation,
+                (result.c.target_kind == EntityKind.FILE_OBSERVATION.value)
+                & (result.c.target_id == observation.c.id),
+            ).join(record, observation.c.file_id == record.c.id)
+        )
+        .where(
+            result.c.id == str(reference_id),
+            observation.c.id == str(observation_id),
+        )
+    ).one_or_none()
+    return None if row is None else (str(row.scan_root_id), str(row.scan_run_id))
 
 
 _EVIDENCE_TABLES: dict[str, Table] = {
