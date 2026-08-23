@@ -4,6 +4,27 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
+W0-013 integriert AI Repository Foundation `1.2.0` semantisch. Vor
+Projektarbeit ist über den verwalteten Block im Root-`AGENTS.md` die
+namespacete Baseline unter `.ai/foundation/` zu lesen; für Projektfakten,
+Domain, Architektur, Status und bewusst strengere Privacy-, Test-, Git- und
+W10-Grenzen bleiben das Root-`AGENTS.md` und seine FolioTone-Einstiegspunkte
+autoritativ. ADR-0068 dokumentiert die Klassen des Abgleichs. Die vorhandenen
+Copilot-/Junie-Adapter, `LICENSE.md` und der geschützte README-Lizenzblock
+wurden nicht ersetzt. Ein Foundation-Update erfordert erneut einen
+semantischen Review; der repository-only Fresh-Agent-Transfer ist noch
+`pending manual validation`.
+
+Der Foundation-Validator bestand im Profil `full` mit zwei Scope-Hinweisen
+und ohne Warnung, Fehler oder Blocker; alle 14 übernommenen Core-/
+Attributionsdateien sind bytegleich zum geprüften Foundation-Stand. Alle 62
+FolioTone-Static-Contracts einschließlich der 12 direkt betroffenen
+Dokumentationsverträge bestanden. Ruff war für die geänderte Testdatei grün,
+`git diff --check` sauber; Root-`README.md` und `LICENSE.md` blieben
+bytegleich. Mypy, Docker, Runtime-Tests, reale E-Books und private Daten waren
+für den Governance-Scope nicht erforderlich. Der einmalige vollständige
+PR-CI-Gate ist noch nicht ausgeführt.
+
 FUT-011 ist durch ADR-0067 entschieden. Der akzeptierte erste Surface-Scope
 ist `local-single-operator/v1`: loopback-only same-origin REST unter
 `/api/v1`, deutschsprachige responsive Browser-UI, lokaler One-time-

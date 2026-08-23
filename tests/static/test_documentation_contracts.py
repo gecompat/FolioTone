@@ -61,6 +61,20 @@ PROTECTED_README_PREFIX = "\n".join(
 ) + "\n"
 
 REQUIRED_GOVERNANCE_PATHS = (
+    ".ai/foundation/FOUNDATION_RULESET.md",
+    ".ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md",
+    ".ai/foundation/PROJECT_RULES.md",
+    ".ai/foundation/SEMANTIC_INTEGRATION_POLICY.md",
+    ".ai/foundation/WORKING_RULES.md",
+    ".ai/foundation/MODEL_ROUTING_POLICY.md",
+    ".ai/foundation/VALIDATION_POLICY.md",
+    ".ai/foundation/DATA_PRIVACY_AND_CONFIDENTIALITY.md",
+    ".ai/foundation/SECURITY_AND_SAFE_OPERATIONS.md",
+    ".ai/foundation/DOCUMENTATION_POLICY.md",
+    ".ai/foundation/THIRD_PARTY_AND_LICENSING.md",
+    ".ai/foundation/SOURCE_AND_EVIDENCE_POLICY.md",
+    ".ai/foundation/DEPENDENCY_POLICY.md",
+    ".ai/foundation/repo_map.yaml",
     "docs/planning/AI_WORKFLOW.md",
     "docs/planning/AI_TOOL_ADAPTERS.md",
     "docs/planning/MODEL_ROUTING_POLICY.md",
@@ -102,6 +116,33 @@ def test_agents_routes_documentation_changes_to_canonical_policies() -> None:
     assert "docs/quality/LANGUAGE_AND_TERMINOLOGY.md" in agents
     assert "docs/reference/GLOSSARY.md" in agents
     assert "protected" in agents.lower() or "geschützt" in agents.lower()
+
+
+def test_foundation_baseline_is_discoverable_and_versioned() -> None:
+    agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    ruleset = (ROOT / ".ai/foundation/FOUNDATION_RULESET.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert agents.count("<!-- AI_REPOSITORY_FOUNDATION:BEGIN v1 -->") == 1
+    assert agents.count("<!-- AI_REPOSITORY_FOUNDATION:END -->") == 1
+    assert ".ai/foundation/FOUNDATION_RULESET.md" in agents
+    assert ".ai/foundation/SEMANTIC_INTEGRATION_POLICY.md" in agents
+    assert "Ruleset version: 1.2.0" in ruleset
+
+
+def test_foundation_attribution_is_complete_and_namespaced() -> None:
+    notice = (
+        ROOT / ".ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md"
+    ).read_text(encoding="utf-8")
+
+    assert "Copyright (c) 2026 Gerhard P" in notice
+    assert "Permission is hereby granted, free of charge" in notice
+    assert 'THE SOFTWARE IS PROVIDED "AS IS"' in notice
+    assert (
+        "This notice applies only to material transferred from the "
+        "AI Repository Foundation"
+    ) in notice
 
 
 def test_copilot_routes_documentation_changes_to_same_policies() -> None:

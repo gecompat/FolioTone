@@ -78,9 +78,11 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0065](decisions/ADR-0065-non-executable-ebook-operation-recipes.md) definiert operationstypisierte, content-addressed `EbookOperationRecipeCandidate`- und `EbookOperationRecipePlan`-Snapshots für sechs Datei-/Containeroperationen mit permanenter `NOT_EXECUTABLE`-Grenze.
 - [ADR-0066](decisions/ADR-0066-bounded-ebook-file-rename.md) entscheidet den ersten Datei-Writer ausschließlich für byte-identischen Same-Parent-Rename mit privater Capability, Linux-`renameat2(RENAME_NOREPLACE)`, Exact-State-Recovery und nicht vereinigender Scan-Reconciliation.
 - [ADR-0067](decisions/ADR-0067-local-single-operator-product-surface.md) entscheidet die lokale Einzelbenutzer-Produktoberfläche mit gemeinsamen Application-Verträgen, loopback-only REST-API, Browser-UI, Bootstrap/Auth, dauerhaften Jobs und getrenntem Operator-Worker.
+- [ADR-0068](decisions/ADR-0068-ai-repository-foundation-integration.md) integriert AI Repository Foundation `1.2.0` als namespacete Mindestbaseline, ohne strengere FolioTone-Verträge, Projektstatus, Adapter oder die Root-Lizenz zu ersetzen.
 
 ## Qualität, Sprache und Dokumentationsregeln
 
+- [AI Repository Foundation Baseline](../.ai/foundation/FOUNDATION_RULESET.md) ist die versionierte allgemeine Mindestbaseline; `AGENTS.md` und die dort transitiv erschlossenen FolioTone-Dokumente bleiben für Projektfakten und strengere Regeln autoritativ.
 - [Vendor-neutrale Wave-Orchestrierung](planning/AI_WORKFLOW.md) definiert Inventar, Isolation, Implementierung, Review, Git-Abschluss und Handover je Wave.
 - [Modell- und Agenten-Routing](planning/MODEL_ROUTING_POLICY.md) definiert die Tiers `LOCAL`, `ECONOMICAL`, `BALANCED` und `FRONTIER` ohne dauerhafte Bindung an einen Anbieter oder Modellnamen.
 - [Tool-Adapter für KI-Systeme](planning/AI_TOOL_ADAPTERS.md) beschreibt die dünne Discovery-Schicht für Codex, Copilot, Junie und Databricks Genie Code sowie die getrennte Rolle von Databricks Genie Agents.
