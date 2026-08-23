@@ -57,6 +57,16 @@ wiederholt, sondern in den vorhandenen Status-/Recoveryweg überführt.
 
 Owns domain concepts and interfaces that must not depend on specific file formats, Calibre, beets, SongKong, Picard, FFmpeg, external provider schemas, Docker, CLI frameworks, or a concrete database implementation.
 
+### Application
+
+Provides versioned adapter-neutral request contracts, a stable Media-Line-
+Registry and composition of existing workflows for CLI, later REST and worker
+adapters. `application-contracts/v1` currently exposes only the read-only
+E-Book Toolchain-Readiness and `Library Health` queries. E-Books are the only
+activated media line; Music and Images remain visible registry entries without
+domain endpoints. The Application boundary does not add HTTP, authentication,
+jobs, migrations, source-media access or write authority.
+
 ### Persistence
 
 Initially implements SQLite-backed storage for core/index/tooling/authority/enrichment/matching/review state. Callers should depend on persistence contracts rather than SQLite details.
