@@ -199,8 +199,12 @@ der Test-Collection, weil ein installiertes Fremdpaket das bisher implizite
 lokale `tests`-Namespace verdeckte. Ein explizites `tests/__init__.py` behebt
 nur diese Importauflösung; Produktionscode blieb unverändert. Die lokale
 Collection fand danach 2.051 Tests fehlerfrei, und die vier neuen
-Autorisierungs-Integrationsfälle blieben grün. Der korrigierte Head benötigt
-erneut den vollständigen Gate.
+Autorisierungs-Integrationsfälle blieben grün. Im zweiten Gate waren 2.042
+Tests erfolgreich und acht erwartungsgemäß übersprungen; ausschließlich der
+explizite Statusausgabe-Vertrag enthielt die neue
+`quarantine-authorize`-Zeile noch nicht. Die Test-Erwartung ist nun mit der
+bereits implementierten, mutationsfreien Statusausgabe synchronisiert. Der
+erneut korrigierte Head benötigt den vollständigen Gate.
 
 Für `S-W10-MW01` bestanden lokal 114 fokussierte neue und direkt betroffene
 Unit-, Privacy-, Non-Execution- und Dokumentationsvertragstests in 0,57

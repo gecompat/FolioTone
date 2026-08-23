@@ -50,8 +50,12 @@ Namespace-Verzeichnis `tests` durch ein fremdes installiertes Paket gleichen
 Namens verdeckt. `tests/__init__.py` markiert den bestehenden Testbaum nun
 explizit als lokales Paket; Produktionscode und Sicherheitsverhalten blieben
 unverändert. Die lokale Collection fand danach 2.051 Tests fehlerfrei; die vier
-neuen Autorisierungs-Integrationsfälle blieben grün. Der korrigierte Head
-benötigt erneut den vollständigen Gate.
+neuen Autorisierungs-Integrationsfälle blieben grün. Der zweite Gate erreichte
+anschließend 2.042 erfolgreiche Tests bei acht erwarteten Skips; nur der
+explizite Statusausgabe-Vertrag erwartete die neue
+`quarantine-authorize`-Zeile noch nicht. Die Erwartung ist jetzt mit der bereits
+implementierten, mutationsfreien Statusausgabe synchronisiert. Der erneut
+korrigierte Head benötigt den vollständigen Gate.
 
 **S-W10-MW05 implementiert — EPUB-Titelwriter besitzt Bedienung und Reconciliation**
 
