@@ -233,11 +233,7 @@ def _candidate(
         if archive
         else (_source(0, EbookOperationSourceRole.PRIMARY),)
     )
-    target_locator = (
-        PRIVATE_LOCATORS[0]
-        if archive
-        else "private/synthetic-secret-renamed.epub"
-    )
+    target_locator = PRIVATE_LOCATORS[0] if archive else "private/synthetic-secret-renamed.epub"
     target = EbookOperationTargetSnapshot(
         kind=operation_target_kind(operation_kind),
         scope_id=ROOT_ID,
@@ -251,9 +247,7 @@ def _candidate(
             else EbookOperationProcessorKind.FOLIOTONE_NATIVE
         ),
         processor_profile=(
-            "deterministic-archive-rewrite/v1"
-            if archive
-            else "byte-preserving-file-operation/v1"
+            "deterministic-archive-rewrite/v1" if archive else "byte-preserving-file-operation/v1"
         ),
         configuration_fingerprint=_sha("c"),
         provider_id="synthetic-provider" if archive else None,
@@ -337,9 +331,7 @@ def _review_item(
         candidate_id=candidate.id,
         producer_name=EBOOK_OPERATION_RECIPE_PRODUCER_NAME,
         producer_version=EBOOK_OPERATION_RECIPE_PRODUCER_VERSION,
-        decision_compatibility_version=(
-            EBOOK_OPERATION_RECIPE_DECISION_COMPATIBILITY
-        ),
+        decision_compatibility_version=(EBOOK_OPERATION_RECIPE_DECISION_COMPATIBILITY),
         evidence_fingerprint=candidate.evidence_fingerprint,
         candidate_set_fingerprint=candidate.content_hash,
         state=ReviewItemState.PENDING,
@@ -476,9 +468,7 @@ def test_migration_0030_preserves_review_history_and_old_triggers(
     migrate(database)
     upgraded = create_sqlite_engine(database)
     with upgraded.connect() as connection:
-        revision = connection.execute(
-            text("SELECT version_num FROM alembic_version")
-        ).scalar_one()
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         retained = connection.execute(
             select(review_schema.review_decisions.c.id).where(
                 review_schema.review_decisions.c.id == str(decision_id)
@@ -486,15 +476,11 @@ def test_migration_0030_preserves_review_history_and_old_triggers(
         ).scalar_one()
         retained_plan_review = connection.execute(
             select(consolidation_schema.consolidation_plan_reviews.c.plan_id).where(
-                consolidation_schema.consolidation_plan_reviews.c.plan_id
-                == str(plan_id)
+                consolidation_schema.consolidation_plan_reviews.c.plan_id == str(plan_id)
             )
         ).scalar_one()
         review_ddl = connection.execute(
-            text(
-                "SELECT sql FROM sqlite_master "
-                "WHERE type='table' AND name='review_items'"
-            )
+            text("SELECT sql FROM sqlite_master WHERE type='table' AND name='review_items'")
         ).scalar_one()
         restored_trigger = connection.execute(
             text(
@@ -502,7 +488,7 @@ def test_migration_0030_preserves_review_history_and_old_triggers(
                 "AND name='metadata_correction_plan_reviews_no_update'"
             )
         ).scalar_one()
-    assert revision == "0032_ebook_rename_reconciliation"
+    assert revision == "0033_local_surface_foundation"
     assert retained == str(decision_id)
     assert retained_plan_review == str(plan_id)
     assert restored_trigger == "metadata_correction_plan_reviews_no_update"
@@ -524,10 +510,7 @@ def test_migration_0030_preserves_review_history_and_old_triggers(
             )
         ).scalar_one()
         review_ddl_after = connection.execute(
-            text(
-                "SELECT sql FROM sqlite_master "
-                "WHERE type='table' AND name='review_items'"
-            )
+            text("SELECT sql FROM sqlite_master WHERE type='table' AND name='review_items'")
         ).scalar_one()
     assert retained_after == str(decision_id)
     assert "EBOOK_OPERATION_RECIPE" not in review_ddl_after
@@ -559,10 +542,7 @@ def test_candidate_roundtrip_is_bounded_immutable_and_idempotent(
         with pytest.raises(Exception, match="operation recipe rows are immutable"):
             connection.execute(
                 recipe_schema.ebook_operation_recipe_candidates.update()
-                .where(
-                    recipe_schema.ebook_operation_recipe_candidates.c.id
-                    == str(candidate.id)
-                )
+                .where(recipe_schema.ebook_operation_recipe_candidates.c.id == str(candidate.id))
                 .values(target_relative_locator="changed/private.epub")
             )
         with pytest.raises(Exception, match="child exceeds parent count"):
@@ -609,9 +589,7 @@ def test_review_and_plan_roundtrip_bind_latest_compatible_decision(
         decision_reason="USER_CONFIRMED",
         evidence_fingerprint=candidate.evidence_fingerprint,
         candidate_set_fingerprint=candidate.content_hash,
-        decision_compatibility_version=(
-            EBOOK_OPERATION_RECIPE_DECISION_COMPATIBILITY
-        ),
+        decision_compatibility_version=(EBOOK_OPERATION_RECIPE_DECISION_COMPATIBILITY),
         actor_kind=ReviewActorKind.USER,
         decided_at=NOW + timedelta(minutes=1),
     )
@@ -627,9 +605,7 @@ def test_review_and_plan_roundtrip_bind_latest_compatible_decision(
     assert recipe_store.get_plan(approved.id) == approved
     retry = _plan(candidate, accepted, created_at=NOW + timedelta(hours=1))
     assert recipe_store.create_or_get_plan(retry) == approved
-    approved_report = SQLiteEbookOperationRecipePlanReportReader(engine).read(
-        approved.id
-    )
+    approved_report = SQLiteEbookOperationRecipePlanReportReader(engine).read(approved.id)
     assert approved_report.review_status == "ACCEPTED"
     assert approved_report.counts.review_items == 1
     assert approved_report.counts.decisions == 1
@@ -658,9 +634,7 @@ def test_review_and_plan_roundtrip_bind_latest_compatible_decision(
         match="latest compatible review",
     ):
         recipe_store.create_or_get_plan(pending_plan)
-    assert review_store.list_queue(
-        review_type=ReviewType.EBOOK_OPERATION_RECIPE
-    ).items == ()
+    assert review_store.list_queue(review_type=ReviewType.EBOOK_OPERATION_RECIPE).items == ()
     engine.dispose()
 
 
@@ -671,9 +645,7 @@ def test_missing_evidence_rolls_back_without_private_details(
     _seed_sources(engine, count=1)
     with engine.begin() as connection:
         connection.execute(
-            schema.tool_results.delete().where(
-                schema.tool_results.c.id == str(TOOL_RESULT_ID)
-            )
+            schema.tool_results.delete().where(schema.tool_results.c.id == str(TOOL_RESULT_ID))
         )
     store = SQLiteEbookOperationRecipeStore(engine)
     candidate = _candidate()
@@ -685,9 +657,7 @@ def test_missing_evidence_rolls_back_without_private_details(
     assert candidate.target.target_state_fingerprint not in message
     with engine.connect() as connection:
         count = connection.execute(
-            select(func.count()).select_from(
-                recipe_schema.ebook_operation_recipe_candidates
-            )
+            select(func.count()).select_from(recipe_schema.ebook_operation_recipe_candidates)
         ).scalar_one()
     assert count == 0
     engine.dispose()
@@ -715,9 +685,7 @@ def test_database_failure_rolls_back_without_private_parameters(
     assert failure.value.__suppress_context__ is True
     with engine.connect() as connection:
         count = connection.execute(
-            select(func.count()).select_from(
-                recipe_schema.ebook_operation_recipe_candidates
-            )
+            select(func.count()).select_from(recipe_schema.ebook_operation_recipe_candidates)
         ).scalar_one()
     assert count == 0
     engine.dispose()
@@ -779,9 +747,7 @@ def test_review_decision_evidence_requires_source_file_lineage(
         store.create_or_get_candidate(candidate)
     with engine.connect() as connection:
         count = connection.execute(
-            select(func.count()).select_from(
-                recipe_schema.ebook_operation_recipe_candidates
-            )
+            select(func.count()).select_from(recipe_schema.ebook_operation_recipe_candidates)
         ).scalar_one()
     assert count == 0
     engine.dispose()
@@ -792,9 +758,7 @@ def test_recipe_review_pair_is_exact_in_domain_store_and_database(
 ) -> None:
     engine = create_sqlite_engine(head_database)
     _seed_sources(engine, count=1)
-    candidate = SQLiteEbookOperationRecipeStore(engine).create_or_get_candidate(
-        _candidate()
-    )
+    candidate = SQLiteEbookOperationRecipeStore(engine).create_or_get_candidate(_candidate())
     store = SQLiteResolutionReviewStore(engine)
     valid = _review_item(candidate)
     assert store.enqueue_or_get_review(valid) == valid
@@ -969,9 +933,7 @@ def test_operation_recipe_report_cli_is_strictly_read_only_and_private(
 
 def test_operation_recipe_report_rejects_invalid_plan_token() -> None:
     with pytest.raises(SystemExit):
-        build_parser().parse_args(
-            ["ebook-operation-recipe-report", "--plan", "not-a-uuid"]
-        )
+        build_parser().parse_args(["ebook-operation-recipe-report", "--plan", "not-a-uuid"])
 
 
 def test_operation_recipe_report_missing_plan_is_path_free(
@@ -1034,9 +996,7 @@ def test_operation_recipe_report_older_schema_is_not_migrated(
     }
     engine = create_sqlite_engine(database)
     with engine.connect() as connection:
-        revision = connection.execute(
-            text("SELECT version_num FROM alembic_version")
-        ).scalar_one()
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     engine.dispose()
     assert revision == "0029_metadata_write_reconciliation"
 
