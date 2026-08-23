@@ -4,6 +4,75 @@ Stand: 2026-08-23
 
 ## Aktuelle Welle
 
+**S-W10-RN03 implementiert — interner Rename-Executor ist verifizierbar, aber noch ohne Bedienkette**
+
+Das feste Backend verwendet auf Linux x86_64 plus glibc ausschließlich die
+intern festgelegten Raw-Syscalls `openat2` und
+`renameat2(RENAME_NOREPLACE)`. Parent, Source und Target werden unter
+beneath/no-follow/no-magiclink/no-xdev relativ zu gehaltenen Directory-FDs
+aufgelöst. Root und privates Probeverzeichnis müssen dieselbe nach
+`/proc/self/mountinfo`, `statfs`, Device und Filesystem-ID gebundene lokale
+`ext4`-, `btrfs`-, `xfs`- oder `tmpfs`-Instanz bezeichnen. Der Probe erzeugt
+und entfernt ausschließlich zufällige, exklusiv geöffnete eigene Fixtures.
+Es gibt keinen `os.rename`-, Copy+Delete-, Overwrite-, Shell-, Calibre- oder
+ToolProvider-Fallback.
+
+Die read-only Preparation-Erfassung nimmt den bereits validierten Plan statt
+frei wählbarer Pfade und bindet No-Follow-Namensidentität, reguläre Inode mit
+Linkanzahl eins, Mode, Owner, Group, Größe, `mtime_ns`, vollständigen
+SHA-256, Format und den bounded `ebook-file-xattrs/v1`-Digest. Vor dem
+Forward-Rename prüft der SQLite-Store aktuellen Plan, Scan-/Target-Zustand,
+Authorization, Capability, Probe, Backend-Binding und Run-Fence atomar erneut.
+Nach Source-`fsync` führt die Session genau einen No-Replace-Rename und
+Parent-`fsync` aus; erst dann entstehen `RELOCATED` und nach erneuter Inode-/
+Byte-/Attribut-/Capability-/Probe-/Fence-Prüfung `IMMEDIATE_VERIFIED`.
+
+Recovery nimmt ausschließlich die historisch persistierten Plan-Locators und
+eine aktuelle Run-Fence. `PREPARED` mit exakter Source wird ohne Mutation
+`CANCELLED`; eine exakt am Target liegende Source darf vor
+`IMMEDIATE_VERIFIED` genau einmal no-replace zurückbenannt und danach als
+`RECOVERY_VERIFIED` bestätigt werden. Kollisionen, Hardlinks, Symlinks,
+Attribut-/Byteabweichungen, uneindeutige Verteilungen und verlorene Fences
+führen ohne Ersatzmutation zu `MANUAL_RECOVERY_REQUIRED` beziehungsweise
+`FENCED_OUT`. Nach `IMMEDIATE_VERIFIED` wird niemals rückwärts mutiert.
+
+Änderungen an `ebook-file-rename-linux-renameat2-noreplace/v1`,
+`ebook-file-rename-capability-probe/v1`, `linux-x86_64-glibc/v1`,
+`ebook-file-xattrs/v1` oder der privaten Capability-Konfiguration machen die
+zugehörige Probe beziehungsweise Preparation ungültig und verlangen eine neue
+Authorization; es gibt keine stille Wiederverwendung über Profilgrenzen.
+
+RN03 ergänzt keine CLI, Migration, Scan-Handoff oder Reconciliation. Der
+interne Executor ist daher noch nicht operativ erreichbar. `S-W10-RN04` ist
+der nächste Slice und ergänzt ausschließlich feste Authorize-/Execute-/
+Recover-/Status-Kommandos, zweite Bestätigung, Folgescan, `CollectionState`
+und immutable Reconciliation. Andere Operationsarten bleiben geschlossen.
+
+53 direkt betroffene Authority-, Capability-, Executor-, Persistenz-, Safety-,
+Planfront- und Dokumentationsfälle bestanden lokal gezielt in 16,05 Sekunden.
+Die zwei echten Raw-Syscall- und Recovery-Fälle sind unter Windows
+erwartungsgemäß übersprungen und bleiben für den einmaligen Linux-PR-CI-Gate
+des stabilen Heads offen. Ruff war für alle elf geänderten Python-Dateien
+grün; Mypy meldete in den fünf geänderten Source-Dateien keinen Befund und
+`git diff --check` war sauber. Ein erster Import-Smoke ohne das lokal nötige
+`PYTHONPATH=src`, ein zunächst gleichnamiges Unit-/Integrationstestmodul und
+die verkürzte Schreibweise einer Paket-ID wurden jeweils im kleinen Scope
+korrigiert und erfolgreich wiederholt. Testdateien gehören nicht zum
+projektweiten Mypy-Gate; eine explorative direkte Mypy-Prüfung dieser Tests
+wurde daher nicht als bestanden gewertet.
+
+Die gezielte lokale RN03-Prüfung verwendet ausschließlich synthetische
+Authority-, SQLite-, Executor- und Dateisystemzustände. Reale E-Books, private
+Runtime-Daten, Docker, externe Tools und die vollständige lokale Suite wurden
+nicht verwendet. Der vollständige PR-CI-Gate ist vor dem Push noch nicht
+ausgeführt und wird gemäß Testpolicy genau einmal am stabilen Remote-Head
+gestartet.
+
+Für den Start von RN04 ist derzeit kein fachlicher oder technischer Blocker
+bekannt. Die noch ausstehende Linux-CI-Ausführung ist ein Verifikationspunkt,
+kein Architekturentscheid. ADR-0066 bleibt `Accepted`; Provider-, Tool-,
+Lizenz- und Netzwerkannahmen haben sich in RN03 nicht geändert.
+
 **S-W10-RN02 implementiert — Rename-Authority ist persistent, aber nicht ausführbar**
 
 Die reine Authority-Schicht bindet genau den von RN01 erzeugten aktuellen
@@ -42,9 +111,9 @@ Run-/Authorization-/Plan-/Root-/Capability-/Probe-IDs, Profile, Zeitpunkte,
 Zustände und feste Finding-Codes. Locator, Basenames, Hashes, Inodes,
 Attribute, Capability-Inhalte, Fences und Confirmation-Digests werden nicht
 gelesen oder ausgegeben. RN02 besitzt keinen Executor, keine Authorize-/
-Execute-/Recover-/Status-CLI und keine Source-Media-Mutation. `S-W10-RN03`
-ist der nächste Slice und implementiert ausschließlich das feste Linux-
-Backend, unmittelbare Verifikation und Exact-State-Recovery ohne CLI.
+Execute-/Recover-/Status-CLI und keine Source-Media-Mutation. RN03 ergänzt
+inzwischen ausschließlich das interne feste Linux-Backend, unmittelbare
+Verifikation und Exact-State-Recovery ohne CLI.
 
 63 direkt betroffene Unit-, Planungs-, Safety-, Dokumentations-, Persistenz-,
 Migrations- und Testeffizienzfälle bestanden gezielt. Darin enthalten sind
@@ -101,9 +170,9 @@ historische Target-Abwesenheit, bevor `RECOVERED` terminal wird. REST/UI und
 andere Operationsarten bleiben geschlossen.
 
 RN01 liefert inzwischen die nicht mutierende Proposal-/private-Preview-/
-Review-/Plan-Oberfläche. RN02 liefert die nicht ausführende Authority-/
-Persistenzschicht. Als nächste zwei kleine Waves folgen RN03 und RN04:
-Linux-Backend/Recovery und danach die Bedien-/Scan-/Reconciliation-Kette.
+Review-/Plan-Oberfläche. RN02 liefert die Authority-/Persistenzschicht und
+RN03 das interne Linux-Backend samt Recovery. Als nächste kleine Wave folgt
+RN04 mit der Bedien-/Scan-/Reconciliation-Kette.
 
 Die 23 gezielt betroffenen Planungsfront-, Dokumentations- und W10-Safety-
 Verträge bestanden auf dem finalen Stand in 0,11 Sekunden. Ruff war für die
@@ -751,10 +820,9 @@ für den begrenzten EPUB-3-Titelwriter entschieden; `S-W10-MW01` und
 `S-W10-MW03` liefert Authorization, Journal, Capability/Fencing und read-only
 Status. `S-W10-MW04` liefert den internen Linux-Executor und Recovery;
 `S-W10-MW05` schließt Bedienung und Reconciliation ab.
-`W10-005`, `W9-007`, `FG-W10-RENAME`, `S-W10-RN01` und `S-W10-RN02` sind
-ebenfalls abgeschlossen. Als nächster Schritt ist `S-W10-RN03`
-ausschließlich für Backend, unmittelbare Verifikation und Exact-State-
-Recovery ohne CLI vorgesehen. Allgemeine
+`W10-005`, `W9-007`, `FG-W10-RENAME` sowie `S-W10-RN01` bis `S-W10-RN03` sind
+ebenfalls abgeschlossen. Als nächster Schritt ist `S-W10-RN04`
+ausschließlich für Bedienung, Scan-Handoff und Reconciliation vorgesehen. Allgemeine
 reale Mutation, Music, Bilder, REST-API und grafische Oberfläche werden durch
 diesen Abschluss nicht aktiviert. Am
 finalen lokalen Stand von S-W9-006C bestanden 41
@@ -822,10 +890,10 @@ Review über nicht ausführbare Metadatenkorrektur-/Konsolidierungspläne bis zu
 operation-spezifischen W10-Gates, Revalidierung, Fencing, Verifikation,
 Recovery und der späteren REST-/UI-Grenze. ADR-0061 autorisiert ihre
 kontrollierte Entwicklung, nicht eine pauschale reale Mutation. `W9-006` und
-`W9-007`, `S-W10-RN01` und `S-W10-RN02` sind abgeschlossen. Der erste
+`W9-007` sowie `S-W10-RN01` bis `S-W10-RN03` sind abgeschlossen. Der erste
 Metadata-Write-Vertrag ist abgeschlossen. ADR-0066 hat das rein
 dokumentarische `FG-W10-RENAME` nur für Same-Parent-`FILE_RENAME` entschieden;
-`S-W10-RN03` ist der nächste Slice. Reorganisation, Sidecar-, externe
+`S-W10-RN04` ist der nächste Slice. Reorganisation, Sidecar-, externe
 Library- und Archive-Write-Gates bleiben getrennte technische `DECISION`s.
 
 **W10-Interim abgeschlossen — Executor und read-only Quarantänestatus sind vorhanden**

@@ -49,6 +49,16 @@ from foliotone.ebook_rename.dependency_scopes import (
     ebook_rename_dependency_axis_material_fingerprint,
     ebook_rename_dependency_scope_material_fingerprint,
 )
+from foliotone.ebook_rename.linux_backend import (
+    EBOOK_RENAME_XATTR_FINGERPRINT_PROFILE,
+    LinuxEbookRenameBackend,
+    LinuxEbookRenameBackendError,
+    LinuxEbookRenameBackendErrorCode,
+    LinuxEbookRenamePhysicalSnapshot,
+    LinuxEbookRenamePhysicalState,
+    LinuxEbookRenameSession,
+    ebook_rename_xattr_fingerprint,
+)
 from foliotone.ebook_rename.target import (
     EBOOK_RENAME_PROCESSOR_PROFILE,
     EbookRenameTargetError,
@@ -67,6 +77,7 @@ __all__ = [
     "EBOOK_RENAME_PROBE_PROFILE",
     "EBOOK_RENAME_PROCESSOR_PROFILE",
     "EBOOK_RENAME_RUN_PROFILE",
+    "EBOOK_RENAME_XATTR_FINGERPRINT_PROFILE",
     "MAX_EBOOK_RENAME_AUTHORIZATION_LIFETIME",
     "MAX_EBOOK_RENAME_EVENTS",
     "EbookRenameAuthorityError",
@@ -90,6 +101,12 @@ __all__ = [
     "EbookRenameTargetError",
     "ResolvedEbookRenameDependencyScope",
     "ResolvedEbookRenameCapability",
+    "LinuxEbookRenameBackend",
+    "LinuxEbookRenameBackendError",
+    "LinuxEbookRenameBackendErrorCode",
+    "LinuxEbookRenamePhysicalSnapshot",
+    "LinuxEbookRenamePhysicalState",
+    "LinuxEbookRenameSession",
     "build_ebook_rename_authorization",
     "build_ebook_rename_backend_binding",
     "build_ebook_rename_capability_probe",
@@ -101,5 +118,6 @@ __all__ = [
     "ebook_rename_dependency_axis_material_fingerprint",
     "ebook_rename_dependency_scope_material_fingerprint",
     "ebook_rename_locator_digest",
+    "ebook_rename_xattr_fingerprint",
     "validate_ebook_rename_event_history",
 ]

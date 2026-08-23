@@ -491,9 +491,9 @@ Die Implementierung folgt in genau vier kleinen Waves:
    Lease-Handoff, Scan, `CollectionState` und immutable Reconciliation über
    `0032_ebook_rename_reconciliation`.
 
-Nach jeder Wave bleiben andere Operationsarten unerreichbar. RN01 und RN02
-sind umgesetzt; RN03 ist die nächste kanonische Produkt-Wave. RN02 öffnet
-weder einen Executor noch eine öffentliche Mutationsoberfläche.
+Nach jeder Wave bleiben andere Operationsarten unerreichbar. RN01 bis RN03
+sind umgesetzt; RN04 ist die nächste kanonische Produkt-Wave. RN03 öffnet
+den internen Executor, aber weder CLI noch öffentliche Mutationsoberfläche.
 
 ## Synthetische Verifikation
 
@@ -540,8 +540,8 @@ Dateisystemjournal.
 ## Folgen
 
 - RN01 liefert den nutzbaren, vollständig nicht mutierenden Rename-
-  Planungsweg; RN02 ergänzt dessen nicht ausführende Authority- und
-  Persistenzschicht.
+  Planungsweg; RN02 ergänzt dessen Authority- und Persistenzschicht, RN03 das
+  interne feste Backend samt Exact-State-Recovery.
 - Der spätere Writer verändert genau einen Namen und keine Bytes, Metadaten,
   Parentstruktur oder externe Library.
 - Reorganisation bleibt sichtbar geplant, wird aber nicht über eine zu breite

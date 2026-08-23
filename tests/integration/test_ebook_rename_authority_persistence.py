@@ -25,6 +25,8 @@ from foliotone.ebook_rename import (
     build_ebook_rename_preparation,
     build_ebook_rename_run,
 )
+from foliotone.ebook_rename.executor import execute_ebook_file_rename
+from foliotone.ebook_rename.linux_backend import LinuxEbookRenamePhysicalState
 from foliotone.persistence import (
     ScanRootWriteOwnerKind,
     SQLiteEbookOperationRecipeStore,
@@ -52,6 +54,7 @@ from tests.integration.test_ebook_rename_workflow import (
     _ScopeResolver,
     _seed_source,
 )
+from tests.unit.test_ebook_rename_executor import _Backend, _Session
 
 
 def _approved_plan(engine: Engine):
@@ -434,6 +437,145 @@ def test_one_use_authority_and_read_only_status_are_private(
         "confirmation_digest",
     ):
         assert private not in rendered
+
+
+def test_execution_source_is_live_but_recovery_keeps_historical_authority(
+    head_database: Path,
+    tmp_path: Path,
+) -> None:
+    engine = create_sqlite_engine(head_database)
+    _seed_source(engine)
+    (
+        store,
+        leases,
+        plan,
+        _scope_value,
+        capability,
+        probe,
+        preparation_lease,
+        preparation,
+        authorization,
+    ) = _authorization_material(engine, tmp_path)
+    leases.release(preparation_lease, released_at=NOW + timedelta(seconds=5))
+    run, binding, _prepared, run_lease = _create_run(
+        store,
+        leases,
+        capability,
+        probe,
+        authorization,
+    )
+
+    source = store.require_execution_source(
+        plan,
+        preparation,
+        authorization,
+        capability,
+        probe,
+        binding,
+        run,
+        run_lease,
+        checked_at=NOW + timedelta(seconds=8),
+    )
+    rendered = repr(source)
+    assert PRIVATE_SOURCE not in rendered
+    assert plan.candidate.target.relative_locator not in rendered
+    assert "a" * 64 not in rendered
+
+    after_authorization = authorization.expires_at + timedelta(seconds=1)
+    with pytest.raises(EbookRenameStoreError, match="authorization is unavailable"):
+        store.require_execution_source(
+            plan,
+            preparation,
+            authorization,
+            capability,
+            probe,
+            binding,
+            run,
+            run_lease,
+            checked_at=after_authorization,
+        )
+    assert (
+        store.require_recovery_source(
+            plan,
+            preparation,
+            authorization,
+            capability,
+            probe,
+            binding,
+            run,
+            run_lease,
+            checked_at=after_authorization,
+        )
+        == source
+    )
+
+    with pytest.raises(EbookRenameStoreError, match="operation binding differs"):
+        store.require_recovery_source(
+            plan,
+            preparation,
+            authorization,
+            replace(capability, configuration_fingerprint="f" * 64),
+            probe,
+            binding,
+            run,
+            run_lease,
+            checked_at=after_authorization,
+        )
+    leases.release(run_lease, released_at=after_authorization + timedelta(seconds=1))
+    engine.dispose()
+
+
+def test_executor_and_store_commit_only_relocated_then_immediate_verified(
+    head_database: Path,
+    tmp_path: Path,
+) -> None:
+    engine = create_sqlite_engine(head_database)
+    _seed_source(engine)
+    (
+        store,
+        leases,
+        plan,
+        _scope_value,
+        capability,
+        probe,
+        preparation_lease,
+        preparation,
+        authorization,
+    ) = _authorization_material(engine, tmp_path)
+    leases.release(preparation_lease, released_at=NOW + timedelta(seconds=5))
+    run, binding, _prepared, run_lease = _create_run(
+        store,
+        leases,
+        capability,
+        probe,
+        authorization,
+    )
+    session = _Session(LinuxEbookRenamePhysicalState.SOURCE_EXACT_TARGET_ABSENT)
+
+    result = execute_ebook_file_rename(
+        store=store,
+        plan=plan,
+        preparation=preparation,
+        authorization=authorization,
+        capability=capability,
+        probe=probe,
+        binding=binding,
+        run=run,
+        lease=run_lease,
+        clock=lambda: NOW + timedelta(seconds=8),
+        backend=_Backend(session),
+    )
+
+    assert result.status is EbookRenameRunStatus.IMMEDIATE_VERIFIED
+    assert tuple(event.status for event in store.events_for_run(run.id)) == (
+        EbookRenameRunStatus.PREPARED,
+        EbookRenameRunStatus.RELOCATED,
+        EbookRenameRunStatus.IMMEDIATE_VERIFIED,
+    )
+    assert session.forward_count == 1
+    assert session.reverse_count == 0
+    leases.release(run_lease, released_at=NOW + timedelta(seconds=9))
+    engine.dispose()
 
 
 def test_stale_fence_invalid_transition_and_reserved_success_are_blocked(
