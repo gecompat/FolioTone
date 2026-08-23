@@ -108,6 +108,7 @@ from foliotone.persistence.ebook_operation_recipe_report import (
     EbookOperationRecipePlanReportSchemaError,
     SQLiteEbookOperationRecipePlanReportReader,
 )
+from foliotone.persistence.ebook_rename import SQLiteEbookRenameStore
 from foliotone.persistence.metadata_correction_report import (
     MetadataCorrectionPlanReport,
     MetadataCorrectionPlanReportReaderError,
@@ -166,6 +167,13 @@ from foliotone.workflows.classification import (
     ClassificationReportError,
     read_book_classification_report,
 )
+from foliotone.workflows.ebook_rename_operation import (
+    EbookRenameAuthorizationResult,
+    EbookRenameOperationResult,
+    EbookRenameOperatorError,
+    EbookRenameOperatorService,
+    create_ebook_rename_operator_service,
+)
 from foliotone.workflows.ebook_rename_planning import (
     EbookRenamePlanningError,
     EbookRenamePlanningService,
@@ -173,6 +181,11 @@ from foliotone.workflows.ebook_rename_planning import (
     EbookRenamePreview,
     EbookRenameProposalResult,
     EbookRenameReviewResult,
+)
+from foliotone.workflows.ebook_rename_status import (
+    EbookRenameStatusReport,
+    EbookRenameStatusReportError,
+    SQLiteEbookRenameStatusReportReader,
 )
 from foliotone.workflows.metadata_write_operation import (
     METADATA_WRITE_STAGE_ROOT_ENV,
@@ -429,6 +442,44 @@ def _metadata_write_sha256(value: str) -> str:
     if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
         raise argparse.ArgumentTypeError("expected one lowercase SHA-256 digest")
     return value
+
+
+def _add_ebook_rename_operation_binders(
+    parser: argparse.ArgumentParser,
+    *,
+    include_authorization: bool,
+) -> None:
+    parser.add_argument(
+        "--plan-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque approved e-book rename plan identifier.",
+    )
+    parser.add_argument(
+        "--plan-content-hash",
+        required=True,
+        type=_metadata_write_sha256,
+        help="Exact lowercase content hash of the approved rename plan.",
+    )
+    parser.add_argument(
+        "--capability-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque locally configured e-book rename capability identifier.",
+    )
+    if include_authorization:
+        parser.add_argument(
+            "--authorization-id",
+            required=True,
+            type=EntityId.parse,
+            help="Opaque short-lived e-book rename authorization identifier.",
+        )
+    parser.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Path-, hash-, attribute-, and fence-free output; defaults to text.",
+    )
 
 
 def _add_metadata_write_binders(
@@ -1823,6 +1874,58 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_ebook_rename_database_and_output(ebook_rename_plan)
 
+    ebook_rename_authorize = subparsers.add_parser(
+        "ebook-rename-authorize",
+        help="Prepare and authorize one exact reviewed same-parent e-book rename.",
+    )
+    _add_ebook_rename_operation_binders(
+        ebook_rename_authorize,
+        include_authorization=False,
+    )
+
+    ebook_rename_execute = subparsers.add_parser(
+        "ebook-rename-execute",
+        help="Execute one authorized e-book rename after an exact stdin confirmation.",
+    )
+    _add_ebook_rename_operation_binders(
+        ebook_rename_execute,
+        include_authorization=True,
+    )
+
+    ebook_rename_recover = subparsers.add_parser(
+        "ebook-rename-recover",
+        help="Recover or finish one exact persisted e-book rename run.",
+    )
+    ebook_rename_recover.add_argument(
+        "--run-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque persisted e-book rename run identifier.",
+    )
+    ebook_rename_recover.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Path-, hash-, attribute-, and fence-free output; defaults to text.",
+    )
+
+    ebook_rename_status = subparsers.add_parser(
+        "ebook-rename-status",
+        help="Read one persisted e-book rename run without source access.",
+    )
+    ebook_rename_status.add_argument(
+        "--run-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque persisted e-book rename run identifier.",
+    )
+    ebook_rename_status.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Path-, hash-, attribute-, and fence-free output; defaults to text.",
+    )
+
     operation_recipe_report = subparsers.add_parser(
         "ebook-operation-recipe-report",
         help="Read one persisted non-executable e-book operation recipe read-only.",
@@ -2183,6 +2286,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             "ebook-rename-propose, ebook-rename-preview, ebook-rename-review, and "
             "ebook-rename-plan."
         )
+        print(
+            "The bounded same-parent e-book rename writer is available through "
+            "ebook-rename-authorize, ebook-rename-execute, ebook-rename-recover, "
+            "and ebook-rename-status."
+        )
         print("Other source-media and external-tool mutation commands remain unavailable.")
         return 0
 
@@ -2268,6 +2376,18 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-rename-plan":
         return _run_ebook_rename_plan(args)
+
+    if args.command == "ebook-rename-authorize":
+        return _run_ebook_rename_authorize(args)
+
+    if args.command == "ebook-rename-execute":
+        return _run_ebook_rename_execute(args)
+
+    if args.command == "ebook-rename-recover":
+        return _run_ebook_rename_recover(args)
+
+    if args.command == "ebook-rename-status":
+        return _run_ebook_rename_status(args)
 
     if args.command == "ebook-operation-recipe-report":
         return _run_ebook_operation_recipe_report(args)
@@ -4127,6 +4247,349 @@ def _ebook_operation_recipe_report_error(args: argparse.Namespace, code: str) ->
         )
     else:
         print("E-book operation recipe report failed: read-only state is unavailable.")
+    return 2
+
+
+def _ebook_rename_database() -> Path:
+    return Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db"))
+
+
+def _open_ebook_rename_operator() -> tuple[Engine, EbookRenameOperatorService]:
+    database = _ebook_rename_database()
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    try:
+        service = create_ebook_rename_operator_service(engine)
+    except Exception:
+        engine.dispose()
+        raise
+    return engine, service
+
+
+def _run_ebook_rename_authorize(args: argparse.Namespace) -> int:
+    engine: Engine | None = None
+    try:
+        engine, service = _open_ebook_rename_operator()
+        result = service.authorize(
+            plan_id=args.plan_id,
+            plan_content_hash=args.plan_content_hash,
+            capability_id=args.capability_id,
+        )
+    except EbookRenameOperatorError as error:
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-authorize",
+            error.code.value,
+        )
+    except (OperationalError, OSError, ValueError):
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-authorize",
+            "RUNTIME_UNAVAILABLE",
+        )
+    except Exception:
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-authorize",
+            "INTERNAL_ERROR",
+        )
+    finally:
+        if engine is not None:
+            engine.dispose()
+    _emit_ebook_rename_authorization(args, result)
+    return 0
+
+
+def _run_ebook_rename_execute(args: argparse.Namespace) -> int:
+    engine: Engine | None = None
+    try:
+        engine, service = _open_ebook_rename_operator()
+        prompt = service.confirmation_prompt(
+            plan_id=args.plan_id,
+            plan_content_hash=args.plan_content_hash,
+            capability_id=args.capability_id,
+            authorization_id=args.authorization_id,
+        )
+        confirmation = _read_ebook_rename_confirmation(prompt)
+        if confirmation is None:
+            return _ebook_rename_operation_error(
+                args,
+                "ebook-rename-execute",
+                "CONFIRMATION_INVALID",
+            )
+        result = service.execute(
+            plan_id=args.plan_id,
+            plan_content_hash=args.plan_content_hash,
+            capability_id=args.capability_id,
+            authorization_id=args.authorization_id,
+            confirmation_text=confirmation,
+        )
+    except EbookRenameOperatorError as error:
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-execute",
+            error.code.value,
+        )
+    except KeyboardInterrupt:
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-execute",
+            "CONFIRMATION_INVALID",
+        )
+    except (OperationalError, OSError, ValueError):
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-execute",
+            "RUNTIME_UNAVAILABLE",
+        )
+    except Exception:
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-execute",
+            "INTERNAL_ERROR",
+        )
+    finally:
+        if engine is not None:
+            engine.dispose()
+    _emit_ebook_rename_operation(args, "ebook-rename-execute", result)
+    return 0
+
+
+def _run_ebook_rename_recover(args: argparse.Namespace) -> int:
+    engine: Engine | None = None
+    try:
+        engine, service = _open_ebook_rename_operator()
+        result = service.recover(run_id=args.run_id)
+    except EbookRenameOperatorError as error:
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-recover",
+            error.code.value,
+        )
+    except (OperationalError, OSError, ValueError):
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-recover",
+            "RUNTIME_UNAVAILABLE",
+        )
+    except Exception:
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-recover",
+            "INTERNAL_ERROR",
+        )
+    finally:
+        if engine is not None:
+            engine.dispose()
+    _emit_ebook_rename_operation(args, "ebook-rename-recover", result)
+    return 0
+
+
+def _run_ebook_rename_status(args: argparse.Namespace) -> int:
+    database = _ebook_rename_database()
+    if not database.is_file():
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-status",
+            "DATABASE_UNAVAILABLE",
+        )
+    try:
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            report = SQLiteEbookRenameStatusReportReader(
+                SQLiteEbookRenameStore(engine)
+            ).read(args.run_id)
+        finally:
+            engine.dispose()
+    except EbookRenameStatusReportError:
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-status",
+            "RUN_UNAVAILABLE",
+        )
+    except OperationalError:
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-status",
+            "SCHEMA_UNAVAILABLE",
+        )
+    except (OSError, ValueError):
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-status",
+            "DATABASE_UNAVAILABLE",
+        )
+    except Exception:
+        return _ebook_rename_operation_error(
+            args,
+            "ebook-rename-status",
+            "INTERNAL_READ_ERROR",
+        )
+    if args.output == "json":
+        _emit_json(report.payload())
+    else:
+        _print_ebook_rename_status(report)
+    return 0
+
+
+def _read_ebook_rename_confirmation(prompt: str) -> str | None:
+    prefix = "CONFIRM EBOOK RENAME "
+    if not isinstance(prompt, str) or not prompt.startswith(prefix):
+        return None
+    try:
+        authorization_id = EntityId.parse(prompt.removeprefix(prefix))
+    except (TypeError, ValueError):
+        return None
+    if prompt != f"{prefix}{authorization_id}":
+        return None
+    sys.stderr.write(f"{prompt}\n")
+    sys.stderr.flush()
+    supplied = sys.stdin.readline(257)
+    if not supplied.endswith("\n") or len(supplied) > 256:
+        return None
+    supplied = supplied[:-1]
+    if supplied.endswith("\r"):
+        supplied = supplied[:-1]
+    if "\r" in supplied or "\n" in supplied:
+        return None
+    return supplied if hmac.compare_digest(supplied, prompt) else None
+
+
+def _emit_ebook_rename_authorization(
+    args: argparse.Namespace,
+    result: EbookRenameAuthorizationResult,
+) -> None:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": "ebook-rename-authorize",
+                "ok": True,
+                "profile": result.profile,
+                "authorization_id": str(result.authorization_id),
+                "plan_id": str(result.plan_id),
+                "scan_root_id": str(result.scan_root_id),
+                "capability_id": str(result.capability_id),
+                "probe_id": str(result.probe_id),
+                "authorized_at": result.authorized_at.isoformat(),
+                "expires_at": result.expires_at.isoformat(),
+                "status": result.status,
+            }
+        )
+        return
+    print(f"Authorization: {result.authorization_id}")
+    print(f"Plan: {result.plan_id}")
+    print(f"ScanRoot: {result.scan_root_id}")
+    print(f"Capability: {result.capability_id}")
+    print(f"Probe: {result.probe_id}")
+    print(f"Profile: {result.profile}")
+    print(f"Status: {result.status}")
+    print(f"Authorized: {result.authorized_at.isoformat()}")
+    print(f"Expires: {result.expires_at.isoformat()}")
+
+
+def _emit_ebook_rename_operation(
+    args: argparse.Namespace,
+    command: str,
+    result: EbookRenameOperationResult,
+) -> None:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": command,
+                "ok": True,
+                "profile": result.profile,
+                "authorization_id": str(result.authorization_id),
+                "run_id": str(result.run_id),
+                "plan_id": str(result.plan_id),
+                "scan_root_id": str(result.scan_root_id),
+                "status": result.status.value,
+                "scan_run_id": (
+                    None if result.scan_run_id is None else str(result.scan_run_id)
+                ),
+                "source_observation_id": (
+                    None
+                    if result.source_observation_id is None
+                    else str(result.source_observation_id)
+                ),
+                "target_observation_id": (
+                    None
+                    if result.target_observation_id is None
+                    else str(result.target_observation_id)
+                ),
+                "collection_state_snapshot_id": (
+                    None
+                    if result.collection_state_snapshot_id is None
+                    else str(result.collection_state_snapshot_id)
+                ),
+            }
+        )
+        return
+    print(f"Run: {result.run_id}")
+    print(f"Authorization: {result.authorization_id}")
+    print(f"Plan: {result.plan_id}")
+    print(f"ScanRoot: {result.scan_root_id}")
+    print(f"Profile: {result.profile}")
+    print(f"Status: {result.status.value}")
+    if result.scan_run_id is not None:
+        print(f"Reconciliation scan: {result.scan_run_id}")
+    if result.source_observation_id is not None:
+        print(f"Source observation: {result.source_observation_id}")
+    if result.target_observation_id is not None:
+        print(f"Target observation: {result.target_observation_id}")
+    if result.collection_state_snapshot_id is not None:
+        print(f"CollectionState: {result.collection_state_snapshot_id}")
+
+
+def _print_ebook_rename_status(report: EbookRenameStatusReport) -> None:
+    print(f"Run: {report.run_id}")
+    print(f"Authorization: {report.authorization_id}")
+    print(f"Plan: {report.plan_id}")
+    print(f"ScanRoot: {report.scan_root_id}")
+    print(f"Profile: {report.profile}")
+    print(f"Status: {report.status.value}")
+    print(f"Created: {report.created_at.isoformat()}")
+    print(f"Authorized: {report.authorized_at.isoformat()}")
+    print(f"Expires: {report.expires_at.isoformat()}")
+    for event in report.events:
+        print(
+            f"Event: {event.sequence_no} {event.status.value} "
+            f"{event.occurred_at.isoformat()}"
+        )
+    if report.reconciliation is not None:
+        print(f"Reconciliation outcome: {report.reconciliation.outcome.value}")
+        print(f"Reconciliation scan: {report.reconciliation.scan_run_id}")
+        print(f"Source FileRecord: {report.reconciliation.source_file_id}")
+        if report.reconciliation.source_observation_id is not None:
+            print(f"Source observation: {report.reconciliation.source_observation_id}")
+        if report.reconciliation.target_file_id is not None:
+            print(f"Target FileRecord: {report.reconciliation.target_file_id}")
+        if report.reconciliation.target_observation_id is not None:
+            print(f"Target observation: {report.reconciliation.target_observation_id}")
+        print(
+            "CollectionState: "
+            f"{report.reconciliation.collection_state_snapshot_id}"
+        )
+        print(f"Reconciled: {report.reconciliation.reconciled_at.isoformat()}")
+
+
+def _ebook_rename_operation_error(
+    args: argparse.Namespace,
+    command: str,
+    code: str,
+) -> int:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": command,
+                "ok": False,
+                "error": {"code": code},
+            }
+        )
+    else:
+        print(f"E-book rename failed: {code}.")
     return 2
 
 

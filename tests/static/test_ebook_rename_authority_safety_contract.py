@@ -10,6 +10,8 @@ STORE = ROOT / "src/foliotone/persistence/ebook_rename.py"
 STATUS = ROOT / "src/foliotone/workflows/ebook_rename_status.py"
 BACKEND = ROOT / "src/foliotone/ebook_rename/linux_backend.py"
 EXECUTOR = ROOT / "src/foliotone/ebook_rename/executor.py"
+RECONCILIATION = ROOT / "src/foliotone/ebook_rename/reconciliation.py"
+OPERATOR = ROOT / "src/foliotone/workflows/ebook_rename_operation.py"
 CLI = ROOT / "src/foliotone/cli/main.py"
 
 
@@ -100,7 +102,7 @@ def test_rn02_status_contract_excludes_every_private_binder() -> None:
         assert required in source
 
 
-def test_rn03_backend_exists_while_cli_and_reconciliation_remain_closed() -> None:
+def test_rn04_opens_only_the_fixed_cli_and_reconciliation_chain() -> None:
     migration = (
         ROOT
         / "src/foliotone/persistence/alembic/versions/0031_ebook_rename_operations.py"
@@ -116,10 +118,16 @@ def test_rn03_backend_exists_while_cli_and_reconciliation_remain_closed() -> Non
     assert "events_append_only" in source
     assert EXECUTOR.exists()
     assert BACKEND.exists()
-    assert not (
+    reconciliation_migration = (
         ROOT
         / "src/foliotone/persistence/alembic/versions/0032_ebook_rename_reconciliation.py"
-    ).exists()
+    )
+    assert reconciliation_migration.exists()
+    reconciliation_source = reconciliation_migration.read_text(encoding="utf-8")
+    assert "ebook_rename_reconciliations" in reconciliation_source
+    assert "immutable e-book rename reconciliation" in reconciliation_source
+    assert RECONCILIATION.exists()
+    assert OPERATOR.exists()
 
     cli = CLI.read_text(encoding="utf-8")
     for command in (
@@ -128,7 +136,14 @@ def test_rn03_backend_exists_while_cli_and_reconciliation_remain_closed() -> Non
         "ebook-rename-recover",
         "ebook-rename-status",
     ):
-        assert command not in cli
+        assert cli.count(f'"{command}"') >= 2
+    for still_closed in (
+        "ebook-reorganize-execute",
+        "ebook-sidecar-write-execute",
+        "ebook-archive-rewrite-execute",
+        "ebook-purge-execute",
+    ):
+        assert still_closed not in cli
 
 
 def test_rn03_uses_only_the_fixed_linux_noreplace_boundary() -> None:

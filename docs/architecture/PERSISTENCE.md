@@ -574,7 +574,7 @@ Material-Fingerprints. Relative Locator liegen wie zuvor ausschließlich in
 den privaten Candidate-Source-/Target-Spalten; Standard-Preview, Review- und
 Plan-Ausgabe enthalten sie nicht.
 
-### E-Book-Rename-Authority und geplante Reconciliation
+### E-Book-Rename-Authority und Reconciliation
 
 `S-W10-RN02` implementiert nach ADR-0066 die additive Migration
 `0031_ebook_rename_operations`. Sie erweitert den bestehenden
@@ -596,19 +596,24 @@ nicht. Capability-Pfade stammen ausschließlich aus
 übernommen; private Runtime-Identitäten werden nur über domänengetrennte
 Einweg-Fingerprints gebunden. Erfolgreiche Probe-Snapshots binden Capability-
 Konfiguration, Root, Filesystem, Kernel, Backend- und Probeprofil; ein
-fehlgeschlagener Probe erzeugt keine Authority. RN02 besitzt keinen Executor.
+fehlgeschlagener Probe erzeugt keine Authority. RN02 allein besitzt keinen
+Executor; RN03 und RN04 ergänzen Backend beziehungsweise Bedien- und
+Reconciliation-Kette.
 
-`S-W10-RN04` reserviert getrennt die additive Migration
+`S-W10-RN04` implementiert getrennt die additive Migration
 `0032_ebook_rename_reconciliation`. Genau eine immutable Reconciliation je Run
-bindet bei `VERIFIED` den alten Source-`FileRecord` samt neuer `MISSING`-
-Observation und den neuen Target-`FileRecord` samt `NEW`-Observation. Bei
-`RECOVERED` bindet sie die wieder aktuelle `PRESENT`-Source und historische
-Target-Abwesenheit. Beide Outcomes enthalten abgeschlossenen Folgescan,
-Full-SHA-256, `CollectionState` und content-addressed Reconciliation-Digest.
-Nur ein atomarer Insert unter einer frischen `EBOOK_RENAME_RUN`-Fence darf das
-passende terminale `VERIFIED` oder `RECOVERED` erzeugen. Die Persistenz
-schreibt keine `FileRecord`-Identity um und setzt keinen
-`FileRelocationCandidate` voraus.
+bindet bei `VERIFIED` den alten Source-`FileRecord`, seine letzte
+Pre-Write-Observation und das neue `MISSING`-Scan-Event sowie den neuen
+Target-`FileRecord` samt `NEW`-Observation und -Event. Eine fehlende Source
+erzeugt bewusst keine erfundene Observation. Bei `RECOVERED` bindet die
+Reconciliation die wieder aktuelle `PRESENT`-Source samt Observation und
+Scan-Event sowie die weiterhin fehlende Target-Historie. Beide Outcomes
+enthalten den abgeschlossenen Folgescan, Full-SHA-256, `CollectionState` und
+content-addressed Reconciliation-Digest. Nur ein atomarer Insert unter einer
+frischen `EBOOK_RENAME_RUN`-Fence darf das passende terminale `VERIFIED` oder
+`RECOVERED` erzeugen. No-Update-/No-Delete-Trigger und eine Downgrade-Sperre
+schützen die Evidence. Die Persistenz schreibt keine `FileRecord`-Identity um
+und setzt keinen `FileRelocationCandidate` voraus.
 
 ### Gefencete Metadaten-Write-Authorization und Journal
 

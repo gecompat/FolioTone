@@ -11,9 +11,15 @@ from typing import Any, TypeVar
 
 from sqlalchemy import Engine, func, insert, select
 from sqlalchemy.engine import Connection, RowMapping
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from foliotone.core import EntityId, EntityKind, ScanRunStatus
+from foliotone.core import (
+    EntityId,
+    EntityKind,
+    FileChangeState,
+    PresenceState,
+    ScanRunStatus,
+)
 from foliotone.ebook_operation_recipes import EbookOperationRecipePlan
 from foliotone.ebook_rename.authority import (
     MAX_EBOOK_RENAME_EVENTS,
@@ -33,8 +39,16 @@ from foliotone.ebook_rename.dependency_scopes import (
     ResolvedEbookRenameDependencyScope,
     ebook_rename_dependency_scope_material_fingerprint,
 )
+from foliotone.ebook_rename.reconciliation import (
+    EbookRenameReconciliationOutcome,
+    EbookRenameReconciliationSnapshot,
+)
 from foliotone.persistence import schema
 from foliotone.persistence._mapping import datetime_to_db, required_datetime_from_db
+from foliotone.persistence.collection_state_schema import (
+    collection_state_items,
+    collection_state_snapshots,
+)
 from foliotone.persistence.ebook_operation_recipe import (
     EbookOperationRecipeStoreError,
     SQLiteEbookOperationRecipeStore,
@@ -45,6 +59,7 @@ from foliotone.persistence.ebook_rename_schema import (
     ebook_rename_capability_probes,
     ebook_rename_events,
     ebook_rename_preparations,
+    ebook_rename_reconciliations,
     ebook_rename_runs,
 )
 from foliotone.persistence.scan_root_lease import (
@@ -53,6 +68,7 @@ from foliotone.persistence.scan_root_lease import (
     ScanRootWriteOwnerKind,
     SQLiteScanRootWriteLeaseStore,
 )
+from foliotone.persistence.w2_schema import file_scan_events
 
 
 class EbookRenameStoreError(RuntimeError):
@@ -84,6 +100,20 @@ class EbookRenameStatusEventSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class EbookRenameStatusReconciliationSnapshot:
+    """Only opaque reconciliation material safe for standard status output."""
+
+    outcome: EbookRenameReconciliationOutcome
+    scan_run_id: EntityId
+    source_file_id: EntityId
+    source_observation_id: EntityId | None
+    target_file_id: EntityId | None
+    target_observation_id: EntityId | None
+    collection_state_snapshot_id: EntityId
+    reconciled_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class EbookRenameStatusSnapshot:
     """Bounded locator-, hash-, attribute-, capability-, and fence-free state."""
 
@@ -100,6 +130,7 @@ class EbookRenameStatusSnapshot:
     authorized_at: datetime
     expires_at: datetime
     events: tuple[EbookRenameStatusEventSnapshot, ...]
+    reconciliation: EbookRenameStatusReconciliationSnapshot | None = None
 
     @property
     def status(self) -> EbookRenameRunStatus:
@@ -206,6 +237,55 @@ class SQLiteEbookRenameStore:
             if persisted is None or dict(persisted) != row:
                 raise EbookRenameStoreError("e-book rename probe retry differs")
             return _probe_from_row(persisted)
+
+    def require_historical_target_absence(
+        self,
+        plan: EbookOperationRecipePlan,
+        lease: OwnedScanRootWriteLease,
+        *,
+        checked_at: datetime,
+    ) -> None:
+        """Prove the reviewed target has no FileRecord history under a prep fence."""
+
+        checked = _utc_timestamp(checked_at, "target absence timestamp")
+        try:
+            source = plan.candidate.sources[0]
+            ebook_rename_dependencies_fingerprint(plan)
+        except (AttributeError, IndexError, TypeError, ValueError, RuntimeError):
+            raise EbookRenameStoreError("e-book rename target state is unavailable") from None
+        if (
+            not isinstance(lease, OwnedScanRootWriteLease)
+            or lease.owner_kind is not ScanRootWriteOwnerKind.EBOOK_RENAME_PREPARATION
+            or lease.scan_root_id != source.scan_root_id
+            or lease.acquired_at > checked
+            or checked >= lease.lease_expires_at
+        ):
+            raise EbookRenameStoreError("e-book rename target state is unavailable")
+        try:
+            with _transaction(self._engine) as connection:
+                SQLiteScanRootWriteLeaseStore(self._engine).fence(
+                    connection,
+                    lease,
+                    checked,
+                )
+                SQLiteEbookOperationRecipeStore(
+                    self._engine
+                ).require_current_approved_plan_in_transaction(connection, plan)
+                history = connection.execute(
+                    select(func.count())
+                    .select_from(schema.file_records)
+                    .where(
+                        schema.file_records.c.scan_root_id == str(source.scan_root_id),
+                        schema.file_records.c.relative_path
+                        == plan.candidate.target.relative_locator,
+                    )
+                ).scalar_one()
+                if int(history) != 0:
+                    raise EbookRenameStoreError("e-book rename target has history")
+        except EbookRenameStoreError:
+            raise
+        except (EbookOperationRecipeStoreError, ScanRootWriteLeaseError, ValueError):
+            raise EbookRenameStoreError("e-book rename target state is unavailable") from None
 
     def create_or_get_authorization(
         self,
@@ -638,6 +718,132 @@ class SQLiteEbookRenameStore:
             _backend_binding_from_row,
         )
 
+    def get_reconciliation(
+        self,
+        run_id: EntityId,
+    ) -> EbookRenameReconciliationSnapshot | None:
+        return self._read_one(
+            ebook_rename_reconciliations,
+            ebook_rename_reconciliations.c.run_id == str(run_id),
+            _reconciliation_from_row,
+        )
+
+    def record_reconciliation(
+        self,
+        value: EbookRenameReconciliationSnapshot,
+        plan: EbookOperationRecipePlan,
+        preparation: EbookRenamePreparationSnapshot,
+        authorization: EbookRenameAuthorizationSnapshot,
+        capability: ResolvedEbookRenameCapability,
+        probe: EbookRenameCapabilityProbeSnapshot,
+        binding: EbookRenameBackendBinding,
+        run: EbookRenameExecutionRun,
+        lease: OwnedScanRootWriteLease,
+    ) -> EbookRenameReconciliationSnapshot:
+        """Persist one exact rescan binding and terminal event atomically."""
+
+        if (
+            not isinstance(value, EbookRenameReconciliationSnapshot)
+            or value.run_id != run.id
+            or value.authorization_id != authorization.id
+            or value.authorization_content_hash != authorization.content_hash
+            or value.preparation_id != preparation.id
+            or value.preparation_content_hash != preparation.content_hash
+            or value.source_file_id != run.source_file_id
+            or value.source_before_observation_id != preparation.source_observation_id
+            or value.expected_full_sha256 != preparation.source_full_sha256
+            or value.expected_size_bytes != preparation.source_size_bytes
+            or value.target_absence_fingerprint
+            != preparation.target_absence_fingerprint
+        ):
+            raise EbookRenameStoreError("e-book rename reconciliation is invalid")
+        self._require_active_run_lease(run, lease, value.reconciled_at)
+        self._require_operation_bindings(
+            plan,
+            preparation,
+            authorization,
+            capability,
+            probe,
+            binding,
+            run,
+        )
+        terminal = EbookRenameRunStatus(value.outcome.value)
+        row = _reconciliation_row(value)
+        try:
+            with _transaction(self._engine) as connection:
+                SQLiteScanRootWriteLeaseStore(self._engine).fence(
+                    connection,
+                    lease,
+                    value.reconciled_at,
+                )
+                self._require_persisted_operation_material(
+                    connection,
+                    preparation,
+                    authorization,
+                    probe,
+                    binding,
+                    run,
+                )
+                SQLiteEbookOperationRecipeStore(
+                    self._engine
+                ).require_persisted_approved_plan_in_transaction(connection, plan)
+                events = self._event_history_in_transaction(connection, run)
+                latest = events[-1].status
+                existing = (
+                    connection.execute(
+                        select(ebook_rename_reconciliations).where(
+                            ebook_rename_reconciliations.c.run_id == str(run.id)
+                        )
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+                if existing is not None:
+                    if dict(existing) != row or latest is not terminal:
+                        raise EbookRenameStoreError(
+                            "e-book rename reconciliation retry differs"
+                        )
+                    return _reconciliation_from_row(existing)
+                if latest is not EbookRenameRunStatus.SCAN_HANDOFF:
+                    raise EbookRenameStoreError(
+                        "e-book rename reconciliation status is unavailable"
+                    )
+                self._require_reconciliation_evidence(
+                    connection,
+                    value,
+                    plan,
+                    preparation,
+                    run,
+                )
+                terminal_event = EbookRenameExecutionEvent(
+                    run_id=run.id,
+                    sequence_no=len(events) + 1,
+                    status=terminal,
+                    occurred_at=value.reconciled_at,
+                    fence_epoch=lease.fence_epoch,
+                    finding_code=(
+                        "RECONCILIATION_VERIFIED"
+                        if terminal is EbookRenameRunStatus.VERIFIED
+                        else "RECONCILIATION_RECOVERED"
+                    ),
+                )
+                validate_ebook_rename_event_history((*events, terminal_event))
+                connection.execute(insert(ebook_rename_reconciliations).values(**row))
+                connection.execute(insert(ebook_rename_events).values(**_event_row(terminal_event)))
+        except EbookRenameStoreError:
+            raise
+        except (
+            EbookOperationRecipeStoreError,
+            IntegrityError,
+            ScanRootWriteLeaseError,
+            TypeError,
+            ValueError,
+        ):
+            raise EbookRenameStoreError(
+                "e-book rename reconciliation could not be persisted"
+            ) from None
+        return value
+
     def events_for_run(
         self,
         run_id: EntityId,
@@ -715,6 +921,22 @@ class SQLiteEbookRenameStore:
                     .mappings()
                     .all()
                 )
+                reconciliation_row = (
+                    connection.execute(
+                        select(
+                            ebook_rename_reconciliations.c.outcome_status,
+                            ebook_rename_reconciliations.c.scan_run_id,
+                            ebook_rename_reconciliations.c.source_file_id,
+                            ebook_rename_reconciliations.c.source_observation_id,
+                            ebook_rename_reconciliations.c.target_file_id,
+                            ebook_rename_reconciliations.c.target_observation_id,
+                            ebook_rename_reconciliations.c.collection_state_snapshot_id,
+                            ebook_rename_reconciliations.c.reconciled_at,
+                        ).where(ebook_rename_reconciliations.c.run_id == str(run_id))
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
             events = tuple(
                 EbookRenameStatusEventSnapshot(
                     sequence_no=int(event["sequence_no"]),
@@ -729,6 +951,55 @@ class SQLiteEbookRenameStore:
                 for event in event_rows
             )
             _validate_public_events(EntityId.parse(str(row["id"])), events)
+            reconciliation = (
+                None
+                if reconciliation_row is None
+                else EbookRenameStatusReconciliationSnapshot(
+                    outcome=EbookRenameReconciliationOutcome(
+                        str(reconciliation_row["outcome_status"])
+                    ),
+                    scan_run_id=EntityId.parse(str(reconciliation_row["scan_run_id"])),
+                    source_file_id=EntityId.parse(
+                        str(reconciliation_row["source_file_id"])
+                    ),
+                    source_observation_id=(
+                        None
+                        if reconciliation_row["source_observation_id"] is None
+                        else EntityId.parse(
+                            str(reconciliation_row["source_observation_id"])
+                        )
+                    ),
+                    target_file_id=(
+                        None
+                        if reconciliation_row["target_file_id"] is None
+                        else EntityId.parse(str(reconciliation_row["target_file_id"]))
+                    ),
+                    target_observation_id=(
+                        None
+                        if reconciliation_row["target_observation_id"] is None
+                        else EntityId.parse(
+                            str(reconciliation_row["target_observation_id"])
+                        )
+                    ),
+                    collection_state_snapshot_id=EntityId.parse(
+                        str(reconciliation_row["collection_state_snapshot_id"])
+                    ),
+                    reconciled_at=_required_datetime(
+                        reconciliation_row["reconciled_at"]
+                    ),
+                )
+            )
+            if (
+                reconciliation is None
+                and events[-1].status
+                in {EbookRenameRunStatus.VERIFIED, EbookRenameRunStatus.RECOVERED}
+            ) or (
+                reconciliation is not None
+                and events[-1].status.value != reconciliation.outcome.value
+            ):
+                raise EbookRenameStoreError(
+                    "e-book rename status reconciliation is invalid"
+                )
             return EbookRenameStatusSnapshot(
                 run_id=EntityId.parse(str(row["id"])),
                 authorization_id=EntityId.parse(str(row["authorization_id"])),
@@ -745,6 +1016,7 @@ class SQLiteEbookRenameStore:
                 authorized_at=_required_datetime(row["authorized_at"]),
                 expires_at=_required_datetime(row["expires_at"]),
                 events=events,
+                reconciliation=reconciliation,
             )
         except EbookRenameStoreError:
             raise
@@ -952,6 +1224,16 @@ class SQLiteEbookRenameStore:
         connection: Connection,
         run: EbookRenameExecutionRun,
     ) -> EbookRenameRunStatus:
+        return SQLiteEbookRenameStore._event_history_in_transaction(
+            connection,
+            run,
+        )[-1].status
+
+    @staticmethod
+    def _event_history_in_transaction(
+        connection: Connection,
+        run: EbookRenameExecutionRun,
+    ) -> tuple[EbookRenameExecutionEvent, ...]:
         rows = (
             connection.execute(
                 select(ebook_rename_events)
@@ -967,7 +1249,270 @@ class SQLiteEbookRenameStore:
             validate_ebook_rename_event_history(events)
         except (TypeError, ValueError):
             raise EbookRenameStoreError("e-book rename journal is invalid") from None
-        return events[-1].status
+        return events
+
+    @staticmethod
+    def _require_reconciliation_evidence(
+        connection: Connection,
+        value: EbookRenameReconciliationSnapshot,
+        plan: EbookOperationRecipePlan,
+        preparation: EbookRenamePreparationSnapshot,
+        run: EbookRenameExecutionRun,
+    ) -> None:
+        source_locator = plan.candidate.sources[0].relative_locator
+        target_locator = plan.candidate.target.relative_locator
+        handoff = connection.execute(
+            select(ebook_rename_events.c.occurred_at)
+            .where(
+                ebook_rename_events.c.run_id == str(run.id),
+                ebook_rename_events.c.status == EbookRenameRunStatus.SCAN_HANDOFF.value,
+            )
+            .order_by(ebook_rename_events.c.sequence_no.desc())
+            .limit(1)
+        ).one_or_none()
+        scan = (
+            connection.execute(
+                select(schema.scan_runs).where(
+                    schema.scan_runs.c.id == str(value.scan_run_id)
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        source_before = (
+            connection.execute(
+                select(schema.file_observations).where(
+                    schema.file_observations.c.id
+                    == str(value.source_before_observation_id)
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        source_record = (
+            connection.execute(
+                select(schema.file_records).where(
+                    schema.file_records.c.id == str(value.source_file_id)
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        source_events = tuple(
+            connection.execute(
+                select(file_scan_events).where(
+                    file_scan_events.c.scan_run_id == str(value.scan_run_id),
+                    file_scan_events.c.file_id == str(value.source_file_id),
+                )
+            ).mappings()
+        )
+        expected_item_file = (
+            value.target_file_id
+            if value.outcome is EbookRenameReconciliationOutcome.VERIFIED
+            else value.source_file_id
+        )
+        expected_item_observation = (
+            value.target_observation_id
+            if value.outcome is EbookRenameReconciliationOutcome.VERIFIED
+            else value.source_observation_id
+        )
+        collection = (
+            connection.execute(
+                select(
+                    collection_state_snapshots.c.scan_root_id,
+                    collection_state_snapshots.c.source_scan_run_id,
+                    collection_state_snapshots.c.created_at,
+                    collection_state_snapshots.c.content_digest,
+                    collection_state_items.c.file_id,
+                    collection_state_items.c.observation_id,
+                    collection_state_items.c.size_bytes,
+                )
+                .select_from(
+                    collection_state_snapshots.join(
+                        collection_state_items,
+                        collection_state_items.c.snapshot_id
+                        == collection_state_snapshots.c.id,
+                    )
+                )
+                .where(
+                    collection_state_snapshots.c.id
+                    == str(value.collection_state_snapshot_id),
+                    collection_state_items.c.file_id == str(expected_item_file),
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if (
+            handoff is None
+            or scan is None
+            or source_before is None
+            or source_record is None
+            or len(source_events) != 1
+            or collection is None
+            or expected_item_observation is None
+        ):
+            raise EbookRenameStoreError(
+                "e-book rename reconciliation evidence is unavailable"
+            )
+        handoff_at = _required_datetime(handoff.occurred_at)
+        scan_started = _required_datetime(scan["started_at"])
+        scan_completed = (
+            None
+            if scan["completed_at"] is None
+            else _required_datetime(scan["completed_at"])
+        )
+        source_event = source_events[0]
+        if (
+            str(scan["scan_root_id"]) != str(run.scan_root_id)
+            or str(scan["status"]) != ScanRunStatus.COMPLETED.value
+            or scan_completed is None
+            or scan_started <= handoff_at
+            or scan_completed > value.reconciled_at
+            or str(source_before["id"]) != str(preparation.source_observation_id)
+            or str(source_before["file_id"]) != str(run.source_file_id)
+            or str(source_before["scan_run_id"]) != str(preparation.source_scan_run_id)
+            or str(source_before["relative_path"]) != source_locator
+            or str(source_record["scan_root_id"]) != str(run.scan_root_id)
+            or str(source_record["relative_path"]) != source_locator
+            or int(source_record["size_bytes"]) != preparation.source_size_bytes
+            or str(source_event["id"]) != str(value.source_scan_event_id)
+            or str(source_event["scan_run_id"]) != str(value.scan_run_id)
+            or str(source_event["file_id"]) != str(run.source_file_id)
+            or str(collection["scan_root_id"]) != str(run.scan_root_id)
+            or str(collection["source_scan_run_id"]) != str(value.scan_run_id)
+            or str(collection["content_digest"])
+            != value.collection_state_content_digest
+            or _required_datetime(collection["created_at"]) > value.reconciled_at
+            or str(collection["file_id"]) != str(expected_item_file)
+            or str(collection["observation_id"]) != str(expected_item_observation)
+            or int(collection["size_bytes"]) != preparation.source_size_bytes
+        ):
+            raise EbookRenameStoreError("e-book rename reconciliation evidence differs")
+
+        if value.outcome is EbookRenameReconciliationOutcome.VERIFIED:
+            target_record = (
+                connection.execute(
+                    select(schema.file_records).where(
+                        schema.file_records.c.id == str(value.target_file_id)
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            target_observations = tuple(
+                connection.execute(
+                    select(schema.file_observations).where(
+                        schema.file_observations.c.scan_run_id == str(value.scan_run_id),
+                        schema.file_observations.c.file_id == str(value.target_file_id),
+                    )
+                ).mappings()
+            )
+            target_events = tuple(
+                connection.execute(
+                    select(file_scan_events).where(
+                        file_scan_events.c.scan_run_id == str(value.scan_run_id),
+                        file_scan_events.c.file_id == str(value.target_file_id),
+                    )
+                ).mappings()
+            )
+            if target_record is None or len(target_observations) != 1 or len(target_events) != 1:
+                raise EbookRenameStoreError(
+                    "e-book rename reconciliation evidence is unavailable"
+                )
+            observation = target_observations[0]
+            target_event = target_events[0]
+            fingerprints = tuple(
+                str(row.value)
+                for row in connection.execute(
+                    select(schema.fingerprints.c.value).where(
+                        schema.fingerprints.c.target_kind
+                        == EntityKind.FILE_OBSERVATION.value,
+                        schema.fingerprints.c.target_id
+                        == str(value.target_observation_id),
+                        schema.fingerprints.c.kind == "FILE_SHA256",
+                        schema.fingerprints.c.algorithm == "sha256",
+                        schema.fingerprints.c.algorithm_version == "1",
+                        schema.fingerprints.c.tool_execution_id.is_(None),
+                    )
+                )
+            )
+            if (
+                fingerprints != (preparation.source_full_sha256,)
+                or str(source_record["presence_state"]) != PresenceState.MISSING.value
+                or str(source_event["change_state"]) != FileChangeState.MISSING.value
+                or str(source_event["previous_relative_path"]) != source_locator
+                or source_event["current_relative_path"] is not None
+                or str(target_record["id"]) != str(value.target_file_id)
+                or str(target_record["scan_root_id"]) != str(run.scan_root_id)
+                or str(target_record["relative_path"]) != target_locator
+                or int(target_record["size_bytes"]) != preparation.source_size_bytes
+                or str(target_record["presence_state"]) != PresenceState.PRESENT.value
+                or str(observation["id"]) != str(value.target_observation_id)
+                or str(observation["scan_run_id"]) != str(value.scan_run_id)
+                or str(observation["file_id"]) != str(value.target_file_id)
+                or str(observation["relative_path"]) != target_locator
+                or int(observation["size_bytes"]) != preparation.source_size_bytes
+                or str(target_event["id"]) != str(value.target_scan_event_id)
+                or str(target_event["change_state"]) != FileChangeState.NEW.value
+                or target_event["previous_relative_path"] is not None
+                or str(target_event["current_relative_path"]) != target_locator
+            ):
+                raise EbookRenameStoreError(
+                    "e-book rename forward reconciliation evidence differs"
+                )
+            return
+
+        source_observations = tuple(
+            connection.execute(
+                select(schema.file_observations).where(
+                    schema.file_observations.c.scan_run_id == str(value.scan_run_id),
+                    schema.file_observations.c.file_id == str(value.source_file_id),
+                )
+            ).mappings()
+        )
+        target_history = connection.execute(
+            select(func.count())
+            .select_from(schema.file_records)
+            .where(
+                schema.file_records.c.scan_root_id == str(run.scan_root_id),
+                schema.file_records.c.relative_path == target_locator,
+            )
+        ).scalar_one()
+        if len(source_observations) != 1:
+            raise EbookRenameStoreError(
+                "e-book rename recovery reconciliation evidence is unavailable"
+            )
+        observation = source_observations[0]
+        fingerprints = tuple(
+            str(row.value)
+            for row in connection.execute(
+                select(schema.fingerprints.c.value).where(
+                    schema.fingerprints.c.target_kind == EntityKind.FILE_OBSERVATION.value,
+                    schema.fingerprints.c.target_id == str(value.source_observation_id),
+                    schema.fingerprints.c.kind == "FILE_SHA256",
+                    schema.fingerprints.c.algorithm == "sha256",
+                    schema.fingerprints.c.algorithm_version == "1",
+                    schema.fingerprints.c.tool_execution_id.is_(None),
+                )
+            )
+        )
+        if (
+            fingerprints != (preparation.source_full_sha256,)
+            or int(target_history) != 0
+            or str(source_record["presence_state"]) != PresenceState.PRESENT.value
+            or str(source_event["change_state"])
+            not in {FileChangeState.UNCHANGED.value, FileChangeState.REAPPEARED.value}
+            or str(source_event["current_relative_path"]) != source_locator
+            or str(observation["id"]) != str(value.source_observation_id)
+            or str(observation["scan_run_id"]) != str(value.scan_run_id)
+            or str(observation["file_id"]) != str(value.source_file_id)
+            or str(observation["relative_path"]) != source_locator
+            or int(observation["size_bytes"]) != preparation.source_size_bytes
+        ):
+            raise EbookRenameStoreError(
+                "e-book rename recovery reconciliation evidence differs"
+            )
 
     @staticmethod
     def _require_probe(
@@ -1528,6 +2073,92 @@ def _backend_binding_from_row(row: RowMapping) -> EbookRenameBackendBinding:
     )
 
 
+def _reconciliation_row(
+    value: EbookRenameReconciliationSnapshot,
+) -> dict[str, object]:
+    return {
+        "run_id": str(value.run_id),
+        "profile": value.profile,
+        "authorization_id": str(value.authorization_id),
+        "authorization_content_hash": value.authorization_content_hash,
+        "preparation_id": str(value.preparation_id),
+        "preparation_content_hash": value.preparation_content_hash,
+        "outcome_status": value.outcome.value,
+        "scan_run_id": str(value.scan_run_id),
+        "source_file_id": str(value.source_file_id),
+        "source_before_observation_id": str(value.source_before_observation_id),
+        "source_scan_event_id": str(value.source_scan_event_id),
+        "source_observation_id": (
+            None if value.source_observation_id is None else str(value.source_observation_id)
+        ),
+        "target_file_id": None if value.target_file_id is None else str(value.target_file_id),
+        "target_observation_id": (
+            None if value.target_observation_id is None else str(value.target_observation_id)
+        ),
+        "target_scan_event_id": (
+            None if value.target_scan_event_id is None else str(value.target_scan_event_id)
+        ),
+        "collection_state_snapshot_id": str(value.collection_state_snapshot_id),
+        "collection_state_content_digest": value.collection_state_content_digest,
+        "expected_full_sha256": value.expected_full_sha256,
+        "expected_size_bytes": value.expected_size_bytes,
+        "target_absence_fingerprint": value.target_absence_fingerprint,
+        "physical_confirmation_digest": value.physical_confirmation_digest,
+        "reconciled_at": datetime_to_db(value.reconciled_at),
+        "content_hash": value.content_hash,
+    }
+
+
+def _reconciliation_from_row(
+    row: RowMapping,
+) -> EbookRenameReconciliationSnapshot:
+    return EbookRenameReconciliationSnapshot(
+        run_id=EntityId.parse(str(row["run_id"])),
+        authorization_id=EntityId.parse(str(row["authorization_id"])),
+        authorization_content_hash=str(row["authorization_content_hash"]),
+        preparation_id=EntityId.parse(str(row["preparation_id"])),
+        preparation_content_hash=str(row["preparation_content_hash"]),
+        outcome=EbookRenameReconciliationOutcome(str(row["outcome_status"])),
+        scan_run_id=EntityId.parse(str(row["scan_run_id"])),
+        source_file_id=EntityId.parse(str(row["source_file_id"])),
+        source_before_observation_id=EntityId.parse(
+            str(row["source_before_observation_id"])
+        ),
+        source_scan_event_id=EntityId.parse(str(row["source_scan_event_id"])),
+        source_observation_id=(
+            None
+            if row["source_observation_id"] is None
+            else EntityId.parse(str(row["source_observation_id"]))
+        ),
+        target_file_id=(
+            None
+            if row["target_file_id"] is None
+            else EntityId.parse(str(row["target_file_id"]))
+        ),
+        target_observation_id=(
+            None
+            if row["target_observation_id"] is None
+            else EntityId.parse(str(row["target_observation_id"]))
+        ),
+        target_scan_event_id=(
+            None
+            if row["target_scan_event_id"] is None
+            else EntityId.parse(str(row["target_scan_event_id"]))
+        ),
+        collection_state_snapshot_id=EntityId.parse(
+            str(row["collection_state_snapshot_id"])
+        ),
+        collection_state_content_digest=str(row["collection_state_content_digest"]),
+        expected_full_sha256=str(row["expected_full_sha256"]),
+        expected_size_bytes=int(row["expected_size_bytes"]),
+        target_absence_fingerprint=str(row["target_absence_fingerprint"]),
+        physical_confirmation_digest=str(row["physical_confirmation_digest"]),
+        reconciled_at=_required_datetime(row["reconciled_at"]),
+        content_hash=str(row["content_hash"]),
+        profile=str(row["profile"]),
+    )
+
+
 def _event_row(value: EbookRenameExecutionEvent) -> dict[str, object]:
     return {
         "run_id": str(value.run_id),
@@ -1594,6 +2225,7 @@ def _utc_timestamp(value: object, label: str) -> datetime:
 __all__ = [
     "EbookRenameSourceSnapshot",
     "EbookRenameStatusEventSnapshot",
+    "EbookRenameStatusReconciliationSnapshot",
     "EbookRenameStatusSnapshot",
     "EbookRenameStoreError",
     "SQLiteEbookRenameStore",

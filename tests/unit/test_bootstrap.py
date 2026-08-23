@@ -104,5 +104,10 @@ def test_status_command_is_non_destructive_bootstrap(
             "ebook-rename-propose, ebook-rename-preview, ebook-rename-review, and "
             "ebook-rename-plan."
         ),
+        (
+            "The bounded same-parent e-book rename writer is available through "
+            "ebook-rename-authorize, ebook-rename-execute, ebook-rename-recover, "
+            "and ebook-rename-status."
+        ),
         "Other source-media and external-tool mutation commands remain unavailable.",
     ]

@@ -76,7 +76,10 @@ from foliotone.persistence.consolidation_schema import (
 from foliotone.persistence.ebook_operation_recipe_schema import (
     EBOOK_OPERATION_RECIPE_TABLES,
 )
-from foliotone.persistence.ebook_rename_schema import EBOOK_RENAME_TABLES
+from foliotone.persistence.ebook_rename_schema import (
+    EBOOK_RENAME_RECONCILIATION_TABLES,
+    EBOOK_RENAME_TABLES,
+)
 from foliotone.persistence.library_health_schema import LIBRARY_HEALTH_TABLES
 from foliotone.persistence.metadata_correction_schema import METADATA_CORRECTION_TABLES
 from foliotone.persistence.metadata_write_schema import (
@@ -177,6 +180,8 @@ def test_migration_creates_current_schema_and_is_idempotent(tmp_path: Path) -> N
         table.name for table in EBOOK_OPERATION_RECIPE_TABLES
     } | {
         table.name for table in EBOOK_RENAME_TABLES
+    } | {
+        table.name for table in EBOOK_RENAME_RECONCILIATION_TABLES
     } | {
         "alembic_version",
         "collection_query_values_fts",
@@ -396,7 +401,7 @@ def test_migration_creates_current_schema_and_is_idempotent(tmp_path: Path) -> N
                 "target_id": "00000000-0000-0000-0000-000000000001",
             },
         ).all()
-    assert revision == "0031_ebook_rename_operations"
+    assert revision == "0032_ebook_rename_reconciliation"
     assert any("ix_fingerprints_target_profile_id_value" in str(row[-1]) for row in query_plan)
     with engine.begin() as connection:
         connection.execute(
@@ -751,7 +756,7 @@ def test_migration_upgrades_0002_absence_state_conservatively(tmp_path: Path) ->
 
     assert row["missing_since_at"] is None
     assert row["consecutive_missing_scans"] == 0
-    assert revision == "0031_ebook_rename_operations"
+    assert revision == "0032_ebook_rename_reconciliation"
 
 
 def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
@@ -772,7 +777,7 @@ def test_migration_adds_candidate_hash_lookup_index_to_0009_database(
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
 
     assert "ix_fingerprints_target_profile_id_value" in indexes
-    assert revision == "0031_ebook_rename_operations"
+    assert revision == "0032_ebook_rename_reconciliation"
 
 
 def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
@@ -823,7 +828,7 @@ def test_migration_adds_candidate_hash_runs_without_fingerprint_uniqueness(
         "ix_ebook_candidate_hash_runs_root_started",
     } <= {str(index["name"]) for index in inspector.get_indexes(ebook_candidate_hash_runs.name)}
     assert duplicate_count == 2
-    assert revision == "0031_ebook_rename_operations"
+    assert revision == "0032_ebook_rename_reconciliation"
 
 
 def test_migration_from_previous_head_adds_provider_cache_entries(
@@ -840,7 +845,7 @@ def test_migration_from_previous_head_adds_provider_cache_entries(
     assert provider_cache_entries.name in inspect(upgraded).get_table_names()
     with upgraded.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0031_ebook_rename_operations"
+    assert revision == "0032_ebook_rename_reconciliation"
 
     migrate(path)
     second = create_sqlite_engine(path)
@@ -848,7 +853,7 @@ def test_migration_from_previous_head_adds_provider_cache_entries(
         second_revision = connection.execute(
             text("SELECT version_num FROM alembic_version")
         ).scalar_one()
-    assert second_revision == "0031_ebook_rename_operations"
+    assert second_revision == "0032_ebook_rename_reconciliation"
 
 
 def test_migration_repairs_exact_empty_0016_table_left_by_interrupt(
@@ -866,7 +871,7 @@ def test_migration_repairs_exact_empty_0016_table_left_by_interrupt(
     upgraded = create_sqlite_engine(path)
     with upgraded.connect() as connection:
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert revision == "0031_ebook_rename_operations"
+    assert revision == "0032_ebook_rename_reconciliation"
     assert consolidation_quality_evidence.name in inspect(upgraded).get_table_names()
 
 

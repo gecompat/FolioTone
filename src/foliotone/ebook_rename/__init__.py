@@ -37,6 +37,12 @@ from foliotone.ebook_rename.capabilities import (
     EbookRenameCapabilityUnavailable,
     ResolvedEbookRenameCapability,
 )
+from foliotone.ebook_rename.confirmation import (
+    EBOOK_RENAME_CONFIRMATION_PROFILE,
+    EbookRenameConfirmationError,
+    ebook_rename_confirmation_digest,
+    ebook_rename_confirmation_text,
+)
 from foliotone.ebook_rename.dependency_scopes import (
     EBOOK_RENAME_DEPENDENCY_SCOPE_PROFILE,
     EBOOK_RENAME_DEPENDENCY_SCOPES_FILE_ENV,
@@ -59,6 +65,12 @@ from foliotone.ebook_rename.linux_backend import (
     LinuxEbookRenameSession,
     ebook_rename_xattr_fingerprint,
 )
+from foliotone.ebook_rename.reconciliation import (
+    EBOOK_RENAME_RECONCILIATION_PROFILE,
+    EbookRenameReconciliationOutcome,
+    EbookRenameReconciliationSnapshot,
+    build_ebook_rename_reconciliation,
+)
 from foliotone.ebook_rename.target import (
     EBOOK_RENAME_PROCESSOR_PROFILE,
     EbookRenameTargetError,
@@ -70,6 +82,7 @@ __all__ = [
     "EBOOK_RENAME_AUTHORIZATION_PROFILE",
     "EBOOK_RENAME_CAPABILITIES_FILE_ENV",
     "EBOOK_RENAME_CAPABILITY_PROFILE",
+    "EBOOK_RENAME_CONFIRMATION_PROFILE",
     "EBOOK_RENAME_DEPENDENCY_SCOPE_PROFILE",
     "EBOOK_RENAME_DEPENDENCY_SCOPES_FILE_ENV",
     "EBOOK_RENAME_PLATFORM_PROFILE",
@@ -77,6 +90,7 @@ __all__ = [
     "EBOOK_RENAME_PROBE_PROFILE",
     "EBOOK_RENAME_PROCESSOR_PROFILE",
     "EBOOK_RENAME_RUN_PROFILE",
+    "EBOOK_RENAME_RECONCILIATION_PROFILE",
     "EBOOK_RENAME_XATTR_FINGERPRINT_PROFILE",
     "MAX_EBOOK_RENAME_AUTHORIZATION_LIFETIME",
     "MAX_EBOOK_RENAME_EVENTS",
@@ -87,6 +101,7 @@ __all__ = [
     "EbookRenameCapabilityProbeSnapshot",
     "EbookRenameCapabilityResolver",
     "EbookRenameCapabilityUnavailable",
+    "EbookRenameConfirmationError",
     "EbookRenameDependencyScopeAxis",
     "EbookRenameDependencyScopeMode",
     "EbookRenameDependencyScopeResolver",
@@ -98,6 +113,8 @@ __all__ = [
     "EbookRenamePhysicalPreparationEvidence",
     "EbookRenamePreparationSnapshot",
     "EbookRenameRunStatus",
+    "EbookRenameReconciliationOutcome",
+    "EbookRenameReconciliationSnapshot",
     "EbookRenameTargetError",
     "ResolvedEbookRenameDependencyScope",
     "ResolvedEbookRenameCapability",
@@ -113,11 +130,14 @@ __all__ = [
     "build_ebook_rename_physical_evidence",
     "build_ebook_rename_preparation",
     "build_ebook_rename_run",
+    "build_ebook_rename_reconciliation",
     "build_ebook_rename_target_locator",
     "ebook_rename_dependencies_fingerprint",
     "ebook_rename_dependency_axis_material_fingerprint",
     "ebook_rename_dependency_scope_material_fingerprint",
     "ebook_rename_locator_digest",
+    "ebook_rename_confirmation_digest",
+    "ebook_rename_confirmation_text",
     "ebook_rename_xattr_fingerprint",
     "validate_ebook_rename_event_history",
 ]

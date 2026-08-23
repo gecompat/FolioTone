@@ -335,13 +335,18 @@ Hash-frei; relative Source-/Target-Locators zeigt ausschließlich
 Authority, Capability, erfolgreichen persistenten Probe, Fencing, One-use-
 Run, insert-only Journal und read-only Status. RN03 ergänzt den internen
 Raw-`openat2`-/`renameat2(RENAME_NOREPLACE)`-Executor, bounded Xattr-Bindung,
-unmittelbare Verifikation und feste Exact-State-Recovery. Es gibt weiterhin
-keine öffentliche Authorize-/Execute-/Recover-/Status-CLI; erst RN04 ergänzt die Bedien-/
-Scan-/Reconciliation-Kette. Vor `IMMEDIATE_VERIFIED` darf Recovery
+unmittelbare Verifikation und feste Exact-State-Recovery. RN04 stellt jetzt
+ausschließlich `ebook-rename-authorize`, `ebook-rename-execute`,
+`ebook-rename-recover` und den SQLite-read-only
+`ebook-rename-status` bereit. Vor `IMMEDIATE_VERIFIED` darf Recovery
 ausschließlich den atomaren Reverse-Rename versuchen. Danach wird nur vorwärts
-reconciled. Uneindeutigkeit endet bei `MANUAL_RECOVERY_REQUIRED`. Der
-Folgescan vereinigt keine `FileRecord`-Identitäten. Parentwechsel bleiben
-hinter `FG-W10-REORGANIZE`.
+reconciled. Vor dem Folgescan wird die Run-Lease explizit freigegeben; der
+Scan verwendet Full-SHA-256 und genau einen Worker. Eine frische Run-Fence
+bindet anschließend physischen Zustand, Scan-Evidence, `CollectionState`,
+immutable Reconciliation und Terminalstatus atomar. Uneindeutigkeit endet
+bei `MANUAL_RECOVERY_REQUIRED`; der Folgescan vereinigt keine `FileRecord`-
+Identitäten. Parentwechsel bleiben hinter `FG-W10-REORGANIZE`, REST/API/UI
+hinter FUT-011.
 
 Ein ausführbarer Consolidation-Teil darf nicht lediglich durch einen CLI-
 Schalter aktiviert werden. Er benötigt weiterhin mindestens:

@@ -40,8 +40,8 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `S-W10-RN04` |" in backlog
-    assert "| NEXT WAVES | `S-W10-RN04` |" in backlog
+    assert "| NOW | `FUT-011` (`DECISION`) |" in backlog
+    assert "| NEXT WAVES | keine freigegebene Implementierungswave |" in backlog
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
     assert "| S-W9-006A | DONE |" in backlog
@@ -56,7 +56,8 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert "| S-W10-RN01 | DONE |" in backlog
     assert "| S-W10-RN02 | DONE |" in backlog
     assert "| S-W10-RN03 | DONE |" in backlog
-    assert "| S-W10-RN04 | NEXT |" in backlog
+    assert "| S-W10-RN04 | DONE |" in backlog
+    assert "| FUT-011 | DECISION |" in backlog
     assert "| FG-W10-REORGANIZE | DECISION |" in backlog
     assert "| W10-005 | DONE |" in backlog
     assert "| W10-006 | DONE |" in backlog
@@ -159,6 +160,7 @@ def test_ebook_write_pipeline_is_development_authorized_and_remains_gate_bound()
     assert "| S-W10-RN01 | DONE |" in backlog
     assert "| S-W10-RN02 | DONE |" in backlog
     assert "| S-W10-RN03 | DONE |" in backlog
+    assert "| S-W10-RN04 | DONE |" in backlog
     for gate in (
         "FG-W10-SIDECAR-WRITE",
         "FG-W10-EXTERNAL-LIBRARY-WRITE",

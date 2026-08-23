@@ -393,12 +393,16 @@ Probe, content-addressed Preparation/Authorization, One-use-Run, Root-Fencing,
 gapless insert-only Journal und locatorfreien SQLite-read-only Status. RN03
 ergänzt das feste interne Linux-`openat2`-/
 `renameat2(RENAME_NOREPLACE)`-Backend, erneute Live-Binder, unmittelbare
-Verifikation und Exact-State-Recovery. RN04 ergänzt anschließend Bedienung,
-Lease-Handoff und einen neuen Scan samt `CollectionState`. Die
-Reconciliation bindet getrennte alte
-`MISSING`- und neue `NEW`-`FileRecord`-Identitäten; sie schreibt keine
-Relocation als Identity-Merge um. `FILE_REORGANIZE` bleibt hinter
-`FG-W10-REORGANIZE`.
+Verifikation und Exact-State-Recovery. RN04 ergänzt die vier festen
+Authorize-/Execute-/Recover-/Status-Kommandos, die exakte zweite
+`stdin`-Bestätigung, den expliziten Lease-Handoff und einen neuen
+inkrementellen Vollscan mit einem Hash-Worker samt `CollectionState`. Die
+atomare Reconciliation bindet das alte `MISSING`-`FileRecord` über sein
+Scan-Event und das getrennte neue `NEW`-Target-`FileRecord`; sie schreibt
+keine Relocation als Identity-Merge um. Nach Reverse-Recovery bindet sie die
+wieder aktuelle Source und weiterhin fehlende Target-Historie.
+`FILE_REORGANIZE` bleibt hinter `FG-W10-REORGANIZE`, REST/API/UI hinter
+FUT-011.
 
 Für die Interim-Quarantäne stellen `S-W10-05A` bis `S-W10-05D` private
 Capability-Auflösung, current-state-gebundenes Authorize, das einmalige
