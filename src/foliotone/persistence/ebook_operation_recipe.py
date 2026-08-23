@@ -261,6 +261,53 @@ class SQLiteEbookOperationRecipeStore:
             )
             return None if row is None else self._read_plan(connection, row)
 
+    def require_current_approved_plan_in_transaction(
+        self,
+        connection: Connection,
+        plan: EbookOperationRecipePlan,
+    ) -> None:
+        """Revalidate one exact persisted plan before separate W10 authority."""
+
+        self.require_persisted_approved_plan_in_transaction(connection, plan)
+        self._validate_candidate_lineage(
+            connection,
+            plan.candidate,
+            require_current_file=True,
+        )
+        self._validate_latest_review(connection, plan)
+
+    def require_persisted_approved_plan_in_transaction(
+        self,
+        connection: Connection,
+        plan: EbookOperationRecipePlan,
+    ) -> None:
+        """Require the exact approved recipe without live-state checks.
+
+        The narrower form is reserved for bounded recovery of an already
+        authorized operation.  Authorization expiry or later collection state
+        must not erase the immutable decision that originally opened the run.
+        """
+
+        _validate_plan_identity(plan)
+        _validate_plan_reducer(plan)
+        row = (
+            connection.execute(
+                select(recipe_schema.ebook_operation_recipe_plans).where(
+                    recipe_schema.ebook_operation_recipe_plans.c.id == str(plan.id)
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None or self._read_plan(connection, row) != plan:
+            raise EbookOperationRecipeStoreError("operation recipe plan differs")
+        if (
+            plan.status is not EbookOperationPlanStatus.APPROVED_NON_EXECUTABLE
+            or plan.execution_state is not EbookOperationExecutionState.NOT_EXECUTABLE
+            or plan.blockers
+        ):
+            raise EbookOperationRecipeStoreError("operation recipe plan is not approved")
+
     def _candidate_by_id(
         self,
         connection: Connection,

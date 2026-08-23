@@ -574,23 +574,29 @@ Material-Fingerprints. Relative Locator liegen wie zuvor ausschließlich in
 den privaten Candidate-Source-/Target-Spalten; Standard-Preview, Review- und
 Plan-Ausgabe enthalten sie nicht.
 
-### Geplante E-Book-Rename-Authority und Reconciliation
+### E-Book-Rename-Authority und geplante Reconciliation
 
-ADR-0066 reserviert für `S-W10-RN02` die additive Migration
+`S-W10-RN02` implementiert nach ADR-0066 die additive Migration
 `0031_ebook_rename_operations`. Sie erweitert den bestehenden
 `ScanRootWriteLease`-Owner-Vertrag ausschließlich um
 `EBOOK_RENAME_PREPARATION` und `EBOOK_RENAME_RUN` und persistiert
 content-addressed Preparation/Authorization, genau einen Run je Authorization,
 höchstens 16 gapless append-only Events sowie das immutable Backend-/
-Probe-Binding. No-Update-/No-Delete-Trigger und bounded Child-Counts gelten
-für den gesamten Graph. Ein belegter Zustand blockiert den Downgrade.
+Probe-Binding in sechs Tabellen. No-Update-/No-Delete-Trigger schützen jeden
+Datensatz; Check- und Insert-Trigger erzwingen Eventgrenze, Gaplessness und
+die feste Zustandsfolge. Ein belegter Zustand oder eine aktive Rename-Lease
+blockiert den Downgrade.
 
 Die Persistenz enthält die für Revalidierung und Recovery notwendigen
 privaten Source-/Target-Digests, Full-SHA-256-, Inode- und Attributbinder.
 Standardprojektionen lesen oder zeigen diese Werte, Locator, Basenames,
-absolute Pfade, Capability-Inhalte und Fences nicht. Capability-Pfade stammen
-ausschließlich aus `FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE` und werden nicht
-in SQLite übernommen. RN02 besitzt noch keinen Executor.
+absolute Pfade, rohe Dateisystemkennungen, Capability-Inhalte und Fences
+nicht. Capability-Pfade stammen ausschließlich aus
+`FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE` und werden nicht in SQLite
+übernommen; private Runtime-Identitäten werden nur über domänengetrennte
+Einweg-Fingerprints gebunden. Erfolgreiche Probe-Snapshots binden Capability-
+Konfiguration, Root, Filesystem, Kernel, Backend- und Probeprofil; ein
+fehlgeschlagener Probe erzeugt keine Authority. RN02 besitzt keinen Executor.
 
 `S-W10-RN04` reserviert getrennt die additive Migration
 `0032_ebook_rename_reconciliation`. Genau eine immutable Reconciliation je Run

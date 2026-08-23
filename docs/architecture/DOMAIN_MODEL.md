@@ -529,7 +529,12 @@ Dependencies, Capability, Backend, Probe und Fence. Der daraus abgeleitete
 einmal durch einen `EbookRenameExecutionRun` verbrauchbar. Dessen gapless
 `EbookRenameExecutionEvent`-Historie trennt Vorbereitung, physische
 Relocation, unmittelbare Verifikation, Scan-Handoff, Recovery und terminalen
-Abschluss.
+Abschluss. `S-W10-RN02` implementiert und persistiert diese vier Verträge
+insert-only zusammen mit `EbookRenameCapabilityProbeSnapshot` und immutablem
+Backend-Binding. Der Standardstatus projiziert nur opaque IDs, Profile,
+Zeitpunkte, Zustände und feste Findings; private Locator-, Hash-, Inode-,
+Attribut-, Capability-, Confirmation- und Fence-Binder bleiben intern. Ein
+Executor existiert in RN02 nicht.
 
 Nach dem Folgescan bindet ein `EbookRenameReconciliationSnapshot` bei
 `VERIFIED` den alten Source-`FileRecord` samt `MISSING` und den getrennten

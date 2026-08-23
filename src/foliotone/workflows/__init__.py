@@ -112,6 +112,13 @@ from foliotone.workflows.ebook_rename_planning import (
     EbookRenameProposalResult,
     EbookRenameReviewResult,
 )
+from foliotone.workflows.ebook_rename_status import (
+    EBOOK_RENAME_STATUS_REPORT_PROFILE,
+    EbookRenameStatusEvent,
+    EbookRenameStatusReport,
+    EbookRenameStatusReportError,
+    SQLiteEbookRenameStatusReportReader,
+)
 from foliotone.workflows.library_health import (
     LIBRARY_HEALTH_REPORT_PROFILE,
     LibraryHealthReport,
@@ -156,6 +163,7 @@ __all__ = [
     "EBOOK_QUALITY_MIN_TEXT_CHARACTERS",
     "EBOOK_QUALITY_PROFILE",
     "EBOOK_MATCHING_WORKFLOW_PROFILE",
+    "EBOOK_RENAME_STATUS_REPORT_PROFILE",
     "MAX_COLLECTION_REPORT_GROUP_LIMIT",
     "MAX_COLLECTION_REPORT_MEMBER_LIMIT",
     "MAX_COLLECTION_REPORT_REVIEW_LIMIT",
@@ -219,6 +227,10 @@ __all__ = [
     "EbookRenamePreview",
     "EbookRenameProposalResult",
     "EbookRenameReviewResult",
+    "EbookRenameStatusEvent",
+    "EbookRenameStatusReport",
+    "EbookRenameStatusReportError",
+    "SQLiteEbookRenameStatusReportReader",
     "EbookQualityAssessment",
     "EbookQualityDimension",
     "EbookQualityDimensionName",
