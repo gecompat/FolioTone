@@ -142,18 +142,28 @@ Der Executor verwendet die bestehende Root-Lease mit einer neuen Owner-Klasse
 `CONSOLIDATION_QUARANTINE_RUN`. Der Ablauf ist exakt:
 
 1. zweite Bestätigung, Authorization, Plan und aktuelle Root-/Scan-/Review-
-   Lineage read-only revalidieren und den Bestätigungs-Event persistieren;
-2. Root-Lease erwerben und in einer kurzen Transaktion fencesicher einen
-   `PREPARED`-Run mit deterministischem opaque Zielnamen persistieren;
-3. Keeper und Candidate über private Runtimepfade erneut vollständig prüfen;
+   Lineage read-only revalidieren und den `confirmation_digest` berechnen;
+2. Root-Lease erwerben;
+3. Capability, aktuelle Persistenz-Lineage, Keeper und Candidate unter dieser
+   Lease über private Runtimepfade erneut vollständig prüfen;
    no-follow Handles bleiben Teil von `FG-W10-MOVE-BACKEND`;
-4. Same-Filesystem, Ziel-Abwesenheit und Source-Revalidierung des
+4. in einer kurzen Transaktion Lease, aktuelle Plan-Lineage und unverbrauchte
+   Authorization erneut fencen und Run sowie `PREPARED`-Event mit
+   `confirmation_digest` und deterministischem opaque Zielnamen atomar
+   persistieren; die eindeutige Authorization-Bindung verbraucht sie dabei;
+5. Same-Filesystem, Ziel-Abwesenheit und Candidate-Revalidierung des
    Interim-Executors beweisen; no-follow und unveränderte Eltern bleiben Teil
    von `FG-W10-MOVE-BACKEND`;
-5. genau einen `os.rename`-Move ohne atomare No-Replace-Behauptung ausführen;
-6. Source-Abwesenheit, Ziel-File-Identity, Größe und Full-SHA-256 beweisen;
-7. Root-Lease erneut fencen und einen terminalen Run-Event anhängen;
-8. append-only Verbrauchsevent persistieren und Lease freigeben.
+6. genau einen `os.rename`-Move ohne atomare No-Replace-Behauptung ausführen;
+7. Source-Abwesenheit, Ziel-File-Identity, Größe und Full-SHA-256 beweisen;
+8. Root-Lease für jeden weiteren Run-Event erneut fencen, terminal abschließen
+   und die Lease freigeben.
+
+Ein Crash zwischen Lease-Erwerb und atomarem `PREPARED` kann eine abgelaufene
+Lease ohne persistierten Owner-Run hinterlassen. Der SQLite-Store darf genau
+diesen Zustand nur in einer sofort serialisierten Transaktion prüfen und mit
+erhöhter Fence-Epoch übernehmen. Existiert der Owner-Run bereits, bleibt die
+Lease unabhängig von ihrem Ablauf ausschließlich Recovery vorbehalten.
 
 Filesystem und SQLite bilden keine gemeinsame Transaktion. Deshalb wird
 `PREPARED` vor der Mutation dauerhaft geschrieben. Nach Crash oder Timeout
@@ -176,11 +186,12 @@ Das Folgepaket `S-W10-02` erhält eine additive Migration `0022` nach der
 inzwischen vorhandenen Revision `0021` mit
 separaten immutable Tabellen für Authorization und Execution-Run sowie einer
 append-only, lückenlos sequenzierten Eventtabelle. `PREPARED`, Move-/
-Verifikationsfortschritt, Verbrauch, Stale- und Terminalzustände werden nur
-durch neue Events dargestellt; Authorization oder Run werden nie in-place
-umgeschrieben. Pfade, Dateinamen, Bestätigungseingabe, Dateiinhalte und private
-Volume-Locators sind verboten. Materielle Hashes sind ausschließlich intern
-und fehlen im öffentlichen Report.
+Verifikationsfortschritt, Stale- und Terminalzustände werden nur durch neue
+Events dargestellt. Der immutable Execution-Run verbraucht die Authorization
+über seine eindeutige `authorization_id`; Authorization oder Run werden nie
+in-place umgeschrieben. Pfade, Dateinamen, Bestätigungseingabe, Dateiinhalte
+und private Volume-Locators sind verboten. Materielle Hashes sind
+ausschließlich intern und fehlen im öffentlichen Report.
 
 Feste Runstatus:
 

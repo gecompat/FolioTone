@@ -85,10 +85,10 @@ festen Authorize-/Execute-/Recover-/Status-Kommandos, zweiter Bestätigung über
 
 `W10-005` bleibt die nächste getrennte `FRONTIER`-Wave. Capability-Auflösung
 und `quarantine-authorize` sind durch `S-W10-05A` und `S-W10-05B`
-abgeschlossen. `S-W10-05C` ergänzt als Nächstes Execute, zweite Bestätigung
-und One-use-Fencing; `S-W10-05D` schließt Recovery und synthetische Crash-
-Abnahme. Kein Paket öffnet einen weiteren Mutationstyp oder behauptet atomare
-No-Replace-Semantik.
+abgeschlossen. `S-W10-05C` ergänzt Execute, zweite Bestätigung und
+One-use-Fencing. `S-W10-05D` schließt als Nächstes Recovery und synthetische
+Crash-Abnahme. Kein Paket öffnet einen weiteren Mutationstyp oder behauptet
+atomare No-Replace-Semantik.
 
 ## W0 — Project Foundation
 
@@ -533,8 +533,8 @@ halten Rollback/Purge und Verzeichnisbereinigung weiterhin getrennt.
 Die Quarantäne besitzt noch keine vollständige Bedienkette. Der private
 `QuarantineCapabilityResolver` und `quarantine-authorize` sind vorhanden;
 `S-W10-05C` ergänzt `quarantine-execute` mit zweiter Bestätigung über nicht
-geloggtes `stdin`, `S-W10-05D` danach `quarantine-recover`. CLI-Argumente
-enthalten nur opaque IDs und Content Hashes. Der bestehende
+geloggtes `stdin`; `S-W10-05D` ergänzt als Nächstes `quarantine-recover`.
+CLI-Argumente enthalten nur opaque IDs und Content Hashes. Der bestehende
 `quarantine-status` bleibt die maschinenlesbare read-only Statusprojektion.
 
 Spätere Operationen wie Rollback, Purge, Metadatenupdate, Calibrewrite und

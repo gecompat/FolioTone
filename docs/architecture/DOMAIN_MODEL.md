@@ -499,6 +499,17 @@ a W9 plan. Only a new W10 Authorization under the accepted technical contract
 may open one concrete operation; `APPROVED_NON_EXECUTABLE` is not such an
 Authorization.
 
+ADR-0056 verwendet für die getrennte Interim-Quarantäne einen
+`QuarantineAuthorizationSnapshot`. Er bindet genau einen aktuellen reviewten
+`ConsolidationPlan`, Keeper, Candidate, Full-SHA-256 und eine opaque lokale
+Capability für höchstens 15 Minuten. `QuarantineConfirmation` ist die exakte
+zweite `stdin`-Bestätigung aus Authorization- und Plan-ID; nur ihr
+domänengetrennter Digest wird gespeichert. Ein
+`QuarantineExecutionRun` verbraucht die Authorization genau einmal. Sein
+erstes append-only Event ist das unter der aktuellen Root-Fence atomar
+persistierte `PREPARED`; private Pfade und der Confirmation-Text gehören weder
+in Domainobjekte noch Statusprojektionen.
+
 ADR-0063 resolves the first such technical contract only for EPUB 3,
 `SOURCE_METADATA` and one reviewed `title` `REPLACE`. The W10 layer binds the
 existing plan to a concrete writer/version, a deterministic technical

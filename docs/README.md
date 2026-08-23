@@ -24,7 +24,7 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 11. [Lokaler W2-Smoke-Test](quality/LOCAL_SMOKE_TEST.md) dokumentiert den abgeschlossenen manuellen Windows-/Docker-Testpunkt mit ausschließlich synthetischen Dateien.
 12. [E-Book-Toolchain unter Windows](operations/WINDOWS_EBOOK_TOOLCHAIN.md) beschreibt das explizite Docker-/WSL2-Provisioning und den formatspezifischen Doctor.
 13. [Begrenzter EPUB-Titelwriter](operations/EBOOK_METADATA_WRITE.md) beschreibt Voraussetzungen, Runtime-Konfiguration, Bestätigung, Status und Recovery des einzigen freigegebenen Source-Metadata-Profils.
-14. [Begrenzte E-Book-Duplikatquarantäne](operations/EBOOK_QUARANTINE.md) beschreibt die aktuelle pfadfreie Authorization für genau einen reviewten Duplicate Candidate und grenzt die noch fehlenden Execute-/Recovery-Schritte ab.
+14. [Begrenzte E-Book-Duplikatquarantäne](operations/EBOOK_QUARANTINE.md) beschreibt Authorization und gefencete Execute-Bedienung für genau einen reviewten Duplicate Candidate und grenzt die noch fehlende Recovery ab.
 
 ## Architektur
 

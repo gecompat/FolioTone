@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -11,9 +12,10 @@ import pytest
 
 import foliotone.cli.main as cli
 from foliotone.core import EntityId
-from foliotone.quarantine import QuarantineAuthorizationBlockerCode
+from foliotone.quarantine import QuarantineAuthorizationBlockerCode, QuarantineRunStatus
 from foliotone.workflows.quarantine_operation import (
     QuarantineAuthorizationResult,
+    QuarantineOperationResult,
     QuarantineOperatorError,
     QuarantineOperatorErrorCode,
 )
@@ -23,6 +25,7 @@ PLAN_ID = EntityId.parse("dd000000-0000-0000-0000-000000000001")
 CAPABILITY_ID = EntityId.parse("dd000000-0000-0000-0000-000000000002")
 AUTHORIZATION_ID = EntityId.parse("dd000000-0000-0000-0000-000000000003")
 ROOT_ID = EntityId.parse("dd000000-0000-0000-0000-000000000004")
+RUN_ID = EntityId.parse("dd000000-0000-0000-0000-000000000005")
 PLAN_HASH = "a" * 64
 
 
@@ -34,18 +37,20 @@ class _Engine:
         self.disposed = True
 
 
-def _arguments() -> list[str]:
-    return [
-        "quarantine-authorize",
+def _arguments(command: str = "quarantine-authorize") -> list[str]:
+    values = [
+        command,
         "--plan-id",
         str(PLAN_ID),
         "--plan-content-hash",
         PLAN_HASH,
         "--capability-id",
         str(CAPABILITY_ID),
-        "--output",
-        "json",
     ]
+    if command == "quarantine-execute":
+        values.extend(("--authorization-id", str(AUTHORIZATION_ID)))
+    values.extend(("--output", "json"))
+    return values
 
 
 def test_quarantine_authorize_emits_only_opaque_public_material(
@@ -108,6 +113,114 @@ def test_quarantine_authorize_reports_only_public_blocker_codes(
         "code": "AUTHORIZATION_BLOCKED",
         "blockers": ["REVIEWS_NOT_ACCEPTED"],
     }
+    assert engine.disposed is True
+
+
+class _ExecuteService:
+    def __init__(self) -> None:
+        self.executed_confirmation: str | None = None
+
+    def confirmation_prompt(self, **_kwargs: object) -> str:
+        return f"CONFIRM QUARANTINE {AUTHORIZATION_ID} {PLAN_ID}"
+
+    def execute(self, *, confirmation_text: str, **_kwargs: object) -> QuarantineOperationResult:
+        self.executed_confirmation = confirmation_text
+        return QuarantineOperationResult(
+            authorization_id=AUTHORIZATION_ID,
+            run_id=RUN_ID,
+            plan_id=PLAN_ID,
+            scan_root_id=ROOT_ID,
+            status=QuarantineRunStatus.COMPLETED,
+        )
+
+
+def test_quarantine_execute_accepts_only_the_exact_stdin_line_and_stays_private(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = _Engine()
+    service = _ExecuteService()
+    confirmation = f"CONFIRM QUARANTINE {AUTHORIZATION_ID} {PLAN_ID}"
+    monkeypatch.setattr(cli, "_open_quarantine_operator", lambda: (engine, service))
+    monkeypatch.setattr(cli.sys, "stdin", io.StringIO(f"{confirmation}\n"))
+
+    assert cli.main(_arguments("quarantine-execute")) == 0
+
+    captured = capsys.readouterr()
+    assert captured.err == f"{confirmation}\n"
+    assert json.loads(captured.out) == {
+        "schema_version": 1,
+        "command": "quarantine-execute",
+        "ok": True,
+        "profile": "quarantine-operator/v1",
+        "authorization_id": str(AUTHORIZATION_ID),
+        "run_id": str(RUN_ID),
+        "plan_id": str(PLAN_ID),
+        "scan_root_id": str(ROOT_ID),
+        "status": "COMPLETED",
+    }
+    assert service.executed_confirmation == confirmation
+    assert PLAN_HASH not in captured.out
+    assert "candidate.epub" not in captured.out
+    assert engine.disposed is True
+    assert "database" not in vars(
+        cli.build_parser().parse_args(_arguments("quarantine-execute"))
+    )
+
+
+@pytest.mark.parametrize(
+    "supplied",
+    ("CONFIRM SOMETHING ELSE\n", "x" * 257, ""),
+)
+def test_quarantine_execute_rejects_noncanonical_or_unbounded_stdin(
+    supplied: str,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = _Engine()
+    service = _ExecuteService()
+    prompt = f"CONFIRM QUARANTINE {AUTHORIZATION_ID} {PLAN_ID}"
+    monkeypatch.setattr(cli, "_open_quarantine_operator", lambda: (engine, service))
+    monkeypatch.setattr(cli.sys, "stdin", io.StringIO(supplied))
+
+    assert cli.main(_arguments("quarantine-execute")) == 2
+
+    captured = capsys.readouterr()
+    assert captured.err == f"{prompt}\n"
+    assert json.loads(captured.out)["error"] == {"code": "CONFIRMATION_INVALID"}
+    assert service.executed_confirmation is None
+    assert engine.disposed is True
+
+
+def test_quarantine_execute_failure_exposes_only_the_opaque_existing_run(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = _Engine()
+    prompt = f"CONFIRM QUARANTINE {AUTHORIZATION_ID} {PLAN_ID}"
+
+    def consumed(**_kwargs: object) -> None:
+        raise QuarantineOperatorError(
+            QuarantineOperatorErrorCode.AUTHORIZATION_CONSUMED,
+            run_id=RUN_ID,
+        )
+
+    service = SimpleNamespace(
+        confirmation_prompt=lambda **_kwargs: prompt,
+        execute=consumed,
+    )
+    monkeypatch.setattr(cli, "_open_quarantine_operator", lambda: (engine, service))
+    monkeypatch.setattr(cli.sys, "stdin", io.StringIO(f"{prompt}\n"))
+
+    assert cli.main(_arguments("quarantine-execute")) == 2
+
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["error"] == {
+        "code": "AUTHORIZATION_CONSUMED",
+        "run_id": str(RUN_ID),
+    }
+    assert PLAN_HASH not in captured.out
+    assert "candidate.epub" not in captured.out
     assert engine.disposed is True
 
 

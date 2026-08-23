@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from foliotone.consolidation.contracts import ConsolidationPlan
 from foliotone.core import EntityId
 from foliotone.persistence.quarantine import (
     QuarantineExecutionEvent,
@@ -58,6 +59,9 @@ def execute_interim_quarantine(
     lease: OwnedScanRootWriteLease,
     paths: InterimQuarantinePaths,
     occurred_at: datetime,
+    plan: ConsolidationPlan | None = None,
+    confirmation_digest: str | None = None,
+    persisted_at: datetime | None = None,
 ) -> InterimQuarantineExecutionResult:
     """Persist and execute one same-filesystem ``os.rename`` quarantine move.
 
@@ -75,7 +79,27 @@ def execute_interim_quarantine(
         raise InterimQuarantineError("quarantine authorization is not currently valid")
 
     _require_target_token(run.target_token)
-    store.create_prepared_run(run, lease, occurred_at)
+    confirmed_execution = any(
+        value is not None for value in (plan, confirmation_digest, persisted_at)
+    )
+    if confirmed_execution:
+        if (
+            not isinstance(plan, ConsolidationPlan)
+            or not isinstance(confirmation_digest, str)
+            or not isinstance(persisted_at, datetime)
+        ):
+            raise InterimQuarantineError("confirmed execution material is incomplete")
+        store.create_confirmed_prepared_run(
+            run,
+            authorization,
+            plan,
+            lease,
+            confirmation_digest=confirmation_digest,
+            confirmed_at=occurred_at,
+            persisted_at=persisted_at,
+        )
+    else:
+        store.create_prepared_run(run, lease, occurred_at)
     candidate = paths.candidate_path
     target = paths.quarantine_directory / run.target_token
     try:

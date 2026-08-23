@@ -4,6 +4,74 @@ Stand: 2026-08-23
 
 ## Aktuelle Welle
 
+**S-W10-05C implementiert — Quarantäne-Execute ist einmalig und gefencet**
+
+`quarantine-execute` ergänzt die zweite feste ADR-0056-Bedienstufe. Das
+Kommando akzeptiert ausschließlich opaque Plan-, Capability- und
+Authorization-IDs, den vollständigen Plan-Content-Hash und die
+Darstellungswahl. Danach fordert es exakt
+`CONFIRM QUARANTINE <Authorization-ID> <Plan-ID>` als eine höchstens 256
+Zeichen lange, nicht geloggte `stdin`-Zeile. Freie Pfade, Dateinamen,
+Batchlisten, Nonces, Command-Fragmente oder Bestätigung in argv und Environment
+sind nicht verfügbar.
+
+Vor dem Prompt werden Plan, Authorization, Capability und aktuelle
+Persistenz-Lineage gebunden. Nach der Bestätigung löst der Operator die
+Capability erneut auf, erwirbt eine
+`CONSOLIDATION_QUARANTINE_RUN`-Lease und revalidiert darunter Plan, neueste
+Reviews, Dependencies, File-/Observation-Lineage sowie Keeper und Candidate
+streaming-basiert gegen Größe, Modified-Zeitpunkt und Full-SHA-256. Eine kurze
+SQLite-Transaktion fences die Lease, prüft die aktuelle Plan-Lineage nochmals
+und persistiert Run und bestätigtes `PREPARED`-Event atomar. Die eindeutige
+Authorization-Bindung macht den Snapshot genau einmal verbrauchbar; ein Retry
+mit derselben Authorization startet keinen zweiten Run.
+Eine abgelaufene Quarantäne-Lease vor `PREPARED` darf nur in einer sofort
+serialisierten SQLite-Transaktion gefencet übernommen werden, wenn zu ihrer
+Owner-Run-ID nachweislich kein persistierter Run existiert. Sobald ein Run
+existiert, bleibt auch eine abgelaufene Lease ausschließlich dem Recovery-Pfad
+vorbehalten.
+
+Erst danach ruft der Workflow ausschließlich den vorhandenen
+Interim-Executor auf. Dieser prüft Candidate, Same-Filesystem und
+Zielabwesenheit erneut, führt genau ein `os.rename` aus und verifiziert
+Source-Abwesenheit sowie den vollständigen Ziel-SHA-256. Standardausgabe und
+Fehler bleiben pfad-, dateinamen- und materialhashfrei; nach erzeugtem Run darf
+nur dessen opaque ID für Status und spätere Recovery erscheinen. Die bewusst
+nicht atomare Ziel-Abwesenheitsprüfung, `FG-W10-MOVE-BACKEND` und das Verbot von
+Copy+Delete, Cross-Volume-Fallback, Overwrite, Rollback und Purge bleiben
+unverändert.
+
+Lokal bestanden 19 neue Confirmation-/CLI-/Lease-Unit-Tests, zehn neue
+synthetische Execution-Integrationsfälle sowie 20 direkt betroffene bestehende
+Quarantäne-Verträge. Die Abnahme belegt echten Ein-Datei-Move, gespeicherten
+Confirmation-Digest, One-use, erneute Capability-Auflösung, Ablauf während
+der Revalidierung, Review- und physische Source-Drift, aktive Root-Fence,
+atomare orphaned-Lease-Übernahme, Recovery-only nach persistiertem
+`PREPARED`, die erneute Executor-Revalidierung nach künstlicher TOCTOU-Drift,
+pfadfreies `MANUAL_REVIEW` nach unerwartetem Executorfehler sowie unveränderte
+Persistenz-/Authorization-/Contract-Grenzen. Ruff war für den
+geänderten Python-Scope grün. Ein vollständiger Mypy-Lauf über 235 Source-
+Dateien war grün; nach der finalen Race-Härtung wurden die beiden nochmals
+geänderten Source-Module erneut ohne Befund geprüft.
+Verwendet wurden ausschließlich synthetische temporäre Dateien und
+SQLite-Datenbanken. Reale E-Books und private Runtime-Daten wurden nicht
+geöffnet; eine vollständige lokale Suite wurde gemäß Test Policy nicht
+gestartet. Zusätzlich bestanden 22 betroffene Planungs-, Dokumentations-,
+W10- und Bootstrap-Verträge. Der vollständige PR-CI-Gate bleibt für den
+stabilen Head noch nachzuweisen.
+
+ADR-0056 wurde ohne Erweiterung der Entscheidung an den bereits akzeptierten
+Persistenzvertrag angeglichen: Der Confirmation-Digest gehört zum atomaren
+`PREPARED`-Event, und die eindeutige Run-Bindung stellt den Verbrauch dar. Die
+veralteten Aussagen zu separaten Bestätigungs- und Verbrauchsevents wurden
+entfernt; außerhalb der Interim-Ein-Datei-Quarantäne bleibt die Write-Grenze
+unverändert.
+
+`S-W10-05D` ist der nächste getrennte Slice. Er ergänzt ausschließlich
+`quarantine-recover` und die feste Crash-/Recovery-Matrix; bis dahin darf ein
+nicht abgeschlossener Run nur read-only inspiziert und nicht erneut ausgeführt
+werden.
+
 **S-W10-05B implementiert — Quarantäne-Authorization ist operativ erreichbar**
 
 `quarantine-authorize` vervollständigt den ersten Teil der festen
@@ -29,10 +97,10 @@ Die höchstens 15 Minuten gültige Ausgabe enthält nur Authorization-, Plan- un
 ScanRoot-ID, Profil, Status und Zeitfenster. Pfade, Dateinamen,
 Material-/Review-Hashes und Capability-Inhalte bleiben privat. Authorize liest
 Source Media ausschließlich und ruft weder `os.rename` noch den vorhandenen
-Interim-Executor auf. `quarantine-execute` samt zweiter Bestätigung und
-One-use-Fencing ist der nächste getrennte Slice `S-W10-05C`;
-`quarantine-recover` folgt danach in `S-W10-05D`. Die begrenzte nicht atomare
-Interim-Semantik und `FG-W10-MOVE-BACKEND` bleiben unverändert.
+Interim-Executor auf. `S-W10-05C` ergänzt darauf aufbauend Execute, zweite
+Bestätigung und One-use-Fencing; `quarantine-recover` folgt getrennt in
+`S-W10-05D`. Die begrenzte nicht atomare Interim-Semantik und
+`FG-W10-MOVE-BACKEND` bleiben unverändert.
 
 Lokal bestanden sieben neue Source-/CLI-Unit-Tests, vier neue
 Authorization-/SQLite-Integrationsfälle sowie 24 direkt betroffene bestehende
@@ -53,9 +121,11 @@ unverändert. Die lokale Collection fand danach 2.051 Tests fehlerfrei; die vier
 neuen Autorisierungs-Integrationsfälle blieben grün. Der zweite Gate erreichte
 anschließend 2.042 erfolgreiche Tests bei acht erwarteten Skips; nur der
 explizite Statusausgabe-Vertrag erwartete die neue
-`quarantine-authorize`-Zeile noch nicht. Die Erwartung ist jetzt mit der bereits
-implementierten, mutationsfreien Statusausgabe synchronisiert. Der erneut
-korrigierte Head benötigt den vollständigen Gate.
+`quarantine-authorize`-Zeile noch nicht. Die Erwartung wurde mit der bereits
+implementierten, mutationsfreien Statusausgabe synchronisiert. Der finale
+05B-Head `bb9ef78` bestand danach Quality- und Linux-Image-Gate. PR #239 wurde
+als Merge-Commit `5f5b068` auf `main` integriert; auch der Post-Merge-Contract
+war grün.
 
 **S-W10-MW05 implementiert — EPUB-Titelwriter besitzt Bedienung und Reconciliation**
 
@@ -124,12 +194,11 @@ erwartet. Der Vertragsassert wurde ohne Produktionscodeänderung auf die bereits
 dokumentierte Ausführungsfront synchronisiert; der korrigierte Head benötigt
 erneut den vollständigen Gate.
 
-`S-W10-05C` ist der nächste reguläre Slice. Er ergänzt ausschließlich die
-bereits durch ADR-0056 erlaubte Interim-Ein-Datei-Quarantäne um Execute,
-zweite Bestätigung und One-use-Fencing; Authorize ist durch `S-W10-05B`
-vorhanden. Die separate
-`FG-W10-MOVE-BACKEND`-Härtung und alle weiteren Mutationstypen bleiben davon
-unberührt.
+`S-W10-05C` ergänzt inzwischen die bereits durch ADR-0056 erlaubte
+Interim-Ein-Datei-Quarantäne um Execute, zweite Bestätigung und
+One-use-Fencing. `S-W10-05D` ist der nächste reguläre Slice und ergänzt nur
+Recovery. Die separate `FG-W10-MOVE-BACKEND`-Härtung und alle weiteren
+Mutationstypen bleiben davon unberührt.
 
 **S-W10-MW04 implementiert — Linux-Exchange und Recovery bleiben ohne Bedienpfad**
 
@@ -1984,10 +2053,10 @@ CLI-Profil oder Ausführungsauthority. ADR-0056 entscheidet inzwischen das
 enge W10-Vertragsgate für Quarantäne. S-W10-01 bis S-W10-04 sind
 abgeschlossen: reine Authorization-/Eligibility-Verträge, immutable
 Persistenz, Interim-Executor und read-only Status sind vorhanden. Der
-Capability Resolver aus S-W10-05A und die current-state-gebundene
-`quarantine-authorize`-CLI aus S-W10-05B sind ebenfalls umgesetzt. Es fehlen
-Execute mit zweiter Bestätigung und One-use-Fencing sowie Recovery und deren
-synthetische Crash-/Recovery-Abnahme; `S-W10-05C` ist der nächste Teil der
+Capability Resolver aus S-W10-05A, die current-state-gebundene
+`quarantine-authorize`-CLI aus S-W10-05B und das gefencete, einmalige Execute
+aus S-W10-05C sind ebenfalls umgesetzt. Es fehlen Recovery und deren
+synthetische Crash-/Recovery-Abnahme; `S-W10-05D` ist der nächste Teil der
 Bedienkette.
 
 ADR-0058 legt die aktuelle reguläre Produktfolge fest. `CS-01` ist

@@ -93,7 +93,10 @@ def _hashed(plan: ConsolidationPlan) -> ConsolidationPlan:
 
 
 def _planner_candidate_review_plan(
-    database: Path, state: ConsolidationReviewState
+    database: Path,
+    state: ConsolidationReviewState,
+    *,
+    full_hash: str = "f" * 64,
 ) -> tuple[SQLiteConsolidationStore, ConsolidationPlan, ConsolidationPlannerInputs]:
     engine = create_sqlite_engine(database)
     root = ScanRoot(EntityId.new(), "synthetic-planner", MediaType.EBOOK)
@@ -101,7 +104,6 @@ def _planner_candidate_review_plan(
     repository(engine, ScanRoot).save(root)
     repository(engine, ScanRun).save(scan)
     file_ids, observation_ids, evidence = _quality_pair(engine, root, scan)
-    full_hash = "f" * 64
     relation_id = EntityId.new()
     with engine.begin() as connection:
         for observation_id in observation_ids:
