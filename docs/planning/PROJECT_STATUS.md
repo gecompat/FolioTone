@@ -40,9 +40,21 @@ Store-, CLI-Bootstrap-, Planungs- und Dokumentationsregressionen sind nach der
 mechanischen Aktualisierung von vier veralteten RN01-Status-/CLI-Erwartungen
 ebenfalls grün. Ruff und Mypy waren für den betroffenen Python-Scope ohne
 Befund. Ausschließlich synthetische Daten wurden verwendet. Reale E-Books,
-private Runtime-Daten, Source-Mutation, Docker, externe Tools und die
-vollständige lokale Suite blieben unberührt. Genau ein vollständiger PR-CI-
-Gate bleibt Merge-Voraussetzung.
+private Runtime-Daten, Source-Mutation, lokales Docker, externe Tools und die
+vollständige lokale Suite blieben unberührt.
+
+Der erste PR-Quality-Run `32621668805` fand genau einen weiteren veralteten
+statischen CLI-Testanker. Nach der einzeiligen Begrenzung auf den unmittelbar
+folgenden Parser bestand der einzelne Test lokal. Der stabile Remote-Head
+`8140a0cde38d9d469ff29d3178d6692b140feb2b` bestand Quality-Run
+`32621898227` und E-Book-Toolchain-Run `32621898266`. PR #246 wurde jedoch
+versehentlich als Squash-Commit mit nur einem Eltern-Commit
+`2a5ae669a51cceec9616479fc18661220ff72272` integriert. Deshalb scheiterte
+Post-Merge-Run `32622056707` ausschließlich an der vorgeschriebenen
+Zwei-Eltern-Prüfung, bevor der Diff-Check ausgeführt wurde. Die unmittelbar
+folgende Integrations-Reconciliation ändert kein Produktverhalten, schärft den
+verbindlichen Merge-Commit-Vertrag und muss vor RN02 einen grünen Post-Merge-
+Head herstellen.
 
 **FG-W10-RENAME entschieden — ADR-0066 begrenzt den ersten Rename-Writer**
 
