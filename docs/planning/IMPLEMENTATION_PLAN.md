@@ -93,7 +93,9 @@ atomare No-Replace-Semantik. ADR-0065 teilt den nächsten getrennten book-only
 Slice `W9-007` in reine Verträge, Persistenz/Review und read-only Ausgabe.
 `S-W9-007A` liefert die content-addressed Candidate-/Plan-DTOs, Builder,
 Reducer, Golden Values und den statischen Non-Execution-Gate. `S-W9-007B`
-und `S-W9-007C` folgen getrennt; der gesamte Slice bleibt nicht ausführbar.
+liefert Review-Paarung, Migration `0030` und insert-only Persistenz.
+`S-W9-007C` folgt getrennt mit der read-only Ausgabe; der gesamte Slice bleibt
+nicht ausführbar.
 
 ## W0 — Project Foundation
 
@@ -494,10 +496,11 @@ Non-Execution-Vertrag sind vorhanden.
 ADR-0065 teilt `W9-007` in drei begrenzte Pakete. `S-W9-007A` implementiert
 immutable, content-addressed Candidate-/Plan-DTOs für sechs feste
 Operationsfamilien, reine Builder/Reducer, kanonische Serialisierung und den
-Non-Execution-Vertrag. `S-W9-007B` ergänzt Review-Core, Migration `0030` und
-insert-only Persistenz; `S-W9-007C` ergänzt den echten SQLite-Read-only-
-Report. Ein Ziel-Slot oder Rezept öffnet keinen Writer. Die vollständige
-Reihenfolge steht in `EBOOK_WRITE_PIPELINE_PLAN.md`.
+Non-Execution-Vertrag. `S-W9-007B` ergänzt den Review-Core, Migration `0030`
+und die bounded insert-only Persistenz einschließlich kanonischem Rebuild und
+vollständiger lokaler Lineage-Revalidierung. `S-W9-007C` ergänzt den echten
+SQLite-Read-only-Report. Ein Ziel-Slot oder Rezept öffnet keinen Writer. Die
+vollständige Reihenfolge steht in `EBOOK_WRITE_PIPELINE_PLAN.md`.
 
 Identity and quality are separate inputs: a future quality evaluator may rank which equivalent representation is preferable only after identity is established.
 

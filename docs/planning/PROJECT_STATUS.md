@@ -4,6 +4,47 @@ Stand: 2026-08-23
 
 ## Aktuelle Welle
 
+**S-W9-007B implementiert — Review und Recipe-Historie sind insert-only**
+
+Der generische Review-Core besitzt jetzt die feste bidirektionale Paarung
+`EBOOK_OPERATION_RECIPE` und `EBOOK_OPERATION_RECIPE_CANDIDATE`.
+`SQLiteResolutionReviewStore` nimmt einen Recipe-Review nur für den
+persistierten Candidate, dessen Primärdatei, Producer-/Compatibility-Vertrag
+und exakte Evidence-/Content-Bindung an. Migration
+`0030_ebook_operation_recipe_plans` rekonstruiert die SQLite-Review-
+Constraints additiv und erhält bestehende Review Items, Decisions,
+Consolidation- und Metadata-Correction-Planreviews einschließlich vorhandener
+Trigger.
+
+Zehn neue Tabellen persistieren Candidate, bis zu 32 Sources, fünf
+Dependency-Achsen, Verification-Codes und Evidence sowie Plan, Review,
+Preconditions und Blocker-Evidence. Alle Tabellen sind per Trigger
+No-Update/No-Delete; Parent-Counts begrenzen jeden Child-Insert. Der
+content-addressed Store revalidiert Komponenten-, Candidate- und Planhashes,
+UUIDv5-Identitäten, den kanonischen Reducer, aktuelle Source-/Observation-/
+Full-SHA-256-Lineage, lokale Evidence, bekannte Dependencies, verwaltete
+Ziel-Scopes und die neueste kompatible Reviewentscheidung. Idempotente Retries
+geben ausschließlich den bereits persistierten identischen Snapshot zurück.
+
+Die Persistenz öffnet weder Source Media noch Ziel-Slots und startet keine
+Tools. Private relative Locator liegen nur in SQLite und fehlen in `repr` und
+Storefehlern; externe Endpoint-IDs bleiben opaque. In der finalen fokussierten
+Ausführung bestanden sieben neue synthetische Upgrade-/Downgrade-, Multi-
+Source-Roundtrip-, Review-/Plan-, Evidence-Lineage-, Privacy-,
+Datenbankfehler-, Bounds-, Immutability- und Rollback-Fälle in 15,90 Sekunden.
+58 unveränderte betroffene
+Regressionen waren grün, bevor
+eine erwartungsgemäß veraltete Schema-Head-Assertion auffiel; nach ihrer
+mechanischen Aktualisierung bestanden sechs unmittelbar betroffene
+Migrations-, Review- und Fixture-Fälle in 17,40 Sekunden. Zusätzlich waren 19
+statische Planungs-, Dokumentations- und Testeffizienzverträge auf dem finalen
+Stand in 1,08 Sekunden sowie neun gezielt ausgewählte ältere Migrationspfade
+in zwei begrenzten Läufen grün. Ruff war für den gesamten Source-Scope und alle
+geänderten Tests erfolgreich; Mypy prüfte alle 243 Source-Dateien ohne
+Befund. Reale E-Books, private Runtime-Daten, Docker, externe Tools und die
+vollständige lokale Suite wurden nicht verwendet. Der vollständige Gate
+bleibt dem exakten stabilen PR-Head vorbehalten.
+
 **S-W9-007A implementiert — operationstypisierte Rezepte bleiben nicht ausführbar**
 
 ADR-0065 definiert die Candidate-Review-Plan-Trennung für genau sechs
@@ -44,14 +85,14 @@ Review-, Blocker- und Non-Execution-Tests in 0,21 Sekunden. Repository-Ruff
 war grün; Mypy prüfte 240 Source-Dateien ohne Befund, `compileall` war
 erfolgreich und `git diff --check` war sauber. Zusammen mit den betroffenen
 Planungs-, Dokumentations- und W10-Safety-Verträgen bestanden 70 Fälle in
-0,45 Sekunden. Reale E-Books, private Runtime-
-Daten, SQLite, Docker, externe Tools und die vollständige lokale Suite wurden
-ressourcenschonend nicht verwendet. Der exakte stabile PR-Head erhält genau
-einen vollständigen CI-Gate.
+0,45 Sekunden. Reale E-Books, private Runtime-Daten, SQLite, Docker und externe
+Tools wurden nicht verwendet. Der stabile Remote-Head
+`6ac7e08a28a4325d0f8cfc994063e97164201f31` bestand Quality-Run
+`32614478464` und E-Book-Toolchain-Run `32614478470`. PR #242 wurde als
+`658563c1a1351a91546789e5e5c2b1160686ffb1` auf `main` integriert;
+Post-Merge-Run `32614626362` war ebenfalls grün.
 
-`S-W9-007B` ist die nächste Wave. Sie ergänzt die feste Review-Paarung,
-Migration `0030` und insert-only Persistenz mit vollständiger Content- und
-Lineage-Revalidierung. `S-W9-007C` ergänzt danach ausschließlich den echten
+`S-W9-007C` ist die nächste Wave. Sie ergänzt ausschließlich den echten
 SQLite-Read-only-Report und die privacy-begrenzte CLI. Kein W9-007-Paket
 öffnet einen Writer; jedes spätere W10-Backend benötigt weiterhin seine
 eigene technische ADR und Capability-/Authorize-/Execute-/Recovery-Kette.

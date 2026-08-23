@@ -36,8 +36,8 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `S-W9-007B` |" in backlog
-    assert "Zuerst folgen Review/Persistenz" in backlog
+    assert "| NOW | `S-W9-007C` |" in backlog
+    assert "Der Report schließt `W9-007`" in backlog
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
     assert "| S-W9-006A | DONE |" in backlog
@@ -46,8 +46,8 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert "| W9-007 | NEXT |" in backlog
     assert "| FG-W9-007 | DONE |" in backlog
     assert "| S-W9-007A | DONE |" in backlog
-    assert "| S-W9-007B | NEXT |" in backlog
-    assert "| S-W9-007C | READY |" in backlog
+    assert "| S-W9-007B | DONE |" in backlog
+    assert "| S-W9-007C | NEXT |" in backlog
     assert "| W10-005 | DONE |" in backlog
     assert "| W10-006 | DONE |" in backlog
     assert "| S-W10-MW05 | DONE |" in backlog

@@ -232,8 +232,9 @@ Projektionen ausgeschlossen.
 
 `S-W9-007A` liefert ausschließlich immutable DTOs, reine Builder/Reducer,
 `canonical-json/v1`, Golden Values und den statischen Non-Execution-Gate.
-`S-W9-007B` ergänzt danach Review-Literale und insert-only Persistenz;
-`S-W9-007C` ergänzt einen echten SQLite-Read-only-Report und die CLI. Kein
+`S-W9-007B` ergänzt die feste Review-Paarung und eine bounded insert-only
+Persistenz über Migration `0030`; `S-W9-007C` ergänzt einen echten
+SQLite-Read-only-Report und die CLI. Kein
 Paket erzeugt eine Capability oder Authorization. Rename, Reorganisation,
 Import, Export, Transformation und Archive-Rewrite bleiben jeweils an ihren
 eigenen späteren W10-Vertrag gebunden.
@@ -358,10 +359,10 @@ ADR-0061, ADR-0062 und ADR-0063 aktivieren die folgenden getrennt prüfbaren Wav
    read-only Status. `S-W10-MW04` ergänzt Linux-Executor und Recovery;
    `S-W10-MW05` schließt CLI, zweite Bestätigung, unmittelbare Verifikation,
    neuen Scan, `CollectionState` und Reconciliation ab.
-7. ADR-0065 und `S-W9-007A` liefern die reinen content-addressed Candidate-/
-   Plan-Verträge für sechs Operationsfamilien. `S-W9-007B` ergänzt als
-   nächste Wave Review und insert-only Persistenz; `S-W9-007C` schließt mit
-   einem privacy-begrenzten SQLite-Read-only-Report ab.
+7. ADR-0065 sowie `S-W9-007A` und `S-W9-007B` liefern die content-addressed
+   Candidate-/Plan-Verträge, feste Review-Paarung und bounded insert-only
+   Persistenz für sechs Operationsfamilien. `S-W9-007C` schließt als nächste
+   Wave mit einem privacy-begrenzten SQLite-Read-only-Report ab.
 
 Die operation-spezifischen W10-Gates folgen danach in getrennten Waves.
 Read-only REST/API- und UI-Shell beginnen erst nach der

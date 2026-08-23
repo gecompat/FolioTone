@@ -136,13 +136,14 @@ review_items = Table(
     Column("created_at", DATETIME, nullable=False),
     CheckConstraint(
         "review_type IN ('AUTHORITY_RESOLUTION', 'CLASSIFICATION', 'MATCH_RELATION', "
-        "'KEEP_PREFERENCE', 'CONSOLIDATION_CANDIDATE', 'METADATA_CORRECTION')",
+        "'KEEP_PREFERENCE', 'CONSOLIDATION_CANDIDATE', 'METADATA_CORRECTION', "
+        "'EBOOK_OPERATION_RECIPE')",
         name="ck_review_items_type",
     ),
     CheckConstraint(
         "candidate_kind IN ('RESOLUTION_CANDIDATE', 'CLASSIFICATION_ASSERTION', "
         "'RELATION', 'KEEP_PREFERENCE', 'CONSOLIDATION_CANDIDATE', "
-        "'METADATA_CORRECTION_CANDIDATE')",
+        "'METADATA_CORRECTION_CANDIDATE', 'EBOOK_OPERATION_RECIPE_CANDIDATE')",
         name="ck_review_items_candidate_kind",
     ),
     CheckConstraint(
@@ -151,6 +152,13 @@ review_items = Table(
         "(review_type <> 'METADATA_CORRECTION' "
         "AND candidate_kind <> 'METADATA_CORRECTION_CANDIDATE')",
         name="ck_review_items_metadata_correction_pair",
+    ),
+    CheckConstraint(
+        "(review_type = 'EBOOK_OPERATION_RECIPE' "
+        "AND candidate_kind = 'EBOOK_OPERATION_RECIPE_CANDIDATE') OR "
+        "(review_type <> 'EBOOK_OPERATION_RECIPE' "
+        "AND candidate_kind <> 'EBOOK_OPERATION_RECIPE_CANDIDATE')",
+        name="ck_review_items_ebook_operation_recipe_pair",
     ),
     CheckConstraint(
         "state IN ('PENDING', 'DECIDED', 'DEFERRED', 'STALE')",

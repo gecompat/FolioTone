@@ -22,6 +22,7 @@ class ReviewType(StrEnum):
     KEEP_PREFERENCE = "KEEP_PREFERENCE"
     CONSOLIDATION_CANDIDATE = "CONSOLIDATION_CANDIDATE"
     METADATA_CORRECTION = "METADATA_CORRECTION"
+    EBOOK_OPERATION_RECIPE = "EBOOK_OPERATION_RECIPE"
 
 
 class ReviewCandidateKind(StrEnum):
@@ -31,6 +32,7 @@ class ReviewCandidateKind(StrEnum):
     KEEP_PREFERENCE = "KEEP_PREFERENCE"
     CONSOLIDATION_CANDIDATE = "CONSOLIDATION_CANDIDATE"
     METADATA_CORRECTION_CANDIDATE = "METADATA_CORRECTION_CANDIDATE"
+    EBOOK_OPERATION_RECIPE_CANDIDATE = "EBOOK_OPERATION_RECIPE_CANDIDATE"
 
 
 class ReviewItemState(StrEnum):
@@ -111,6 +113,18 @@ class ReviewItem:
             and self.review_type is not ReviewType.METADATA_CORRECTION
         ):
             raise ValueError("metadata correction candidate requires its review type")
+        if (
+            self.review_type is ReviewType.EBOOK_OPERATION_RECIPE
+            and self.candidate_kind
+            is not ReviewCandidateKind.EBOOK_OPERATION_RECIPE_CANDIDATE
+        ):
+            raise ValueError("e-book operation recipe review requires its candidate kind")
+        if (
+            self.candidate_kind
+            is ReviewCandidateKind.EBOOK_OPERATION_RECIPE_CANDIDATE
+            and self.review_type is not ReviewType.EBOOK_OPERATION_RECIPE
+        ):
+            raise ValueError("e-book operation recipe candidate requires its review type")
         require_aware_datetime(self.created_at, "created_at")
 
 

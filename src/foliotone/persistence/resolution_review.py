@@ -23,11 +23,17 @@ from foliotone.core import (
     ReviewItemState,
     ReviewType,
 )
+from foliotone.ebook_operation_recipes import (
+    EBOOK_OPERATION_RECIPE_DECISION_COMPATIBILITY,
+    EBOOK_OPERATION_RECIPE_PRODUCER_NAME,
+    EBOOK_OPERATION_RECIPE_PRODUCER_VERSION,
+)
 from foliotone.metadata_correction import (
     METADATA_CORRECTION_DECISION_COMPATIBILITY,
     METADATA_CORRECTION_PRODUCER_NAME,
     METADATA_CORRECTION_PRODUCER_VERSION,
 )
+from foliotone.persistence import ebook_operation_recipe_schema as recipe_schema
 from foliotone.persistence import metadata_correction_schema as mc_schema
 from foliotone.persistence import resolution_review_schema as rr_schema
 from foliotone.persistence import schema
@@ -204,6 +210,8 @@ class SQLiteResolutionReviewStore:
                     raise ResolutionReviewStoreError("AUTO_SAFE candidates must not enter review")
             elif item.review_type is ReviewType.METADATA_CORRECTION:
                 _require_metadata_correction_review(connection, item)
+            elif item.review_type is ReviewType.EBOOK_OPERATION_RECIPE:
+                _require_ebook_operation_recipe_review(connection, item)
             else:
                 raise ResolutionReviewStoreError("review type is not supported by this store")
             result = connection.execute(
@@ -638,6 +646,56 @@ def _require_metadata_correction_review(
         or item.candidate_set_fingerprint != str(candidate["content_hash"])
     ):
         raise ResolutionReviewStoreError("metadata correction review does not match candidate")
+
+
+def _require_ebook_operation_recipe_review(
+    connection: Connection,
+    item: ReviewItem,
+) -> None:
+    if (
+        item.candidate_kind
+        is not ReviewCandidateKind.EBOOK_OPERATION_RECIPE_CANDIDATE
+    ):
+        raise ResolutionReviewStoreError(
+            "e-book operation recipe review requires its candidate kind"
+        )
+    candidate = recipe_schema.ebook_operation_recipe_candidates
+    source = recipe_schema.ebook_operation_recipe_sources
+    row = (
+        connection.execute(
+            select(
+                candidate.c.evidence_fingerprint,
+                candidate.c.content_hash,
+                source.c.file_id,
+                source.c.role,
+            )
+            .select_from(candidate.join(source, source.c.candidate_id == candidate.c.id))
+            .where(
+                candidate.c.id == str(item.candidate_id),
+                source.c.ordinal == 0,
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None:
+        raise ResolutionReviewStoreError(
+            "e-book operation recipe candidate does not exist"
+        )
+    if (
+        str(row["role"]) != "PRIMARY"
+        or item.subject_kind is not EntityKind.FILE
+        or str(item.subject_id) != str(row["file_id"])
+        or item.producer_name != EBOOK_OPERATION_RECIPE_PRODUCER_NAME
+        or item.producer_version != EBOOK_OPERATION_RECIPE_PRODUCER_VERSION
+        or item.decision_compatibility_version
+        != EBOOK_OPERATION_RECIPE_DECISION_COMPATIBILITY
+        or item.evidence_fingerprint != str(row["evidence_fingerprint"])
+        or item.candidate_set_fingerprint != str(row["content_hash"])
+    ):
+        raise ResolutionReviewStoreError(
+            "e-book operation recipe review does not match candidate"
+        )
 
 
 def _material_descriptors(

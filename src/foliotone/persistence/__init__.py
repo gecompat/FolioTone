@@ -85,6 +85,12 @@ from foliotone.persistence.ebook_inventory_report import (
     EbookInventoryReportStoreError,
     SQLiteEbookInventoryReportStore,
 )
+from foliotone.persistence.ebook_operation_recipe import (
+    MAX_EBOOK_OPERATION_BLOCKERS,
+    MAX_EBOOK_OPERATION_PRECONDITIONS,
+    EbookOperationRecipeStoreError,
+    SQLiteEbookOperationRecipeStore,
+)
 from foliotone.persistence.evidence_queries import (
     MAX_EVIDENCE_QUERY_EXECUTIONS,
     MAX_EVIDENCE_QUERY_FINGERPRINTS,
@@ -245,6 +251,7 @@ __all__ = [
     "EbookInventoryFormatAggregate",
     "EbookInventoryReportSnapshot",
     "EbookInventoryReportStoreError",
+    "EbookOperationRecipeStoreError",
     "ProviderCacheStoreCapacityError",
     "ProviderCacheStoreCandidate",
     "ProviderCacheStoreConflictError",
@@ -287,6 +294,8 @@ __all__ = [
     "SQLiteLibraryHealthStore",
     "MAX_METADATA_CORRECTION_BLOCKERS",
     "MAX_METADATA_CORRECTION_PRECONDITIONS",
+    "MAX_EBOOK_OPERATION_BLOCKERS",
+    "MAX_EBOOK_OPERATION_PRECONDITIONS",
     "MetadataCorrectionStoreError",
     "SQLiteMetadataCorrectionStore",
     "MetadataWriteStatusEventSnapshot",
@@ -296,6 +305,7 @@ __all__ = [
     "SQLiteMetadataWriteStore",
     "SQLiteEbookCandidateHashRunStore",
     "SQLiteEbookInventoryReportStore",
+    "SQLiteEbookOperationRecipeStore",
     "SQLiteEbookCollectionReportStore",
     "OwnedScanRootWriteLease",
     "ScanRootWriteLeaseError",

@@ -371,9 +371,11 @@ Reorganisations-, Import-, Export-, Transformations- oder Archive-Rewrite-
 Slot und bindet vollständige Source-/Outputidentitäten, Dependencies sowie
 Processor-, Collision-, Workspace-, Recovery- und Verification-
 Anforderungen. Der daraus nach Review abgeleitete
-`EbookOperationRecipePlan` bleibt dauerhaft `NOT_EXECUTABLE`. Das Paket
+`EbookOperationRecipePlan` bleibt dauerhaft `NOT_EXECUTABLE`. Das reine Paket
 besitzt weder Filesystem-/Prozesszugriff noch eine mutierende öffentliche
-Surface; Persistenz und read-only Report folgen getrennt.
+Surface. Migration `0030` und ein getrennter bounded Store persistieren den
+Candidate-/Plan-Graph insert-only und revalidieren lokale Lineage; der
+read-only Report folgt getrennt.
 
 Für die Interim-Quarantäne stellen `S-W10-05A` bis `S-W10-05D` private
 Capability-Auflösung, current-state-gebundenes Authorize, das einmalige

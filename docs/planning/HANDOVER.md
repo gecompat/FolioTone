@@ -4,6 +4,32 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
+`S-W9-007B` ergänzt den reinen ADR-0065-Vertrag um die feste Review-Paarung,
+Migration `0030_ebook_operation_recipe_plans` und zehn bounded insert-only
+Tabellen für den vollständigen Candidate-/Plan-Graph. Der SQLite-Rebuild
+erhält vorhandene Review-Historie, abhängige Consolidation-/Metadata-
+Correction-Reviews und deren Trigger. Der neue Store revalidiert Content-
+Identitäten, kanonischen Reducer, Source-/Full-SHA-256-/Evidence-/Dependency-/
+Target-/Review-Lineage und idempotente Retries atomar, ohne Source Media,
+Ziel-Slots oder Tools zu öffnen.
+
+Sieben neue fokussierte synthetische Fälle bestanden zuletzt in 15,90 Sekunden;
+darunter kapselt ein erzwungener SQLite-Child-Insert-Fehler private Parameter
+pfadfrei und rollt Candidate sowie Children vollständig zurück. Ein fremder,
+aber vorhandener Reviewentscheid wird als Recipe-Evidence ohne gebundene
+Source-Datei fail-closed abgewiesen.
+Nach 58 grünen betroffenen Regressionen wurde nur eine veraltete Schema-Head-
+Erwartung gefunden; die gezielt wiederholten sechs Migrations-, Review- und
+Fixture-Fälle bestanden in 17,40 Sekunden. Zusätzlich waren 19 statische
+Planungs-, Dokumentations- und Testeffizienzverträge auf dem finalen Stand in
+1,08 Sekunden sowie neun gezielt ausgewählte ältere Migrationspfade in zwei
+begrenzten Läufen grün. Ruff war für den gesamten Source-Scope und alle
+geänderten Tests erfolgreich; Mypy prüfte alle 243 Source-Dateien ohne Befund.
+Reale E-Books, private Runtime-Daten, Docker, externe Tools und die
+vollständige lokale Suite
+wurden ressourcenschonend nicht verwendet. Der vollständige PR-Gate ist für
+den stabilen B-Head noch offen.
+
 ADR-0065 und `S-W9-007A` liefern den reinen Vertrag für dauerhaft nicht
 ausführbare E-Book-Operationsrezepte. `EbookOperationRecipeCandidate` trennt
 sechs feste Operationstypen und bindet abgeschlossene Source-Lineage,
@@ -23,13 +49,12 @@ synthetische Unit- und Non-Execution-Fälle waren Pytest, Repository-Ruff,
 Mypy über 240 Source-Dateien, `compileall` und `git diff --check` grün; reale
 E-Books, Runtime-Daten, SQLite, Docker und externe Tools wurden nicht
 verwendet. Einschließlich der betroffenen Planungs-, Dokumentations- und
-W10-Safety-Verträge bestanden 70 Fälle in 0,45 Sekunden. Der vollständige
-Gate bleibt dem stabilen PR-Head vorbehalten.
+W10-Safety-Verträge bestanden 70 Fälle in 0,45 Sekunden. Der stabile A-Head
+bestand Quality-Run `32614478464` und E-Book-Toolchain-Run `32614478470`;
+PR #242 und Post-Merge-Run `32614626362` integrierten ihn auf `main`.
 
-Als Nächstes implementiert `S-W9-007B` ausschließlich die feste Review-
-Paarung, Migration `0030` und insert-only Persistenz mit vollständiger
-Content-/Source-/Evidence-/Dependency-/Review-Lineage. `S-W9-007C` ergänzt
-danach den SQLite-Read-only-Report und die privacy-begrenzte CLI. Keines der
+Als Nächstes ergänzt `S-W9-007C` den SQLite-Read-only-Report und die privacy-
+begrenzte CLI. Keines der
 Pakete erzeugt eine W10-Capability oder Authorization.
 
 ADR-0061 hält seit 2026-08-22 die ausdrückliche Owner-Freigabe für die
@@ -394,7 +419,7 @@ Merge-Voraussetzung.
 `S-W10-MW05` sind umgesetzt und schließen genau den begrenzten EPUB-
 Titelwriter. `S-W10-05B` schließt Quarantäne-Authorize; `S-W10-05C` ist der
 gefencete Execute-Slice und `S-W10-05D` schließt die no-move Recovery ab.
-In `W9-007` ist der reine Slice `S-W9-007A` umgesetzt; `S-W9-007B` folgt als
+In `W9-007` sind `S-W9-007A` und `S-W9-007B` umgesetzt; `S-W9-007C` folgt als
 Nächstes. Allgemeine Source-Media-Mutation, Music, Bilder, REST-API und
 grafische Oberfläche werden weder durch W9-006/W9-007 noch durch den einen
 operation-spezifischen Writer aktiviert.
@@ -1355,8 +1380,8 @@ Merge-Voraussetzung.
 Bestätigung und One-use-Fencing sowie no-move `quarantine-recover` sind
 vorhanden. Kein Slice erweitert die Ein-Datei-/Same-Filesystem-Grenze oder
 behauptet atomare No-Replace-Semantik. Die zweite Bestätigung bleibt auf nicht
-geloggtes `stdin` beschränkt. In `W9-007` ist `S-W9-007A` umgesetzt;
-`S-W9-007B` ist die nächste kanonische book-only Wave.
+geloggtes `stdin` beschränkt. In `W9-007` sind `S-W9-007A` und `S-W9-007B`
+umgesetzt; `S-W9-007C` ist die nächste kanonische book-only Wave.
 
 `OPS-001` ist ein getrenntes lokales Betriebsverfahren für den vollständigen
 privaten Inventory-/Hash-/Collection-/Verifier-Lauf. Es verwendet den
