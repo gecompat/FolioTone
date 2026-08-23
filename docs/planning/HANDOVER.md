@@ -4,6 +4,34 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
+ADR-0065 und `S-W9-007A` liefern den reinen Vertrag für dauerhaft nicht
+ausführbare E-Book-Operationsrezepte. `EbookOperationRecipeCandidate` trennt
+sechs feste Operationstypen und bindet abgeschlossene Source-Lineage,
+vollständige Source-/Outputidentität, einen privaten bounded relativen
+Ziel-Slot, fünf Dependency-Achsen sowie Processor-, Collision-, Workspace-,
+Recovery- und Verification-Anforderungen. Nach einem kompatiblen append-only
+Review reduziert der reine Planner daraus einen content-addressed
+`EbookOperationRecipePlan`, dessen einziger Execution-State
+`NOT_EXECUTABLE` bleibt.
+
+`foliotone.ebook_operation_recipes` besitzt keine CLI-, Persistence-, Tooling-,
+Adapter-, Filesystem-, Prozess- oder Tempabhängigkeit und keine öffentliche
+mutierende Surface. Der statische Gate prüft zusätzlich bekannte externe
+Write-Commands. Private relative Locator sind materieller Teil der Candidate-
+Identität, fehlen aber in `repr` und im Planpayload. Für 48 fokussierte
+synthetische Unit- und Non-Execution-Fälle waren Pytest, Repository-Ruff,
+Mypy über 240 Source-Dateien, `compileall` und `git diff --check` grün; reale
+E-Books, Runtime-Daten, SQLite, Docker und externe Tools wurden nicht
+verwendet. Einschließlich der betroffenen Planungs-, Dokumentations- und
+W10-Safety-Verträge bestanden 70 Fälle in 0,45 Sekunden. Der vollständige
+Gate bleibt dem stabilen PR-Head vorbehalten.
+
+Als Nächstes implementiert `S-W9-007B` ausschließlich die feste Review-
+Paarung, Migration `0030` und insert-only Persistenz mit vollständiger
+Content-/Source-/Evidence-/Dependency-/Review-Lineage. `S-W9-007C` ergänzt
+danach den SQLite-Read-only-Report und die privacy-begrenzte CLI. Keines der
+Pakete erzeugt eine W10-Capability oder Authorization.
+
 ADR-0061 hält seit 2026-08-22 die ausdrückliche Owner-Freigabe für die
 kontrollierte Entwicklung der E-Book-Schreibstrecke fest. Die Gate-Wave ist
 über PR #228 auf `main` integriert; der exakte PR-Head und der anschließende
@@ -271,14 +299,17 @@ Die Erfolgsfolge ist auf `PREPARED -> MOVED -> VERIFIED -> COMPLETED`
 gehärtet, sodass auch ein lückenloses widersprüchliches Journal vor jedem
 weiteren Recovery-Event scheitert.
 
-Auf dem aktuellen Stand bestanden 14 synthetische Recovery-Matrix-
+Auf dem 05D-Stand bestanden 14 synthetische Recovery-Matrix-
 Integrationsfälle zusammen in 33,29 Sekunden, der zusätzliche Capability-
 Ausfall in 8,98 Sekunden und 45 fokussierte Recovery-/CLI-/Bootstrap-/
 Planungs-/Dokumentationsverträge in 1,24 Sekunden. Reale E-Books,
 private Runtime-Datenbanken, die vollständige lokale Suite und Docker wurden
-nicht verwendet. Der stabile 05D-Head erhält genau einen vollständigen
-PR-CI-Gate. Danach ist `W9-007` der nächste book-only Slice; er modelliert
-nur nicht ausführbare Operationsrezepte und öffnet keinen weiteren Writer.
+nicht verwendet. Der korrigierte stabile Head
+`45dca9a9762eafeed8b46397595237c1bff75755` bestand Quality-Run
+`32612809402` und Linux-Image-Run `32612809367`. PR #241 wurde als
+`7c5f50ee298cc606c657da52bb361394365d84d2` auf `main` integriert; auch
+Post-Merge-Run `32612937625` war grün. Danach begann W9-007 mit dem reinen
+Operationsrezeptvertrag; er öffnet keinen weiteren Writer.
 
 Der erste PR-Gate auf Head `6567a7ed2d5dbefecebc311ececa4445276e2271`
 stoppte vor der Testausführung bei 2.099 gesammelten Tests, weil Unit- und
@@ -286,8 +317,8 @@ Integrationstest denselben Modulbasename `test_quarantine_recovery.py`
 trugen. Der Unit-Test wurde ohne Produktionscodeänderung in
 `test_quarantine_recovery_inspection.py` umbenannt. Danach waren die sechs
 betroffenen Unit-Fälle und die vollständige lokale Collection aller 2.099
-Tests grün. Nur der korrigierte Head benötigt den erneuten vollständigen
-PR-Gate.
+Tests grün. Der anschließend ausgeführte korrigierte PR-Gate ist im
+vorhergehenden Absatz mit seinen finalen Run-IDs dokumentiert.
 
 Für `S-W10-MW01` bestanden lokal 114 fokussierte neue und direkt betroffene
 Unit-, Privacy-, Non-Execution- und Dokumentationsvertragstests in 0,57
@@ -363,9 +394,10 @@ Merge-Voraussetzung.
 `S-W10-MW05` sind umgesetzt und schließen genau den begrenzten EPUB-
 Titelwriter. `S-W10-05B` schließt Quarantäne-Authorize; `S-W10-05C` ist der
 gefencete Execute-Slice und `S-W10-05D` schließt die no-move Recovery ab.
-`W9-007` ist als Nächstes auszuführen. Allgemeine Source-Media-
-Mutation, Music, Bilder, REST-API und grafische Oberfläche werden weder durch
-W9-006 noch durch den einen operation-spezifischen Writer aktiviert.
+In `W9-007` ist der reine Slice `S-W9-007A` umgesetzt; `S-W9-007B` folgt als
+Nächstes. Allgemeine Source-Media-Mutation, Music, Bilder, REST-API und
+grafische Oberfläche werden weder durch W9-006/W9-007 noch durch den einen
+operation-spezifischen Writer aktiviert.
 
 W0 bis W2 sind abgeschlossen. Der W2-Slice umfasst Incremental Index, Hashing, Filename-/Path-Kandidaten, konfigurierbare Parsing-Profile und eine generische read-only ToolProvider Runtime. `W2-004` ergänzt eine konservative, opt-in `DELETED`-Bestätigung. `W2-006` ergänzt konservative Move-/Rename-Kandidaten. `W2-007` ergänzt explizite Resume-Lineage für unterbrochene Scans, ohne einen instabilen Filesystem-Cursor einzuführen.
 
@@ -1323,8 +1355,8 @@ Merge-Voraussetzung.
 Bestätigung und One-use-Fencing sowie no-move `quarantine-recover` sind
 vorhanden. Kein Slice erweitert die Ein-Datei-/Same-Filesystem-Grenze oder
 behauptet atomare No-Replace-Semantik. Die zweite Bestätigung bleibt auf nicht
-geloggtes `stdin` beschränkt. `W9-007` ist die nächste kanonische book-only
-Wave.
+geloggtes `stdin` beschränkt. In `W9-007` ist `S-W9-007A` umgesetzt;
+`S-W9-007B` ist die nächste kanonische book-only Wave.
 
 `OPS-001` ist ein getrenntes lokales Betriebsverfahren für den vollständigen
 privaten Inventory-/Hash-/Collection-/Verifier-Lauf. Es verwendet den
@@ -1407,6 +1439,8 @@ und nicht direkt zu kanonischen Metadaten.
 - `DELETED` ist ein Indexzustand und keine Delete-Operation.
 - `FileRelocationCandidate` ist Evidence und keine Move-/Rename-Ausführung oder Identitätszusammenführung.
 - Scan-Resume ist Orchestrierung und verändert Source Media nicht.
+- `EbookOperationRecipePlan` bleibt dauerhaft `NOT_EXECUTABLE`; private
+  relative Locator in seinem Candidate sind keine Dateisystem-Capability.
 - Keine automatische Calibre-Modifikation.
 - Keine write-capable externe Tooloperation.
 - Externe Tool-/Provider-Ergebnisse sind Evidence, nicht kanonische Wahrheit.

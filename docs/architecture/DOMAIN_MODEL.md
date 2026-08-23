@@ -494,6 +494,17 @@ Candidate and Plan preserve observed and selected values, one target carrier,
 Dependencies, Preconditions and post-write Verification without exposing a
 Writer.
 
+ADR-0065 verwendet für Pfad-, Datei- und Containerplanung dieselbe
+Candidate-Review-Plan-Trennung. Ein `EbookOperationRecipeCandidate` bindet
+genau einen der sechs festen Operationstypen, eine bis 32 Source-Snapshots,
+einen bounded privaten relativen Ziel-Slot, erwartete Outputidentität, fünf
+Dependency-Achsen und die operationstypisierten Processor-, Collision-,
+Workspace-, Recovery- und Verification-Verträge. Nur `ARCHIVE_REWRITE` darf
+Companion-Sources enthalten. Der daraus reduzierte
+`EbookOperationRecipePlan` bindet Review und changed-since-analysis-
+Preconditions, bleibt aber unabhängig vom Reviewstatus dauerhaft
+`NOT_EXECUTABLE`.
+
 ADR-0061 enables operation-specific W10 development but does not reinterpret
 a W9 plan. Only a new W10 Authorization under the accepted technical contract
 may open one concrete operation; `APPROVED_NON_EXECUTABLE` is not such an
@@ -577,6 +588,7 @@ original through the same scan sequence and ends at `RECOVERED`.
 - `ADR-0062-non-executable-metadata-correction-plans.md`
 - `ADR-0063-bounded-epub-title-source-metadata-writer.md`
 - `ADR-0064-metadata-write-operator-and-reconciliation.md`
+- `ADR-0065-non-executable-ebook-operation-recipes.md`
 - `ADR-0009-external-enrichment-and-privacy.md`
 - `ADR-0010-tool-provider-orchestration.md`
 - `AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`

@@ -89,8 +89,11 @@ und eine feste synthetisch abgenommene Recovery-Matrix. Recovery nimmt nur
 eine opaque Run-ID, führt selbst keinen Move aus und ergänzt ausschließlich
 fehlende append-only Ereignisse für eine exakt gebundene Source-/Ziel-
 Verteilung. Kein Paket öffnet einen weiteren Mutationstyp oder behauptet
-atomare No-Replace-Semantik. `W9-007` ist der nächste getrennte book-only
-Slice und bleibt vollständig nicht ausführbar.
+atomare No-Replace-Semantik. ADR-0065 teilt den nächsten getrennten book-only
+Slice `W9-007` in reine Verträge, Persistenz/Review und read-only Ausgabe.
+`S-W9-007A` liefert die content-addressed Candidate-/Plan-DTOs, Builder,
+Reducer, Golden Values und den statischen Non-Execution-Gate. `S-W9-007B`
+und `S-W9-007C` folgen getrennt; der gesamte Slice bleibt nicht ausführbar.
 
 ## W0 — Project Foundation
 
@@ -488,10 +491,13 @@ ADR-0062 teilt `W9-006` in drei begrenzte Pakete. `S-W9-006A` und
 kanonische Serialisierung, Review-Literale, Migration `0026`, insert-only
 Persistenz, der echte SQLite-Read-only-Report, die CLI-Grenze und der
 Non-Execution-Vertrag sind vorhanden.
-Erst danach folgt `W9-007` für
-reproduzierbare Rename-, Reorganisations-, Import-/Export-, Transformations-
-und Containerrezepte. Ein Zielträger oder Rezept öffnet keinen Writer. Die
-vollständige Reihenfolge steht in `EBOOK_WRITE_PIPELINE_PLAN.md`.
+ADR-0065 teilt `W9-007` in drei begrenzte Pakete. `S-W9-007A` implementiert
+immutable, content-addressed Candidate-/Plan-DTOs für sechs feste
+Operationsfamilien, reine Builder/Reducer, kanonische Serialisierung und den
+Non-Execution-Vertrag. `S-W9-007B` ergänzt Review-Core, Migration `0030` und
+insert-only Persistenz; `S-W9-007C` ergänzt den echten SQLite-Read-only-
+Report. Ein Ziel-Slot oder Rezept öffnet keinen Writer. Die vollständige
+Reihenfolge steht in `EBOOK_WRITE_PIPELINE_PLAN.md`.
 
 Identity and quality are separate inputs: a future quality evaluator may rank which equivalent representation is preferable only after identity is established.
 

@@ -266,6 +266,17 @@ einführen.
 | S-EB08-08 | Deterministischer, pfadfreier Reporter und read-only CLI werden ergänzt. | Reporter/Workflow, `src/foliotone/cli/main.py`, CLI-Test | Ausgabe enthält Plan-ID, Status, Counts und Blocker, aber keine absoluten Pfade oder privaten Evidence-Werte. |
 | S-EB08-09 | Ein statischer Non-Execution-Test verbietet Mutations-APIs und schließt W9 ab. | neue statische Testdatei, Planungsdokumente | `unlink`, `remove`, `rename`, `replace`, `move`, mutierendes Calibre und Shell-Löschbefehle fehlen im Package; W10 bleibt blockiert. |
 
+## W9-007: nicht ausführbare E-Book-Operationsrezepte
+
+**Voraussetzungen:** ADR-0065 ist akzeptiert. Jedes Paket bleibt dauerhaft
+`NOT_EXECUTABLE`; kein Paket darf Source Media oder Ziel-Slots öffnen.
+
+| Paket | Ergebnis | Erlaubter Dateibereich | Gezielter Nachweis |
+|---|---|---|---|
+| S-W9-007A | Immutable Candidate-/Plan-DTOs, reine Builder/Reducer und kanonische Content-Identitäten für sechs feste Operationsfamilien. | `src/foliotone/ebook_operation_recipes/`, zwei fokussierte Unit-Testdateien, ADR-0065 und unmittelbar betroffene Architektur-/Planungsdokumente | Operationsmatrix, Bounds, vollständige Source-/Outputbindung, kanonische Reihenfolge, UUIDv5-/Golden Values, Review-/Blockermatrix, Privacy und statischer Non-Execution-Gate. |
+| S-W9-007B | Additive Review-Literale, Migration `0030` und insert-only Candidate-/Plan-Store. | Review-Core, neue Recipe-Schema-/Storedateien, genau eine Migration, fokussierte Unit-/Integrationstests und Statusdokumente | Upgrade/Downgrade, bestehende Review-Historie, bounded Roundtrip, Content-Rebuild, Source-/Evidence-/Dependency-/Review-Lineage, Idempotenz, atomarer Rollback und weiterhin keine Source-Media-Öffnung. |
+| S-W9-007C | Echter SQLite-Read-only-Report und CLI-Abschluss. | neue Recipe-Report-/Workflowdateien, `src/foliotone/cli/main.py`, fokussierte CLI-/Privacy-/Bootstraptests und Statusdokumente | `mode=ro`, `query_only=ON`, keine Migration, keine privaten Locator/Hashes, ausschließlich opaque IDs, Profile, Operationstyp, Status, Counts, Review und Blocker. |
+
 ## Abgeschlossene Spark-Vorarbeiten für EB-A1 und EB-A2
 
 **Status:** S-EBA-01 bis S-EBA-07 sind auf `main` abgeschlossen. Die Pakete

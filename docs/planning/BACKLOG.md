@@ -13,9 +13,9 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | `W9-007` | Nach den beiden vollständigen eng begrenzten Writerketten folgt als nächster book-only Slice der nicht ausführbare, operationstypisierte Rezeptvertrag für Rename, Reorganisation, Import/Export, Transformation und Archive-/Containeränderungen. |
+| NOW | `S-W9-007B` | Nach dem reinen ADR-0065-Vertrag folgt die additive Review- und insert-only Persistenzschicht; sie öffnet weder Source Media noch einen Writer. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
-| NEXT WAVES | `W9-007` | Zuerst entstehen reine, content-addressed und dauerhaft nicht ausführbare Rezepte; jeder spätere Writer bleibt an sein eigenes W10-Gate gebunden. |
+| NEXT WAVES | `S-W9-007B` -> `S-W9-007C` | Zuerst folgen Review/Persistenz, danach der privacy-begrenzte echte SQLite-Read-only-Report; jeder spätere Writer bleibt an sein eigenes W10-Gate gebunden. |
 | LATER | W4 sowie die Music-Anteile aus W5 bis W7 | Music bleibt die nächste vollständige Mediendomäne nach ausdrücklicher Aktivierung; weitere Medien erhalten eigene Einstiegspunkte. |
 | DECISION | `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004 | ADR-0063 entscheidet nur den ersten EPUB-Titelwriter. Alle benachbarten Operationen behalten ihr eigenes technisches Gate. |
 | BLOCKED | `FG-A-SECRET`, `FG-A3-MEMBER-BYTE` | Secretkanal und Archive-Member-Byte-Identity sind von der E-Book-Write-Freigabe nicht betroffen. |
@@ -256,6 +256,10 @@ Interim-Quarantäneexecutor öffnen.
 | S-W9-006B | DONE | Review-Core additiv erweitert; Migration `0026` erhält bestehende Review-Historien und persistiert den normalisierten Candidate-/Plan-Graph insert-only. Der bounded Store prüft Content-Identitäten, den kanonischen Reducer, Source-/Evidence-/Dependency-/Target-/Review-Lineage und idempotente Retries atomar. |
 | S-W9-006C | DONE | `ebook-metadata-correction-report` liest genau einen persistierten Plan über `mode=ro` und `query_only=ON`. Text und JSON enthalten nur erlaubte IDs, Profile, Status, Content Hash, Zielträger, Format, Feld-/Operationsnamen, Counts, Reviewstatus und Blockerliterale; Bootstrap und Fehler bleiben pfad- und metadatenwertfrei. |
 | W9-007 | NEXT | Implement non-executable, reproducible recipes for rename, reorganization, import/export, transformation and archive/container changes; keep every operation behind its own W10 gate. |
+| FG-W9-007 | DONE | ADR-0065 definiert Candidate-Review-Plan-Trennung, sechs feste Operationstypen, Source-/Target-/Outputidentität, fünf Dependency-Achsen, Processor-/Collision-/Workspace-/Recovery-/Verification-Verträge, kanonische Identität, Privacy und die permanente `NOT_EXECUTABLE`-Grenze. |
+| S-W9-007A | DONE | `foliotone.ebook_operation_recipes` liefert immutable DTOs, reine Builder/Reducer, deterministische UUIDv5-/`canonical-json/v1`-Identitäten, Golden Values und einen statischen Non-Execution-Gate. Das Paket importiert weder Persistence, CLI, Tooling, Adapter noch Filesystem-/Prozessmodule. |
+| S-W9-007B | NEXT | Review-Core additiv um die feste Recipe-Paarung erweitern und Candidate-/Plan-Graph mit Migration `0030` insert-only, bounded, content-validiert und lineage-geprüft persistieren. |
+| S-W9-007C | READY | Einen echten SQLite-Read-only-Report samt CLI ergänzen, der nur opaque IDs, Profile, Operationstyp, Status, Counts, Reviewstatus und Blockerliterale ausgibt und damit `W9-007` abschließt. |
 
 ## W10 — Controlled Consolidation
 
