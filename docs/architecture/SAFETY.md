@@ -331,9 +331,12 @@ kommt ausschließlich als eine begrenzte, nicht zurückgespiegelte `stdin`-
 Zeile herein; Proposal, append-only Review und Plan schreiben nur in die
 bestehende SQLite-Persistenz. Standardausgaben bleiben Locator-, Pfad- und
 Hash-frei; relative Source-/Target-Locators zeigt ausschließlich
-`ebook-rename-preview --private-details --output text`. RN02 ergänzt erst
-Authority, Capability, Fencing, Journal und read-only Status; RN03 den
-internen Executor und die feste Exact-State-Recovery; erst RN04 die Bedien-/
+`ebook-rename-preview --private-details --output text`. RN02 ergänzt
+Authority, Capability, erfolgreichen persistenten Probe, Fencing, One-use-
+Run, insert-only Journal und read-only Status. Diese Schicht ist umgesetzt,
+aber besitzt keinen Executor und keine öffentliche Authorize-/Execute-/
+Recover-/Status-CLI. RN03 ergänzt den internen Executor und die feste Exact-
+State-Recovery; erst RN04 die Bedien-/
 Scan-/Reconciliation-Kette. Vor `IMMEDIATE_VERIFIED` darf Recovery
 ausschließlich den atomaren Reverse-Rename versuchen. Danach wird nur vorwärts
 reconciled. Uneindeutigkeit endet bei `MANUAL_RECOVERY_REQUIRED`. Der

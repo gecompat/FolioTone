@@ -274,8 +274,8 @@ einführen.
 **Status:** `S-W9-007A` bis `S-W9-007C` sind umgesetzt und schließen
 `W9-007`. ADR-0066 hat das anschließende docs-only Entscheidungsgate
 `FG-W10-RENAME` nur für Same-Parent-`FILE_RENAME` geschlossen; es öffnet
-selbst noch keinen Writer. `S-W10-RN01` ist umgesetzt, `S-W10-RN02` ist die
-nächste kanonische Wave.
+selbst noch keinen Writer. `S-W10-RN01` und `S-W10-RN02` sind umgesetzt;
+`S-W10-RN03` ist die nächste kanonische Wave.
 
 | Paket | Ergebnis | Erlaubter Dateibereich | Gezielter Nachweis |
 |---|---|---|---|
@@ -287,8 +287,8 @@ nächste kanonische Wave.
 
 **Voraussetzung:** ADR-0066 ist akzeptiert und entscheidet ausschließlich
 `FILE_RENAME` im selben bestehenden Parent. `FILE_REORGANIZE` und alle anderen
-ADR-0065-Operationen bleiben geschlossen. RN01 ist `DONE`, RN02 ist `NEXT`;
-RN03 und RN04 sind `PLANNED`. Reale E-Books sind kein Testinput.
+ADR-0065-Operationen bleiben geschlossen. RN01 und RN02 sind `DONE`, RN03 ist
+`NEXT`, RN04 ist `PLANNED`. Reale E-Books sind kein Testinput.
 
 | Paket | Ergebnis | Erlaubter Dateibereich | Gezielter Nachweis |
 |---|---|---|---|

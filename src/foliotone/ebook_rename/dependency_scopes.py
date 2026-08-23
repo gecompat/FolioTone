@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import stat
@@ -11,7 +12,10 @@ from pathlib import Path
 from typing import Final
 
 from foliotone.core import EntityId
-from foliotone.ebook_operation_recipes import EbookOperationDependencyKind
+from foliotone.ebook_operation_recipes import (
+    EbookOperationDependencyKind,
+    EbookOperationDependencyState,
+)
 
 EBOOK_RENAME_DEPENDENCY_SCOPES_FILE_ENV: Final = (
     "FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE"
@@ -307,6 +311,105 @@ def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     return result
 
 
+def ebook_rename_dependency_scope_material_fingerprint(
+    scope: ResolvedEbookRenameDependencyScope,
+) -> str:
+    """Return the exact RN01 scope material bound into dependency snapshots."""
+
+    if not isinstance(scope, ResolvedEbookRenameDependencyScope):
+        raise EbookRenameDependencyScopeUnavailable()
+    material = {
+        "dependency_scope_id": str(scope.dependency_scope_id),
+        "scan_root_id": str(scope.scan_root_id),
+        "profile": scope.profile,
+        "version": scope.version,
+        "axes": [
+            {
+                "kind": axis.kind.value,
+                "mode": axis.mode.value,
+                "snapshot_kind": (
+                    None if axis.snapshot_kind is None else axis.snapshot_kind.value
+                ),
+                "snapshot_id": (
+                    None if axis.snapshot_id is None else str(axis.snapshot_id)
+                ),
+            }
+            for axis in scope.axes
+        ],
+    }
+    payload = json.dumps(
+        material,
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    domain = b"foliotone:ebook-rename-dependency-scope-material/v1\x00"
+    return hashlib.sha256(domain + payload).hexdigest()
+
+
+def ebook_rename_dependency_axis_material_fingerprint(
+    *,
+    scope_material_fingerprint: str,
+    scan_root_id: EntityId,
+    source_scan_run_id: EntityId,
+    observation_id: EntityId,
+    kind: EbookOperationDependencyKind,
+    state: EbookOperationDependencyState,
+    snapshot_kind: str,
+    snapshot_id: EntityId,
+    snapshot_material: str,
+) -> str:
+    """Return the exact RN01 axis digest so later authority can revalidate it."""
+
+    if (
+        not _is_sha256(scope_material_fingerprint)
+        or not all(
+            isinstance(value, EntityId)
+            for value in (
+                scan_root_id,
+                source_scan_run_id,
+                observation_id,
+                snapshot_id,
+            )
+        )
+        or not isinstance(kind, EbookOperationDependencyKind)
+        or not isinstance(state, EbookOperationDependencyState)
+        or not isinstance(snapshot_kind, str)
+        or not snapshot_kind
+        or not _is_sha256(snapshot_material)
+    ):
+        raise EbookRenameDependencyScopeUnavailable()
+    material = {
+        "scope_material_fingerprint": scope_material_fingerprint,
+        "scan_root_id": str(scan_root_id),
+        "source_scan_run_id": str(source_scan_run_id),
+        "observation_id": str(observation_id),
+        "kind": kind.value,
+        "state": state.value,
+        "snapshot_kind": snapshot_kind,
+        "snapshot_id": str(snapshot_id),
+        "snapshot_material": snapshot_material,
+    }
+    payload = json.dumps(
+        material,
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    domain = b"foliotone:ebook-rename-dependency-axis/v1\x00"
+    return hashlib.sha256(domain + payload).hexdigest()
+
+
+def _is_sha256(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
 __all__ = [
     "EBOOK_RENAME_DEPENDENCY_SCOPE_PROFILE",
     "EBOOK_RENAME_DEPENDENCY_SCOPES_FILE_ENV",
@@ -316,4 +419,6 @@ __all__ = [
     "EbookRenameDependencyScopeUnavailable",
     "EbookRenameDependencySnapshotKind",
     "ResolvedEbookRenameDependencyScope",
+    "ebook_rename_dependency_axis_material_fingerprint",
+    "ebook_rename_dependency_scope_material_fingerprint",
 ]

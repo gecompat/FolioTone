@@ -19,9 +19,11 @@ CLI, zweiter Bestätigung, unmittelbarer Verifikation, neuem Scan,
 `CollectionState` und immutable Reconciliation ab. Alle anderen Writer
 bleiben operation-spezifisch geschlossen. ADR-0066 hat inzwischen den ersten
 Datei-Writer ausschließlich für byte-identischen Same-Parent-`FILE_RENAME`
-entschieden. `S-W10-RN01` liefert inzwischen die nicht mutierende Proposal-/
-Preview-/Review-/Plan-Oberfläche; `S-W10-RN02` bis `S-W10-RN04` stehen noch
-aus. `FILE_REORGANIZE` bleibt getrennt hinter
+entschieden. `S-W10-RN01` liefert die nicht mutierende Proposal-/Preview-/
+Review-/Plan-Oberfläche; `S-W10-RN02` ergänzt die weiterhin nicht ausführende
+Authority mit Capability, Probe, Fencing, insert-only Journal und read-only
+Status. `S-W10-RN03` und `S-W10-RN04` stehen noch aus. `FILE_REORGANIZE`
+bleibt getrennt hinter
 `FG-W10-REORGANIZE`. Für die ADR-0056-Quarantäne sind
 Capability-Auflösung, current-state-gebundenes `quarantine-authorize`, zweite
 Bestätigung, gefencetes `quarantine-execute` und die no-move Exact-State-
@@ -278,7 +280,7 @@ Capability und Authorization.
 | Metadaten in Source Media schreiben | ADR-0063/ADR-0064 erlauben operativ nur EPUB 3 plus einen `title`-`REPLACE`; vollständige Bedien-, Verifikations-, Scan-, Reconciliation- und Recoverykette vorhanden | jedes weitere Feld, Format oder jeder andere Zielträger benötigt ein eigenes Gate |
 | Sidecar erzeugen oder ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-SIDECAR-WRITE` |
 | Calibre oder anderes externes System ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-EXTERNAL-LIBRARY-WRITE` |
-| Datei im selben Parent umbenennen | ADR-0066 ist akzeptiert und RN01-Planung ist vorhanden; operativ noch nicht verfügbar | `S-W10-RN02` bis `S-W10-RN04`; erst RN04 öffnet das enge Profil |
+| Datei im selben Parent umbenennen | ADR-0066, RN01-Planung und RN02-Authority/Persistenz sind vorhanden; mangels Executor und Bedienkette operativ nicht verfügbar | `S-W10-RN03` und `S-W10-RN04`; erst RN04 öffnet das enge Profil |
 | Datei in einen anderen Parent reorganisieren | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-REORGANIZE` |
 | Archiv oder Container umschreiben | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-ARCHIVE-REWRITE` |
 | Quarantäne-Rollback | Entwicklung freigegeben; operativ nicht verfügbar | W10-003 mit eigener Authorization und Zielrevalidierung |
@@ -387,13 +389,11 @@ ADR-0061, ADR-0062 und ADR-0063 aktivieren die folgenden getrennt prüfbaren Wav
    Fencing, Journal, Exact-State-Recovery, Scan und Reconciliation. Parent-
    wechsel bleiben hinter `FG-W10-REORGANIZE`.
 
-RN01 ist abgeschlossen; als Nächstes folgen genau drei Rename-Waves:
+RN01 und RN02 sind abgeschlossen; als Nächstes folgen genau zwei Rename-Waves:
 
-1. `S-W10-RN02`: Preparation/Authorization/Run/Event, private Capability,
-   Probe, Persistenz, Lease-Owner und read-only Status ohne Executor;
-2. `S-W10-RN03`: festes Linux-Backend, ein gefenceter No-Replace-Rename,
+1. `S-W10-RN03`: festes Linux-Backend, ein gefenceter No-Replace-Rename,
    unmittelbare Verifikation und Exact-State-Recovery ohne CLI;
-3. `S-W10-RN04`: feste Bedienkette, zweite `stdin`-Bestätigung,
+2. `S-W10-RN04`: feste Bedienkette, zweite `stdin`-Bestätigung,
    Lease-Handoff, Folgescan, `CollectionState` und immutable Reconciliation.
 
 Read-only REST/API- und UI-Shell beginnen erst nach der

@@ -98,10 +98,11 @@ liefert Review-Paarung, Migration `0030` und insert-only Persistenz.
 damit vollständig und bleibt nicht ausführbar. ADR-0066 schließt die danach
 ausgeführte docs-only Wave `FG-W10-RENAME` ausschließlich für byte-identischen
 Same-Parent-`FILE_RENAME`; `FILE_REORGANIZE` bleibt hinter
-`FG-W10-REORGANIZE`. `S-W10-RN01` liefert inzwischen die nicht mutierende
-Proposal-/Review-/Plan-Oberfläche. Als nächste drei kleine Waves folgen
-`S-W10-RN02` bis `S-W10-RN04`: Authority/Persistenz,
-Linux-No-Replace-Backend/Recovery und zuletzt die Bedien-/Scan-/
+`FG-W10-REORGANIZE`. `S-W10-RN01` liefert die nicht mutierende Proposal-/
+Review-/Plan-Oberfläche; `S-W10-RN02` die weiterhin nicht ausführende
+Authority, Capability, Probe, Fencing, insert-only Persistenz und read-only
+Status. Als nächste zwei kleine Waves folgen `S-W10-RN03` und
+`S-W10-RN04`: Linux-No-Replace-Backend/Recovery und danach die Bedien-/Scan-/
 Reconciliation-Kette.
 
 ## W0 — Project Foundation
@@ -510,7 +511,8 @@ SQLite-Read-only-Report samt privacy-begrenzter CLI und schließt `W9-007` ab.
 Ein Ziel-Slot oder Rezept öffnet keinen Writer. Die vollständige Reihenfolge
 steht in `EBOOK_WRITE_PIPELINE_PLAN.md`; ADR-0066 hat
 `FG-W10-RENAME` inzwischen eng entschieden. `S-W10-RN01` liefert die
-nicht mutierende Produktsurface; `S-W10-RN02` ist der nächste Slice.
+nicht mutierende Produktsurface, `S-W10-RN02` die nicht ausführende
+Authority-/Persistenzschicht; `S-W10-RN03` ist der nächste Slice.
 
 Identity and quality are separate inputs: a future quality evaluator may rank which equivalent representation is preferable only after identity is established.
 
@@ -548,7 +550,7 @@ Abschluss. Damit ist genau dieser EPUB-Titelwriter operativ erreichbar.
 Sidecar-, externe Library- und Archivewrites bleiben an
 `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE` beziehungsweise
 `FG-W10-ARCHIVE-REWRITE` gebunden. Same-Parent-Rename bleibt bis zum Abschluss
-von RN02 bis RN04 operativ geschlossen; Reorganisation bindet
+von RN03 und RN04 operativ geschlossen; Reorganisation bindet
 `FG-W10-REORGANIZE`. W10-003 und W10-004 halten Rollback/Purge und
 Verzeichnisbereinigung weiterhin getrennt.
 
@@ -561,8 +563,9 @@ feste Linux-`openat2`-/`renameat2(RENAME_NOREPLACE)`-Profil. Authorization,
 Fencing, Journal, unmittelbare Verifikation, Exact-State-Recovery, Folgescan,
 `CollectionState` und eine Reconciliation mit getrennten alten/neuen
 `FileRecord`-Identitäten sind verpflichtend. `S-W10-RN01` liefert die
-nicht mutierende Proposal-/Preview-/Review-/Plan-Oberfläche; `S-W10-RN02` bis
-`S-W10-RN04` schließen Authority, Backend und Bedien-/Reconciliation-Kette.
+nicht mutierende Proposal-/Preview-/Review-/Plan-Oberfläche; `S-W10-RN02`
+schließt Authority und Persistenz. `S-W10-RN03` und `S-W10-RN04` schließen
+Backend sowie Bedien-/Reconciliation-Kette.
 Erst RN04 öffnet den engen operativen Einstieg. `FILE_REORGANIZE` bleibt
 separat hinter `FG-W10-REORGANIZE`.
 

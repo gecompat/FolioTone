@@ -227,11 +227,13 @@ geschützte lokale Konfiguration. Eine opaque Capability-ID löst genau auf:
 - `ebook-file-rename-capability/v1` und genau das feste Writerprofil;
 - die unveränderliche Capability-Konfigurationsidentität.
 
-Pfade und Dateisystemkennungen werden weder in SQLite noch in Reports
-persistiert. Root und Probe dürfen weder Datenbank-, Cache-, Tool-Workspace-
-noch Repositoryverzeichnisse überdecken. Konfiguration und Probeverzeichnis
-müssen dem ausführenden Benutzer gehören und dürfen nicht gruppen- oder
-weltbeschreibbar sein. Das Root muss zum konfigurierten ScanRoot passen; ein
+Absolute Pfade und rohe Dateisystemkennungen werden weder in SQLite noch in
+Reports persistiert. SQLite bindet sie ausschließlich über domänengetrennte
+Einweg-Fingerprints. Root und Probe dürfen weder Datenbank-, Cache-, Tool-
+Workspace- noch Repositoryverzeichnisse überdecken. Konfiguration und
+Probeverzeichnis müssen dem ausführenden Benutzer gehören und dürfen nicht
+gruppen- oder weltbeschreibbar sein. Das Root muss zum konfigurierten
+ScanRoot passen; ein
 fehlender, read-only, überlappender oder umgebogener Pfad ergibt
 `TOOL_UNAVAILABLE`.
 
@@ -489,8 +491,9 @@ Die Implementierung folgt in genau vier kleinen Waves:
    Lease-Handoff, Scan, `CollectionState` und immutable Reconciliation über
    `0032_ebook_rename_reconciliation`.
 
-Nach jeder Wave bleiben andere Operationsarten unerreichbar. RN01 ist die
-nächste kanonische Produkt-Wave.
+Nach jeder Wave bleiben andere Operationsarten unerreichbar. RN01 und RN02
+sind umgesetzt; RN03 ist die nächste kanonische Produkt-Wave. RN02 öffnet
+weder einen Executor noch eine öffentliche Mutationsoberfläche.
 
 ## Synthetische Verifikation
 
@@ -536,8 +539,9 @@ Dateisystemjournal.
 
 ## Folgen
 
-- Der nächste Implementierungsslice ist erstmals ein nutzbarer, aber noch
-  vollständig nicht mutierender Rename-Planungsweg.
+- RN01 liefert den nutzbaren, vollständig nicht mutierenden Rename-
+  Planungsweg; RN02 ergänzt dessen nicht ausführende Authority- und
+  Persistenzschicht.
 - Der spätere Writer verändert genau einen Namen und keine Bytes, Metadaten,
   Parentstruktur oder externe Library.
 - Reorganisation bleibt sichtbar geplant, wird aber nicht über eine zu breite

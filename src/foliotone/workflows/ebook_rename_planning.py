@@ -61,6 +61,8 @@ from foliotone.ebook_rename import (
     EbookRenameTargetError,
     ResolvedEbookRenameDependencyScope,
     build_ebook_rename_target_locator,
+    ebook_rename_dependency_axis_material_fingerprint,
+    ebook_rename_dependency_scope_material_fingerprint,
 )
 from foliotone.persistence import (
     EbookOperationRecipeStoreError,
@@ -710,28 +712,7 @@ class EbookRenamePlanningService:
         tuple[EbookOperationDependencySnapshot, ...],
         tuple[EbookOperationEvidenceReference, ...],
     ]:
-        scope_material = _digest(
-            "foliotone:ebook-rename-dependency-scope-material/v1",
-            {
-                "dependency_scope_id": str(scope.dependency_scope_id),
-                "scan_root_id": str(scope.scan_root_id),
-                "profile": scope.profile,
-                "version": scope.version,
-                "axes": [
-                    {
-                        "kind": axis.kind.value,
-                        "mode": axis.mode.value,
-                        "snapshot_kind": (
-                            None if axis.snapshot_kind is None else axis.snapshot_kind.value
-                        ),
-                        "snapshot_id": (
-                            None if axis.snapshot_id is None else str(axis.snapshot_id)
-                        ),
-                    }
-                    for axis in scope.axes
-                ],
-            },
-        )
+        scope_material = ebook_rename_dependency_scope_material_fingerprint(scope)
         dependencies: list[EbookOperationDependencySnapshot] = []
         evidence: dict[tuple[str, EntityId], EbookOperationEvidenceReference] = {}
         for axis in scope.axes:
@@ -781,19 +762,16 @@ class EbookRenamePlanningService:
                     state=state,
                     snapshot_kind=snapshot_kind,
                     snapshot_id=snapshot_id,
-                    material_fingerprint=_digest(
-                        "foliotone:ebook-rename-dependency-axis/v1",
-                        {
-                            "scope_material_fingerprint": scope_material,
-                            "scan_root_id": str(source.scan_root_id),
-                            "source_scan_run_id": str(source.scan_run_id),
-                            "observation_id": str(source.observation_id),
-                            "kind": axis.kind.value,
-                            "state": state.value,
-                            "snapshot_kind": snapshot_kind,
-                            "snapshot_id": str(snapshot_id),
-                            "snapshot_material": snapshot_material,
-                        },
+                    material_fingerprint=ebook_rename_dependency_axis_material_fingerprint(
+                        scope_material_fingerprint=scope_material,
+                        scan_root_id=source.scan_root_id,
+                        source_scan_run_id=source.scan_run_id,
+                        observation_id=source.observation_id,
+                        kind=axis.kind,
+                        state=state,
+                        snapshot_kind=snapshot_kind,
+                        snapshot_id=snapshot_id,
+                        snapshot_material=snapshot_material,
                     ),
                 )
             )

@@ -387,11 +387,14 @@ liefert nur den Target-Basename; der Application Service bindet die aktuelle
 Observation, Full-SHA-256, Target-History und owner-only Dependency-Scope-
 Coverage und persistiert Candidate, Review und Plan über die bestehenden
 W9-Stores. Standardausgaben bleiben locatorfrei; nur die explizite lokale
-Text-Preview darf relative Source-/Target-Locators zeigen. RN02 bis RN04
-verwenden anschließend eine private einzelne Capability, ein festes Linux-
+Text-Preview darf relative Source-/Target-Locators zeigen. `S-W10-RN02`
+implementiert die private einzelne Capability, erfolgreichen persistenten
+Probe, content-addressed Preparation/Authorization, One-use-Run, Root-Fencing,
+gapless insert-only Journal und locatorfreien SQLite-read-only Status. Es gibt
+noch keinen Executor. RN03 und RN04 verwenden anschließend ein festes Linux-
 `openat2`-/`renameat2(RENAME_NOREPLACE)`-Backend, One-use-Authorization,
-rootweites Fencing, append-only Journal, Exact-State-Recovery und einen neuen
-Scan samt `CollectionState`. Die Reconciliation bindet getrennte alte
+Exact-State-Recovery und einen neuen Scan samt `CollectionState`. Die
+Reconciliation bindet getrennte alte
 `MISSING`- und neue `NEW`-`FileRecord`-Identitäten; sie schreibt keine
 Relocation als Identity-Merge um. `FILE_REORGANIZE` bleibt hinter
 `FG-W10-REORGANIZE`.

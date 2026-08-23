@@ -158,6 +158,12 @@ if TYPE_CHECKING:
         ConsolidationStoreError,
         SQLiteConsolidationStore,
     )
+    from foliotone.persistence.ebook_rename import (
+        EbookRenameStatusEventSnapshot,
+        EbookRenameStatusSnapshot,
+        EbookRenameStoreError,
+        SQLiteEbookRenameStore,
+    )
     from foliotone.persistence.metadata_write import (
         MetadataWriteStatusEventSnapshot,
         MetadataWriteStatusReconciliationSnapshot,
@@ -204,6 +210,15 @@ def __getattr__(name: str) -> Any:
         from foliotone.persistence import metadata_write
 
         return getattr(metadata_write, name)
+    if name in {
+        "EbookRenameStatusEventSnapshot",
+        "EbookRenameStatusSnapshot",
+        "EbookRenameStoreError",
+        "SQLiteEbookRenameStore",
+    }:
+        from foliotone.persistence import ebook_rename
+
+        return getattr(ebook_rename, name)
     raise AttributeError(name)
 
 
@@ -252,6 +267,9 @@ __all__ = [
     "EbookInventoryReportSnapshot",
     "EbookInventoryReportStoreError",
     "EbookOperationRecipeStoreError",
+    "EbookRenameStatusEventSnapshot",
+    "EbookRenameStatusSnapshot",
+    "EbookRenameStoreError",
     "ProviderCacheStoreCapacityError",
     "ProviderCacheStoreCandidate",
     "ProviderCacheStoreConflictError",
@@ -306,6 +324,7 @@ __all__ = [
     "SQLiteEbookCandidateHashRunStore",
     "SQLiteEbookInventoryReportStore",
     "SQLiteEbookOperationRecipeStore",
+    "SQLiteEbookRenameStore",
     "SQLiteEbookCollectionReportStore",
     "OwnedScanRootWriteLease",
     "ScanRootWriteLeaseError",

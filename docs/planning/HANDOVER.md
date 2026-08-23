@@ -4,41 +4,53 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
-`S-W10-RN01` ist umgesetzt. `ebook-rename-propose`,
-`ebook-rename-preview`, `ebook-rename-review` und `ebook-rename-plan` bilden
-genau einen aktuellen Same-Parent-`FILE_RENAME` auf dem bestehenden W9-
-Recipe-/Review-Store ab. Der Ziel-Basename wird bounded über eine nicht
-zurückgespiegelte `stdin`-Zeile eingelesen. Ein owner-eigener lokaler
-`EbookRenameDependencyScope` bindet jede der fünf Achsen explizit an aktuelle
-Coverage oder `NOT_APPLICABLE`; bestehende Calibre-, Sidecar-, Archive-,
-Volume- und streng profilierte ToolResult-Beziehungen erzwingen
-`KNOWN_PRESENT`, fehlende Coverage bleibt `UNKNOWN`. Preview und Plan
-revalidieren Source, Target und Dependency-Scope.
+`S-W10-RN01` und `S-W10-RN02` sind umgesetzt. RN01 liefert Proposal, private
+Preview, append-only Review und den dauerhaft `NOT_EXECUTABLE` bleibenden Plan
+für genau einen aktuellen Same-Parent-`FILE_RENAME`. RN02 bindet diesen Plan
+an content-addressed Preparation und höchstens 15 Minuten gültige
+Authorization, eine owner-geschützte einzelne Capability, erfolgreichen
+persistenten Probe, Root-Fence, genau einen Run, immutable Backend-Binding und
+höchstens 16 gapless append-only Events.
 
-Der Slice schreibt nur Proposal-, Review- und Planhistorie in die bestehende
-SQLite-Persistenz. Es gibt keine Migration, Capability, Authorization,
-Source-Media-Öffnung, Dateisystemmutation, Tool- oder Netzwerkoperation.
-Standardausgaben bleiben Locator-, Pfad- und Hash-frei; relative Locator sind
-nur mit `ebook-rename-preview --private-details --output text` sichtbar. 31
-fokussierte RN01-Fälle bestanden in 16,63 Sekunden. Die 85 direkt betroffenen
-W9-Store-, CLI-Bootstrap-, Planungs- und Dokumentationsregressionen sind nach
-der Aktualisierung von vier veralteten Status-/CLI-Erwartungen ebenfalls
-grün; Ruff und Mypy waren für den betroffenen Python-Scope ohne Befund. Reale
-E-Books und die vollständige lokale Suite wurden nicht verwendet.
+Migration `0031_ebook_rename_operations` ergänzt sechs insert-only Tabellen
+und die beiden Lease-Owner `EBOOK_RENAME_PREPARATION` und
+`EBOOK_RENAME_RUN`. Unmittelbar vor Authorization werden exakter W9-Plan,
+neueste abgeschlossene Scan-/Observation-/Full-SHA-256-Lineage, aktueller
+Review, alle fünf Dependencies samt Scope-Material, historische Target-
+Abwesenheit, Probe und Fence geprüft. Die unter derselben Fence vorab
+erhobene physische Source- und Target-Evidence wird unveränderlich gebunden;
+RN03 muss sie unmittelbar vor jeder Mutation erneut erheben und vergleichen.
+Run, Binding und bestätigtes `PREPARED` verbrauchen die Authorization atomar.
+Ein Retry kann nur denselben Run fortsetzen; `VERIFIED` und `RECOVERED`
+bleiben RN04
+vorbehalten. Trigger blockieren Update, Delete, Eventlücken, illegale
+Übergänge und den Downgrade belegter Daten.
 
-Der erste PR-Quality-Run `32621668805` fand genau einen veralteten statischen
-CLI-Testanker. Nach dessen einzeiliger Korrektur bestand der einzelne Test
-lokal; der stabile Remote-Head
-`8140a0cde38d9d469ff29d3178d6692b140feb2b` bestand Quality-Run
-`32621898227` und E-Book-Toolchain-Run `32621898266`. PR #246 wurde
-versehentlich als Squash-Commit mit nur einem Eltern-Commit
-`2a5ae669a51cceec9616479fc18661220ff72272` integriert. Post-Merge-Run
-`32622056707` scheiterte daher ausschließlich an der verbindlichen Zwei-
-Eltern-Prüfung, bevor der Diff-Check lief. Die unmittelbar folgende
-Integrations-Reconciliation ändert kein Produktverhalten, dokumentiert den
-verpflichtenden Merge-Commit-Modus und muss vor RN02 einen grünen Post-Merge-
-Head herstellen. Danach ist `S-W10-RN02` als reiner Authority-/Capability-/
-Preparation-/Journal-/Status-Slice ohne Executor vorgesehen.
+Capability-Zuordnung sowie Source-Root- und Probeverzeichnispfad stehen nur in
+der owner-geschützten Datei `FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE`; sie
+werden nicht persistiert. Der read-only Status selektiert nur opaque IDs, Profile,
+Zeitpunkte, Zustände und feste Finding-Codes. Locator, Basenames, Hashes,
+Inodes, Attribute, Capability-Inhalte, Fences und Confirmation-Digests bleiben
+ausgeschlossen. RN02 besitzt keinen Executor und keine neue CLI.
+
+63 direkt betroffene Unit-, Planungs-, Safety-, Dokumentations-, Persistenz-,
+Migrations- und Testeffizienzfälle bestanden gezielt. Alle fünf RN02-
+Persistenzfälle, Head-Schema, isolierter Datenbank-Clone und mehrstufiger
+Lease-Downgrade sind enthalten. Ruff war für den geänderten Python-Scope grün;
+Mypy war für sieben betroffene Source-Dateien ohne Befund. Zwei erste
+Negativchecks fanden nur überlappende Trigger-Testannahmen beziehungsweise
+eine noch nicht um RN02 ergänzte Head-Tabellen-Erwartung; nach Präzisierung
+bestanden die einzelnen Wiederholungen. Die 23 Dokumentations-, Planfront-
+und Safety-Verträge wurden nach der Statusaktualisierung erneut erfolgreich
+ausgeführt; `git diff --check` war sauber. Ausschließlich synthetische Daten
+wurden verwendet. Reale E-Books und die vollständige lokale Suite waren
+nicht erforderlich.
+
+Die vorangegangene RN01-Merge-Reconciliation ist abgeschlossen. Remote-Head
+`857063e` bestand Quality-Run `32622295396` und E-Book-Toolchain-Run
+`32622295434`. PR #247 wurde als regulärer Zwei-Eltern-Merge-Commit
+`a08ed166f4fbb3db0f908023a2085237167709ac` integriert; Post-Merge-Run
+`32622474216` war grün.
 
 ADR-0066 schließt `FG-W10-RENAME` als docs-only Frontier-Gate. Akzeptiert ist
 ausschließlich ein byte-identischer `FILE_RENAME` auf einen historisch
@@ -74,11 +86,12 @@ stattdessen die wieder aktuelle `PRESENT`-Source und den weiterhin historisch
 freien Target-Slot, bevor `RECOVERED` terminal wird.
 
 RN01 liefert Proposal, explizite private Preview, append-only Review und den
-nicht ausführbaren Plan. Die nächsten drei Waves sind fest: `S-W10-RN02`
-Authority/Persistenz/Capability/Status; `S-W10-RN03` Backend, Executor und
-Exact-State-Recovery; `S-W10-RN04` Bedienoberfläche, zweite Bestätigung, Scan,
-`CollectionState` und Reconciliation. `S-W10-RN02` ist die nächste kanonische
-Wave. Reale E-Books werden dafür nicht benötigt.
+nicht ausführbaren Plan. RN02 liefert Authority, Capability, Probe, Fencing,
+Persistenz und read-only Status ohne Executor. Die nächsten zwei Waves sind
+fest: `S-W10-RN03` Backend, Executor und Exact-State-Recovery sowie
+`S-W10-RN04` Bedienoberfläche, zweite Bestätigung, Scan, `CollectionState` und
+Reconciliation. `S-W10-RN03` ist die nächste kanonische Wave. Reale E-Books
+werden dafür nicht benötigt.
 
 Für das Gate bestanden 23 gezielt betroffene Planungsfront-, Dokumentations-
 und W10-Safety-Verträge auf dem finalen Stand in 0,11 Sekunden. Ruff für die
@@ -117,8 +130,9 @@ Fälle in 1,17 Sekunden. Der stabile Remote-Head
 Post-Merge-Run `32617838103` war ebenfalls grün.
 
 `S-W10-RN01` setzt die rein nicht mutierende Proposal-/Preview-/Review-/Plan-
-Wave nach dem akzeptierten ADR-0066-Gate um. Als Nächstes folgt RN02 ohne
-Executor.
+Wave nach dem akzeptierten ADR-0066-Gate um. RN02 ergänzt inzwischen die
+nicht ausführende Authority-/Persistenzschicht; als Nächstes folgt RN03 ohne
+CLI.
 
 `S-W9-007B` ergänzt den reinen ADR-0065-Vertrag um die feste Review-Paarung,
 Migration `0030_ebook_operation_recipe_plans` und zehn bounded insert-only
@@ -537,8 +551,8 @@ Merge-Voraussetzung.
 Titelwriter. `S-W10-05B` schließt Quarantäne-Authorize; `S-W10-05C` ist der
 gefencete Execute-Slice und `S-W10-05D` schließt die no-move Recovery ab.
 In `W9-007` sind `S-W9-007A` bis `S-W9-007C` umgesetzt; ADR-0066 und
-`S-W10-RN01` sind ebenfalls abgeschlossen. Als Nächstes folgt
-`S-W10-RN02` ohne Executor. Allgemeine Source-Media-
+`S-W10-RN01` sowie `S-W10-RN02` sind ebenfalls abgeschlossen. Als Nächstes
+folgt `S-W10-RN03` ohne CLI. Allgemeine Source-Media-
 Mutation, Music, Bilder, REST-API und
 grafische Oberfläche werden weder durch W9-006/W9-007 noch durch den einen
 operation-spezifischen Writer aktiviert.
@@ -1501,8 +1515,8 @@ vorhanden. Kein Slice erweitert die Ein-Datei-/Same-Filesystem-Grenze oder
 behauptet atomare No-Replace-Semantik. Die zweite Bestätigung bleibt auf nicht
 geloggtes `stdin` beschränkt. In `W9-007` sind `S-W9-007A` bis `S-W9-007C`
 umgesetzt. ADR-0066 hat `FG-W10-RENAME` danach nur für Same-Parent-
-`FILE_RENAME` entschieden; `S-W10-RN01` ist umgesetzt und `S-W10-RN02` die
-nächste nicht mutierende Authority-/Persistenz-Wave.
+`FILE_RENAME` entschieden; `S-W10-RN01` und `S-W10-RN02` sind umgesetzt.
+`S-W10-RN03` ist die nächste Backend-/Recovery-Wave ohne CLI.
 
 `OPS-001` ist ein getrenntes lokales Betriebsverfahren für den vollständigen
 privaten Inventory-/Hash-/Collection-/Verifier-Lauf. Es verwendet den

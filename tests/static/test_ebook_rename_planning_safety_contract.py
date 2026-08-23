@@ -63,16 +63,18 @@ def test_rn01_cli_keeps_target_private_and_exposes_no_executor() -> None:
         "ebook-rename-authorize",
         "ebook-rename-execute",
         "ebook-rename-recover",
+        "ebook-rename-status",
     ):
         assert forbidden_command not in cli
 
 
-def test_rn01_uses_existing_recipe_schema_without_0031() -> None:
+def test_rn01_stays_on_recipe_store_while_rn02_owns_0031() -> None:
     migrations = ROOT / "src/foliotone/persistence/alembic/versions"
-    assert not (migrations / "0031_ebook_rename_operations.py").exists()
+    assert (migrations / "0031_ebook_rename_operations.py").is_file()
     workflow = (
         ROOT / "src/foliotone/workflows/ebook_rename_planning.py"
     ).read_text(encoding="utf-8")
     assert "SQLiteEbookOperationRecipeStore" in workflow
     assert "SQLiteResolutionReviewStore" in workflow
+    assert "SQLiteEbookRenameStore" not in workflow
     assert "APPROVED_NON_EXECUTABLE" not in workflow
