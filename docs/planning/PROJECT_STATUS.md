@@ -31,7 +31,28 @@ stabilen Head vorbehalten.
 Der repository-only Fresh-Agent-Transfer ist noch
 `pending manual validation`. Diese Governance-Wave verändert weder Runtime-
 Fähigkeiten noch Provider-/Toolannahmen oder Source-Media-Authorisierung.
-Die reguläre Produktfront bleibt unverändert `S-FUT11-01`.
+Die reguläre Produktfront ist `S-FUT11-02`.
+
+**S-FUT11-01 implementiert — gemeinsame read-only Application-Grenze für E-Books**
+
+`application-contracts/v1` führt die versionierten
+`ApplicationCommand`-/`ApplicationQuery`-/Context-/Error-Verträge ein.
+Die Composition Root aktiviert ausschließlich die E-Book-Medienlinie; Music
+und Images bleiben explizit nicht aktivierte Registry-Einträge. Die bisherigen
+`ebook-tools-doctor`- und `library-health-report`-CLI-Wege verwenden die
+ersten beiden read-only Queries über diese Grenze, ohne ihre Ausgabe- oder
+Privacy-Verträge zu verändern.
+
+HTTP, Browser-UI, Authentisierung, Sessions, Jobs, Worker, Migrationen und
+jede neue Source-Media-Write-Fläche sind in diesem Slice nicht implementiert.
+17 fokussierte Application-, Doctor- und Library-Health-Fälle sowie 26
+betroffene statische Planungs-, Safety- und Dokumentationsverträge bestanden.
+Ruff war für den geänderten Python-/Testscope grün, Mypy für 264
+Source-Dateien ohne Befund und `git diff --check` sauber. Docker, reale
+E-Books, private Runtime-Daten und die vollständige lokale Suite waren für
+diesen begrenzten Application-Scope nicht erforderlich. Der vollständige
+PR-CI-Gate bleibt für den stabilen Head erforderlich. `S-FUT11-02` ist die
+nächste reguläre Wave.
 
 **FUT-011 entschieden — lokale Einzelbenutzer-Produktoberfläche ist in vier Waves ausführbar geplant**
 

@@ -91,14 +91,28 @@ Zwei-Eltern-Merge-Commit `dad693b7e07d34736141f64066c11b3527345eac`
 integriert; Merge- und Feature-Tree sind identisch. Post-Merge-Run
 `32631240306` bestand den kurzen Vertrag.
 
-Der nächste reguläre Produkt-Slice ist `S-FUT11-01`. Er ergänzt ausschließlich
+S-FUT11-01 ist implementiert. `application-contracts/v1` stellt
 adapterneutrale `ApplicationCommand`-/`ApplicationQuery`-/Context-/Error-
-Verträge, eine Composition Root, die Media-Line-Registry und erste gemeinsame
-Tool-/Format-Readiness-/`Library Health`-Queries. HTTP-, Frontend-, Auth-,
-Job-, Worker- und Migrationscode bleiben in dieser Wave ausgeschlossen.
-`S-FUT11-02` bis `S-FUT11-04` beginnen erst nach erfolgreichem Abschluss der
-jeweiligen Vorgängerwave. Alle weiteren Writer bleiben hinter ihrem eigenen
-W10-Gate; ADR-0067 leitet aus RN04 keine allgemeine Write-Capability ab.
+Verträge, die Composition Root und eine E-Book-only Media-Line-Registry bereit.
+Die bestehenden `ebook-tools-doctor`- und `library-health-report`-CLI-Wege
+delegieren die ersten read-only Queries über diese Grenze, ohne ihre Ausgabe
+oder Privacy-Projektion zu ändern. HTTP, Frontend, Auth, Jobs, Worker,
+Migrationen und Source-Media-Mutation wurden nicht ergänzt.
+
+17 fokussierte Application-, Doctor- und Library-Health-Fälle sowie 26
+betroffene statische Planungs-, Safety- und Dokumentationsverträge bestanden.
+Ruff war für den geänderten Python-/Testscope grün, Mypy für 264
+Source-Dateien ohne Befund und `git diff --check` sauber. Docker, reale
+E-Books, private Runtime-Daten und die vollständige lokale Suite waren für
+diesen begrenzten Application-Scope nicht erforderlich. Der vollständige
+PR-CI-Gate ist für den stabilen Head noch auszuführen.
+
+Der nächste reguläre Produkt-Slice ist `S-FUT11-02`. Er evaluiert und pinnt
+den ASGI-/OpenAPI- und Argon2id-Stack und liefert die lokale Auth-, Session-,
+Job-, Audit- und Worker-Basis ohne registrierte W10-Capability. `S-FUT11-03`
+und `S-FUT11-04` beginnen erst nach erfolgreichem Abschluss ihrer jeweiligen
+Vorgängerwave. Alle weiteren Writer bleiben hinter ihrem eigenen W10-Gate;
+ADR-0067 leitet aus RN04 keine allgemeine Write-Capability ab.
 
 Für die FUT-011-Entscheidungswave bestanden lokal 21 Planungs-/
 Dokumentationsverträge und 21 direkt betroffene W10-/Rename-/Titelwrite-/

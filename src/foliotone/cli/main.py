@@ -27,6 +27,11 @@ from foliotone.adapters.calibre import (
 )
 from foliotone.adapters.epubcheck import EpubCheckAnalyzer, EpubCheckError
 from foliotone.adapters.poppler import PopplerPdfAnalyzer, PopplerPdfError
+from foliotone.application import (
+    EbookToolchainReadinessQuery,
+    LibraryHealthQuery,
+    create_application,
+)
 from foliotone.collection_state import (
     DEFAULT_LIBRARY_HEALTH_DETAIL_LIMIT,
     MAX_COLLECTION_STATE_DIFF_LIMIT,
@@ -2442,14 +2447,17 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _run_ebook_tools_doctor(args: argparse.Namespace) -> int:
-    report = inspect_ebook_toolchain(
-        ebook_meta_executable=args.ebook_meta_executable,
-        ebook_convert_executable=args.ebook_convert_executable,
-        calibre_debug_executable=args.calibre_debug_executable,
-        pdfinfo_executable=args.pdfinfo_executable,
-        pdftotext_executable=args.pdftotext_executable,
-        java_executable=args.java_executable,
-        epubcheck_jar=args.epubcheck_jar,
+    application = create_application(toolchain_inspector=inspect_ebook_toolchain)
+    report = application.ebook_toolchain_readiness(
+        EbookToolchainReadinessQuery(
+            ebook_meta_executable=args.ebook_meta_executable,
+            ebook_convert_executable=args.ebook_convert_executable,
+            calibre_debug_executable=args.calibre_debug_executable,
+            pdfinfo_executable=args.pdfinfo_executable,
+            pdftotext_executable=args.pdftotext_executable,
+            java_executable=args.java_executable,
+            epubcheck_jar=args.epubcheck_jar,
+        )
     )
     if args.json:
         print(json.dumps(report.as_dict(), sort_keys=True, separators=(",", ":")))
@@ -3709,10 +3717,13 @@ def _run_library_health_report(args: argparse.Namespace) -> int:
     try:
         engine = create_sqlite_read_only_engine(database)
         try:
-            report = SQLiteLibraryHealthReportReader(engine).read(
-                args.snapshot,
-                baseline_snapshot_id=args.baseline,
-                sample_limit=args.sample_limit,
+            report = create_application().library_health_report(
+                SQLiteLibraryHealthReportReader(engine),
+                LibraryHealthQuery(
+                    snapshot_id=args.snapshot,
+                    baseline_snapshot_id=args.baseline,
+                    sample_limit=args.sample_limit,
+                ),
             )
         finally:
             engine.dispose()
