@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, Table, Text, UniqueConstraint
 
+from foliotone.persistence.collection_state_schema import collection_state_snapshots
 from foliotone.persistence.schema import DATETIME, ID, metadata
 
 
@@ -264,6 +265,109 @@ ebook_rename_events = Table(
 )
 
 
+ebook_rename_reconciliations = Table(
+    "ebook_rename_reconciliations",
+    metadata,
+    Column(
+        "run_id",
+        ID,
+        ForeignKey("ebook_rename_runs.id"),
+        primary_key=True,
+    ),
+    Column("profile", Text, nullable=False),
+    Column(
+        "authorization_id",
+        ID,
+        ForeignKey("ebook_rename_authorizations.id"),
+        nullable=False,
+    ),
+    Column("authorization_content_hash", Text, nullable=False),
+    Column(
+        "preparation_id",
+        ID,
+        ForeignKey("ebook_rename_preparations.id"),
+        nullable=False,
+    ),
+    Column("preparation_content_hash", Text, nullable=False),
+    Column("outcome_status", Text, nullable=False),
+    Column("scan_run_id", ID, ForeignKey("scan_runs.id"), nullable=False),
+    Column("source_file_id", ID, ForeignKey("file_records.id"), nullable=False),
+    Column(
+        "source_before_observation_id",
+        ID,
+        ForeignKey("file_observations.id"),
+        nullable=False,
+    ),
+    Column(
+        "source_scan_event_id",
+        ID,
+        ForeignKey("file_scan_events.id"),
+        nullable=False,
+    ),
+    Column("source_observation_id", ID, ForeignKey("file_observations.id")),
+    Column("target_file_id", ID, ForeignKey("file_records.id")),
+    Column("target_observation_id", ID, ForeignKey("file_observations.id")),
+    Column("target_scan_event_id", ID, ForeignKey("file_scan_events.id")),
+    Column(
+        "collection_state_snapshot_id",
+        ID,
+        ForeignKey(f"{collection_state_snapshots.name}.id"),
+        nullable=False,
+    ),
+    Column("collection_state_content_digest", Text, nullable=False),
+    Column("expected_full_sha256", Text, nullable=False),
+    Column("expected_size_bytes", Integer, nullable=False),
+    Column("target_absence_fingerprint", Text, nullable=False),
+    Column("physical_confirmation_digest", Text, nullable=False),
+    Column("reconciled_at", DATETIME, nullable=False),
+    Column("content_hash", Text, nullable=False),
+    CheckConstraint(
+        "profile='ebook-file-rename-reconciliation/v1' "
+        "AND outcome_status IN ('VERIFIED','RECOVERED') "
+        "AND expected_size_bytes>=0",
+        name="ck_ebook_rename_reconciliations_contract",
+    ),
+    CheckConstraint(
+        "(outcome_status='VERIFIED' AND source_observation_id IS NULL "
+        "AND target_file_id IS NOT NULL AND target_observation_id IS NOT NULL "
+        "AND target_scan_event_id IS NOT NULL) OR "
+        "(outcome_status='RECOVERED' AND source_observation_id IS NOT NULL "
+        "AND target_file_id IS NULL AND target_observation_id IS NULL "
+        "AND target_scan_event_id IS NULL)",
+        name="ck_ebook_rename_reconciliations_outcome_shape",
+    ),
+    CheckConstraint(
+        "target_file_id IS NULL OR target_file_id<>source_file_id",
+        name="ck_ebook_rename_reconciliations_distinct_files",
+    ),
+    *(
+        _sha("ebook_rename_reconciliations", column)
+        for column in (
+            "authorization_content_hash",
+            "preparation_content_hash",
+            "collection_state_content_digest",
+            "expected_full_sha256",
+            "target_absence_fingerprint",
+            "physical_confirmation_digest",
+            "content_hash",
+        )
+    ),
+    UniqueConstraint(
+        "profile",
+        "content_hash",
+        name="uq_ebook_rename_reconciliations_content",
+    ),
+    UniqueConstraint(
+        "scan_run_id",
+        name="uq_ebook_rename_reconciliations_scan_run",
+    ),
+    UniqueConstraint(
+        "collection_state_snapshot_id",
+        name="uq_ebook_rename_reconciliations_collection_state",
+    ),
+)
+
+
 EBOOK_RENAME_TABLES = (
     ebook_rename_capability_probes,
     ebook_rename_preparations,
@@ -273,13 +377,17 @@ EBOOK_RENAME_TABLES = (
     ebook_rename_events,
 )
 
+EBOOK_RENAME_RECONCILIATION_TABLES = (ebook_rename_reconciliations,)
+
 
 __all__ = [
     "EBOOK_RENAME_TABLES",
+    "EBOOK_RENAME_RECONCILIATION_TABLES",
     "ebook_rename_authorizations",
     "ebook_rename_backend_bindings",
     "ebook_rename_capability_probes",
     "ebook_rename_events",
     "ebook_rename_preparations",
+    "ebook_rename_reconciliations",
     "ebook_rename_runs",
 ]

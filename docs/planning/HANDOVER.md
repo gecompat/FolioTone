@@ -4,6 +4,54 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
+`S-W10-RN01` bis `S-W10-RN04` sind umgesetzt. Das ausschließlich durch
+ADR-0066 freigegebene Same-Parent-`FILE_RENAME` besitzt jetzt Proposal,
+private Preview, append-only Review, Plan, owner-only Capability, Probe,
+Preparation, höchstens 15 Minuten gültige One-use-Authorization, feste
+Execute-/Recovery-Matrix, Scan-Handoff, Folgescan, `CollectionState`,
+immutable Reconciliation und SQLite-read-only Status.
+
+Die öffentlichen Befehle sind `ebook-rename-authorize`,
+`ebook-rename-execute`, `ebook-rename-recover` und `ebook-rename-status`.
+Execute verlangt genau `CONFIRM EBOOK RENAME <Authorization-ID>` über eine
+bounded, nicht geloggte `stdin`-Zeile. Nach unmittelbarer Verifikation wird
+die Run-Lease vor dem neuen inkrementellen Vollscan mit genau einem
+Hash-Worker freigegeben. Erst nach frischer physischer und persistenter
+Revalidierung werden Reconciliation und `VERIFIED` oder `RECOVERED` atomar
+gespeichert. Forward erhält die alte Source-Identität als `MISSING` und legt
+für das historisch freie Target eine getrennte `NEW`-Identität an; Recovery
+erhält die Source-Identität `PRESENT` und erfindet keine Target-Historie.
+
+Migration `0032_ebook_rename_reconciliation` ist der aktuelle Head. Die
+Reconciliation ist insert-only, content-addressed, pro Run eindeutig und an
+genau einen abgeschlossenen Folgescan sowie `CollectionState` gebunden.
+Statusausgaben bleiben ohne Locator, Basenames, Pfade, Hashes, Attribute,
+Capability-Inhalte, Fences und Confirmation-Digests. Reale E-Books sind für
+Tests nicht erforderlich; RN04 ist mit kleinen synthetischen Dateien und
+temporären SQLite-Datenbanken prüfbar.
+
+Lokal bestanden 93 Fälle des fokussierten Rename-/Migration-/Planfront-
+Verbunds; ein einzelnes nach der Dokumentationsaktualisierung fehlendes
+Planfront-Literal wurde korrigiert und gezielt grün wiederholt. Elf weitere
+Dokumentations- und Testeffizienzverträge bestanden. Ruff war für alle
+geänderten Python-Dateien grün, Mypy für 260 Source-Dateien ohne Befund und
+`git diff --check` sauber. Ein irrtümlich mit Unix-Zeilenfortsetzungen
+gestarteter PowerShell-Testaufruf wurde wegen potenziell zu breiter Collection
+ohne Ergebnis abgebrochen; danach lief kein Pytest-Prozess weiter. Die
+vollständige lokale Suite blieb unberührt, der einmalige PR-CI-Gate steht bis
+zum stabilen Head aus.
+
+Der nächste Schritt ist keine freigegebene Implementierungswave. `FUT-011`
+bleibt das Architektur-Gate vor REST/API/UI und muss Produktshell,
+E-Book-/Musik-/Bilder-Einstiege, OpenAPI, Authentisierung, Autorisierung,
+Pagination, Privacy, Audit und lokales Deployment entscheiden. Alle weiteren
+Writer bleiben hinter ihrem eigenen W10-Gate. Bis zu einer solchen
+Entscheidung darf weder aus RN04 eine allgemeine Write-Capability abgeleitet
+noch ein API-/UI-Control für eine nicht freigegebene Operation angeboten
+werden.
+
+## Historische Nachweise
+
 `S-W10-RN01`, `S-W10-RN02` und `S-W10-RN03` sind umgesetzt. RN01 liefert
 Proposal, private
 Preview, append-only Review und den dauerhaft `NOT_EXECUTABLE` bleibenden Plan
@@ -130,9 +178,10 @@ freien Target-Slot, bevor `RECOVERED` terminal wird.
 RN01 liefert Proposal, explizite private Preview, append-only Review und den
 nicht ausführbaren Plan. RN02 liefert Authority, Capability, Probe, Fencing,
 Persistenz und read-only Status; RN03 Backend, Executor und Exact-State-
-Recovery. `S-W10-RN04` mit Bedienoberfläche, zweiter Bestätigung, Scan,
-`CollectionState` und Reconciliation ist die nächste kanonische Wave. Reale
-E-Books werden dafür nicht benötigt.
+Recovery. `S-W10-RN04` schließt Bedienoberfläche, zweite Bestätigung, Scan,
+`CollectionState` und Reconciliation ab. Reale E-Books werden dafür nicht
+benötigt. Vor REST/API/UI oder einem weiteren Writer steht nun ein eigenes
+Entscheidungsgate.
 
 Für das Gate bestanden 23 gezielt betroffene Planungsfront-, Dokumentations-
 und W10-Safety-Verträge auf dem finalen Stand in 0,11 Sekunden. Ruff für die
@@ -172,8 +221,8 @@ Post-Merge-Run `32617838103` war ebenfalls grün.
 
 `S-W10-RN01` setzt die rein nicht mutierende Proposal-/Preview-/Review-/Plan-
 Wave nach dem akzeptierten ADR-0066-Gate um. RN02 ergänzt die Authority-/
-Persistenzschicht und RN03 den internen Executor samt Recovery; als Nächstes
-folgt RN04 mit der festen Bedien-/Scan-/Reconciliation-Kette.
+Persistenzschicht, RN03 den internen Executor samt Recovery und RN04 die feste
+Bedien-/Scan-/Reconciliation-Kette.
 
 `S-W9-007B` ergänzt den reinen ADR-0065-Vertrag um die feste Review-Paarung,
 Migration `0030_ebook_operation_recipe_plans` und zehn bounded insert-only
@@ -592,8 +641,7 @@ Merge-Voraussetzung.
 Titelwriter. `S-W10-05B` schließt Quarantäne-Authorize; `S-W10-05C` ist der
 gefencete Execute-Slice und `S-W10-05D` schließt die no-move Recovery ab.
 In `W9-007` sind `S-W9-007A` bis `S-W9-007C` umgesetzt; ADR-0066 und
-`S-W10-RN01` bis `S-W10-RN03` sind ebenfalls abgeschlossen. Als Nächstes
-folgt `S-W10-RN04` mit der engen Bedien-/Scan-/Reconciliation-Kette. Allgemeine Source-Media-
+`S-W10-RN01` bis `S-W10-RN04` sind ebenfalls abgeschlossen. Allgemeine Source-Media-
 Mutation, Music, Bilder, REST-API und
 grafische Oberfläche werden weder durch W9-006/W9-007 noch durch den einen
 operation-spezifischen Writer aktiviert.
@@ -1556,8 +1604,9 @@ vorhanden. Kein Slice erweitert die Ein-Datei-/Same-Filesystem-Grenze oder
 behauptet atomare No-Replace-Semantik. Die zweite Bestätigung bleibt auf nicht
 geloggtes `stdin` beschränkt. In `W9-007` sind `S-W9-007A` bis `S-W9-007C`
 umgesetzt. ADR-0066 hat `FG-W10-RENAME` danach nur für Same-Parent-
-`FILE_RENAME` entschieden; `S-W10-RN01` bis `S-W10-RN03` sind umgesetzt.
-`S-W10-RN04` ist die nächste Bedien-/Scan-/Reconciliation-Wave.
+`FILE_RENAME` entschieden; `S-W10-RN01` bis `S-W10-RN04` sind umgesetzt.
+`FUT-011` und die verbleibenden operation-spezifischen W10-Gates sind
+Entscheidungen, keine freigegebenen Implementierungswaves.
 
 `OPS-001` ist ein getrenntes lokales Betriebsverfahren für den vollständigen
 privaten Inventory-/Hash-/Collection-/Verifier-Lauf. Es verwendet den

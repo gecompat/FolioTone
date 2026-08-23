@@ -344,6 +344,36 @@ class EbookRenamePlanningService:
             blocker_codes=tuple(value.code.value for value in stored.blockers),
         )
 
+    def current_dependency_scope(
+        self,
+        plan: EbookOperationRecipePlan,
+    ) -> ResolvedEbookRenameDependencyScope:
+        """Resolve the sole current owner-only scope already bound by a plan."""
+
+        if not isinstance(plan, EbookOperationRecipePlan):
+            raise EbookRenamePlanningError("DEPENDENCY_SCOPE_UNAVAILABLE")
+        candidate = plan.candidate
+        try:
+            source = self._load_current_source(candidate.sources[0].observation_id)
+            scopes = self._dependency_scopes.all_scopes()
+            matches: list[ResolvedEbookRenameDependencyScope] = []
+            with self._engine.connect() as connection:
+                for scope in scopes:
+                    if scope.scan_root_id != candidate.sources[0].scan_root_id:
+                        continue
+                    resolved, _evidence = self._resolve_dependencies(
+                        connection,
+                        source,
+                        scope,
+                    )
+                    if resolved == candidate.dependencies:
+                        matches.append(scope)
+        except (IndexError, EbookRenameDependencyScopeUnavailable, EbookRenamePlanningError):
+            raise EbookRenamePlanningError("DEPENDENCY_SCOPE_UNAVAILABLE") from None
+        if len(matches) != 1:
+            raise EbookRenamePlanningError("DEPENDENCY_SCOPE_UNAVAILABLE")
+        return matches[0]
+
     def _require_rename_candidate(
         self,
         candidate_id: EntityId,

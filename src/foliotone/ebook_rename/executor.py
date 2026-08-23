@@ -354,6 +354,70 @@ def recover_ebook_file_rename(
             _close_session(session)
 
 
+def verify_ebook_file_rename_physical_state(
+    *,
+    store: SQLiteEbookRenameStore,
+    plan: EbookOperationRecipePlan,
+    preparation: EbookRenamePreparationSnapshot,
+    authorization: EbookRenameAuthorizationSnapshot,
+    capability: ResolvedEbookRenameCapability,
+    probe: EbookRenameCapabilityProbeSnapshot,
+    binding: EbookRenameBackendBinding,
+    run: EbookRenameExecutionRun,
+    lease: OwnedScanRootWriteLease,
+    expected_outcome: EbookRenameRunStatus,
+    clock: Callable[[], datetime] | None = None,
+    backend: EbookRenameFilesystemBackend | None = None,
+) -> LinuxEbookRenamePhysicalSnapshot:
+    """Reconstruct and verify the exact post-scan physical state without mutation."""
+
+    if expected_outcome not in {
+        EbookRenameRunStatus.VERIFIED,
+        EbookRenameRunStatus.RECOVERED,
+    }:
+        _raise(EbookRenameExecutorErrorCode.MANUAL_RECOVERY_REQUIRED)
+    active_clock = clock if clock is not None else _system_clock
+    session: EbookRenameFilesystemSession | None = None
+    try:
+        source = store.require_recovery_source(
+            plan,
+            preparation,
+            authorization,
+            capability,
+            probe,
+            binding,
+            run,
+            lease,
+            checked_at=_clock_time(active_clock),
+        )
+        filesystem = backend if backend is not None else LinuxEbookRenameBackend()
+        session = _open_session(
+            filesystem,
+            source,
+            capability,
+            probe,
+            preparation,
+            authorization,
+            binding,
+            run,
+        )
+        expected_state = (
+            LinuxEbookRenamePhysicalState.SOURCE_ABSENT_TARGET_EXACT
+            if expected_outcome is EbookRenameRunStatus.VERIFIED
+            else LinuxEbookRenamePhysicalState.SOURCE_EXACT_TARGET_ABSENT
+        )
+        snapshot = session.classify()
+        _require_state(snapshot, expected_state)
+        return snapshot
+    except EbookRenameExecutorError:
+        raise
+    except Exception as error:
+        _raise(_error_code(error))
+    finally:
+        if session is not None:
+            _close_session(session)
+
+
 def _recover_session(
     *,
     store: SQLiteEbookRenameStore,
@@ -727,4 +791,5 @@ __all__ = [
     "EbookRenameFilesystemSession",
     "execute_ebook_file_rename",
     "recover_ebook_file_rename",
+    "verify_ebook_file_rename_physical_state",
 ]

@@ -102,8 +102,10 @@ Same-Parent-`FILE_RENAME`; `FILE_REORGANIZE` bleibt hinter
 Review-/Plan-Oberfläche; `S-W10-RN02` die weiterhin nicht ausführende
 Authority, Capability, Probe, Fencing, insert-only Persistenz und read-only
 Status. `S-W10-RN03` ergänzt das feste interne Linux-No-Replace-Backend,
-unmittelbare Verifikation und Exact-State-Recovery. Als nächste kleine Wave
-folgt `S-W10-RN04` mit der Bedien-/Scan-/Reconciliation-Kette.
+unmittelbare Verifikation und Exact-State-Recovery. `S-W10-RN04` schließt die
+vier festen CLI-Kommandos, zweite Bestätigung, Scan-Handoff,
+`CollectionState` und immutable Reconciliation ab. Vor REST/API/UI oder einem
+weiteren Writer steht nun jeweils ein eigenes `DECISION`-Gate.
 
 ## W0 — Project Foundation
 
@@ -513,7 +515,8 @@ steht in `EBOOK_WRITE_PIPELINE_PLAN.md`; ADR-0066 hat
 `FG-W10-RENAME` inzwischen eng entschieden. `S-W10-RN01` liefert die
 nicht mutierende Produktsurface, `S-W10-RN02` die nicht ausführende
 Authority-/Persistenzschicht und `S-W10-RN03` Backend, Executor sowie
-Exact-State-Recovery. `S-W10-RN04` ist der nächste Slice.
+Exact-State-Recovery. `S-W10-RN04` schließt die Bedien-, Scan- und
+Reconciliation-Kette inzwischen ab.
 
 Identity and quality are separate inputs: a future quality evaluator may rank which equivalent representation is preferable only after identity is established.
 
@@ -550,10 +553,10 @@ neuen Scan, `CollectionState` sowie den atomaren `VERIFIED`-/Reconciliation-
 Abschluss. Damit ist genau dieser EPUB-Titelwriter operativ erreichbar.
 Sidecar-, externe Library- und Archivewrites bleiben an
 `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE` beziehungsweise
-`FG-W10-ARCHIVE-REWRITE` gebunden. Same-Parent-Rename bleibt bis zum Abschluss
-von RN04 operativ geschlossen; Reorganisation bindet
-`FG-W10-REORGANIZE`. W10-003 und W10-004 halten Rollback/Purge und
-Verzeichnisbereinigung weiterhin getrennt.
+`FG-W10-ARCHIVE-REWRITE` gebunden. Same-Parent-Rename ist nach RN04 als einziges
+ADR-0066-Profil operativ; Reorganisation bindet `FG-W10-REORGANIZE`. W10-003
+und W10-004 halten Rollback/Purge und Verzeichnisbereinigung weiterhin
+getrennt.
 
 ADR-0066 entscheidet `FG-W10-RENAME` ausschließlich für einen
 byte-identischen `FILE_RENAME` im selben vorhandenen Parent. Zulässig sind nur

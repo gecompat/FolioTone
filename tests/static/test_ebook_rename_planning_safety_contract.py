@@ -43,7 +43,7 @@ def test_rn01_application_surface_has_no_source_mutation_primitive() -> None:
         assert forbidden_module not in text
 
 
-def test_rn01_cli_keeps_target_private_and_exposes_no_executor() -> None:
+def test_rn01_target_input_stays_private_and_rn04_commands_are_separate() -> None:
     cli = (ROOT / "src/foliotone/cli/main.py").read_text(encoding="utf-8")
 
     for command in (
@@ -59,13 +59,13 @@ def test_rn01_cli_keeps_target_private_and_exposes_no_executor() -> None:
     assert '"--target-basename"' not in cli
     assert '"--private-details"' in cli
     assert "PRIVATE_DETAILS_REQUIRE_TEXT" in cli
-    for forbidden_command in (
+    for operation_command in (
         "ebook-rename-authorize",
         "ebook-rename-execute",
         "ebook-rename-recover",
         "ebook-rename-status",
     ):
-        assert forbidden_command not in cli
+        assert cli.count(f'"{operation_command}"') >= 2
 
 
 def test_rn01_stays_on_recipe_store_while_rn02_owns_0031() -> None:

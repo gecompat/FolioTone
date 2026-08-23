@@ -10,9 +10,11 @@ from foliotone.ebook_rename import (
     EBOOK_RENAME_AUTHORIZATION_PROFILE,
     EBOOK_RENAME_PROCESSOR_PROFILE,
     EBOOK_RENAME_RUN_PROFILE,
+    EbookRenameReconciliationOutcome,
     EbookRenameRunStatus,
 )
 from foliotone.persistence.ebook_rename import (
+    EbookRenameStatusReconciliationSnapshot,
     EbookRenameStatusSnapshot,
     EbookRenameStoreError,
     SQLiteEbookRenameStore,
@@ -37,6 +39,34 @@ class EbookRenameStatusEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class EbookRenameStatusReconciliation:
+    outcome: EbookRenameReconciliationOutcome
+    scan_run_id: EntityId
+    source_file_id: EntityId
+    source_observation_id: EntityId | None
+    target_file_id: EntityId | None
+    target_observation_id: EntityId | None
+    collection_state_snapshot_id: EntityId
+    reconciled_at: datetime
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        snapshot: EbookRenameStatusReconciliationSnapshot,
+    ) -> EbookRenameStatusReconciliation:
+        return cls(
+            outcome=snapshot.outcome,
+            scan_run_id=snapshot.scan_run_id,
+            source_file_id=snapshot.source_file_id,
+            source_observation_id=snapshot.source_observation_id,
+            target_file_id=snapshot.target_file_id,
+            target_observation_id=snapshot.target_observation_id,
+            collection_state_snapshot_id=snapshot.collection_state_snapshot_id,
+            reconciled_at=snapshot.reconciled_at,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class EbookRenameStatusReport:
     run_id: EntityId
     authorization_id: EntityId
@@ -49,6 +79,7 @@ class EbookRenameStatusReport:
     expires_at: datetime
     status: EbookRenameRunStatus
     events: tuple[EbookRenameStatusEvent, ...]
+    reconciliation: EbookRenameStatusReconciliation | None = None
     backend_profile: str = EBOOK_RENAME_PROCESSOR_PROFILE
     run_profile: str = EBOOK_RENAME_RUN_PROFILE
     authorization_profile: str = EBOOK_RENAME_AUTHORIZATION_PROFILE
@@ -75,6 +106,17 @@ class EbookRenameStatusReport:
             or self.status is not self.events[-1].status
             or tuple(event.sequence_no for event in self.events)
             != tuple(range(1, len(self.events) + 1))
+            or (
+                self.reconciliation is not None
+                and self.status.value != self.reconciliation.outcome.value
+            )
+            or (
+                self.status in {
+                    EbookRenameRunStatus.VERIFIED,
+                    EbookRenameRunStatus.RECOVERED,
+                }
+                and self.reconciliation is None
+            )
         ):
             raise ValueError("e-book rename status report is invalid")
 
@@ -106,6 +148,13 @@ class EbookRenameStatusReport:
             expires_at=snapshot.expires_at,
             status=events[-1].status,
             events=events,
+            reconciliation=(
+                None
+                if snapshot.reconciliation is None
+                else EbookRenameStatusReconciliation.from_snapshot(
+                    snapshot.reconciliation
+                )
+            ),
             backend_profile=snapshot.backend_profile,
             run_profile=snapshot.run_profile,
             authorization_profile=snapshot.authorization_profile,
@@ -141,6 +190,34 @@ class EbookRenameStatusReport:
                 }
                 for event in self.events
             ],
+            "reconciliation": (
+                None
+                if self.reconciliation is None
+                else {
+                    "outcome": self.reconciliation.outcome.value,
+                    "scan_run_id": str(self.reconciliation.scan_run_id),
+                    "source_file_id": str(self.reconciliation.source_file_id),
+                    "source_observation_id": (
+                        None
+                        if self.reconciliation.source_observation_id is None
+                        else str(self.reconciliation.source_observation_id)
+                    ),
+                    "target_file_id": (
+                        None
+                        if self.reconciliation.target_file_id is None
+                        else str(self.reconciliation.target_file_id)
+                    ),
+                    "target_observation_id": (
+                        None
+                        if self.reconciliation.target_observation_id is None
+                        else str(self.reconciliation.target_observation_id)
+                    ),
+                    "collection_state_snapshot_id": str(
+                        self.reconciliation.collection_state_snapshot_id
+                    ),
+                    "reconciled_at": self.reconciliation.reconciled_at.isoformat(),
+                }
+            ),
         }
 
 
@@ -167,6 +244,7 @@ class SQLiteEbookRenameStatusReportReader:
 __all__ = [
     "EBOOK_RENAME_STATUS_REPORT_PROFILE",
     "EbookRenameStatusEvent",
+    "EbookRenameStatusReconciliation",
     "EbookRenameStatusReport",
     "EbookRenameStatusReportError",
     "SQLiteEbookRenameStatusReportReader",

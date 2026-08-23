@@ -4,6 +4,71 @@ Stand: 2026-08-23
 
 ## Aktuelle Welle
 
+**S-W10-RN04 implementiert — enger Same-Parent-Rename ist über CLI vollständig reconciled**
+
+Die feste Bedienkette `ebook-rename-authorize`, `ebook-rename-execute`,
+`ebook-rename-recover` und `ebook-rename-status` ist implementiert. Authorize
+nimmt ausschließlich opaque Plan-, Plan-Content-Hash- und Capability-Binder.
+Execute akzeptiert genau die nicht geloggte zweite `stdin`-Zeile
+`CONFIRM EBOOK RENAME <Authorization-ID>`. Recover nimmt nur die opaque Run-ID;
+Status öffnet eine vorhandene SQLite-Datenbank strikt read-only. Normale Text-
+und JSON-Ausgaben enthalten keine Locator, Basenames, lokalen Pfade, Hashes,
+Dateiattribute, Capability-Inhalte, Fences oder Confirmation-Digests.
+
+Nach `IMMEDIATE_VERIFIED` beziehungsweise `RECOVERY_VERIFIED` persistiert der
+Operator `SCAN_HANDOFF`, gibt die `EBOOK_RENAME_RUN`-Lease ausdrücklich frei
+und startet genau einen neuen inkrementellen Vollscan mit einem Hash-Worker.
+Der Forward-Pfad bindet das alte `FileRecord` über sein `MISSING`-Scan-Event
+und erzeugt für den historisch unbenutzten Target-Locator ein getrenntes
+`NEW`-`FileRecord` samt vollständigem SHA-256. Der Recovery-Pfad bindet die
+wieder aktuelle `PRESENT`-Source samt neuer Observation und belegt weiterhin
+fehlende Target-Historie. Beide Pfade bauen `collection-state/v1`, erwerben
+eine frische Run-Fence, revalidieren Persistenz und exakten physischen Zustand
+und schreiben Reconciliation plus terminales `VERIFIED` beziehungsweise
+`RECOVERED` atomar.
+
+Migration `0032_ebook_rename_reconciliation` ergänzt genau eine immutable,
+content-addressed Reconciliation je Run. Foreign Keys, Outcome-Shape-Checks,
+No-Update-/No-Delete-Trigger, eindeutige Scan-/`CollectionState`-Binder und
+eine Downgrade-Sperre für belegte Daten verhindern eine nachträgliche
+Umdeutung. Retry verwendet denselben Run und kann einen passenden bereits
+abgeschlossenen Folgescan wiederverwenden; eine terminale Statusprojektion
+ohne passende Reconciliation ist ungültig.
+
+Im fokussierten Rename-/Migration-/Planfront-Verbund bestanden 93 Fälle; der
+einzige erste Befund war ein nach der Statusaktualisierung fehlendes
+explizites `S-W10-RN02`-Literal in der Future Map. Dessen einzelne
+Wiederholung bestand nach der Korrektur. Weitere elf Dokumentations- und
+Testeffizienzverträge bestanden. Die Auswahl enthält zwei portable
+synthetische End-to-End-Dateisystemfälle und prüft tatsächliches Rename
+beziehungsweise Reverse-Recovery, Lease-Handoff, Scan, Full-SHA-256,
+getrennte `FileRecord`-Historie, `CollectionState`, atomaren Terminalstatus,
+Status-Privacy, Immutability und Downgrade-Sperre. Ruff war für alle
+geänderten Python-Dateien grün; Mypy prüfte 260 Source-Dateien ohne Befund und
+`git diff --check` war sauber.
+
+Ein erster Versuch des aggregierten Testkommandos wurde ohne Ergebnis
+abgebrochen, weil Unix-Zeilenfortsetzungen in PowerShell einen zu breiten
+Collection-Pfad erzeugen konnten. Danach lief kein Pytest-Prozess weiter; die
+identische Zielauswahl wurde über ein PowerShell-Argumentarray ausgeführt.
+Die vollständige lokale Suite wurde nicht ausgeführt. Der einmalige
+PR-CI-Gate bleibt bis zum stabilen Remote-Head ausstehend.
+
+Alle lokalen Tests verwenden nur kleine synthetische Bytes und temporäre
+SQLite-Datenbanken unter `C:\rep\tmp`. Die freigegebene reale Sammlung war
+nicht erforderlich und wurde weder gelesen noch kopiert. Provider-, Tool-,
+Lizenz- und Netzwerkannahmen ändern sich durch RN04 nicht.
+
+Für das enge Same-Parent-Rename-Profil ist kein bekannter Implementierungs-
+blocker mehr offen. Die nächste gewünschte Produktoberfläche ist jedoch ein
+bewusstes Architektur-Gate: `FUT-011` muss vor REST/API/UI Authentisierung,
+Autorisierung, Deployment, OpenAPI, Pagination, Privacy, Audit und getrennte
+E-Book-/Musik-/Bilder-Einstiege entscheiden. Weitere E-Book-Writer bleiben
+hinter ihren separaten Sidecar-, External-Library-, Reorganize-, Archive-,
+Rollback-, Purge- oder Cleanup-Gates; RN04 gibt sie nicht frei.
+
+## Vorherige abgeschlossene Wellen
+
 **S-W10-RN03 implementiert — interner Rename-Executor ist verifizierbar, aber noch ohne Bedienkette**
 
 Das feste Backend verwendet auf Linux x86_64 plus glibc ausschließlich die
@@ -820,11 +885,9 @@ für den begrenzten EPUB-3-Titelwriter entschieden; `S-W10-MW01` und
 `S-W10-MW03` liefert Authorization, Journal, Capability/Fencing und read-only
 Status. `S-W10-MW04` liefert den internen Linux-Executor und Recovery;
 `S-W10-MW05` schließt Bedienung und Reconciliation ab.
-`W10-005`, `W9-007`, `FG-W10-RENAME` sowie `S-W10-RN01` bis `S-W10-RN03` sind
-ebenfalls abgeschlossen. Als nächster Schritt ist `S-W10-RN04`
-ausschließlich für Bedienung, Scan-Handoff und Reconciliation vorgesehen. Allgemeine
-reale Mutation, Music, Bilder, REST-API und grafische Oberfläche werden durch
-diesen Abschluss nicht aktiviert. Am
+`W10-005`, `W9-007`, `FG-W10-RENAME` sowie `S-W10-RN01` bis `S-W10-RN04` sind
+ebenfalls abgeschlossen. Allgemeine reale Mutation, Music, Bilder, REST-API
+und grafische Oberfläche werden durch diesen Abschluss nicht aktiviert. Am
 finalen lokalen Stand von S-W9-006C bestanden 41
 fokussierte Report-, Privacy-, Schema-, Bootstrap-, Store-, Consolidation-
 Regression- und statische Tests in 26,36 Sekunden. Ruff war für alle
@@ -890,11 +953,11 @@ Review über nicht ausführbare Metadatenkorrektur-/Konsolidierungspläne bis zu
 operation-spezifischen W10-Gates, Revalidierung, Fencing, Verifikation,
 Recovery und der späteren REST-/UI-Grenze. ADR-0061 autorisiert ihre
 kontrollierte Entwicklung, nicht eine pauschale reale Mutation. `W9-006` und
-`W9-007` sowie `S-W10-RN01` bis `S-W10-RN03` sind abgeschlossen. Der erste
+`W9-007` sowie `S-W10-RN01` bis `S-W10-RN04` sind abgeschlossen. Der erste
 Metadata-Write-Vertrag ist abgeschlossen. ADR-0066 hat das rein
 dokumentarische `FG-W10-RENAME` nur für Same-Parent-`FILE_RENAME` entschieden;
-`S-W10-RN04` ist der nächste Slice. Reorganisation, Sidecar-, externe
-Library- und Archive-Write-Gates bleiben getrennte technische `DECISION`s.
+FUT-011 sowie Reorganisation, Sidecar-, externe Library- und Archive-Write-
+Gates bleiben getrennte `DECISION`s.
 
 **W10-Interim abgeschlossen — Executor und read-only Quarantänestatus sind vorhanden**
 
