@@ -271,6 +271,9 @@ einführen.
 **Voraussetzungen:** ADR-0065 ist akzeptiert. Jedes Paket bleibt dauerhaft
 `NOT_EXECUTABLE`; kein Paket darf Source Media oder Ziel-Slots öffnen.
 
+**Status:** `S-W9-007A` und `S-W9-007B` sind umgesetzt. `S-W9-007C` ist die
+nächste kanonische book-only Wave.
+
 | Paket | Ergebnis | Erlaubter Dateibereich | Gezielter Nachweis |
 |---|---|---|---|
 | S-W9-007A | Immutable Candidate-/Plan-DTOs, reine Builder/Reducer und kanonische Content-Identitäten für sechs feste Operationsfamilien. | `src/foliotone/ebook_operation_recipes/`, zwei fokussierte Unit-Testdateien, ADR-0065 und unmittelbar betroffene Architektur-/Planungsdokumente | Operationsmatrix, Bounds, vollständige Source-/Outputbindung, kanonische Reihenfolge, UUIDv5-/Golden Values, Review-/Blockermatrix, Privacy und statischer Non-Execution-Gate. |

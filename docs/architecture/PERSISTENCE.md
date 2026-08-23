@@ -519,6 +519,40 @@ einen Plan bounded über den Store und projiziert nur erlaubte opaque IDs,
 Profile, Statuswerte, Content Hash, Zielträger, Format, Feldpfade,
 Operationen, Counts, Reviewstatus und Blockerliterale.
 
+### Insert-only E-Book-Operationsrezepte
+
+Migration `0030_ebook_operation_recipe_plans` erweitert den Review-Core um
+die feste Paarung `EBOOK_OPERATION_RECIPE` und
+`EBOOK_OPERATION_RECIPE_CANDIDATE`. Der SQLite-Rebuild erhält vorhandene
+`ReviewItem`-, `ReviewDecision`-, `ConsolidationPlan`- und
+`MetadataCorrectionPlan`-Reviewzeilen. Auch die bereits bestehenden Trigger
+der vorübergehend rekonstruierten abhängigen Tabellen werden übernommen. Ein
+Downgrade ist nur bei leeren Recipe-Tabellen und ohne Recipe-Reviewfall
+zulässig.
+
+Zehn normalisierte Tabellen speichern Candidate, bis zu 32 Source-Snapshots,
+fünf Dependency-Achsen, Verification-Codes, Evidence, Plan, genau einen
+Review-Snapshot, Preconditions und Blocker samt Evidence. Parent-Counts und
+bounded Insert-Trigger begrenzen jeden Child-Graph. No-Update- und No-Delete-
+Trigger machen alle Recipe-Zeilen immutable; Content Hash und UUIDv5-ID
+bilden den semantischen Idempotenzschlüssel.
+
+`SQLiteEbookOperationRecipeStore` prüft vor einem Candidate-Insert jeden
+abgeschlossenen book-only `ScanRun`, File-/Observation-/Locator-Lineage,
+Größe, Zeitpunkte und Full-SHA-256-Evidence. Lokale Evidence- und bekannte
+Dependency-Referenzen müssen existieren und zur gebundenen Source-Lineage
+gehören. Verwaltete Ziel-Scopes müssen bestehende E-Book-`ScanRoot`s sein;
+externe Endpoint-IDs bleiben provider-neutral opaque. Vor einem Plan-Insert
+werden Candidate-Identität, neueste kompatible Reviewentscheidung und der
+kanonische Reducer erneut geprüft. Reads laden jeden Child-Graph nur bis zu
+seiner festen Obergrenze und berechnen sämtliche Komponenten-, Candidate-
+und Planidentitäten neu.
+
+Der Store öffnet weder Source Media noch Ziel-Slots und startet keine Tools.
+Private relative Locator werden ausschließlich in der Runtime-Datenbank
+gespeichert und erscheinen weder in DTO-`repr` noch in Storefehlern. Der
+privacy-begrenzte echte SQLite-Read-only-Report folgt in `S-W9-007C`.
+
 ### Gefencete Metadaten-Write-Authorization und Journal
 
 Migration `0027_metadata_write_operations` erweitert den bestehenden
