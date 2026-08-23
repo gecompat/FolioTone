@@ -10,12 +10,16 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.18,<2",
+  "argon2-cffi>=25.1,<26",
+  "fastapi>=0.115,<1",
   "Pillow>=12.3,<13",
   "SQLAlchemy>=2.0,<2.1",
+  "uvicorn>=0.30,<1",
 ]
 
 [project.optional-dependencies]
 dev = [
+  "httpx2>=2,<3",
   "mypy>=1.13",
   "pytest>=8",
   "ruff>=0.8",

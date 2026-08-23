@@ -67,8 +67,8 @@ gespeichert. Forward erhält die alte Source-Identität als `MISSING` und legt
 für das historisch freie Target eine getrennte `NEW`-Identität an; Recovery
 erhält die Source-Identität `PRESENT` und erfindet keine Target-Historie.
 
-Migration `0032_ebook_rename_reconciliation` ist der aktuelle Head. Die
-Reconciliation ist insert-only, content-addressed, pro Run eindeutig und an
+Migration `0033_local_surface_foundation` ist der aktuelle Head. Die
+vorausgehende Rename-Reconciliation ist insert-only, content-addressed, pro Run eindeutig und an
 genau einen abgeschlossenen Folgescan sowie `CollectionState` gebunden.
 Statusausgaben bleiben ohne Locator, Basenames, Pfade, Hashes, Attribute,
 Capability-Inhalte, Fences und Confirmation-Digests. Reale E-Books sind für
@@ -107,12 +107,21 @@ E-Books, private Runtime-Daten und die vollständige lokale Suite waren für
 diesen begrenzten Application-Scope nicht erforderlich. Der vollständige
 PR-CI-Gate ist für den stabilen Head noch auszuführen.
 
-Der nächste reguläre Produkt-Slice ist `S-FUT11-02`. Er evaluiert und pinnt
-den ASGI-/OpenAPI- und Argon2id-Stack und liefert die lokale Auth-, Session-,
-Job-, Audit- und Worker-Basis ohne registrierte W10-Capability. `S-FUT11-03`
-und `S-FUT11-04` beginnen erst nach erfolgreichem Abschluss ihrer jeweiligen
-Vorgängerwave. Alle weiteren Writer bleiben hinter ihrem eigenen W10-Gate;
-ADR-0067 leitet aus RN04 keine allgemeine Write-Capability ab.
+S-FUT11-02 ist implementiert. FastAPI, Uvicorn und `argon2-cffi` sind
+versionsbegrenzt gepinnt; FastAPI erzeugt den per Digest getesteten
+OpenAPI-`3.1.0`-Vertrag. Migration `0033_local_surface_foundation` ergänzt
+die lokale Auth-, Session-, Grant-, Audit-, Job-, Event- und Lease-Basis.
+`surface-api`, `analysis-worker` und der netzlose, capability-freie
+`operator-worker` sind getrennt konfiguriert. Es wurde kein W10-Command
+registriert und keine Source-Media-Mutation ergänzt.
+
+Zwölf gezielte Security-, API-, Migrations- und Job-Fencing-Tests bestanden;
+Ruff und Mypy über 273 Quelldateien waren grün. Die vollständige lokale Suite,
+der Compose-Start und der einmalige PR-CI-Gate sind noch auszuführen.
+`S-FUT11-03` und `S-FUT11-04` beginnen erst nach erfolgreichem Abschluss
+ihrer jeweiligen Vorgängerwave. Alle weiteren Writer bleiben hinter ihrem
+eigenen W10-Gate; ADR-0067 leitet aus RN04 keine allgemeine Write-Capability
+ab.
 
 Für die FUT-011-Entscheidungswave bestanden lokal 21 Planungs-/
 Dokumentationsverträge und 21 direkt betroffene W10-/Rename-/Titelwrite-/

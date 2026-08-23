@@ -121,6 +121,14 @@ from foliotone.persistence.metadata_correction_report import (
 )
 from foliotone.persistence.metadata_write import SQLiteMetadataWriteStore
 from foliotone.persistence.quarantine import SQLiteQuarantineStore
+from foliotone.surface.cli import (
+    add_surface_commands,
+    run_analysis_worker,
+    run_auth_bootstrap,
+    run_auth_reset,
+    run_operator_worker,
+    run_surface_api,
+)
 from foliotone.tooling.ebook_readiness import inspect_ebook_toolchain
 from foliotone.tooling.runtime import ToolRuntime
 from foliotone.workflows import (
@@ -589,6 +597,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=__version__)
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("status", help="Show the current implementation status.")
+    add_surface_commands(subparsers)
 
     ebook_tools_doctor = subparsers.add_parser(
         "ebook-tools-doctor",
@@ -2196,6 +2205,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run the FolioTone CLI."""
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.command == "auth-bootstrap":
+        return run_auth_bootstrap(args)
+
+    if args.command == "auth-reset":
+        return run_auth_reset(args)
+
+    if args.command == "surface-api":
+        return run_surface_api(args)
+
+    if args.command == "analysis-worker":
+        return run_analysis_worker(args)
+
+    if args.command == "operator-worker":
+        return run_operator_worker(args)
 
     if args.command == "status":
         print("FolioTone W2 foundation is complete; W3 e-book analysis is in progress.")
@@ -4407,9 +4431,9 @@ def _run_ebook_rename_status(args: argparse.Namespace) -> int:
     try:
         engine = create_sqlite_read_only_engine(database)
         try:
-            report = SQLiteEbookRenameStatusReportReader(
-                SQLiteEbookRenameStore(engine)
-            ).read(args.run_id)
+            report = SQLiteEbookRenameStatusReportReader(SQLiteEbookRenameStore(engine)).read(
+                args.run_id
+            )
         finally:
             engine.dispose()
     except EbookRenameStatusReportError:
@@ -4516,9 +4540,7 @@ def _emit_ebook_rename_operation(
                 "plan_id": str(result.plan_id),
                 "scan_root_id": str(result.scan_root_id),
                 "status": result.status.value,
-                "scan_run_id": (
-                    None if result.scan_run_id is None else str(result.scan_run_id)
-                ),
+                "scan_run_id": (None if result.scan_run_id is None else str(result.scan_run_id)),
                 "source_observation_id": (
                     None
                     if result.source_observation_id is None
@@ -4564,10 +4586,7 @@ def _print_ebook_rename_status(report: EbookRenameStatusReport) -> None:
     print(f"Authorized: {report.authorized_at.isoformat()}")
     print(f"Expires: {report.expires_at.isoformat()}")
     for event in report.events:
-        print(
-            f"Event: {event.sequence_no} {event.status.value} "
-            f"{event.occurred_at.isoformat()}"
-        )
+        print(f"Event: {event.sequence_no} {event.status.value} {event.occurred_at.isoformat()}")
     if report.reconciliation is not None:
         print(f"Reconciliation outcome: {report.reconciliation.outcome.value}")
         print(f"Reconciliation scan: {report.reconciliation.scan_run_id}")
@@ -4578,10 +4597,7 @@ def _print_ebook_rename_status(report: EbookRenameStatusReport) -> None:
             print(f"Target FileRecord: {report.reconciliation.target_file_id}")
         if report.reconciliation.target_observation_id is not None:
             print(f"Target observation: {report.reconciliation.target_observation_id}")
-        print(
-            "CollectionState: "
-            f"{report.reconciliation.collection_state_snapshot_id}"
-        )
+        print(f"CollectionState: {report.reconciliation.collection_state_snapshot_id}")
         print(f"Reconciled: {report.reconciliation.reconciled_at.isoformat()}")
 
 
@@ -4626,16 +4642,10 @@ def _open_metadata_write_operator() -> tuple[Engine, MetadataWriteOperatorServic
             engine,
             _metadata_write_stage_root(),
             metadata_executable=os.environ.get("FOLIOTONE_EBOOK_META", "ebook-meta"),
-            text_executable=os.environ.get(
-                "FOLIOTONE_EBOOK_CONVERT", "ebook-convert"
-            ),
-            cover_executable=os.environ.get(
-                "FOLIOTONE_CALIBRE_DEBUG", "calibre-debug"
-            ),
+            text_executable=os.environ.get("FOLIOTONE_EBOOK_CONVERT", "ebook-convert"),
+            cover_executable=os.environ.get("FOLIOTONE_CALIBRE_DEBUG", "calibre-debug"),
             java_executable=os.environ.get("FOLIOTONE_JAVA", "java"),
-            epubcheck_jar=Path(
-                os.environ.get("FOLIOTONE_EPUBCHECK_JAR", "epubcheck.jar")
-            ),
+            epubcheck_jar=Path(os.environ.get("FOLIOTONE_EPUBCHECK_JAR", "epubcheck.jar")),
         )
     except Exception:
         engine.dispose()

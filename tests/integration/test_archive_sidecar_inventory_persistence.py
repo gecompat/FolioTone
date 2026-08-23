@@ -50,9 +50,7 @@ def test_migration_0021_adds_exact_sidecar_schema_and_safe_empty_downgrade(
     engine = create_sqlite_engine(database)
     inspector = inspect(engine)
     with engine.connect() as connection:
-        revision = connection.execute(
-            text("SELECT version_num FROM alembic_version")
-        ).scalar_one()
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         plan = " ".join(
             str(row[-1])
             for row in connection.execute(
@@ -64,7 +62,7 @@ def test_migration_0021_adds_exact_sidecar_schema_and_safe_empty_downgrade(
                 {"run": str(RUN_ID), "low": "books/", "high": "books/\U0010ffff"},
             )
         )
-    assert revision == "0032_ebook_rename_reconciliation"
+    assert revision == "0033_local_surface_foundation"
     assert {table.name for table in archive_schema.ARCHIVE_SIDECAR_TABLES} <= set(
         inspector.get_table_names()
     )
@@ -121,16 +119,15 @@ def test_sidecar_inventory_derives_complete_direct_set_and_exact_retry(
         lease_expires_at=NOW + timedelta(minutes=5),
     )
     store = SQLiteArchiveEvidenceStore(engine)
-    first = store.create_or_get_sidecar_inventory(
-        archive_id, lease, NOW + timedelta(seconds=1)
-    )
+    first = store.create_or_get_sidecar_inventory(archive_id, lease, NOW + timedelta(seconds=1))
     assert [(item.sidecar_kind, item.sidecar_file_observation_id) for item in first.items] == [
         (kind, expected_sidecars[kind])
         for kind in sorted(expected_sidecars, key=lambda item: item.value)
     ]
-    assert store.create_or_get_sidecar_inventory(
-        archive_id, lease, NOW + timedelta(seconds=2)
-    ) == first
+    assert (
+        store.create_or_get_sidecar_inventory(archive_id, lease, NOW + timedelta(seconds=2))
+        == first
+    )
     assert store.get_sidecar_inventory(archive_id) == first
 
     empty = store.create_or_get_sidecar_inventory(
@@ -139,24 +136,21 @@ def test_sidecar_inventory_derives_complete_direct_set_and_exact_retry(
     assert empty.items == ()
     assert empty.id != first.id
     with pytest.raises(ArchiveEvidenceStoreError, match="exceeds the bound"):
-        store.create_or_get_sidecar_inventory(
-            bounded_archive_id, lease, NOW + timedelta(seconds=4)
-        )
+        store.create_or_get_sidecar_inventory(bounded_archive_id, lease, NOW + timedelta(seconds=4))
     with engine.connect() as connection:
-        assert connection.execute(
-            text("SELECT COUNT(*) FROM archive_sidecar_inventories")
-        ).scalar_one() == 2
+        assert (
+            connection.execute(
+                text("SELECT COUNT(*) FROM archive_sidecar_inventories")
+            ).scalar_one()
+            == 2
+        )
         assert connection.execute(
             text("SELECT COUNT(*) FROM archive_sidecar_inventory_items")
         ).scalar_one() == len(expected_sidecars)
 
-    SQLiteScanRootWriteLeaseStore(engine).release(
-        lease, released_at=NOW + timedelta(seconds=5)
-    )
+    SQLiteScanRootWriteLeaseStore(engine).release(lease, released_at=NOW + timedelta(seconds=5))
     with pytest.raises(ArchiveEvidenceStoreError, match="write failed"):
-        store.create_or_get_sidecar_inventory(
-            archive_id, lease, NOW + timedelta(seconds=6)
-        )
+        store.create_or_get_sidecar_inventory(archive_id, lease, NOW + timedelta(seconds=6))
     engine.dispose()
 
 

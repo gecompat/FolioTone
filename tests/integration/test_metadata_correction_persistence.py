@@ -148,9 +148,7 @@ PRIVATE_PATH = "private/synthetic-secret-title.epub"
 OBSERVED_TITLE = "Observed synthetic private title"
 SELECTED_TITLE = "Confirmed synthetic private title"
 PREPARATION_OWNER_ID = EntityId.parse("98000000-0000-0000-0000-000000000001")
-METADATA_WRITE_CAPABILITY_ID = EntityId.parse(
-    "98000000-0000-0000-0000-000000000002"
-)
+METADATA_WRITE_CAPABILITY_ID = EntityId.parse("98000000-0000-0000-0000-000000000002")
 METADATA_WRITE_RUN_ID = EntityId.parse("98000000-0000-0000-0000-000000000003")
 EXPECTED_OUTPUT_HASH = "e" * 64
 
@@ -525,7 +523,7 @@ def test_migration_0026_preserves_review_history_and_downgrades_when_empty(
         review_ddl = connection.execute(
             text("SELECT sql FROM sqlite_master WHERE type='table' AND name='review_items'")
         ).scalar_one()
-    assert revision == "0032_ebook_rename_reconciliation"
+    assert revision == "0033_local_surface_foundation"
     assert retained == str(decision_id)
     assert retained_plan_review == str(plan_id)
     assert "METADATA_CORRECTION" in review_ddl
@@ -1123,9 +1121,7 @@ def _persist_metadata_write_run(database: Path):
 def test_metadata_write_retry_requires_the_original_second_confirmation(
     head_database: Path,
 ) -> None:
-    engine, _plan, authorization, run, run_lease = _persist_metadata_write_run(
-        head_database
-    )
+    engine, _plan, authorization, run, run_lease = _persist_metadata_write_run(head_database)
     store = SQLiteMetadataWriteStore(engine)
     prompt = metadata_write_confirmation_text(authorization)
     confirmation_digest = metadata_write_confirmation_digest(authorization, prompt)
@@ -1153,9 +1149,7 @@ def test_metadata_write_retry_requires_the_original_second_confirmation(
 def test_metadata_write_reconciliation_atomically_verifies_one_new_collection_state(
     head_database: Path,
 ) -> None:
-    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(
-        head_database
-    )
+    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(head_database)
     store = SQLiteMetadataWriteStore(engine)
     lease_store = SQLiteScanRootWriteLeaseStore(engine)
     store.bind_backend(
@@ -1597,11 +1591,9 @@ def _metadata_write_operator_context(
 def test_metadata_write_operator_completes_authorize_execute_scan_and_reconciliation(
     head_database: Path,
 ) -> None:
-    engine, plan, capability, source_path, _source, service = (
-        _metadata_write_operator_context(
-            head_database,
-            label="operator-success",
-        )
+    engine, plan, capability, source_path, _source, service = _metadata_write_operator_context(
+        head_database,
+        label="operator-success",
     )
 
     authorized = service.authorize(
@@ -1619,9 +1611,7 @@ def test_metadata_write_operator_completes_authorize_execute_scan_and_reconcilia
         )
     assert invalid_confirmation.value.code is MetadataWriteOperatorErrorCode.CONFIRMATION_INVALID
     assert (
-        SQLiteMetadataWriteStore(engine).get_run_for_authorization(
-            authorized.authorization_id
-        )
+        SQLiteMetadataWriteStore(engine).get_run_for_authorization(authorized.authorization_id)
         is None
     )
     prompt = service.confirmation_prompt(
@@ -1642,16 +1632,14 @@ def test_metadata_write_operator_completes_authorize_execute_scan_and_reconcilia
     assert result.scan_run_id is not None
     assert result.observation_id is not None
     assert result.collection_state_snapshot_id is not None
-    authorization = SQLiteMetadataWriteStore(engine).get_authorization(
-        authorized.authorization_id
-    )
+    authorization = SQLiteMetadataWriteStore(engine).get_authorization(authorized.authorization_id)
     assert authorization is not None
     assert hashlib.sha256(source_path.read_bytes()).hexdigest() == (
         authorization.expected_output_sha256
     )
-    report = SQLiteMetadataWriteStatusReportReader(
-        SQLiteMetadataWriteStore(engine)
-    ).read(result.run_id)
+    report = SQLiteMetadataWriteStatusReportReader(SQLiteMetadataWriteStore(engine)).read(
+        result.run_id
+    )
     assert report.status is MetadataWriteRunStatus.VERIFIED
     assert report.reconciliation is not None
     assert report.reconciliation.scan_run_id == result.scan_run_id
@@ -1662,12 +1650,10 @@ def test_metadata_write_operator_completes_authorize_execute_scan_and_reconcilia
 def test_metadata_write_operator_reconciles_an_automatically_restored_original(
     head_database: Path,
 ) -> None:
-    engine, plan, capability, source_path, source, service = (
-        _metadata_write_operator_context(
-            head_database,
-            label="operator-recovery",
-            fail_preserve=True,
-        )
+    engine, plan, capability, source_path, source, service = _metadata_write_operator_context(
+        head_database,
+        label="operator-recovery",
+        fail_preserve=True,
     )
     authorized = service.authorize(
         plan_id=plan.id,
@@ -1700,15 +1686,13 @@ def test_metadata_write_operator_reconciles_an_automatically_restored_original(
 
     assert recovered.status is MetadataWriteRunStatus.RECOVERED
     assert recovered.scan_run_id is not None
-    report = SQLiteMetadataWriteStatusReportReader(
-        SQLiteMetadataWriteStore(engine)
-    ).read(recovered.run_id)
+    report = SQLiteMetadataWriteStatusReportReader(SQLiteMetadataWriteStore(engine)).read(
+        recovered.run_id
+    )
     assert report.status is MetadataWriteRunStatus.RECOVERED
     assert report.reconciliation is not None
     assert report.reconciliation.outcome is MetadataWriteReconciliationOutcome.RECOVERED
-    assert all(
-        event.status is not MetadataWriteRunStatus.VERIFIED for event in report.events
-    )
+    assert all(event.status is not MetadataWriteRunStatus.VERIFIED for event in report.events)
     assert SQLiteScanRootWriteLeaseStore(engine).current(ROOT_ID) is None
     engine.dispose()
 
@@ -1885,9 +1869,7 @@ def test_linux_tmpfs_metadata_write_execution_and_recovery_end_to_end(
 def test_metadata_write_backend_binding_and_private_source_are_fenced(
     head_database: Path,
 ) -> None:
-    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(
-        head_database
-    )
+    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(head_database)
     store = SQLiteMetadataWriteStore(engine)
     bound_at = run.created_at + timedelta(seconds=1)
 
@@ -1963,9 +1945,7 @@ def test_metadata_write_backend_binding_and_private_source_are_fenced(
 def test_metadata_write_recovery_uses_historical_locator_after_expiry(
     head_database: Path,
 ) -> None:
-    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(
-        head_database
-    )
+    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(head_database)
     store = SQLiteMetadataWriteStore(engine)
     store.bind_backend(
         run,
@@ -2024,9 +2004,7 @@ def test_metadata_write_recovery_uses_historical_locator_after_expiry(
 def test_prepared_source_gate_expires_but_recovery_remains_available(
     head_database: Path,
 ) -> None:
-    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(
-        head_database
-    )
+    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(head_database)
     store = SQLiteMetadataWriteStore(engine)
     store.bind_backend(
         run,
@@ -2083,9 +2061,7 @@ def test_prepared_source_gate_expires_but_recovery_remains_available(
 def test_migration_0028_refuses_to_drop_a_backend_binding(
     head_database: Path,
 ) -> None:
-    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(
-        head_database
-    )
+    engine, plan, authorization, run, run_lease = _persist_metadata_write_run(head_database)
     SQLiteMetadataWriteStore(engine).bind_backend(
         run,
         authorization,
@@ -2190,11 +2166,7 @@ def test_migration_0027_persists_one_use_fenced_metadata_write_journal(
         )
     with engine.begin() as connection:
         with pytest.raises(IntegrityError, match="immutable metadata write record"):
-            connection.execute(
-                text(
-                    "UPDATE metadata_write_authorizations SET source_size_bytes=1"
-                )
-            )
+            connection.execute(text("UPDATE metadata_write_authorizations SET source_size_bytes=1"))
         with pytest.raises(IntegrityError, match="immutable metadata write event"):
             connection.execute(text("DELETE FROM metadata_write_events"))
         with pytest.raises(IntegrityError, match="gapless"):
@@ -2259,9 +2231,7 @@ def test_metadata_write_status_uses_true_read_only_private_projection(
     head_database: Path,
 ) -> None:
     database = head_database
-    engine, _plan_value, authorization, run, run_lease = _persist_metadata_write_run(
-        database
-    )
+    engine, _plan_value, authorization, run, run_lease = _persist_metadata_write_run(database)
     store = SQLiteMetadataWriteStore(engine)
     store.append_event(
         MetadataWriteExecutionEvent(
@@ -2281,9 +2251,9 @@ def test_metadata_write_status_uses_true_read_only_private_projection(
     read_only_engine = create_sqlite_read_only_engine(database)
     with read_only_engine.connect() as connection:
         assert connection.execute(text("PRAGMA query_only")).scalar_one() == 1
-    report = SQLiteMetadataWriteStatusReportReader(
-        SQLiteMetadataWriteStore(read_only_engine)
-    ).read(run.id)
+    report = SQLiteMetadataWriteStatusReportReader(SQLiteMetadataWriteStore(read_only_engine)).read(
+        run.id
+    )
     payload = report.payload()
     read_only_engine.dispose()
 
@@ -2315,9 +2285,7 @@ def test_metadata_write_status_uses_true_read_only_private_projection(
 def test_metadata_write_persists_manual_recovery_from_prepared(
     head_database: Path,
 ) -> None:
-    engine, _plan, _authorization, run, run_lease = _persist_metadata_write_run(
-        head_database
-    )
+    engine, _plan, _authorization, run, run_lease = _persist_metadata_write_run(head_database)
     store = SQLiteMetadataWriteStore(engine)
     store.append_event(
         MetadataWriteExecutionEvent(
@@ -2354,9 +2322,7 @@ def test_metadata_write_status_rejects_an_invalid_persisted_transition(
     head_database: Path,
 ) -> None:
     database = head_database
-    engine, _plan_value, _authorization, run, run_lease = _persist_metadata_write_run(
-        database
-    )
+    engine, _plan_value, _authorization, run, run_lease = _persist_metadata_write_run(database)
     store = SQLiteMetadataWriteStore(engine)
     store.append_event(
         MetadataWriteExecutionEvent(
@@ -2395,9 +2361,7 @@ def test_metadata_write_status_rejects_an_invalid_persisted_transition(
     engine.dispose()
 
     read_only_engine = create_sqlite_read_only_engine(database)
-    reader = SQLiteMetadataWriteStatusReportReader(
-        SQLiteMetadataWriteStore(read_only_engine)
-    )
+    reader = SQLiteMetadataWriteStatusReportReader(SQLiteMetadataWriteStore(read_only_engine))
     with pytest.raises(
         MetadataWriteStatusReportError,
         match="^METADATA_WRITE_STATUS_UNAVAILABLE$",
@@ -2501,11 +2465,10 @@ def test_migration_0027_empty_downgrade_restores_previous_lease_contract(
         version = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         lease_sql = connection.execute(
             text(
-                "SELECT sql FROM sqlite_master "
-                "WHERE type='table' AND name='scan_root_write_leases'"
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='scan_root_write_leases'"
             )
         ).scalar_one()
-    assert version == "0032_ebook_rename_reconciliation"
+    assert version == "0033_local_surface_foundation"
     assert "METADATA_WRITE_PREPARATION" in lease_sql
     assert "METADATA_WRITE_RUN" in lease_sql
     engine.dispose()
@@ -2516,8 +2479,7 @@ def test_migration_0027_empty_downgrade_restores_previous_lease_contract(
         tables = set(inspect(connection).get_table_names())
         lease_sql = connection.execute(
             text(
-                "SELECT sql FROM sqlite_master "
-                "WHERE type='table' AND name='scan_root_write_leases'"
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='scan_root_write_leases'"
             )
         ).scalar_one()
     assert "metadata_write_authorizations" not in tables

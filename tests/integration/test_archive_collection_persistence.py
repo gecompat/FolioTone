@@ -59,11 +59,7 @@ FILE_ID = EntityId.parse("00000000-0000-0000-0000-000000000303")
 FILE_OBSERVATION_ID = EntityId.parse("00000000-0000-0000-0000-000000000304")
 FILE_HASH = "b" * 64
 FORMAT_LOCK = (
-    Path(__file__).parents[2]
-    / "packaging"
-    / "archive"
-    / "7zip-26.02"
-    / "archive-format.lock.json"
+    Path(__file__).parents[2] / "packaging" / "archive" / "7zip-26.02" / "archive-format.lock.json"
 )
 
 
@@ -236,14 +232,9 @@ def test_migration_0020_upgrades_0019_with_closed_tables_and_writer_checks(
     engine = create_sqlite_engine(database)
     inspector = inspect(engine)
     with engine.connect() as connection:
-        revision = connection.execute(
-            text("SELECT version_num FROM alembic_version")
-        ).scalar_one()
+        revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         archive_sql = connection.execute(
-            text(
-                "SELECT sql FROM sqlite_master "
-                "WHERE type='table' AND name='archive_observations'"
-            )
+            text("SELECT sql FROM sqlite_master WHERE type='table' AND name='archive_observations'")
         ).scalar_one()
         claim_plan = " ".join(
             str(row[-1])
@@ -255,7 +246,7 @@ def test_migration_0020_upgrades_0019_with_closed_tables_and_writer_checks(
                 {"run": str(EntityId.new())},
             ).all()
         )
-    assert revision == "0032_ebook_rename_reconciliation"
+    assert revision == "0033_local_surface_foundation"
     assert {
         "archive_collection_runs",
         "archive_collection_items",
@@ -268,10 +259,7 @@ def test_migration_0020_upgrades_0019_with_closed_tables_and_writer_checks(
     downgraded = create_sqlite_engine(database)
     with downgraded.connect() as connection:
         restored_sql = connection.execute(
-            text(
-                "SELECT sql FROM sqlite_master "
-                "WHERE type='table' AND name='archive_observations'"
-            )
+            text("SELECT sql FROM sqlite_master WHERE type='table' AND name='archive_observations'")
         ).scalar_one()
     assert not (
         {
@@ -292,10 +280,7 @@ def test_plan_claim_error_and_finish_are_atomic_and_retry_safe(
     entry = _entry(run.id)
     assert store.append_plan_batch(run.id, "owner-one", (entry,), now=NOW) == 1
     assert (
-        store.append_plan_batch(
-            run.id, "owner-one", (entry,), now=NOW + timedelta(seconds=1)
-        )
-        == 1
+        store.append_plan_batch(run.id, "owner-one", (entry,), now=NOW + timedelta(seconds=1)) == 1
     )
     with pytest.raises(ArchiveCollectionStoreError, match="hash drifted"):
         store.seal_plan(
@@ -341,9 +326,7 @@ def test_plan_claim_error_and_finish_are_atomic_and_retry_safe(
         error_code="ADAPTER_ERROR",
     )
     assert completed.status is ArchiveCollectionItemStatus.ERROR
-    finished = store.finish_invocation(
-        run.id, "owner-one", finished_at=NOW + timedelta(seconds=5)
-    )
+    finished = store.finish_invocation(run.id, "owner-one", finished_at=NOW + timedelta(seconds=5))
     assert finished.status is ArchiveCollectionRunStatus.COMPLETED_WITH_FAILURES
     assert finished.lease_token is None
 
@@ -428,9 +411,7 @@ def test_successful_item_requires_exact_current_archive_graph(head_database: Pat
         error_code=None,
     )
     assert completed.archive_observation_id == observation_id
-    finished = store.finish_invocation(
-        run.id, "owner-one", finished_at=NOW + timedelta(seconds=4)
-    )
+    finished = store.finish_invocation(run.id, "owner-one", finished_at=NOW + timedelta(seconds=4))
     assert finished.status is ArchiveCollectionRunStatus.COMPLETED
 
 
@@ -528,9 +509,7 @@ class _ExecutionRunner:
     def __init__(self) -> None:
         self._steps = [(_locked_listing(),), ()]
 
-    def run(
-        self, request: ArchiveContainerRequest, **kwargs: Any
-    ) -> ArchiveContainerRunResult:
+    def run(self, request: ArchiveContainerRequest, **kwargs: Any) -> ArchiveContainerRunResult:
         del request
         chunks = self._steps.pop(0)
         for chunk in chunks:
@@ -558,9 +537,7 @@ class _ExecutionProvider:
         cancellation: Any = None,
     ) -> ArchiveProviderOutcome:
         self.calls += 1
-        moments = iter(
-            NOW + timedelta(hours=1, seconds=value) for value in range(8)
-        )
+        moments = iter(NOW + timedelta(hours=1, seconds=value) for value in range(8))
         self.last_outcome = _inspect(
             _ExecutionRunner(),
             request,
@@ -584,9 +561,7 @@ class _NeverProvider:
 
 
 class _CancelledRunner:
-    def run(
-        self, request: ArchiveContainerRequest, **kwargs: Any
-    ) -> ArchiveContainerRunResult:
+    def run(self, request: ArchiveContainerRequest, **kwargs: Any) -> ArchiveContainerRunResult:
         del request, kwargs
         return ArchiveContainerRunResult(
             ARCHIVE_LINUX_CONTAINER_RUNNER_PROFILE,
@@ -608,9 +583,7 @@ class _CancelledProvider:
         cancellation: Any = None,
     ) -> ArchiveProviderOutcome:
         self.calls += 1
-        moments = iter(
-            NOW + timedelta(hours=3, seconds=value) for value in range(4)
-        )
+        moments = iter(NOW + timedelta(hours=3, seconds=value) for value in range(4))
         return _inspect(
             _CancelledRunner(),
             request,
@@ -637,8 +610,7 @@ def _locked_listing() -> bytes:
     capability = next(
         item
         for item in lock["capabilities"]
-        if item["storage_family"] == "ZIP"
-        and item["case_kind"] == "PLAINTEXT_REGULAR"
+        if item["storage_family"] == "ZIP" and item["case_kind"] == "PLAINTEXT_REGULAR"
     )
     values = {
         "EMPTY": "",
@@ -730,28 +702,31 @@ def test_execution_persists_same_provider_graph_then_reuses_without_second_run(
     assert provider.last_outcome is not None
     assert provider.last_outcome.result is not None
     evidence_store = SQLiteArchiveEvidenceStore(engine)
-    assert evidence_store.find_listing_reuse(
-        provider.last_outcome.result.reuse_key,
-        _compatibility(
-            observe_archive_signature_v2("synthetic.zip", payload),
-            ArchiveSevenZipFormatCase.PLAINTEXT_REGULAR,
-        ),
-        scan_root_id=EntityId.parse(
-            "00000000-0000-0000-0000-000000000399"
-        ),
-        source_scan_run_id=SCAN_ID,
-        sources=(
-            ArchiveEvidenceSource(FILE_OBSERVATION_ID, digest, len(payload), "archive"),
-        ),
-    ) is None
-    with engine.connect() as connection:
-        first = connection.execute(
-            text(
-                "SELECT status, disposition, archive_observation_id "
-                "FROM archive_collection_items WHERE run_id=:run"
+    assert (
+        evidence_store.find_listing_reuse(
+            provider.last_outcome.result.reuse_key,
+            _compatibility(
+                observe_archive_signature_v2("synthetic.zip", payload),
+                ArchiveSevenZipFormatCase.PLAINTEXT_REGULAR,
             ),
-            {"run": str(running.id)},
-        ).mappings().one()
+            scan_root_id=EntityId.parse("00000000-0000-0000-0000-000000000399"),
+            source_scan_run_id=SCAN_ID,
+            sources=(ArchiveEvidenceSource(FILE_OBSERVATION_ID, digest, len(payload), "archive"),),
+        )
+        is None
+    )
+    with engine.connect() as connection:
+        first = (
+            connection.execute(
+                text(
+                    "SELECT status, disposition, archive_observation_id "
+                    "FROM archive_collection_items WHERE run_id=:run"
+                ),
+                {"run": str(running.id)},
+            )
+            .mappings()
+            .one()
+        )
         assert first["status"] == "SUCCEEDED"
         assert first["disposition"] == "EXECUTED"
         assert first["archive_observation_id"] is not None
@@ -788,13 +763,17 @@ def test_execution_persists_same_provider_graph_then_reuses_without_second_run(
     assert reused.status is ArchiveCollectionRunStatus.COMPLETED
     assert never.calls == 0
     with engine.connect() as connection:
-        second_item = connection.execute(
-            text(
-                "SELECT status, disposition, archive_observation_id "
-                "FROM archive_collection_items WHERE run_id=:run"
-            ),
-            {"run": str(running_second.id)},
-        ).mappings().one()
+        second_item = (
+            connection.execute(
+                text(
+                    "SELECT status, disposition, archive_observation_id "
+                    "FROM archive_collection_items WHERE run_id=:run"
+                ),
+                {"run": str(running_second.id)},
+            )
+            .mappings()
+            .one()
+        )
     assert second_item["status"] == "SUCCEEDED"
     assert second_item["disposition"] == "REUSED"
     assert second_item["archive_observation_id"] == first["archive_observation_id"]
@@ -839,21 +818,25 @@ def test_cancelled_provider_run_remains_resumable_without_terminal_graph(
     assert interrupted.status is ArchiveCollectionRunStatus.INTERRUPTED
     assert provider.calls == 1
     with engine.connect() as connection:
-        item = connection.execute(
-            text(
-                "SELECT status, archive_observation_id, error_code "
-                "FROM archive_collection_items WHERE run_id=:run"
-            ),
-            {"run": str(running.id)},
-        ).mappings().one()
+        item = (
+            connection.execute(
+                text(
+                    "SELECT status, archive_observation_id, error_code "
+                    "FROM archive_collection_items WHERE run_id=:run"
+                ),
+                {"run": str(running.id)},
+            )
+            .mappings()
+            .one()
+        )
         assert dict(item) == {
             "status": "RUNNING",
             "archive_observation_id": None,
             "error_code": None,
         }
-        assert connection.execute(
-            text("SELECT count(*) FROM archive_observations")
-        ).scalar_one() == 0
+        assert (
+            connection.execute(text("SELECT count(*) FROM archive_observations")).scalar_one() == 0
+        )
     resumed = store.acquire_resume(
         running.id,
         lease_token="owner-two",

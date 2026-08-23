@@ -21,15 +21,14 @@ def test_head_database_factory_returns_isolated_schema_copies(
     with right_engine.connect() as connection:
         marker = connection.execute(
             text(
-                "SELECT name FROM sqlite_master "
-                "WHERE type = 'table' AND name = 'test_only_marker'"
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'test_only_marker'"
             )
         ).scalar_one_or_none()
         revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
     right_engine.dispose()
 
     assert marker is None
-    assert revision == "0032_ebook_rename_reconciliation"
+    assert revision == "0033_local_surface_foundation"
 
 
 def test_head_database_factory_rejects_reuse_and_nested_names(
