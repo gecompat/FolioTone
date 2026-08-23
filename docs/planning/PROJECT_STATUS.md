@@ -4,6 +4,57 @@ Stand: 2026-08-23
 
 ## Aktuelle Welle
 
+**S-W10-05D implementiert — Quarantäne-Recovery schließt W10-005**
+
+`quarantine-recover` vervollständigt die durch ADR-0056 erlaubte
+Interim-Ein-Datei-Quarantänekette. Das Kommando akzeptiert ausschließlich eine
+opaque Run-ID und die Darstellungswahl. Plan-, Content-Hash-, Capability- und
+Authorization-Binder, Datenbankpfad sowie freie Source-/Zielpfade sind keine
+Argumente. Standardausgabe und Fehler bleiben auf Profil, feste Status-
+beziehungsweise Fehlercodes und opaque IDs begrenzt.
+
+Der Operator rehydriert Run, einmalig verbrauchte Authorization, exakten
+Plan, bestätigtes `PREPARED`-Event und den historischen Observation-Locator.
+Eine inzwischen abgelaufene Authorization und ein später geänderter aktueller
+`FileRecord` verhindern die Beweissicherung nicht. Ein unbestätigter, direkt
+über die niedrige Persistenzschicht erzeugter Run ist dagegen nicht
+recoveryfähig. Unter einer frischen oder ausschließlich für denselben Run
+übernommenen abgelaufenen `CONSOLIDATION_QUARANTINE_RUN`-Lease werden reguläre
+Einzeldatei, Modified-Zeitpunkt, Größe und Full-SHA-256 erneut geprüft.
+
+Recovery führt selbst kein `os.rename`, Copy, Delete, Overwrite oder externes
+Tool aus. Bei `PREPARED` plus exakter Source und abwesendem Ziel prüft sie den
+Zustand unmittelbar erneut und hängt `CANCELLED` an. Bei abwesender Source und
+exaktem Ziel ergänzt sie nach erneuter Prüfung vor jedem Schritt nur die noch
+fehlenden Ereignisse `MOVED`, `VERIFIED` und `COMPLETED`. Alle anderen
+Verteilungen enden ohne Dateisystemmutation bei `MANUAL_REVIEW`.
+`COMPLETED` und `CANCELLED` sind idempotent. Das Journal akzeptiert für Erfolg
+nur noch `PREPARED -> MOVED -> VERIFIED -> COMPLETED`; ein lückenloser, aber
+widersprüchlicher Verlauf blockiert Recovery vor einem weiteren Event.
+
+Auf dem aktuellen Stand bestanden 14 synthetische Recovery-Matrix-
+Integrationsfälle zusammen in 33,29 Sekunden sowie der zusätzliche
+Capability-Ausfall in 8,98 Sekunden. Die insgesamt 15 Fälle decken den
+unveränderten Abbruch, den
+Abschluss ab `PREPARED`/`MOVED`/`VERIFIED`, vier uneindeutige physische
+Verteilungen, aktiven Root-Writer, Capability-Ausfall mit erhaltener Run-ID,
+historische Locator nach Ablauf und FileRecord-Drift, idempotenten Terminal-
+Retry, unbestätigtes `PREPARED`, abgelaufene Same-Run-Lease-Übernahme und ein
+widersprüchliches Journal ab.
+Zusätzlich bestanden 45 fokussierte Recovery-/CLI-/Bootstrap-/Planungs- und
+Dokumentationsverträge in 1,24 Sekunden. Die vollständige lokale Suite und
+Docker wurden gemäß Test Policy nicht gestartet. Es wurden ausschließlich
+kleine synthetische temporäre Dateien und SQLite-Datenbanken verwendet; reale
+E-Books und private Runtime-Daten wurden nicht geöffnet. Der vollständige
+PR-CI-Gate bleibt dem exakten stabilen Head vorbehalten.
+
+`W10-005` ist damit funktional vollständig; die bewusst nicht atomare
+No-Replace-Grenze des Interim-Executors und `FG-W10-MOVE-BACKEND` bleiben
+unverändert sichtbar. `W9-007` ist der nächste getrennte book-only Slice und
+definiert ausschließlich nicht ausführbare, reproduzierbare Operationsrezepte
+für Rename, Reorganisation, Import/Export, Transformation und Archive-/
+Containeränderungen. Er öffnet keinen weiteren Writer.
+
 **S-W10-05C implementiert — Quarantäne-Execute ist einmalig und gefencet**
 
 `quarantine-execute` ergänzt die zweite feste ADR-0056-Bedienstufe. Das
@@ -57,8 +108,11 @@ Verwendet wurden ausschließlich synthetische temporäre Dateien und
 SQLite-Datenbanken. Reale E-Books und private Runtime-Daten wurden nicht
 geöffnet; eine vollständige lokale Suite wurde gemäß Test Policy nicht
 gestartet. Zusätzlich bestanden 22 betroffene Planungs-, Dokumentations-,
-W10- und Bootstrap-Verträge. Der vollständige PR-CI-Gate bleibt für den
-stabilen Head noch nachzuweisen.
+W10- und Bootstrap-Verträge. Der stabile Head
+`3ed588d5aca013bce47896e3716f3e5747121841` bestand Quality-Run
+`32610844152` und Linux-Image-Run `32610844212`. PR #240 wurde als
+`b86bc878f0e3000ba31d79f93573146149c58740` auf `main` integriert; auch
+Post-Merge-Run `32610996492` war grün.
 
 ADR-0056 wurde ohne Erweiterung der Entscheidung an den bereits akzeptierten
 Persistenzvertrag angeglichen: Der Confirmation-Digest gehört zum atomaren
@@ -67,10 +121,9 @@ veralteten Aussagen zu separaten Bestätigungs- und Verbrauchsevents wurden
 entfernt; außerhalb der Interim-Ein-Datei-Quarantäne bleibt die Write-Grenze
 unverändert.
 
-`S-W10-05D` ist der nächste getrennte Slice. Er ergänzt ausschließlich
-`quarantine-recover` und die feste Crash-/Recovery-Matrix; bis dahin darf ein
-nicht abgeschlossener Run nur read-only inspiziert und nicht erneut ausgeführt
-werden.
+`S-W10-05D` ergänzt darauf aufbauend die no-move Exact-State-Recovery und
+schließt `W10-005`; diese aktuelle Wave ist im vorangestellten Abschnitt
+dokumentiert.
 
 **S-W10-05B implementiert — Quarantäne-Authorization ist operativ erreichbar**
 
@@ -194,11 +247,11 @@ erwartet. Der Vertragsassert wurde ohne Produktionscodeänderung auf die bereits
 dokumentierte Ausführungsfront synchronisiert; der korrigierte Head benötigt
 erneut den vollständigen Gate.
 
-`S-W10-05C` ergänzt inzwischen die bereits durch ADR-0056 erlaubte
-Interim-Ein-Datei-Quarantäne um Execute, zweite Bestätigung und
-One-use-Fencing. `S-W10-05D` ist der nächste reguläre Slice und ergänzt nur
-Recovery. Die separate `FG-W10-MOVE-BACKEND`-Härtung und alle weiteren
-Mutationstypen bleiben davon unberührt.
+`S-W10-05C` und `S-W10-05D` ergänzen inzwischen die bereits durch ADR-0056
+erlaubte Interim-Ein-Datei-Quarantäne um Execute, zweite Bestätigung,
+One-use-Fencing und no-move Recovery. Die separate
+`FG-W10-MOVE-BACKEND`-Härtung und alle weiteren Mutationstypen bleiben davon
+unberührt.
 
 **S-W10-MW04 implementiert — Linux-Exchange und Recovery bleiben ohne Bedienpfad**
 
@@ -433,9 +486,10 @@ für den begrenzten EPUB-3-Titelwriter entschieden; `S-W10-MW01` und
 `S-W10-MW03` liefert Authorization, Journal, Capability/Fencing und read-only
 Status. `S-W10-MW04` liefert den internen Linux-Executor und Recovery;
 `S-W10-MW05` schließt Bedienung und Reconciliation ab.
-`W10-005` ist der nächste reguläre Slice; allgemeine reale Mutation,
-Music, Bilder, REST-API und grafische Oberfläche werden durch diesen Abschluss
-nicht aktiviert. Am finalen lokalen Stand von S-W9-006C bestanden 41
+`W10-005` ist ebenfalls abgeschlossen; `W9-007` ist der nächste reguläre
+book-only Slice. Allgemeine reale Mutation, Music, Bilder, REST-API und
+grafische Oberfläche werden durch diesen Abschluss nicht aktiviert. Am
+finalen lokalen Stand von S-W9-006C bestanden 41
 fokussierte Report-, Privacy-, Schema-, Bootstrap-, Store-, Consolidation-
 Regression- und statische Tests in 26,36 Sekunden. Ruff war für alle
 geänderten Python-Dateien und Mypy für die drei betroffenen Source-Module grün;
@@ -500,9 +554,9 @@ Review über nicht ausführbare Metadatenkorrektur-/Konsolidierungspläne bis zu
 operation-spezifischen W10-Gates, Revalidierung, Fencing, Verifikation,
 Recovery und der späteren REST-/UI-Grenze. ADR-0061 autorisiert ihre
 kontrollierte Entwicklung, nicht eine pauschale reale Mutation. `W9-006` ist
-`NEXT`; `W9-007` bleibt `PLANNED`. Die Metadata-, Sidecar-, externe Library-,
-Rename- und Archive-Write-Gates stehen als getrennte technische `DECISION`s
-an.
+abgeschlossen; `W9-007` ist inzwischen `NEXT`. Der erste Metadata-Write-
+Vertrag ist abgeschlossen. Sidecar-, externe Library-, Rename- und Archive-
+Write-Gates stehen weiterhin als getrennte technische `DECISION`s an.
 
 **W10-Interim abgeschlossen — Executor und read-only Quarantänestatus sind vorhanden**
 
@@ -2054,10 +2108,9 @@ enge W10-Vertragsgate für Quarantäne. S-W10-01 bis S-W10-04 sind
 abgeschlossen: reine Authorization-/Eligibility-Verträge, immutable
 Persistenz, Interim-Executor und read-only Status sind vorhanden. Der
 Capability Resolver aus S-W10-05A, die current-state-gebundene
-`quarantine-authorize`-CLI aus S-W10-05B und das gefencete, einmalige Execute
-aus S-W10-05C sind ebenfalls umgesetzt. Es fehlen Recovery und deren
-synthetische Crash-/Recovery-Abnahme; `S-W10-05D` ist der nächste Teil der
-Bedienkette.
+`quarantine-authorize`-CLI aus S-W10-05B, das gefencete, einmalige Execute aus
+S-W10-05C und die no-move Exact-State-Recovery aus S-W10-05D sind ebenfalls
+umgesetzt. Damit ist `W10-005` abgeschlossen.
 
 ADR-0058 legt die aktuelle reguläre Produktfolge fest. `CS-01` ist
 abgeschlossen und erzeugt `collection-state/v1` als immutable, rebuildbare

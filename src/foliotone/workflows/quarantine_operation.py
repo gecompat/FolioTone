@@ -59,6 +59,10 @@ from foliotone.quarantine.executor import (
     InterimQuarantinePaths,
     execute_interim_quarantine,
 )
+from foliotone.quarantine.recovery import (
+    InterimQuarantineRecoveryResult,
+    recover_interim_quarantine,
+)
 from foliotone.quarantine.source_validation import (
     InterimQuarantineSourceVerifier,
     QuarantineSourceValidationError,
@@ -79,6 +83,7 @@ class QuarantineOperatorErrorCode(StrEnum):
     AUTHORIZATION_MISMATCH = "AUTHORIZATION_MISMATCH"
     AUTHORIZATION_EXPIRED = "AUTHORIZATION_EXPIRED"
     AUTHORIZATION_CONSUMED = "AUTHORIZATION_CONSUMED"
+    RUN_UNAVAILABLE = "RUN_UNAVAILABLE"
     CONFIRMATION_INVALID = "CONFIRMATION_INVALID"
     CAPABILITY_MISMATCH = "CAPABILITY_MISMATCH"
     TOOL_UNAVAILABLE = "TOOL_UNAVAILABLE"
@@ -140,6 +145,7 @@ class QuarantineSourceVerifier(Protocol):
 
 
 QuarantineExecutor = Callable[..., InterimQuarantineExecutionResult]
+QuarantineRecovery = Callable[..., InterimQuarantineRecoveryResult]
 
 
 class QuarantineOperatorService:
@@ -152,6 +158,7 @@ class QuarantineOperatorService:
         capability_resolver: QuarantineCapabilityLookup | None = None,
         source_verifier: QuarantineSourceVerifier | None = None,
         executor: QuarantineExecutor | None = None,
+        recovery: QuarantineRecovery | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._plans = SQLiteConsolidationStore(engine)
@@ -160,6 +167,7 @@ class QuarantineOperatorService:
         self._capabilities = capability_resolver or QuarantineCapabilityResolver()
         self._source_verifier = source_verifier or InterimQuarantineSourceVerifier()
         self._executor = executor or execute_interim_quarantine
+        self._recovery = recovery or recover_interim_quarantine
         self._clock = clock or _system_clock
 
     def authorize(
@@ -346,6 +354,68 @@ class QuarantineOperatorService:
             status=execution.status,
         )
 
+    def recover(self, *, run_id: EntityId) -> QuarantineOperationResult:
+        """Recover one confirmed run by exact physical state without another move."""
+
+        run, authorization, plan, latest = self._recovery_material(run_id)
+        if latest not in {
+            QuarantineRunStatus.PREPARED,
+            QuarantineRunStatus.MOVED,
+            QuarantineRunStatus.VERIFIED,
+        }:
+            self._release_expired_terminal_lease(run)
+            return self._recovery_result(run, authorization, latest)
+
+        lease = self._acquire_recovery_lease(run)
+        try:
+            run, authorization, plan, latest = self._recovery_material(run_id)
+            if latest not in {
+                QuarantineRunStatus.PREPARED,
+                QuarantineRunStatus.MOVED,
+                QuarantineRunStatus.VERIFIED,
+            }:
+                return self._recovery_result(run, authorization, latest)
+            capability = self._capability(
+                authorization.quarantine_capability_id,
+                plan,
+            )
+            source = self._quarantine.require_recovery_candidate(
+                run,
+                authorization,
+                plan,
+                lease,
+                checked_at=_now(self._clock),
+            )
+            recovery = self._recovery(
+                store=self._quarantine,
+                authorization=authorization,
+                run=run,
+                lease=lease,
+                capability=capability,
+                source=source,
+                clock=self._clock,
+            )
+        except QuarantineOperatorError as error:
+            if error.run_id is not None:
+                raise
+            raise QuarantineOperatorError(
+                error.code,
+                error.blockers,
+                run_id=run.id,
+            ) from error
+        except QuarantineCapabilityUnavailable:
+            _operator_fail(
+                QuarantineOperatorErrorCode.TOOL_UNAVAILABLE,
+                run_id=run.id,
+            )
+        except ScanRootWriteLeaseError:
+            _operator_fail(QuarantineOperatorErrorCode.FENCED_OUT, run_id=run.id)
+        except Exception:
+            _operator_fail(QuarantineOperatorErrorCode.MANUAL_REVIEW, run_id=run.id)
+        finally:
+            self._release_lease(lease)
+        return self._recovery_result(run, authorization, recovery.status)
+
     def _plan(self, plan_id: EntityId, plan_content_hash: str) -> ConsolidationPlan:
         if (
             not isinstance(plan_id, EntityId)
@@ -483,6 +553,163 @@ class QuarantineOperatorService:
                 assessment.blockers,
             )
         return assessment.authorization
+
+    def _recovery_material(
+        self,
+        run_id: EntityId,
+    ) -> tuple[
+        QuarantineExecutionRun,
+        QuarantineAuthorizationSnapshot,
+        ConsolidationPlan,
+        QuarantineRunStatus,
+    ]:
+        if not isinstance(run_id, EntityId):
+            _operator_fail(QuarantineOperatorErrorCode.RUN_UNAVAILABLE)
+        try:
+            run = self._quarantine.get_run(run_id)
+        except Exception:
+            _operator_fail(QuarantineOperatorErrorCode.RUN_UNAVAILABLE)
+        if run is None:
+            _operator_fail(QuarantineOperatorErrorCode.RUN_UNAVAILABLE)
+        try:
+            authorization = self._quarantine.get_authorization(run.authorization_id)
+            plan = self._plans.get_plan(run.plan_id)
+            events = self._quarantine.events_for_run(run.id)
+        except Exception:
+            _operator_fail(
+                QuarantineOperatorErrorCode.MANUAL_REVIEW,
+                run_id=run.id,
+            )
+        if (
+            authorization is None
+            or plan is None
+            or plan.keeper is None
+            or plan.candidate is None
+            or run.plan_id != authorization.plan_id
+            or run.plan_id != plan.id
+            or run.scan_root_id != authorization.scan_root_id
+            or run.scan_root_id != plan.scan_root_id
+            or run.keeper_file_id != authorization.keeper_file_id
+            or run.keeper_file_id != plan.keeper.file_id
+            or run.candidate_file_id != authorization.candidate_file_id
+            or run.candidate_file_id != plan.candidate.file_id
+            or authorization.plan_content_hash != plan.content_hash
+            or authorization.keeper_observation_id != plan.keeper.observation_id
+            or authorization.candidate_observation_id != plan.candidate.observation_id
+            or authorization.keeper_full_sha256
+            != plan.keeper.expected_full_sha256
+            or authorization.candidate_full_sha256
+            != plan.candidate.expected_full_sha256
+            or _SHA256.fullmatch(run.target_token) is None
+            or not events
+            or tuple(event.sequence_no for event in events)
+            != tuple(range(1, len(events) + 1))
+            or any(event.run_id != run.id for event in events)
+            or events[0].status is not QuarantineRunStatus.PREPARED
+            or events[0].confirmation_digest is None
+            or _SHA256.fullmatch(events[0].confirmation_digest) is None
+            or any(event.confirmation_digest is not None for event in events[1:])
+        ):
+            _operator_fail(
+                QuarantineOperatorErrorCode.MANUAL_REVIEW,
+                run_id=run.id,
+            )
+        return run, authorization, plan, events[-1].status
+
+    def _acquire_recovery_lease(
+        self,
+        run: QuarantineExecutionRun,
+    ) -> OwnedScanRootWriteLease:
+        acquired_at = _now(self._clock)
+        try:
+            current = self._leases.current(run.scan_root_id)
+            if current is None:
+                return self._leases.acquire(
+                    run.scan_root_id,
+                    ScanRootWriteOwnerKind.CONSOLIDATION_QUARANTINE_RUN,
+                    run.id,
+                    lease_token=str(EntityId.new()),
+                    acquired_at=acquired_at,
+                    lease_expires_at=acquired_at + _LEASE_DURATION,
+                )
+            if (
+                current.owner_kind
+                is ScanRootWriteOwnerKind.CONSOLIDATION_QUARANTINE_RUN
+                and current.owner_run_id == run.id
+                and current.lease_expires_at <= acquired_at
+            ):
+                return self._leases.takeover_expired(
+                    current,
+                    run.id,
+                    lease_token=str(EntityId.new()),
+                    acquired_at=acquired_at,
+                    lease_expires_at=acquired_at + _LEASE_DURATION,
+                )
+        except Exception:
+            pass
+        _operator_fail(QuarantineOperatorErrorCode.FENCED_OUT, run_id=run.id)
+
+    def _release_expired_terminal_lease(
+        self,
+        run: QuarantineExecutionRun,
+    ) -> None:
+        checked_at = _now(self._clock)
+        try:
+            current = self._leases.current(run.scan_root_id)
+        except Exception:
+            _operator_fail(QuarantineOperatorErrorCode.FENCED_OUT, run_id=run.id)
+        if (
+            current is None
+            or current.owner_kind
+            is not ScanRootWriteOwnerKind.CONSOLIDATION_QUARANTINE_RUN
+            or current.owner_run_id != run.id
+        ):
+            return
+        if current.lease_expires_at > checked_at:
+            _operator_fail(QuarantineOperatorErrorCode.FENCED_OUT, run_id=run.id)
+        try:
+            recovered = self._leases.takeover_expired(
+                current,
+                run.id,
+                lease_token=str(EntityId.new()),
+                acquired_at=checked_at,
+                lease_expires_at=checked_at + _LEASE_DURATION,
+            )
+        except Exception:
+            _operator_fail(QuarantineOperatorErrorCode.FENCED_OUT, run_id=run.id)
+        self._release_lease(recovered)
+
+    @staticmethod
+    def _recovery_result(
+        run: QuarantineExecutionRun,
+        authorization: QuarantineAuthorizationSnapshot,
+        status: QuarantineRunStatus,
+    ) -> QuarantineOperationResult:
+        if status in {
+            QuarantineRunStatus.COMPLETED,
+            QuarantineRunStatus.CANCELLED,
+        }:
+            return QuarantineOperationResult(
+                authorization.id,
+                run.id,
+                run.plan_id,
+                run.scan_root_id,
+                status,
+            )
+        code = {
+            QuarantineRunStatus.STALE: QuarantineOperatorErrorCode.STALE,
+            QuarantineRunStatus.TOOL_UNAVAILABLE: (
+                QuarantineOperatorErrorCode.TOOL_UNAVAILABLE
+            ),
+            QuarantineRunStatus.VALIDATION_FAILED: (
+                QuarantineOperatorErrorCode.VALIDATION_FAILED
+            ),
+            QuarantineRunStatus.FENCED_OUT: QuarantineOperatorErrorCode.FENCED_OUT,
+            QuarantineRunStatus.MANUAL_REVIEW: (
+                QuarantineOperatorErrorCode.MANUAL_REVIEW
+            ),
+        }.get(status, QuarantineOperatorErrorCode.INTERNAL_ERROR)
+        _operator_fail(code, run_id=run.id)
 
     def _acquire_run_lease(
         self,

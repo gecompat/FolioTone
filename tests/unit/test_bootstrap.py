@@ -91,8 +91,9 @@ def test_status_command_is_non_destructive_bootstrap(
             "and metadata-write-status."
         ),
         (
-            "Bounded single-file quarantine authorization and execution are available "
-            "through quarantine-authorize and quarantine-execute; recovery remains unavailable."
+            "Bounded single-file quarantine authorization, execution, and recovery are "
+            "available through quarantine-authorize, quarantine-execute, and "
+            "quarantine-recover."
         ),
         "Other source-media and external-tool mutation commands remain unavailable.",
     ]

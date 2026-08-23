@@ -117,6 +117,10 @@ Bestätigungseingabe, Hashes, Pfade noch Dateinamen aus.
 Der Operator provisioniert pro ScanRoot einen privaten Quarantänebereich.
 FolioTone speichert und berichtet nur eine opaque `quarantine_capability_id`.
 Absolute Pfade, Volume-Namen und Mountpunkte bleiben private Konfiguration.
+Eine Capability-ID ist eine immutable Versionsidentität ihrer gesamten
+privaten Zuordnung. Wird ScanRoot- oder Quarantäneverzeichnis geändert, muss
+eine neue ID provisioniert werden; die Wiederverwendung einer ID für andere
+Pfade ist eine ungültige Runtime-Konfiguration.
 
 Der Interim-Executor muss vor jedem Lauf beweisen:
 
@@ -168,12 +172,26 @@ Lease unabhängig von ihrem Ablauf ausschließlich Recovery vorbehalten.
 Filesystem und SQLite bilden keine gemeinsame Transaktion. Deshalb wird
 `PREPARED` vor der Mutation dauerhaft geschrieben. Nach Crash oder Timeout
 entscheidet Recovery ausschließlich anhand desselben gebundenen Source- und
-Ziel-Entries:
+Ziel-Entries sowie des letzten append-only Runstatus. Recovery selbst ruft
+niemals `os.rename` auf und erzeugt keinen zweiten Move-Versuch:
 
-- Source vorhanden, Ziel abwesend: noch nicht bewegt, erneute Preconditions;
-- Source abwesend, Ziel exakt gebunden: Move erfolgt, Verifikation fortsetzen;
-- beide vorhanden, beide abwesend oder fremdes Zielmaterial: `MANUAL_REVIEW`,
-  keine weitere Mutation.
+- `PREPARED`, Source exakt gebunden und Ziel abwesend: Es wurde keine Mutation
+  beobachtet. Recovery prüft diesen Zustand erneut, persistiert `CANCELLED`
+  und beendet den Run. Ein neuer Versuch benötigt eine frische Authorization
+  und die zweite Bestätigung.
+- `PREPARED`, `MOVED` oder `VERIFIED`, Source abwesend und Ziel als reguläre
+  Einzeldatei exakt an Größe, Modified-Zeitpunkt und Full-SHA-256 gebunden:
+  Recovery prüft vor jedem Folgeevent erneut und ergänzt ausschließlich die
+  noch fehlenden Events in der Reihenfolge `MOVED`, `VERIFIED`, `COMPLETED`.
+- Source und Ziel beide vorhanden, beide abwesend, nicht regulär oder mehrfach
+  verlinkt, Source abweichend, Ziel fremd oder Eventjournal und physischer
+  Zustand widersprüchlich: `MANUAL_REVIEW`, keine weitere Dateimutation.
+
+`COMPLETED` und `CANCELLED` sind idempotente Recovery-Ergebnisse. Andere
+terminale Fehlerzustände bleiben terminal und werden nicht umgeschrieben. Der
+Ablauf der Authorization blockiert die Beweissicherung eines bereits
+persistierten Runs nicht. Jede Eventpersistenz bleibt an eine frische oder
+fencesicher übernommene Root-Lease genau dieses Runs gebunden.
 
 Stale Lease, Fencingverlust, Cleanupfehler oder unklare File-Identity darf nie
 als Erfolg gelten. Ein bereits verifizierter Zielbestand wird bei einem
@@ -213,6 +231,12 @@ immer Recovery bis zu einem belegten terminalen Zustand versucht. Der
 read-only Reporter zeigt ausschließlich Run-ID, Plan-ID, Status,
 Authorization-Status, opaque Keeper-/Candidate-IDs, Zeitpunkte und feste
 Finding-Literale.
+
+Der einzige erfolgreiche Übergang ist
+`PREPARED -> MOVED -> VERIFIED -> COMPLETED`; kein Erfolgszustand darf
+übersprungen werden. Von `PREPARED` sind daneben nur die festen Fehlerzustände
+oder `CANCELLED` zulässig. Ein lückenloses, aber davon abweichendes Journal ist
+widersprüchlich und blockiert Recovery vor jeder weiteren Eventpersistenz.
 
 ### Rollback, Purge und Rescan
 

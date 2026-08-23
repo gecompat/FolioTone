@@ -53,6 +53,16 @@ def _arguments(command: str = "quarantine-authorize") -> list[str]:
     return values
 
 
+def _recovery_arguments() -> list[str]:
+    return [
+        "quarantine-recover",
+        "--run-id",
+        str(RUN_ID),
+        "--output",
+        "json",
+    ]
+
+
 def test_quarantine_authorize_emits_only_opaque_public_material(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
@@ -222,6 +232,100 @@ def test_quarantine_execute_failure_exposes_only_the_opaque_existing_run(
     assert PLAN_HASH not in captured.out
     assert "candidate.epub" not in captured.out
     assert engine.disposed is True
+
+
+def test_quarantine_recover_accepts_only_one_opaque_run_and_stays_private(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = _Engine()
+    received: dict[str, object] = {}
+
+    def recover(*, run_id: EntityId) -> QuarantineOperationResult:
+        received["run_id"] = run_id
+        return QuarantineOperationResult(
+            authorization_id=AUTHORIZATION_ID,
+            run_id=RUN_ID,
+            plan_id=PLAN_ID,
+            scan_root_id=ROOT_ID,
+            status=QuarantineRunStatus.CANCELLED,
+        )
+
+    monkeypatch.setattr(
+        cli,
+        "_open_quarantine_operator",
+        lambda: (engine, SimpleNamespace(recover=recover)),
+    )
+
+    assert cli.main(_recovery_arguments()) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "schema_version": 1,
+        "command": "quarantine-recover",
+        "ok": True,
+        "profile": "quarantine-operator/v1",
+        "authorization_id": str(AUTHORIZATION_ID),
+        "run_id": str(RUN_ID),
+        "plan_id": str(PLAN_ID),
+        "scan_root_id": str(ROOT_ID),
+        "status": "CANCELLED",
+    }
+    assert received == {"run_id": RUN_ID}
+    assert PLAN_HASH not in json.dumps(payload, sort_keys=True)
+    assert "candidate.epub" not in json.dumps(payload, sort_keys=True)
+    assert engine.disposed is True
+    assert set(vars(cli.build_parser().parse_args(_recovery_arguments()))) == {
+        "command",
+        "run_id",
+        "output",
+    }
+
+
+def test_quarantine_recover_failure_exposes_only_the_opaque_existing_run(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = _Engine()
+
+    def blocked(**_kwargs: object) -> None:
+        raise QuarantineOperatorError(
+            QuarantineOperatorErrorCode.MANUAL_REVIEW,
+            run_id=RUN_ID,
+        )
+
+    monkeypatch.setattr(
+        cli,
+        "_open_quarantine_operator",
+        lambda: (engine, SimpleNamespace(recover=blocked)),
+    )
+
+    assert cli.main(_recovery_arguments()) == 2
+
+    assert json.loads(capsys.readouterr().out) == {
+        "schema_version": 1,
+        "command": "quarantine-recover",
+        "ok": False,
+        "error": {"code": "MANUAL_REVIEW", "run_id": str(RUN_ID)},
+    }
+    assert engine.disposed is True
+
+
+@pytest.mark.parametrize(
+    "forbidden",
+    (
+        ("--plan-id", str(PLAN_ID)),
+        ("--plan-content-hash", PLAN_HASH),
+        ("--capability-id", str(CAPABILITY_ID)),
+        ("--authorization-id", str(AUTHORIZATION_ID)),
+        ("--database", "private.db"),
+    ),
+)
+def test_quarantine_recover_parser_rejects_additional_operator_material(
+    forbidden: tuple[str, str],
+) -> None:
+    with pytest.raises(SystemExit):
+        cli.build_parser().parse_args([*_recovery_arguments(), *forbidden])
 
 
 def test_quarantine_authorize_parser_rejects_non_lowercase_plan_hashes() -> None:

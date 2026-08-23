@@ -241,15 +241,44 @@ geöffnet. Ruff war für den geänderten Python-Scope grün. Ein vollständiger
 Mypy-Lauf über 235 Source-Dateien war grün; nach der finalen Race-Härtung
 wurden die beiden nochmals geänderten Source-Module erneut ohne Befund
 geprüft. Zusätzlich bestanden 22 betroffene Planungs-, Dokumentations-, W10-
-und Bootstrap-Verträge. Der vollständige PR-CI-Gate ist für den stabilen
-05C-Head noch offen. `S-W10-05D` ergänzt als Nächstes ausschließlich Recovery
-und die synthetische Crash-Matrix.
+und Bootstrap-Verträge. Der stabile Head
+`3ed588d5aca013bce47896e3716f3e5747121841` bestand Quality-Run
+`32610844152` und Linux-Image-Run `32610844212`. PR #240 wurde als
+`b86bc878f0e3000ba31d79f93573146149c58740` auf `main` integriert; auch
+Post-Merge-Run `32610996492` war grün.
 
 ADR-0056 wurde dabei nur an den bereits akzeptierten Schema- und
 Ausführungsvertrag angeglichen: `confirmation_digest` liegt im atomaren
 `PREPARED`-Event, die eindeutige Run-Bindung verbraucht die Authorization, und
 eine preparedless abgelaufene Lease wird nur atomar ohne vorhandenen Run
 übernommen. Es wurde keine zusätzliche Mutation entschieden.
+
+`S-W10-05D` vervollständigt inzwischen `W10-005` mit
+`quarantine-recover`. Die CLI nimmt ausschließlich eine opaque Run-ID. Der
+Operator rehydriert bestätigten Run, Authorization, Plan, historisch
+gebundenen Observation-Locator und Capability, erwirbt eine frische oder
+sicher übernommene Same-Run-Lease und klassifiziert Source und Ziel erneut
+gegen Modified-Zeitpunkt, Größe und Full-SHA-256.
+
+Recovery führt selbst keinen Move aus. `PREPARED` plus exakte Source und
+abwesendes Ziel wird nach einer zweiten Prüfung `CANCELLED`; bei abwesender
+Source und exaktem Ziel werden nur fehlende `MOVED`-, `VERIFIED`- und
+`COMPLETED`-Events append-only ergänzt. Jede andere Verteilung endet ohne
+Dateisystemmutation bei `MANUAL_REVIEW`. Abgelaufene Authorization oder ein
+später verändertes aktuelles `FileRecord` blockieren die historische
+Beweissicherung nicht; ein unbestätigter niedriger `PREPARED`-Insert schon.
+Die Erfolgsfolge ist auf `PREPARED -> MOVED -> VERIFIED -> COMPLETED`
+gehärtet, sodass auch ein lückenloses widersprüchliches Journal vor jedem
+weiteren Recovery-Event scheitert.
+
+Auf dem aktuellen Stand bestanden 14 synthetische Recovery-Matrix-
+Integrationsfälle zusammen in 33,29 Sekunden, der zusätzliche Capability-
+Ausfall in 8,98 Sekunden und 45 fokussierte Recovery-/CLI-/Bootstrap-/
+Planungs-/Dokumentationsverträge in 1,24 Sekunden. Reale E-Books,
+private Runtime-Datenbanken, die vollständige lokale Suite und Docker wurden
+nicht verwendet. Der stabile 05D-Head erhält genau einen vollständigen
+PR-CI-Gate. Danach ist `W9-007` der nächste book-only Slice; er modelliert
+nur nicht ausführbare Operationsrezepte und öffnet keinen weiteren Writer.
 
 Für `S-W10-MW01` bestanden lokal 114 fokussierte neue und direkt betroffene
 Unit-, Privacy-, Non-Execution- und Dokumentationsvertragstests in 0,57
@@ -324,8 +353,8 @@ Merge-Voraussetzung.
 `FG-W10-METADATA-WRITE` ist durch ADR-0063 entschieden; `S-W10-MW01` bis
 `S-W10-MW05` sind umgesetzt und schließen genau den begrenzten EPUB-
 Titelwriter. `S-W10-05B` schließt Quarantäne-Authorize; `S-W10-05C` ist der
-gefencete Execute-Slice, `S-W10-05D` ist als Recovery-Slice als Nächstes
-auszuführen. Allgemeine Source-Media-
+gefencete Execute-Slice und `S-W10-05D` schließt die no-move Recovery ab.
+`W9-007` ist als Nächstes auszuführen. Allgemeine Source-Media-
 Mutation, Music, Bilder, REST-API und grafische Oberfläche werden weder durch
 W9-006 noch durch den einen operation-spezifischen Writer aktiviert.
 
@@ -1280,13 +1309,13 @@ Ressourcenanforderung wurde keine weitere vollständige lokale Suite gestartet.
 Der vollständige PR-CI-Gate läuft genau einmal auf dem stabilen Head und ist
 Merge-Voraussetzung.
 
-`W10-005` wird als getrennte `FRONTIER`-Wave bearbeitet. Capability-Auflösung
-`quarantine-authorize` sowie `quarantine-execute` mit zweiter Bestätigung und
-One-use-Fencing sind abgeschlossen. `S-W10-05D` folgt mit
-`quarantine-recover` und synthetischer Crash-/Recovery-Abnahme. Kein Slice
-erweitert die Ein-Datei-/Same-Filesystem-Grenze oder behauptet atomare
-No-Replace-Semantik. Die zweite Bestätigung bleibt auf nicht geloggtes `stdin`
-beschränkt.
+`W10-005` ist als getrennte `FRONTIER`-Wave abgeschlossen. Capability-Auflösung,
+`quarantine-authorize`, `quarantine-execute` mit zweiter
+Bestätigung und One-use-Fencing sowie no-move `quarantine-recover` sind
+vorhanden. Kein Slice erweitert die Ein-Datei-/Same-Filesystem-Grenze oder
+behauptet atomare No-Replace-Semantik. Die zweite Bestätigung bleibt auf nicht
+geloggtes `stdin` beschränkt. `W9-007` ist die nächste kanonische book-only
+Wave.
 
 `OPS-001` ist ein getrenntes lokales Betriebsverfahren für den vollständigen
 privaten Inventory-/Hash-/Collection-/Verifier-Lauf. Es verwendet den
