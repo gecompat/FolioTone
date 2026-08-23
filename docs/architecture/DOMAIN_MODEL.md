@@ -506,7 +506,9 @@ Preconditions, bleibt aber unabhängig vom Reviewstatus dauerhaft
 `NOT_EXECUTABLE`. `S-W9-007B` paart dafür
 `ReviewType.EBOOK_OPERATION_RECIPE` fest mit
 `ReviewCandidateKind.EBOOK_OPERATION_RECIPE_CANDIDATE`; Migration `0030`
-persistiert Candidate, Review und Plan als bounded insert-only Historie.
+persistiert Candidate, Review und Plan als bounded insert-only Historie. Der
+`EbookOperationRecipePlanReport` bildet daraus nur die standardmäßig erlaubte
+opaque, locator-, material- und hashfreie Projektion.
 
 ADR-0061 enables operation-specific W10 development but does not reinterpret
 a W9 plan. Only a new W10 Authorization under the accepted technical contract

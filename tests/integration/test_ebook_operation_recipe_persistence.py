@@ -1,7 +1,8 @@
-"""Focused synthetic coverage for S-W9-007B persistence and review."""
+"""Focused synthetic coverage for S-W9-007B persistence and S-W9-007C reports."""
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -11,6 +12,7 @@ from alembic import command
 from sqlalchemy import Engine, func, insert, inspect, select, text
 from sqlalchemy.exc import IntegrityError
 
+from foliotone.cli.main import build_parser, main
 from foliotone.core import (
     EntityId,
     EntityKind,
@@ -65,6 +67,10 @@ from foliotone.persistence import (
 )
 from foliotone.persistence import ebook_operation_recipe_schema as recipe_schema
 from foliotone.persistence import resolution_review_schema as review_schema
+from foliotone.persistence.ebook_operation_recipe_report import (
+    EbookOperationRecipePlanReport,
+    SQLiteEbookOperationRecipePlanReportReader,
+)
 
 NOW = datetime(2026, 8, 23, 12, 0, tzinfo=UTC)
 ROOT_ID = EntityId.parse("a1000000-0000-0000-0000-000000000001")
@@ -621,6 +627,14 @@ def test_review_and_plan_roundtrip_bind_latest_compatible_decision(
     assert recipe_store.get_plan(approved.id) == approved
     retry = _plan(candidate, accepted, created_at=NOW + timedelta(hours=1))
     assert recipe_store.create_or_get_plan(retry) == approved
+    approved_report = SQLiteEbookOperationRecipePlanReportReader(engine).read(
+        approved.id
+    )
+    assert approved_report.review_status == "ACCEPTED"
+    assert approved_report.counts.review_items == 1
+    assert approved_report.counts.decisions == 1
+    assert approved_report.counts.blockers == 0
+    assert approved_report.blocker_codes == ()
 
     changed = replace(
         approved.preconditions[0],
@@ -817,3 +831,247 @@ def test_recipe_review_pair_is_exact_in_domain_store_and_database(
                 },
             )
     engine.dispose()
+
+
+def _persisted_operation_recipe_report_plan(
+    database: Path,
+) -> EbookOperationRecipePlan:
+    engine = create_sqlite_engine(database)
+    _seed_sources(engine, count=1)
+    store = SQLiteEbookOperationRecipeStore(engine)
+    candidate = store.create_or_get_candidate(_candidate())
+    plan = _plan(candidate, store.get_latest_review(candidate.id))
+    persisted = store.create_or_get_plan(plan)
+    engine.dispose()
+    return persisted
+
+
+@pytest.mark.parametrize("output", ["json", "text"])
+def test_operation_recipe_report_cli_is_strictly_read_only_and_private(
+    head_database: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    output: str,
+) -> None:
+    plan = _persisted_operation_recipe_report_plan(head_database)
+    before = head_database.read_bytes()
+    original_read = SQLiteEbookOperationRecipePlanReportReader.read
+
+    def _read_with_query_only_assertion(
+        reader: SQLiteEbookOperationRecipePlanReportReader,
+        plan_id: EntityId,
+    ) -> EbookOperationRecipePlanReport:
+        with reader._engine.connect() as connection:
+            assert connection.execute(text("PRAGMA query_only")).scalar_one() == 1
+        return original_read(reader, plan_id)
+
+    monkeypatch.setattr(
+        "foliotone.cli.main.migrate",
+        lambda _path: pytest.fail("read-only report must not migrate"),
+    )
+    monkeypatch.setattr(
+        "foliotone.cli.main.create_sqlite_engine",
+        lambda _path: pytest.fail("read-only report must not open a writable engine"),
+    )
+    monkeypatch.setattr(
+        SQLiteEbookOperationRecipePlanReportReader,
+        "read",
+        _read_with_query_only_assertion,
+    )
+
+    assert (
+        main(
+            [
+                "ebook-operation-recipe-report",
+                "--plan",
+                str(plan.id),
+                "--database",
+                str(head_database),
+                "--output",
+                output,
+            ]
+        )
+        == 0
+    )
+    assert head_database.read_bytes() == before
+    rendered = capsys.readouterr().out
+    for private_material in (
+        *PRIVATE_LOCATORS,
+        str(ROOT_ID),
+        str(SCAN_ID),
+        str(FILE_IDS[0]),
+        str(OBSERVATION_IDS[0]),
+        str(FINGERPRINT_IDS[0]),
+        str(TOOL_RESULT_ID),
+        plan.content_hash,
+        plan.candidate.content_hash,
+        plan.candidate.sources[0].expected_full_sha256,
+        plan.candidate.target.target_state_fingerprint,
+        plan.candidate.processor_requirement.material_fingerprint,
+    ):
+        assert private_material not in rendered
+
+    if output == "text":
+        assert f"Plan: {plan.id}" in rendered
+        assert f"Candidate: {plan.candidate.id}" in rendered
+        assert "Operation kind: FILE_RENAME" in rendered
+        assert "Status: BLOCKED" in rendered
+        assert "Execution state: NOT_EXECUTABLE" in rendered
+        assert "Review status: MISSING" in rendered
+        assert "Sources: 1" in rendered
+        assert "Dependencies: 5" in rendered
+        assert "Verifications: 7" in rendered
+        assert "Blocker code: REVIEW_MISSING" in rendered
+        return
+
+    payload = json.loads(rendered)
+    assert set(payload) == {
+        "schema_version",
+        "command",
+        "ok",
+        "plan_id",
+        "candidate_id",
+        "plan_profile",
+        "candidate_profile",
+        "operation_kind",
+        "status",
+        "execution_state",
+        "review_status",
+        "counts",
+        "blocker_codes",
+    }
+    assert payload == {
+        "schema_version": 1,
+        "command": "ebook-operation-recipe-report",
+        "ok": True,
+        "plan_id": str(plan.id),
+        "candidate_id": str(plan.candidate.id),
+        "plan_profile": plan.profile,
+        "candidate_profile": plan.candidate.profile,
+        "operation_kind": "FILE_RENAME",
+        "status": "BLOCKED",
+        "execution_state": "NOT_EXECUTABLE",
+        "review_status": "MISSING",
+        "counts": {
+            "sources": 1,
+            "dependencies": 5,
+            "verifications": 7,
+            "candidate_evidence_refs": 3,
+            "preconditions": 8,
+            "blockers": 1,
+            "blocker_evidence_refs": 3,
+            "review_items": 0,
+            "decisions": 0,
+        },
+        "blocker_codes": ["REVIEW_MISSING"],
+    }
+
+
+def test_operation_recipe_report_rejects_invalid_plan_token() -> None:
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(
+            ["ebook-operation-recipe-report", "--plan", "not-a-uuid"]
+        )
+
+
+def test_operation_recipe_report_missing_plan_is_path_free(
+    head_database: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert (
+        main(
+            [
+                "ebook-operation-recipe-report",
+                "--plan",
+                "00000000-0000-0000-0000-000000000001",
+                "--database",
+                str(head_database),
+                "--output",
+                "json",
+            ]
+        )
+        == 2
+    )
+    assert json.loads(capsys.readouterr().out) == {
+        "schema_version": 1,
+        "command": "ebook-operation-recipe-report",
+        "ok": False,
+        "error": {"code": "PLAN_UNAVAILABLE"},
+    }
+
+
+def test_operation_recipe_report_older_schema_is_not_migrated(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database = tmp_path / "older-operation-recipe-schema.db"
+    migrate(database, "0029_metadata_write_reconciliation")
+    monkeypatch.setattr(
+        "foliotone.cli.main.migrate",
+        lambda _path: pytest.fail("read-only report must not migrate"),
+    )
+
+    assert (
+        main(
+            [
+                "ebook-operation-recipe-report",
+                "--plan",
+                "00000000-0000-0000-0000-000000000001",
+                "--database",
+                str(database),
+                "--output",
+                "json",
+            ]
+        )
+        == 2
+    )
+    assert json.loads(capsys.readouterr().out) == {
+        "schema_version": 1,
+        "command": "ebook-operation-recipe-report",
+        "ok": False,
+        "error": {"code": "SCHEMA_UNAVAILABLE"},
+    }
+    engine = create_sqlite_engine(database)
+    with engine.connect() as connection:
+        revision = connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
+    engine.dispose()
+    assert revision == "0029_metadata_write_reconciliation"
+
+
+def test_operation_recipe_report_internal_failure_does_not_leak_details(
+    head_database: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _boom(
+        _reader: SQLiteEbookOperationRecipePlanReportReader,
+        _plan_id: EntityId,
+    ) -> object:
+        raise RuntimeError(f"synthetic private failure: {PRIVATE_LOCATORS[0]}")
+
+    monkeypatch.setattr(SQLiteEbookOperationRecipePlanReportReader, "read", _boom)
+    assert (
+        main(
+            [
+                "ebook-operation-recipe-report",
+                "--plan",
+                "00000000-0000-0000-0000-000000000001",
+                "--database",
+                str(head_database),
+                "--output",
+                "json",
+            ]
+        )
+        == 2
+    )
+    rendered = capsys.readouterr().out
+    assert PRIVATE_LOCATORS[0] not in rendered
+    assert json.loads(rendered) == {
+        "schema_version": 1,
+        "command": "ebook-operation-recipe-report",
+        "ok": False,
+        "error": {"code": "INTERNAL_READ_ERROR"},
+    }

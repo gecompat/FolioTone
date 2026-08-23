@@ -551,7 +551,13 @@ und Planidentitäten neu.
 Der Store öffnet weder Source Media noch Ziel-Slots und startet keine Tools.
 Private relative Locator werden ausschließlich in der Runtime-Datenbank
 gespeichert und erscheinen weder in DTO-`repr` noch in Storefehlern. Der
-privacy-begrenzte echte SQLite-Read-only-Report folgt in `S-W9-007C`.
+in `S-W9-007C` ergänzte `ebook-operation-recipe-report` öffnet die bestehende
+Datenbank ausschließlich über `mode=ro` und `query_only=ON`, führt keine
+Migration aus und lädt genau einen Plan bounded über denselben Store. Text und
+JSON enthalten ausschließlich opaque Plan-/Candidate-IDs, Profile,
+Operationstyp, Status, Counts, Reviewstatus und Blockerliterale. Locator,
+Source-/Target-IDs, Content-/Materialhashes und Processorwerte bleiben aus
+allen Standardausgaben ausgeschlossen.
 
 ### Gefencete Metadaten-Write-Authorization und Journal
 

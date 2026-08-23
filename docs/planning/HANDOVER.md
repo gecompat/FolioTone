@@ -4,6 +4,30 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
+`S-W9-007C` schließt `W9-007` mit dem echten SQLite-read-only Befehl
+`ebook-operation-recipe-report` ab. Er nimmt genau eine opaque Plan-ID, öffnet
+die bestehende Datenbank über `mode=ro` und `query_only=ON`, migriert nicht und
+rehydriert den bounded insert-only Graph über denselben Store. Text und JSON
+projizieren ausschließlich Plan-/Candidate-ID, Profile, Operationstyp,
+Plan-/Execution-Status, Counts, Reviewstatus und Blockerliterale. Locator,
+Source-/Target-/Evidence-IDs, Hashes, Material-, Format-, Processor- und
+Zeitwerte bleiben ausgeschlossen; alle Fehler sind detailfrei.
+
+Zehn neue beziehungsweise direkt betroffene CLI-, Privacy-, Read-only-,
+Older-Schema-, Fehler-, Bootstrap- und statische Safety-Fälle bestanden in
+14,38 Sekunden. Der ergänzende akzeptierte Reviewpfad bestand in 7,85
+Sekunden. Gezieltes Ruff und Mypy waren grün. Reale E-Books, private
+Runtime-Daten, Docker, externe Tools und die vollständige lokale Suite wurden
+ressourcenschonend nicht verwendet. Zusätzlich bestanden die 22 gezielt
+gebündelten Planungsfront-, Dokumentations-, Testeffizienz- und Report-Safety-
+Fälle in 1,17 Sekunden. Der vollständige PR-Gate ist für den stabilen C-Head
+noch offen.
+
+Als Nächstes folgt `FG-W10-RENAME` als docs-only Frontier-Gate. Es entscheidet
+Root-Grenze, atomaren No-Replace, no-follow, Fencing, Dependencies,
+Collision, Recovery und Scan-Reconciliation für byte-erhaltenden Rename und
+Reorganisation. Es implementiert noch keinen Writer.
+
 `S-W9-007B` ergänzt den reinen ADR-0065-Vertrag um die feste Review-Paarung,
 Migration `0030_ebook_operation_recipe_plans` und zehn bounded insert-only
 Tabellen für den vollständigen Candidate-/Plan-Graph. Der SQLite-Rebuild
@@ -26,9 +50,11 @@ Planungs-, Dokumentations- und Testeffizienzverträge auf dem finalen Stand in
 begrenzten Läufen grün. Ruff war für den gesamten Source-Scope und alle
 geänderten Tests erfolgreich; Mypy prüfte alle 243 Source-Dateien ohne Befund.
 Reale E-Books, private Runtime-Daten, Docker, externe Tools und die
-vollständige lokale Suite
-wurden ressourcenschonend nicht verwendet. Der vollständige PR-Gate ist für
-den stabilen B-Head noch offen.
+vollständige lokale Suite wurden ressourcenschonend nicht verwendet. Der
+stabile B-Head `ab2318ab61a9bb7b79445faff8b874d1f1301038` bestand
+Quality-Run `32616719567` und E-Book-Toolchain-Run `32616719527`. PR #243
+wurde als `0c3e60c2688a8d902d4646ac38c8660539a4ab1d` auf `main` integriert;
+Post-Merge-Run `32616869792` war grün.
 
 ADR-0065 und `S-W9-007A` liefern den reinen Vertrag für dauerhaft nicht
 ausführbare E-Book-Operationsrezepte. `EbookOperationRecipeCandidate` trennt
@@ -53,9 +79,8 @@ W10-Safety-Verträge bestanden 70 Fälle in 0,45 Sekunden. Der stabile A-Head
 bestand Quality-Run `32614478464` und E-Book-Toolchain-Run `32614478470`;
 PR #242 und Post-Merge-Run `32614626362` integrierten ihn auf `main`.
 
-Als Nächstes ergänzt `S-W9-007C` den SQLite-Read-only-Report und die privacy-
-begrenzte CLI. Keines der
-Pakete erzeugt eine W10-Capability oder Authorization.
+`S-W9-007C` ergänzt den SQLite-Read-only-Report und schließt `W9-007` ab.
+Keines der Pakete erzeugt eine W10-Capability oder Authorization.
 
 ADR-0061 hält seit 2026-08-22 die ausdrückliche Owner-Freigabe für die
 kontrollierte Entwicklung der E-Book-Schreibstrecke fest. Die Gate-Wave ist
@@ -419,8 +444,9 @@ Merge-Voraussetzung.
 `S-W10-MW05` sind umgesetzt und schließen genau den begrenzten EPUB-
 Titelwriter. `S-W10-05B` schließt Quarantäne-Authorize; `S-W10-05C` ist der
 gefencete Execute-Slice und `S-W10-05D` schließt die no-move Recovery ab.
-In `W9-007` sind `S-W9-007A` und `S-W9-007B` umgesetzt; `S-W9-007C` folgt als
-Nächstes. Allgemeine Source-Media-Mutation, Music, Bilder, REST-API und
+In `W9-007` sind `S-W9-007A` bis `S-W9-007C` umgesetzt. Als Nächstes folgt das
+docs-only Entscheidungsgate `FG-W10-RENAME`. Allgemeine Source-Media-
+Mutation, Music, Bilder, REST-API und
 grafische Oberfläche werden weder durch W9-006/W9-007 noch durch den einen
 operation-spezifischen Writer aktiviert.
 
@@ -1380,8 +1406,8 @@ Merge-Voraussetzung.
 Bestätigung und One-use-Fencing sowie no-move `quarantine-recover` sind
 vorhanden. Kein Slice erweitert die Ein-Datei-/Same-Filesystem-Grenze oder
 behauptet atomare No-Replace-Semantik. Die zweite Bestätigung bleibt auf nicht
-geloggtes `stdin` beschränkt. In `W9-007` sind `S-W9-007A` und `S-W9-007B`
-umgesetzt; `S-W9-007C` ist die nächste kanonische book-only Wave.
+geloggtes `stdin` beschränkt. In `W9-007` sind `S-W9-007A` bis `S-W9-007C`
+umgesetzt; `FG-W10-RENAME` ist das nächste docs-only Frontier-Gate.
 
 `OPS-001` ist ein getrenntes lokales Betriebsverfahren für den vollständigen
 privaten Inventory-/Hash-/Collection-/Verifier-Lauf. Es verwendet den

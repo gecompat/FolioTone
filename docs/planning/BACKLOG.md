@@ -13,11 +13,11 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | `S-W9-007C` | Nach Vertrag und insert-only Persistenz folgt ausschließlich der privacy-begrenzte echte SQLite-Read-only-Report samt CLI; er öffnet weder Source Media noch einen Writer. |
+| NOW | `FG-W10-RENAME` | Nach dem vollständigen nicht ausführbaren W9-007-Vertrag wird als engster nächster Produkt-Slice ausschließlich der technische Sicherheitsvertrag für byte-erhaltenden Rename und Reorganisation entschieden; das Gate implementiert noch keinen Writer. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
-| NEXT WAVES | `S-W9-007C` | Der Report schließt `W9-007`; erst danach wird das nächste operation-spezifische W10-Gate als eigene Entscheidung ausgewählt. |
+| NEXT WAVES | `FG-W10-RENAME` | Zuerst entscheidet eine eigene Frontier-Wave Root-Grenze, atomaren No-Replace, no-follow, Fencing, Dependency-/Collision-/Recovery- und Scan-Reconciliation-Vertrag; Implementierung folgt nur aus einer akzeptierten ADR in getrennten kleinen Waves. |
 | LATER | W4 sowie die Music-Anteile aus W5 bis W7 | Music bleibt die nächste vollständige Mediendomäne nach ausdrücklicher Aktivierung; weitere Medien erhalten eigene Einstiegspunkte. |
-| DECISION | `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-RENAME`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004 | ADR-0063 entscheidet nur den ersten EPUB-Titelwriter. Alle benachbarten Operationen behalten ihr eigenes technisches Gate. |
+| DECISION | `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004 | ADR-0063 entscheidet nur den ersten EPUB-Titelwriter. Alle benachbarten Operationen behalten ihr eigenes technisches Gate. |
 | BLOCKED | `FG-A-SECRET`, `FG-A3-MEMBER-BYTE` | Secretkanal und Archive-Member-Byte-Identity sind von der E-Book-Write-Freigabe nicht betroffen. |
 
 Andere Planungsdokumente erläutern diese Aufgaben, setzen aber keine eigene
@@ -255,11 +255,11 @@ Interim-Quarantäneexecutor öffnen.
 | S-W9-006A | DONE | Immutable Candidate-/Plan-DTOs, bounded Feld-/Ziel-/Dependency-/Review-/Precondition-/Verification-Verträge, reine Reducer, deterministische UUIDv5-/`canonical-json/v1`-Identitäten, Golden Values und ein statischer Non-Execution-Gate sind implementiert. Das Paket importiert weder Persistenz, CLI, Tooling noch Filesystemmodule. |
 | S-W9-006B | DONE | Review-Core additiv erweitert; Migration `0026` erhält bestehende Review-Historien und persistiert den normalisierten Candidate-/Plan-Graph insert-only. Der bounded Store prüft Content-Identitäten, den kanonischen Reducer, Source-/Evidence-/Dependency-/Target-/Review-Lineage und idempotente Retries atomar. |
 | S-W9-006C | DONE | `ebook-metadata-correction-report` liest genau einen persistierten Plan über `mode=ro` und `query_only=ON`. Text und JSON enthalten nur erlaubte IDs, Profile, Status, Content Hash, Zielträger, Format, Feld-/Operationsnamen, Counts, Reviewstatus und Blockerliterale; Bootstrap und Fehler bleiben pfad- und metadatenwertfrei. |
-| W9-007 | NEXT | Implement non-executable, reproducible recipes for rename, reorganization, import/export, transformation and archive/container changes; keep every operation behind its own W10 gate. |
+| W9-007 | DONE | Non-executable, reproducible recipes for rename, reorganization, import/export, transformation and archive/container changes are implemented through pure contracts, insert-only persistence/review and a true SQLite-read-only report; every operation remains behind its own W10 gate. |
 | FG-W9-007 | DONE | ADR-0065 definiert Candidate-Review-Plan-Trennung, sechs feste Operationstypen, Source-/Target-/Outputidentität, fünf Dependency-Achsen, Processor-/Collision-/Workspace-/Recovery-/Verification-Verträge, kanonische Identität, Privacy und die permanente `NOT_EXECUTABLE`-Grenze. |
 | S-W9-007A | DONE | `foliotone.ebook_operation_recipes` liefert immutable DTOs, reine Builder/Reducer, deterministische UUIDv5-/`canonical-json/v1`-Identitäten, Golden Values und einen statischen Non-Execution-Gate. Das Paket importiert weder Persistence, CLI, Tooling, Adapter noch Filesystem-/Prozessmodule. |
 | S-W9-007B | DONE | Review-Core und SQLite-Constraint sind um die feste Recipe-Paarung erweitert. Migration `0030` erhält vorhandene Review-Historie und abhängige Trigger; zehn Tabellen persistieren Candidate-/Plan-Graph insert-only und bounded. Der Store revalidiert Content-Identitäten, kanonischen Reducer sowie Source-/Hash-/Evidence-/Dependency-/Target-/Review-Lineage atomar und idempotent, ohne Source Media zu öffnen. |
-| S-W9-007C | NEXT | Einen echten SQLite-Read-only-Report samt CLI ergänzen, der nur opaque IDs, Profile, Operationstyp, Status, Counts, Reviewstatus und Blockerliterale ausgibt und damit `W9-007` abschließt. |
+| S-W9-007C | DONE | `ebook-operation-recipe-report` liest genau einen persistierten Plan über `mode=ro` und `query_only=ON`, ohne Migration. Text und JSON enthalten ausschließlich opaque Plan-/Candidate-IDs, Profile, Operationstyp, Status, Counts, Reviewstatus und Blockerliterale; Locator, Source-/Target-IDs, Hashes und Materialwerte bleiben ausgeschlossen. |
 
 ## W10 — Controlled Consolidation
 
@@ -284,7 +284,7 @@ Interim-Quarantäneexecutor öffnen.
 | S-W10-MW05 | DONE | Feste Authorize-/Execute-/Recover-/Status-CLI, zweite Bestätigung über nicht geloggtes `stdin`, unmittelbare Source-Verifikation, expliziter Lease-Handoff, neuer inkrementeller Vollscan, `CollectionState` und immutable Reconciliation sind implementiert. |
 | FG-W10-SIDECAR-WRITE | DECISION | Entscheide Sidecar Create/Update separat mit Ownership, Kollisions-, No-Follow-, Atomizitäts-, Dependency-, Recovery- und Reconciliation-Vertrag. |
 | FG-W10-EXTERNAL-LIBRARY-WRITE | DECISION | Entscheide mutierendes Calibre oder andere externe Systeme je Adapter und fester Operation mit eigenem Snapshot, Idempotenz, Konflikt-, Recovery- und Auditvertrag. |
-| FG-W10-RENAME | DECISION | Entscheide Datei-Rename/Reorganisation separat mit Root-Grenze, No-Replace, no-follow, Dependency-, Collision-, Rollback- und Scan-Reconciliation-Nachweis. |
+| FG-W10-RENAME | NEXT | Entscheide Datei-Rename/Reorganisation separat mit Root-Grenze, atomarem No-Replace, no-follow, Fencing, Dependency-, Collision-, Recovery- und Scan-Reconciliation-Nachweis. Das Gate bleibt docs-only und öffnet noch keine Mutation. |
 | FG-W10-ARCHIVE-REWRITE | DECISION | Entscheide Archive-/Container-Rewrite separat; erfolgreiche Extraction oder Transformation darf keine Source-Löschung implizieren. |
 | W10-003 | DECISION | Decide verified rollback and separately approved purge after a retention period; never make successful extraction imply archive deletion. |
 | W10-004 | DECISION | Decide bottom-up empty-directory cleanup as a separate approved operation with fresh enumeration, root/reparse/Calibre/sidecar guards and an auditable reconstruction record. |

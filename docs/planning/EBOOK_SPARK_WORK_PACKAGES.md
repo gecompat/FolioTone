@@ -271,8 +271,9 @@ einführen.
 **Voraussetzungen:** ADR-0065 ist akzeptiert. Jedes Paket bleibt dauerhaft
 `NOT_EXECUTABLE`; kein Paket darf Source Media oder Ziel-Slots öffnen.
 
-**Status:** `S-W9-007A` und `S-W9-007B` sind umgesetzt. `S-W9-007C` ist die
-nächste kanonische book-only Wave.
+**Status:** `S-W9-007A` bis `S-W9-007C` sind umgesetzt und schließen
+`W9-007`. Als nächste kanonische book-only Wave folgt das docs-only
+Entscheidungsgate `FG-W10-RENAME`; es öffnet noch keinen Writer.
 
 | Paket | Ergebnis | Erlaubter Dateibereich | Gezielter Nachweis |
 |---|---|---|---|
