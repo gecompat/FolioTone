@@ -4,6 +4,35 @@ Stand: 2026-08-23
 
 ## Aktuelle Welle
 
+**W0-013 abgeschlossen — AI Repository Foundation 1.2.0 semantisch integriert**
+
+Der Core-Scope der Foundation ist aus dem geprüften Stand
+`28e0e071fef421528d106676c99234d48be08b6b` unter `.ai/foundation/`
+installiert. Das Root-`AGENTS.md` enthält den verwalteten Discovery-Block;
+ADR-0068 hält den semantischen Abgleich fest. FolioTones strengere Domain-,
+Privacy-, Test-, Git- und W10-Regeln bleiben autoritativ. Die bestehenden
+Copilot-/Junie-Adapter bleiben unverändert, weil sie bereits dünn auf das
+Root-`AGENTS.md` verweisen. `LICENSE.md` und der geschützte README-
+Lizenzblock wurden nicht geändert; die Foundation-MIT-Attribution liegt
+namespaced bei den übernommenen Regeln.
+
+Der Foundation-Validator bestand im Profil `full` mit zwei reinen Scope-
+Hinweisen sowie null Warnungen, Fehlern oder Blockern. Alle 14 namespaceten
+Core-/Attributionsdateien sind bytegleich zum geprüften Foundation-Stand.
+Die vollständige Auswahl von 62 FolioTone-Static-Contracts bestand; darin
+enthalten sind die 12 Dokumentationsverträge mit den neuen Versions-,
+Discovery-, Inventar- und Attributionschecks. Ruff war für die geänderte
+statische Testdatei grün, `git diff --check` sauber. `README.md` und
+`LICENSE.md` blieben gegenüber dem Task-Start bytegleich. Mypy, Docker,
+Runtime-Tests, reale E-Books und private Daten waren für diese reine
+Governance-Wave nicht erforderlich. Der vollständige PR-CI-Gate bleibt dem
+stabilen Head vorbehalten.
+
+Der repository-only Fresh-Agent-Transfer ist noch
+`pending manual validation`. Diese Governance-Wave verändert weder Runtime-
+Fähigkeiten noch Provider-/Toolannahmen oder Source-Media-Authorisierung.
+Die reguläre Produktfront bleibt unverändert `S-FUT11-01`.
+
 **FUT-011 entschieden — lokale Einzelbenutzer-Produktoberfläche ist in vier Waves ausführbar geplant**
 
 ADR-0067 akzeptiert `local-single-operator/v1`. Die geplante Oberfläche

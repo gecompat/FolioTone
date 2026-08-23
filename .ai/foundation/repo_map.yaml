@@ -1,0 +1,67 @@
+schema_version: 1
+foundation_ruleset_version: 1.2.0
+canonical_entrypoint: AGENTS.md
+authority:
+  required_or_baseline:
+    - .ai/foundation/FOUNDATION_RULESET.md
+    - .ai/foundation/PROJECT_RULES.md
+    - .ai/foundation/SEMANTIC_INTEGRATION_POLICY.md
+    - .ai/foundation/WORKING_RULES.md
+    - .ai/foundation/MODEL_ROUTING_POLICY.md
+    - .ai/foundation/VALIDATION_POLICY.md
+    - .ai/foundation/DATA_PRIVACY_AND_CONFIDENTIALITY.md
+    - .ai/foundation/SECURITY_AND_SAFE_OPERATIONS.md
+    - .ai/foundation/DOCUMENTATION_POLICY.md
+    - .ai/foundation/THIRD_PARTY_AND_LICENSING.md
+    - .ai/foundation/SOURCE_AND_EVIDENCE_POLICY.md
+    - .ai/foundation/DEPENDENCY_POLICY.md
+provenance:
+  foundation_notice: .ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md
+  target_root_license_behavior: independent_and_untouched
+integration_contract:
+  root_entrypoint: AGENTS.md
+  project_governance_must_be_transitively_discoverable: true
+  stricter_project_rules: compatible
+  existing_project_rule_labels_required: false
+  adapter_governance_migration: preserve_then_rehome_then_thin
+  project_repo_map_behavior: preserve_and_optionally_bridge
+  orphaned_authority_is_integration_defect: true
+  compatibility_classes:
+    - EQUIVALENT
+    - PROJECT_STRONGER
+    - PROJECT_SELECTABLE_OVERRIDE
+    - COMPLEMENTARY
+    - DUPLICATE_GOVERNANCE
+    - FOUNDATION_REQUIRED_CONFLICT
+    - TARGET_INTERNAL_CONFLICT
+    - ORPHANED_AUTHORITY
+    - ADAPTER_GOVERNANCE_MISPLACED
+validation_contract:
+  foundation_integrity:
+    label: FOUNDATION_INTEGRITY
+    authority: foundation_ruleset
+    purpose: installed_foundation_structure_provenance_and_deterministic_contracts
+  project_semantic:
+    label: PROJECT_SEMANTIC
+    authority: target_repository
+    purpose: project_rules_local_overrides_architecture_domain_and_documentation_contracts
+  runtime_empirical:
+    label: RUNTIME_EMPIRICAL
+    authority: target_repository
+    purpose: tests_builds_integrations_runtime_research_data_and_manual_validation
+  status_vocabulary:
+    foundation_reserved_meanings: not_executed_pending_manual_validation_validated
+    target_extensions_allowed: true
+    reserved_meanings_may_not_be_redefined: true
+  completion:
+    selection: impact_based
+    foundation_integrity_does_not_replace_project_validation: true
+model_routing_contract:
+  foundation_tiers: LOCAL_ECONOMICAL_BALANCED_FRONTIER
+  target_policy_may_be_more_detailed: true
+  semantic_mapping_when_overlapping: required
+  concrete_models_are_runtime_facts: true
+override_contract:
+  required: minimum_floor_project_may_be_stricter
+  default: project_may_override_intentionally
+  project_specific_facts: target_repository_is_authoritative
