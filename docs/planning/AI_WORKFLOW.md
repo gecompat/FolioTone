@@ -50,8 +50,10 @@ Eine Implementierungs-Wave erfindet die Entscheidung nicht stillschweigend.
    erstellen, den Feature-Branch pushen und einen Pull Request gegen `main`
    verwenden. Direkte `main`-Writes und Force-Pushes sind nicht zulässig.
 8. **Gate:** Genau ein vollständiger CI-Gate prüft den stabilen PR-Head.
-   Gemergt wird nur dieser grün verifizierte Head. Danach wird der kurze
-   Post-Merge-Vertrag geprüft.
+   Gemergt wird nur dieser grün verifizierte Head und ausschließlich als
+   Merge-Commit mit genau zwei Eltern. Squash- und Rebase-Merges sind
+   unzulässig, weil der kurze Post-Merge-Vertrag den integrierten Diff über
+   `HEAD^1` prüft. Danach wird dieser Post-Merge-Vertrag geprüft.
 9. **Handover:** `BACKLOG.md` und `PROJECT_STATUS.md` geben Ergebnis,
    tatsächliche Tests, offene Nachweise, Blocker und nächste Wave wieder.
 

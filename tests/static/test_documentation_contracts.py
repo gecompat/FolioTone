@@ -155,6 +155,15 @@ def test_post_merge_diff_check_preserves_byte_identical_renames() -> None:
     assert "git diff-tree --check HEAD^1 HEAD" not in workflow
 
 
+def test_wave_workflow_requires_a_two_parent_merge_commit() -> None:
+    workflow = (ROOT / "docs/planning/AI_WORKFLOW.md").read_text(encoding="utf-8")
+    ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert "Merge-Commit mit genau zwei Eltern" in workflow
+    assert "Squash- und Rebase-Merges sind" in workflow
+    assert 'test "$parent_count" -eq 2' in ci
+
+
 def test_calibre_capture_status_is_closed_consistently() -> None:
     backlog = (ROOT / "docs/planning/BACKLOG.md").read_text(encoding="utf-8")
     status = (ROOT / "docs/planning/PROJECT_STATUS.md").read_text(encoding="utf-8")

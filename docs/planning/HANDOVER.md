@@ -24,10 +24,21 @@ fokussierte RN01-Fälle bestanden in 16,63 Sekunden. Die 85 direkt betroffenen
 W9-Store-, CLI-Bootstrap-, Planungs- und Dokumentationsregressionen sind nach
 der Aktualisierung von vier veralteten Status-/CLI-Erwartungen ebenfalls
 grün; Ruff und Mypy waren für den betroffenen Python-Scope ohne Befund. Reale
-E-Books und die vollständige lokale Suite wurden nicht verwendet. Der
-vollständige PR-CI-Gate läuft genau einmal. `S-W10-RN02` ist als reiner
-Authority-/Capability-/Preparation-/Journal-/Status-Slice ohne Executor als
-Nächstes vorgesehen.
+E-Books und die vollständige lokale Suite wurden nicht verwendet.
+
+Der erste PR-Quality-Run `32621668805` fand genau einen veralteten statischen
+CLI-Testanker. Nach dessen einzeiliger Korrektur bestand der einzelne Test
+lokal; der stabile Remote-Head
+`8140a0cde38d9d469ff29d3178d6692b140feb2b` bestand Quality-Run
+`32621898227` und E-Book-Toolchain-Run `32621898266`. PR #246 wurde
+versehentlich als Squash-Commit mit nur einem Eltern-Commit
+`2a5ae669a51cceec9616479fc18661220ff72272` integriert. Post-Merge-Run
+`32622056707` scheiterte daher ausschließlich an der verbindlichen Zwei-
+Eltern-Prüfung, bevor der Diff-Check lief. Die unmittelbar folgende
+Integrations-Reconciliation ändert kein Produktverhalten, dokumentiert den
+verpflichtenden Merge-Commit-Modus und muss vor RN02 einen grünen Post-Merge-
+Head herstellen. Danach ist `S-W10-RN02` als reiner Authority-/Capability-/
+Preparation-/Journal-/Status-Slice ohne Executor vorgesehen.
 
 ADR-0066 schließt `FG-W10-RENAME` als docs-only Frontier-Gate. Akzeptiert ist
 ausschließlich ein byte-identischer `FILE_RENAME` auf einen historisch
