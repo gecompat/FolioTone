@@ -48,6 +48,17 @@ kleine synthetische temporäre Dateien und SQLite-Datenbanken verwendet; reale
 E-Books und private Runtime-Daten wurden nicht geöffnet. Der vollständige
 PR-CI-Gate bleibt dem exakten stabilen Head vorbehalten.
 
+Der erste PR-Gate auf Head `6567a7ed2d5dbefecebc311ececa4445276e2271`
+erreichte nach grünen Install-, Ruff- und Mypy-Schritten die Test-Collection
+und stoppte vor jeder Testausführung. Unit- und Integrationstest der Recovery
+hatten denselben Modulbasename `test_quarantine_recovery.py`; ohne getrennte
+Unterpakete kollidierten ihre Linux-Pytest-Imports. Der Unit-Test heißt nun
+eindeutig `test_quarantine_recovery_inspection.py`. Die vollständige lokale
+Collection erfasste danach alle 2.099 Tests ohne Fehler; ausgeführt wurden
+weiterhin nur die fokussierten Fälle. Produktionscode und
+Sicherheitsverhalten änderten sich durch die Umbenennung nicht. Der
+korrigierte Head benötigt einen neuen vollständigen PR-Gate.
+
 `W10-005` ist damit funktional vollständig; die bewusst nicht atomare
 No-Replace-Grenze des Interim-Executors und `FG-W10-MOVE-BACKEND` bleiben
 unverändert sichtbar. `W9-007` ist der nächste getrennte book-only Slice und

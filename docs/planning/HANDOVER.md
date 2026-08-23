@@ -280,6 +280,15 @@ nicht verwendet. Der stabile 05D-Head erhält genau einen vollständigen
 PR-CI-Gate. Danach ist `W9-007` der nächste book-only Slice; er modelliert
 nur nicht ausführbare Operationsrezepte und öffnet keinen weiteren Writer.
 
+Der erste PR-Gate auf Head `6567a7ed2d5dbefecebc311ececa4445276e2271`
+stoppte vor der Testausführung bei 2.099 gesammelten Tests, weil Unit- und
+Integrationstest denselben Modulbasename `test_quarantine_recovery.py`
+trugen. Der Unit-Test wurde ohne Produktionscodeänderung in
+`test_quarantine_recovery_inspection.py` umbenannt. Danach waren die sechs
+betroffenen Unit-Fälle und die vollständige lokale Collection aller 2.099
+Tests grün. Nur der korrigierte Head benötigt den erneuten vollständigen
+PR-Gate.
+
 Für `S-W10-MW01` bestanden lokal 114 fokussierte neue und direkt betroffene
 Unit-, Privacy-, Non-Execution- und Dokumentationsvertragstests in 0,57
 Sekunden. Ruff war für das neue Paket und seine Tests grün; Mypy meldete für
