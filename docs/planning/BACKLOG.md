@@ -13,7 +13,7 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | `S-FUT11-02` (`NEXT`) | Nach der gemeinsamen read-only Application-Grenze folgt die lokale Auth-, Session-, OpenAPI-, Job-, Audit- und Worker-Basis ohne registrierte W10-Capability. |
+| NOW | `S-FUT11-03` (`NEXT`) | Auf die implementierte lokale Auth-, Session-, OpenAPI-, Job-, Audit- und Worker-Basis folgt die read-only E-Book-Oberfläche. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
 | NEXT WAVES | `S-FUT11-03` -> `S-FUT11-04` | Danach folgen die read-only E-Book-UI und ausschließlich der bereits vollständig freigegebene Same-Parent-Rename als erster GUI-Writer. Jede Wave bleibt von der erfolgreichen Vorgängerwave abhängig. |
 | LATER | W4 sowie die Music-Anteile aus W5 bis W7 | Music bleibt die nächste vollständige Mediendomäne nach ausdrücklicher Aktivierung; weitere Medien erhalten eigene Einstiegspunkte. |
@@ -320,7 +320,7 @@ Wave aktiviert Remote-/Mehrbenutzerbetrieb oder einen neuen Mutationstyp.
 | ID | Status | Item |
 |---|---|---|
 | S-FUT11-01 | DONE | Ergänzt `application-contracts/v1` mit `ApplicationCommand`-/`ApplicationQuery`-/Context-/Error-Verträgen, Composition Root und E-Book-only Media-Line-Registry. `ebook-tools-doctor` und `library-health-report` verwenden die ersten read-only E-Book-Queries ohne Ausgabeänderung; HTTP, Auth, Worker, Migrationen und Source-Media-Write-Flächen bleiben ausgeschlossen. |
-| S-FUT11-02 | PLANNED | Evaluiere und pinne den gepflegten Python-ASGI-/OpenAPI- und Argon2id-Stack. Implementiere additive Benutzer-, Bootstrap/Reset-, Session-, Grant-, Audit-, `ApplicationJob`-/Event-/Lease-Persistenz, loopback-only `/api/v1`, same-origin Shell und getrennte API-, Analyse- und Operatorprozesse. Der Operator-Worker besitzt noch keine registrierte W10-Capability. |
+| S-FUT11-02 | DONE | Pinnt FastAPI, Uvicorn und `argon2-cffi`; FastAPI erzeugt den versioniert getesteten OpenAPI-`3.1.0`-Vertrag. Additive Benutzer-, Bootstrap/Reset-, Session-, Grant-, Audit-, `ApplicationJob`-/Event-/Lease-Persistenz, loopback-only `/api/v1`, same-origin Shell sowie getrennte API-, Analyse- und Operatorprozesse sind vorhanden. Der Operator-Worker besitzt keine registrierte W10-Capability und keine Source-Media-Mutation. |
 | S-FUT11-03 | PLANNED | Liefere die deutschsprachige responsive read-only E-Book-Oberfläche für Scan/Status, Tool-/Format-Readiness, `CollectionState`, Suche, `Library Health`, Analyse-/Quality-Coverage, Duplicate-/Varianten-Evidence, Review und nicht ausführbare Pläne. Verwende Jobs, Keyset-Pagination und getrennte `no-store`-Private-Projektionen; Musik und Bilder bleiben als nicht aktivierte Einstiege sichtbar. |
 | S-FUT11-04 | PLANNED | Adaptiere ausschließlich den ADR-0066-Same-Parent-`FILE_RENAME` mit Proposal, Private Preview, Review, Plan, Authorize, Passwort-Reauthentisierung, exakter Bestätigung, Execute, Status, Recovery, Folgescan und Reconciliation. Nur der getrennte Operator-Worker löst die vorhandene Capability auf; API/UI behalten keinen Source-Mount. |
 

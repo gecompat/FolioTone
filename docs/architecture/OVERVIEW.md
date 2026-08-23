@@ -60,12 +60,23 @@ Owns domain concepts and interfaces that must not depend on specific file format
 ### Application
 
 Provides versioned adapter-neutral request contracts, a stable Media-Line-
-Registry and composition of existing workflows for CLI, later REST and worker
+Registry and composition of existing workflows for CLI, REST and worker
 adapters. `application-contracts/v1` currently exposes only the read-only
 E-Book Toolchain-Readiness and `Library Health` queries. E-Books are the only
 activated media line; Music and Images remain visible registry entries without
-domain endpoints. The Application boundary does not add HTTP, authentication,
-jobs, migrations, source-media access or write authority.
+domain endpoints. The Application boundary does not grant source-media access
+or write authority.
+
+### Local Surface
+
+Die `local-single-operator/v1`-Surface ergänzt die Application-Grenze durch
+eine loopback-only same-origin API, lokale Session-/CSRF-Authentisierung,
+OpenAPI-Contract, Audit und persistente Job-Fences. Ihre SQLite-Tabellen sind
+additiv; Passwörter, Bootstrap-Codes, Session- und CSRF-Werte werden nur als
+domänengetrennte Digests oder Argon2id-Hash gespeichert. `surface-api`,
+`analysis-worker` und `operator-worker` bleiben getrennte Prozessrollen.
+In `S-FUT11-02` besitzt der `operator-worker` ausdrücklich keine registrierte
+W10-Capability und kann keine Source-Media-Mutation ausführen.
 
 ### Persistence
 

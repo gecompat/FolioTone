@@ -1,4 +1,55 @@
 services:
+  surface-api:
+    profiles: ["local-surface"]
+    build:
+      context: .
+    ports:
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - "${FOLIOTONE_DATA_DIR:-./data}:/data:rw"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    command: ["surface-api", "--database", "/data/foliotone.db"]
+
+  analysis-worker:
+    profiles: ["local-surface"]
+    build:
+      context: .
+    volumes:
+      - "${FOLIOTONE_DATA_DIR:-./data}:/data:rw"
+      - "${FOLIOTONE_EBOOKS_DIR:-./media/ebooks}:/media/ebooks:ro"
+      - "${FOLIOTONE_MUSIC_DIR:-./media/music}:/media/music:ro"
+    read_only: true
+    network_mode: none
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    command: ["analysis-worker", "--database", "/data/foliotone.db"]
+
+  operator-worker:
+    profiles: ["local-surface"]
+    build:
+      context: .
+    volumes:
+      - "${FOLIOTONE_DATA_DIR:-./data}:/data:rw"
+    read_only: true
+    network_mode: none
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    command: ["operator-worker", "--database", "/data/foliotone.db"]
+
   foliotone:
     build:
       context: .

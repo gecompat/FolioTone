@@ -4,6 +4,39 @@ Stand: 2026-08-23
 
 ## Aktuelle Welle
 
+**S-FUT11-02 implementiert — lokale Auth-, API- und Worker-Basis ohne W10-Capability**
+
+FastAPI, Uvicorn und `argon2-cffi` sind mit begrenzten kompatiblen
+Versionsbereichen gepinnt. Der erzeugte und per Digest getestete
+OpenAPI-`3.1.0`-Vertrag enthält ausschließlich die lokale Health-, Setup- und
+Session-Basis. Die API bindet nur an explizite Loopback-Adressen, prüft
+Host/Origin/JSON/CSRF fail-closed und liefert eine same-origin Shell ohne
+externe Assets. CORS, Remote-Bindung und fachliche Medienendpunkte sind nicht
+aktiviert.
+
+Die additive SQLite-Migration `0033_local_surface_foundation` speichert
+Benutzer, Bootstrap- und Session-Digests, CSRF-Digests, zeitbegrenzte Grants,
+persistente Login-Backoff-Zustände, append-only Audit-Ereignisse sowie
+`ApplicationJob`-/Event-/Lease-Zustand. Das einzige lokale Konto entsteht nur
+über den owner-lokalen TTY-Befehl `auth-bootstrap`; `auth-reset` nimmt das
+neue Passwort verdeckt entgegen und widerruft Sessions und Grants. Passwörter
+werden nach NFC-Normalisierung mit dem versionierten Argon2id-Profil
+`argon2id/owasp-19mib-v1` gehasht. Klartextcodes, Sessions, CSRF-Werte und
+Passwörter werden nicht persistiert.
+
+Das Compose-Profil `local-surface` trennt `surface-api`, `analysis-worker`
+und `operator-worker`: Nur der Analyseprozess erhält read-only Media-Mounts;
+der Webprozess erhält keinen Source-Media-Mount. Der Operatorprozess hat
+`network_mode: none`, keinen Source-Media-Mount und absichtlich keine
+registrierte W10-Capability. Diese Wave führt weder E-Book-UI-Fachendpunkte
+noch eine Source-Media-Mutation ein.
+
+Lokal bestanden 12 gezielte Security-, API-, Migrations- und Job-Fencing-
+Tests; Ruff und Mypy über 273 Quelldateien waren ohne Befund. Die vollständige
+lokale Suite, Docker-Compose-Start und der vollständige PR-CI-Gate sind für
+den stabilen Head noch auszuführen. Die nächste reguläre Wave ist
+`S-FUT11-03`.
+
 **W0-013 abgeschlossen — AI Repository Foundation 1.2.0 semantisch integriert**
 
 Der Core-Scope der Foundation ist aus dem geprüften Stand
