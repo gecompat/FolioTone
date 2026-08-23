@@ -44,3 +44,21 @@ def test_w10_backlog_keeps_atomic_hardening_separate_from_interim_execution() ->
     assert "S-W10-01" in status and "abgeschlossen" in status
     assert "S-W10-02" in status
     assert "Interim" in status
+
+
+def test_s_w10_05b_authorize_does_not_open_the_interim_executor() -> None:
+    workflow = (
+        ROOT / "src/foliotone/workflows/quarantine_operation.py"
+    ).read_text(encoding="utf-8")
+    cli = (ROOT / "src/foliotone/cli/main.py").read_text(encoding="utf-8")
+    backlog = (ROOT / "docs/planning/BACKLOG.md").read_text(encoding="utf-8")
+
+    assert "create_or_get_authorization" in workflow
+    assert "require_authorization_sources" in workflow
+    assert "execute_interim_quarantine" not in workflow
+    assert "os.rename" not in workflow
+    assert '"quarantine-authorize"' in cli
+    assert '"quarantine-execute"' not in cli
+    assert '"quarantine-recover"' not in cli
+    assert "| S-W10-05B | DONE |" in backlog
+    assert "| S-W10-05C | NEXT |" in backlog

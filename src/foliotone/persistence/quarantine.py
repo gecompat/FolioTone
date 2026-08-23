@@ -1,15 +1,27 @@
-"""Bounded insert-only persistence for the non-executing S-W10-02 slice."""
+"""Bounded insert-only persistence for ADR-0056 quarantine operations."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import Engine, insert, select
+from sqlalchemy.exc import IntegrityError
 
-from foliotone.core import EntityId
+from foliotone.consolidation.contracts import (
+    ConsolidationFileEndpoint,
+    ConsolidationFileRole,
+    ConsolidationPlan,
+)
+from foliotone.core import EntityId, MediaType, PresenceState
+from foliotone.core._validation import require_relative_path
+from foliotone.persistence import schema
 from foliotone.persistence._mapping import datetime_from_db, datetime_to_db
+from foliotone.persistence.consolidation import (
+    ConsolidationStoreError,
+    SQLiteConsolidationStore,
+)
 from foliotone.persistence.quarantine_schema import (
     quarantine_authorizations,
     quarantine_execution_events,
@@ -20,7 +32,12 @@ from foliotone.persistence.scan_root_lease import (
     ScanRootWriteOwnerKind,
     SQLiteScanRootWriteLeaseStore,
 )
-from foliotone.quarantine import QuarantineAuthorizationSnapshot, QuarantineRunStatus
+from foliotone.quarantine import (
+    QuarantineAuthorizationSnapshot,
+    QuarantineEligibilityStatus,
+    QuarantineRunStatus,
+    build_quarantine_authorization,
+)
 
 
 class QuarantineStoreError(RuntimeError):
@@ -37,6 +54,49 @@ class QuarantineExecutionRun:
     candidate_file_id: EntityId
     target_token: str
     created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class QuarantineAuthorizationSourceSnapshot:
+    """Private current locator for one endpoint being authorized."""
+
+    role: ConsolidationFileRole
+    scan_root_id: EntityId
+    file_id: EntityId
+    observation_id: EntityId
+    relative_path: str = field(repr=False)
+    expected_full_sha256: str = field(repr=False)
+    expected_size_bytes: int
+    expected_modified_at: datetime
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.role, ConsolidationFileRole) or not all(
+            isinstance(value, EntityId)
+            for value in (self.scan_root_id, self.file_id, self.observation_id)
+        ):
+            raise QuarantineStoreError("quarantine authorization source is invalid")
+        try:
+            relative_path = require_relative_path(self.relative_path)
+        except (TypeError, ValueError):
+            raise QuarantineStoreError("quarantine authorization source is invalid") from None
+        if (
+            not isinstance(self.expected_full_sha256, str)
+            or len(self.expected_full_sha256) != 64
+            or any(value not in "0123456789abcdef" for value in self.expected_full_sha256)
+            or isinstance(self.expected_size_bytes, bool)
+            or not isinstance(self.expected_size_bytes, int)
+            or self.expected_size_bytes < 0
+            or not isinstance(self.expected_modified_at, datetime)
+            or self.expected_modified_at.tzinfo is None
+            or self.expected_modified_at.utcoffset() is None
+        ):
+            raise QuarantineStoreError("quarantine authorization source is invalid")
+        object.__setattr__(self, "relative_path", relative_path)
+        object.__setattr__(
+            self,
+            "expected_modified_at",
+            self.expected_modified_at.astimezone(UTC),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,14 +159,47 @@ class SQLiteQuarantineStore:
         self._engine = engine
 
     def create_or_get_authorization(
-        self, value: QuarantineAuthorizationSnapshot
+        self,
+        value: QuarantineAuthorizationSnapshot,
+        plan: ConsolidationPlan,
+        *,
+        persisted_at: datetime,
     ) -> QuarantineAuthorizationSnapshot:
+        """Persist an authorization only while its exact plan is still current."""
+
+        if (
+            not isinstance(value, QuarantineAuthorizationSnapshot)
+            or not isinstance(plan, ConsolidationPlan)
+            or not isinstance(persisted_at, datetime)
+            or persisted_at.tzinfo is None
+            or persisted_at.utcoffset() is None
+            or persisted_at < value.authorized_at
+            or persisted_at >= value.expires_at
+        ):
+            raise QuarantineStoreError("quarantine authorization is invalid")
+        if plan.keeper is None or plan.candidate is None:
+            raise QuarantineStoreError("quarantine authorization plan binding differs")
+        assessment = build_quarantine_authorization(
+            plan=plan,
+            current_keeper=plan.keeper,
+            current_candidate=plan.candidate,
+            current_dependencies=plan.dependencies,
+            current_reviews=plan.required_reviews,
+            quarantine_capability_id=value.quarantine_capability_id,
+            authorized_at=value.authorized_at,
+            expires_at=value.expires_at,
+        )
+        if (
+            assessment.status is not QuarantineEligibilityStatus.ELIGIBLE
+            or assessment.authorization != value
+        ):
+            raise QuarantineStoreError("quarantine authorization plan binding differs")
         row = _authorization_row(value)
-        with self._engine.begin() as connection:
-            inserted = connection.execute(
-                insert(quarantine_authorizations).values(**row).prefix_with("OR IGNORE")
-            )
-            if inserted.rowcount == 0:
+        try:
+            with self._engine.begin() as connection:
+                SQLiteConsolidationStore(
+                    self._engine
+                ).require_current_approved_plan_in_transaction(connection, plan)
                 existing = (
                     connection.execute(
                         select(quarantine_authorizations).where(
@@ -116,9 +209,115 @@ class SQLiteQuarantineStore:
                     .mappings()
                     .one_or_none()
                 )
-                if existing is None or dict(existing) != row:
-                    raise QuarantineStoreError("authorization retry payload differs")
+                if existing is not None:
+                    if dict(existing) != row:
+                        raise QuarantineStoreError("authorization retry payload differs")
+                    return value
+                connection.execute(insert(quarantine_authorizations).values(**row))
+        except QuarantineStoreError:
+            raise
+        except (ConsolidationStoreError, IntegrityError, ValueError) as error:
+            raise QuarantineStoreError(
+                "quarantine authorization could not be persisted"
+            ) from error
         return value
+
+    def require_authorization_sources(
+        self,
+        plan: ConsolidationPlan,
+    ) -> tuple[
+        QuarantineAuthorizationSourceSnapshot,
+        QuarantineAuthorizationSourceSnapshot,
+    ]:
+        """Return exact private locators after current-plan revalidation."""
+
+        if plan.keeper is None or plan.candidate is None:
+            raise QuarantineStoreError("quarantine authorization sources are unavailable")
+        try:
+            with self._engine.begin() as connection:
+                SQLiteConsolidationStore(
+                    self._engine
+                ).require_current_approved_plan_in_transaction(connection, plan)
+                keeper = self._authorization_source(connection, plan, plan.keeper)
+                candidate = self._authorization_source(connection, plan, plan.candidate)
+                if keeper.relative_path == candidate.relative_path:
+                    raise QuarantineStoreError("quarantine authorization sources differ")
+                return keeper, candidate
+        except QuarantineStoreError:
+            raise
+        except (ConsolidationStoreError, ValueError) as error:
+            raise QuarantineStoreError(
+                "quarantine authorization sources are unavailable"
+            ) from error
+
+    @staticmethod
+    def _authorization_source(
+        connection: Any,
+        plan: ConsolidationPlan,
+        endpoint: ConsolidationFileEndpoint,
+    ) -> QuarantineAuthorizationSourceSnapshot:
+        row = (
+            connection.execute(
+                select(
+                    schema.file_records.c.scan_root_id,
+                    schema.file_records.c.relative_path.label("file_relative_path"),
+                    schema.file_records.c.size_bytes.label("file_size_bytes"),
+                    schema.file_records.c.modified_at.label("file_modified_at"),
+                    schema.file_records.c.media_type,
+                    schema.file_records.c.presence_state,
+                    schema.file_observations.c.file_id.label("observation_file_id"),
+                    schema.file_observations.c.scan_run_id,
+                    schema.file_observations.c.relative_path.label(
+                        "observation_relative_path"
+                    ),
+                    schema.file_observations.c.size_bytes.label("observation_size_bytes"),
+                    schema.file_observations.c.modified_at.label("observation_modified_at"),
+                    schema.file_observations.c.observed_at,
+                )
+                .select_from(
+                    schema.file_records.join(
+                        schema.file_observations,
+                        schema.file_observations.c.file_id == schema.file_records.c.id,
+                    )
+                )
+                .where(
+                    schema.file_records.c.id == str(endpoint.file_id),
+                    schema.file_observations.c.id == str(endpoint.observation_id),
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            raise QuarantineStoreError("quarantine authorization source is unavailable")
+        file_modified_at = _required_datetime(row["file_modified_at"])
+        observation_modified_at = _required_datetime(row["observation_modified_at"])
+        observed_at = _required_datetime(row["observed_at"])
+        relative_path = str(row["observation_relative_path"])
+        if (
+            str(row["scan_root_id"]) != str(plan.scan_root_id)
+            or str(row["scan_run_id"]) != str(plan.source_scan_run_id)
+            or str(row["media_type"]) != MediaType.EBOOK.value
+            or str(row["presence_state"]) != PresenceState.PRESENT.value
+            or str(row["observation_file_id"]) != str(endpoint.file_id)
+            or str(row["file_relative_path"]) != relative_path
+            or int(row["file_size_bytes"]) != endpoint.expected_size_bytes
+            or int(row["observation_size_bytes"]) != endpoint.expected_size_bytes
+            or file_modified_at != endpoint.expected_modified_at
+            or observation_modified_at != endpoint.expected_modified_at
+            or observed_at != endpoint.expected_observed_at
+        ):
+            raise QuarantineStoreError("quarantine authorization source differs")
+        return QuarantineAuthorizationSourceSnapshot(
+            role=endpoint.role,
+            scan_root_id=endpoint.scan_root_id,
+            file_id=endpoint.file_id,
+            observation_id=endpoint.observation_id,
+            relative_path=relative_path,
+            expected_full_sha256=endpoint.expected_full_sha256,
+            expected_size_bytes=endpoint.expected_size_bytes,
+            expected_modified_at=observation_modified_at,
+        )
 
     def create_prepared_run(
         self,
@@ -320,3 +519,10 @@ def _status_event_from_row(values: dict[str, Any]) -> QuarantineStatusEventSnaps
         QuarantineRunStatus(str(values["status"])),
         occurred_at,
     )
+
+
+def _required_datetime(value: object) -> datetime:
+    parsed = datetime_from_db(str(value))
+    if parsed is None:
+        raise QuarantineStoreError("quarantine authorization timestamp is missing")
+    return parsed

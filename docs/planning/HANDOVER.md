@@ -167,15 +167,44 @@ nach den Härtungen gezielt erneut bestätigt. Der Head-Tabelleninventarfall
 bestätigte Revision und neue Reconciliation-Tabelle.
 Ruff und Mypy waren für den betroffenen Scope ohne Befund, `compileall` war
 erfolgreich. Reale E-Books und produktive Runtime-Datenbanken wurden nicht
-verwendet. Der stabile Head benötigt genau einen vollständigen Linux-PR-CI-
-Gate. Danach ist `W10-005` die kanonische nächste Wave; sie bleibt von
+verwendet. PR #238 ist auf `main` integriert; der exakte stabile Head und der
+anschließende Main-Run waren grün. Danach begann `W10-005`; die Wave bleibt von
 `FG-W10-MOVE-BACKEND` getrennt.
 
 Der erste PR-Gate bestand 2.030 Tests bei acht erwarteten Skips und scheiterte
 ausschließlich an einer noch auf `W10-005 | READY` festgelegten statischen
 Erwartung. Sie wurde auf die bereits dokumentierte kanonische Front
 `W10-005 | NEXT` synchronisiert; Produktionscode war nicht betroffen. Der
-korrigierte stabile Head benötigt deshalb erneut den vollständigen Gate.
+korrigierte stabile Head bestand den vollständigen Gate vor dem Merge.
+
+`S-W10-05B` implementiert inzwischen den mutationsfreien ersten Bedienpunkt
+der Quarantänekette. `quarantine-authorize` nimmt nur Plan-ID, vollständigen
+Plan-Content-Hash und Capability-ID entgegen. Vor dem insert-only Snapshot
+werden der exakte aktuelle Plan, neueste Reviews, Dependencies, FileRecord und
+FileObservation revalidiert; Keeper und Candidate werden als stabile reguläre
+Einzeldateien streaming-basiert gegen Größe, Modified-Zeitpunkt und Full-
+SHA-256 geprüft. Die SQLite-Transaktion prüft die Plan-Lineage ein zweites Mal.
+Ausgabe und Fehler bleiben pfad-, dateinamen- und materialhashfrei. Authorize
+ruft weder `os.rename` noch den Interim-Executor auf.
+
+Lokal bestanden für 05B sieben neue Unit-, vier neue Integrations- und 24
+direkt betroffene bestehende Fälle; ein hostabhängiger Symlink-Fall wurde auf
+Windows ausgelassen. Zusätzlich bestanden 20 betroffene Planungs- und
+Dokumentationsverträge. Repository-Ruff und Mypy für 234 Source-Dateien waren
+grün. Es wurden nur synthetische temporäre Dateien und SQLite-Datenbanken
+verwendet. Der stabile 05B-Head benötigt genau einen vollständigen PR-CI-Gate.
+
+Der erste 05B-Gate stoppte nach grünen Install-, Ruff- und Mypy-Schritten bei
+der Test-Collection, weil ein installiertes Fremdpaket das bisher implizite
+lokale `tests`-Namespace verdeckte. Ein explizites `tests/__init__.py` behebt
+nur diese Importauflösung; Produktionscode blieb unverändert. Die lokale
+Collection fand danach 2.051 Tests fehlerfrei, und die vier neuen
+Autorisierungs-Integrationsfälle blieben grün. Im zweiten Gate waren 2.042
+Tests erfolgreich und acht erwartungsgemäß übersprungen; ausschließlich der
+explizite Statusausgabe-Vertrag enthielt die neue
+`quarantine-authorize`-Zeile noch nicht. Die Test-Erwartung ist nun mit der
+bereits implementierten, mutationsfreien Statusausgabe synchronisiert. Der
+erneut korrigierte Head benötigt den vollständigen Gate.
 
 Für `S-W10-MW01` bestanden lokal 114 fokussierte neue und direkt betroffene
 Unit-, Privacy-, Non-Execution- und Dokumentationsvertragstests in 0,57
@@ -249,7 +278,8 @@ Merge-Voraussetzung.
 
 `FG-W10-METADATA-WRITE` ist durch ADR-0063 entschieden; `S-W10-MW01` bis
 `S-W10-MW05` sind umgesetzt und schließen genau den begrenzten EPUB-
-Titelwriter. `W10-005` ist die nächste reguläre Wave. Allgemeine Source-Media-
+Titelwriter. `S-W10-05B` schließt Quarantäne-Authorize; `S-W10-05C` ist der
+nächste reguläre Slice. Allgemeine Source-Media-
 Mutation, Music, Bilder, REST-API und grafische Oberfläche werden weder durch
 W9-006 noch durch den einen operation-spezifischen Writer aktiviert.
 
@@ -1204,12 +1234,13 @@ Ressourcenanforderung wurde keine weitere vollständige lokale Suite gestartet.
 Der vollständige PR-CI-Gate läuft genau einmal auf dem stabilen Head und ist
 Merge-Voraussetzung.
 
-`W10-005` darf parallel als getrennte `FRONTIER`-Wave bearbeitet werden. Der
-Slice ergänzt Capability-Auflösung sowie `quarantine-authorize`,
-`quarantine-execute` und `quarantine-recover` um den vorhandenen
-Interim-Executor. Er erweitert weder die Ein-Datei-/Same-Filesystem-Grenze
-noch behauptet er atomare No-Replace-Semantik. Die zweite Bestätigung bleibt
-auf nicht geloggtes `stdin` beschränkt.
+`W10-005` wird als getrennte `FRONTIER`-Wave bearbeitet. Capability-Auflösung
+und `quarantine-authorize` sind abgeschlossen. `S-W10-05C` ergänzt als
+Nächstes `quarantine-execute`, zweite Bestätigung und One-use-Fencing;
+`S-W10-05D` folgt mit `quarantine-recover` und synthetischer Crash-/Recovery-
+Abnahme. Kein Slice erweitert die Ein-Datei-/Same-Filesystem-Grenze oder
+behauptet atomare No-Replace-Semantik. Die zweite Bestätigung bleibt auf nicht
+geloggtes `stdin` beschränkt.
 
 `OPS-001` ist ein getrenntes lokales Betriebsverfahren für den vollständigen
 privaten Inventory-/Hash-/Collection-/Verifier-Lauf. Es verwendet den

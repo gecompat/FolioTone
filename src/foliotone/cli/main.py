@@ -172,6 +172,12 @@ from foliotone.workflows.metadata_write_report import (
     MetadataWriteStatusReportError,
     SQLiteMetadataWriteStatusReportReader,
 )
+from foliotone.workflows.quarantine_operation import (
+    QuarantineAuthorizationResult,
+    QuarantineOperatorError,
+    QuarantineOperatorService,
+    create_quarantine_operator_service,
+)
 from foliotone.workflows.quarantine_report import (
     QuarantineStatusReport,
     QuarantineStatusReportError,
@@ -444,6 +450,33 @@ def _add_metadata_write_binders(
         choices=("text", "json"),
         default="text",
         help="Path- and metadata-value-free output format; defaults to text.",
+    )
+
+
+def _add_quarantine_authorize_binders(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--plan-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque approved consolidation plan identifier.",
+    )
+    parser.add_argument(
+        "--plan-content-hash",
+        required=True,
+        type=_metadata_write_sha256,
+        help="Exact lowercase content hash of the approved plan.",
+    )
+    parser.add_argument(
+        "--capability-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque locally configured quarantine capability identifier.",
+    )
+    parser.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Path-, filename-, and material-hash-free output; defaults to text.",
     )
 
 
@@ -1750,6 +1783,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format; defaults to text.",
     )
 
+    quarantine_authorize = subparsers.add_parser(
+        "quarantine-authorize",
+        help="Authorize one exact reviewed duplicate for the bounded W10 quarantine.",
+    )
+    _add_quarantine_authorize_binders(quarantine_authorize)
+
     quarantine_status = subparsers.add_parser(
         "quarantine-status",
         help="Read one persisted W10 quarantine run without source access.",
@@ -1977,6 +2016,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "metadata-write-authorize, metadata-write-execute, metadata-write-recover, "
             "and metadata-write-status."
         )
+        print(
+            "Bounded single-file quarantine authorization is available through "
+            "quarantine-authorize; execute and recovery remain unavailable."
+        )
         print("Other source-media and external-tool mutation commands remain unavailable.")
         return 0
 
@@ -2065,6 +2108,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "archive-collection-status":
         return _run_archive_collection_status(args)
+
+    if args.command == "quarantine-authorize":
+        return _run_quarantine_authorize(args)
 
     if args.command == "quarantine-status":
         return _run_quarantine_status(args)
@@ -3920,6 +3966,101 @@ def _archive_collection_status_error(args: argparse.Namespace, code: str) -> int
         )
     else:
         print("Archive collection status failed: read-only state is unavailable.")
+    return 2
+
+
+def _quarantine_database() -> Path:
+    return Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db"))
+
+
+def _open_quarantine_operator() -> tuple[Engine, QuarantineOperatorService]:
+    database = _quarantine_database()
+    migrate(database)
+    engine = create_sqlite_engine(database)
+    try:
+        service = create_quarantine_operator_service(engine)
+    except Exception:
+        engine.dispose()
+        raise
+    return engine, service
+
+
+def _run_quarantine_authorize(args: argparse.Namespace) -> int:
+    engine: Engine | None = None
+    try:
+        engine, service = _open_quarantine_operator()
+        result = service.authorize(
+            plan_id=args.plan_id,
+            plan_content_hash=args.plan_content_hash,
+            capability_id=args.capability_id,
+        )
+    except QuarantineOperatorError as error:
+        return _quarantine_authorization_error(
+            args,
+            error.code.value,
+            tuple(blocker.value for blocker in error.blockers),
+        )
+    except (OperationalError, OSError, ValueError):
+        return _quarantine_authorization_error(args, "RUNTIME_UNAVAILABLE")
+    except Exception:
+        return _quarantine_authorization_error(args, "INTERNAL_ERROR")
+    finally:
+        if engine is not None:
+            engine.dispose()
+    _emit_quarantine_authorization(args, result)
+    return 0
+
+
+def _emit_quarantine_authorization(
+    args: argparse.Namespace,
+    result: QuarantineAuthorizationResult,
+) -> None:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": "quarantine-authorize",
+                "ok": True,
+                "profile": result.profile,
+                "authorization_id": str(result.authorization_id),
+                "plan_id": str(result.plan_id),
+                "scan_root_id": str(result.scan_root_id),
+                "authorized_at": result.authorized_at.isoformat(),
+                "expires_at": result.expires_at.isoformat(),
+                "status": result.status,
+            }
+        )
+        return
+    print(f"Authorization: {result.authorization_id}")
+    print(f"Plan: {result.plan_id}")
+    print(f"ScanRoot: {result.scan_root_id}")
+    print(f"Profile: {result.profile}")
+    print(f"Status: {result.status}")
+    print(f"Authorized: {result.authorized_at.isoformat()}")
+    print(f"Expires: {result.expires_at.isoformat()}")
+
+
+def _quarantine_authorization_error(
+    args: argparse.Namespace,
+    code: str,
+    blockers: Sequence[str] = (),
+) -> int:
+    if args.output == "json":
+        error: dict[str, object] = {"code": code}
+        if blockers:
+            error["blockers"] = list(blockers)
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": "quarantine-authorize",
+                "ok": False,
+                "error": error,
+            }
+        )
+    else:
+        print(f"Quarantine authorization failed: {code}.")
+        for blocker in blockers:
+            print(f"Blocker: {blocker}")
     return 2
 
 

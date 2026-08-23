@@ -378,6 +378,31 @@ class SQLiteConsolidationStore:
                 raise ConsolidationStoreError("persisted plan content hash is invalid")
             return plan
 
+    def require_current_approved_plan_in_transaction(
+        self,
+        connection: Connection,
+        plan: ConsolidationPlan,
+    ) -> None:
+        """Require one exact, still-current approved plan before W10 authorization."""
+
+        if (
+            not isinstance(plan, ConsolidationPlan)
+            or consolidation_plan_content_hash(plan) != plan.content_hash
+        ):
+            raise ConsolidationStoreError("consolidation plan material is invalid")
+        row = connection.execute(
+            select(cs.consolidation_plans).where(cs.consolidation_plans.c.id == str(plan.id))
+        ).mappings().one_or_none()
+        if row is None or self._read_plan(connection, row) != plan:
+            raise ConsolidationStoreError("consolidation plan differs")
+        if (
+            plan.status is not ConsolidationPlanStatus.APPROVED_NON_EXECUTABLE
+            or plan.execution_state is not ConsolidationExecutionState.NOT_EXECUTABLE
+            or plan.blockers
+        ):
+            raise ConsolidationStoreError("consolidation plan is not approved")
+        self._validate_plan_lineage(connection, plan)
+
     def _read_plan(self, connection: Connection, row: RowMapping) -> ConsolidationPlan:
         plan_id = str(row["id"])
         def rows(table: Table, limit: int) -> list[RowMapping]:
