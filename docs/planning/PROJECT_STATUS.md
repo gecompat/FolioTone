@@ -64,6 +64,13 @@ synthetische Dateisysteme; reale E-Books und produktive Runtime-Datenbanken
 wurden nicht geöffnet. Der stabile Pull-Request-Head erhält
 ressourcenschonend genau einen vollständigen Linux-PR-CI-Gate.
 
+Der erste PR-Gate des MW05-Heads bestand 2.030 Tests bei acht erwarteten
+Skips und fand genau eine veraltete statische Erwartung: `W10-005` wurde nach
+dem Abschluss von MW05 weiterhin als `READY` statt als kanonisches `NEXT`
+erwartet. Der Vertragsassert wurde ohne Produktionscodeänderung auf die bereits
+dokumentierte Ausführungsfront synchronisiert; der korrigierte Head benötigt
+erneut den vollständigen Gate.
+
 `W10-005` ist der nächste reguläre Slice. Er vervollständigt ausschließlich
 die bereits durch ADR-0056 erlaubte Interim-Ein-Datei-Quarantäne mit fester
 Authorize-/Execute-/Recovery-Bedienung. Die separate

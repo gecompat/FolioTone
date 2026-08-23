@@ -171,6 +171,12 @@ verwendet. Der stabile Head benötigt genau einen vollständigen Linux-PR-CI-
 Gate. Danach ist `W10-005` die kanonische nächste Wave; sie bleibt von
 `FG-W10-MOVE-BACKEND` getrennt.
 
+Der erste PR-Gate bestand 2.030 Tests bei acht erwarteten Skips und scheiterte
+ausschließlich an einer noch auf `W10-005 | READY` festgelegten statischen
+Erwartung. Sie wurde auf die bereits dokumentierte kanonische Front
+`W10-005 | NEXT` synchronisiert; Produktionscode war nicht betroffen. Der
+korrigierte stabile Head benötigt deshalb erneut den vollständigen Gate.
+
 Für `S-W10-MW01` bestanden lokal 114 fokussierte neue und direkt betroffene
 Unit-, Privacy-, Non-Execution- und Dokumentationsvertragstests in 0,57
 Sekunden. Ruff war für das neue Paket und seine Tests grün; Mypy meldete für
