@@ -254,6 +254,16 @@ Revalidierung verwenden. Er behauptet keine atomare No-Replace-Semantik.
 No-Replace-Move, no-follow sowie Race-/Crash-Nachweise ohne Copy+Delete-
 Fallback. Purge, Calibrewrite und Verzeichnisbereinigung bleiben blockiert.
 
+`S-W10-05A` bis `S-W10-05C` öffnen ausschließlich die feste Bedienkette bis
+zum Interim-Execute. Die private Capability bleibt außerhalb von argv,
+SQLite und Reports. Authorize revalidiert beide Dateien read-only. Execute
+fordert Authorization- und Plan-ID exakt über begrenztes, nicht geloggtes
+`stdin`, löst Capability und aktuelle Lineage erneut auf und verbraucht die
+Authorization genau einmal beim gefenceten `PREPARED`-Insert. Nur danach darf
+der vorhandene Interim-Executor aufgerufen werden. Ein Retry verwendet keine
+verbrauchte Authorization; bis `S-W10-05D` muss jeder nicht abgeschlossene Run
+ohne weitere Mutation bei read-only Status und manueller Untersuchung stoppen.
+
 ADR-0063 entscheidet die technische Grenze des ersten Source-Metadata-Writers
 ausschließlich für EPUB 3, `SOURCE_METADATA` und genau einen reviewten
 `title`-`REPLACE`. Der Writer patcht im privaten Staging nur `dc:title` und

@@ -1,10 +1,11 @@
 # Begrenzte E-Book-Duplikatquarantäne
 
-Diese Anleitung beschreibt den aktuellen ADR-0056-Bedienstand. Verfügbar ist
-ausschließlich `quarantine-authorize` für genau einen reviewten
-`EXACT_DUPLICATE`-Candidate. Das Kommando verschiebt, kopiert, löscht oder
-ändert keine Datei. `quarantine-execute` und `quarantine-recover` sind noch
-nicht verfügbar und folgen in getrennten Arbeitspaketen.
+Diese Anleitung beschreibt den aktuellen ADR-0056-Bedienstand. Verfügbar sind
+`quarantine-authorize` und `quarantine-execute` für genau einen reviewten
+`EXACT_DUPLICATE`-Candidate. Authorize verändert Source Media nicht; Execute
+darf nach der vollständigen zweiten Prüfung genau diesen Candidate in den
+privaten Same-Filesystem-Quarantänebereich verschieben. `quarantine-recover`
+ist noch nicht verfügbar und folgt in einem getrennten Arbeitspaket.
 
 Die Authorization öffnet keine allgemeine Move-, Rename-, Purge-, Calibre-,
 Sidecar-, Archiv- oder Metadaten-Schreibschnittstelle. Die nicht atomare
@@ -38,8 +39,8 @@ vollständige SHA-256-Prüfung. Bei einem Fehler entsteht kein
 
 ## Runtime-Konfiguration
 
-Das Kommando nimmt keine Datenbank-, Source- oder Zielpfade als Argumente an.
-Der lokale Prozess erhält stattdessen:
+Keines der Kommandos nimmt Datenbank-, Source- oder Zielpfade als Argumente
+an. Der lokale Prozess erhält stattdessen:
 
 | Variable | Bedeutung | Standard |
 |---|---|---|
@@ -97,8 +98,62 @@ bedeutet, dass aktuelle persistierte oder physische Evidence nicht mehr exakt
 zur gebundenen Plan-Generation passt.
 
 Eine Authorization darf nicht als erfolgreicher Quarantänelauf interpretiert
-werden. Erst das getrennte künftige Execute-Kommando darf nach erneuter
-vollständiger Revalidierung, zweiter Bestätigung über begrenztes `stdin` und
-erworbener `CONSOLIDATION_QUARANTINE_RUN`-Lease den engen Interim-Executor
-aufrufen. Rollback, Purge und automatische Bereinigung bleiben davon
-unabhängig gesperrt.
+werden. Sie ist höchstens 15 Minuten gültig und kann genau einen Execution-Run
+erzeugen.
+
+## Execute
+
+Execute verwendet dieselben drei Binder und zusätzlich die opaque
+Authorization-ID:
+
+```text
+foliotone quarantine-execute \
+  --plan-id <Plan-ID> \
+  --plan-content-hash <64-stelliger-kleingeschriebener-SHA-256> \
+  --capability-id <Capability-ID> \
+  --authorization-id <Authorization-ID> \
+  --output json
+```
+
+Das Kommando schreibt genau eine pfadfreie Bestätigungsaufforderung nach
+`stderr`:
+
+```text
+CONFIRM QUARANTINE <Authorization-ID> <Plan-ID>
+```
+
+Der Operator muss exakt diese eine Zeile über `stdin` zurückgeben. Die Eingabe
+ist auf 256 Zeichen einschließlich Zeilenende begrenzt, wird nicht als
+Argument oder Environment Variable angenommen und weder persistiert noch in
+der Ausgabe wiederholt. Ein domänengetrennter Digest bindet die kanonischen
+IDs, den Authorization-Content-Hash, die Capability-ID und den Zeitpunkt der
+Bestätigung.
+
+Nach der Eingabe prüft der Operator Authorization-Ablauf und -Verbrauch,
+Plan, aktuelle Reviews und Dependencies, Capability, Keeper und Candidate
+erneut. Keeper und Candidate werden unter einer
+`CONSOLIDATION_QUARANTINE_RUN`-Lease streaming-basiert gegen Größe,
+Modified-Zeitpunkt und vollständigen SHA-256 geprüft. Erst danach entstehen
+Execution-Run und bestätigtes `PREPARED`-Event atomar unter derselben Fence-
+Epoch. Die eindeutige Authorization-Bindung verhindert einen zweiten Run.
+Eine abgelaufene Quarantäne-Lease darf Execute nur in einer sofort
+serialisierten SQLite-Transaktion mit einer neuen Fence-Epoch übernehmen, wenn
+für ihre Owner-Run-ID noch kein persistierter Run existiert. Bei vorhandenem
+Run ist ausschließlich die spätere Recovery zuständig.
+
+Der vorhandene Interim-Executor prüft Candidate, Same-Filesystem und
+Zielabwesenheit erneut, führt genau ein `os.rename` aus und verifiziert am
+Ziel vollständigen SHA-256 sowie Source-Abwesenheit. Die Zielprüfung ist
+weiterhin nicht atomar und darf nicht als No-Replace-Garantie interpretiert
+werden. Es gibt keinen Copy+Delete-, Cross-Volume- oder Overwrite-Fallback.
+
+Eine erfolgreiche Ausgabe enthält ausschließlich Authorization-, Run-, Plan-
+und ScanRoot-ID, Profil und `COMPLETED`. Feste Fehlercodes bleiben pfad-,
+dateinamen- und materialhashfrei. Falls bereits ein Run existiert oder nach
+`PREPARED` ein Fehler beobachtet wurde, kann zusätzlich dessen opaque Run-ID
+ausgegeben werden. Eine verbrauchte Authorization darf nicht erneut
+ausgeführt werden. Bis `S-W10-05D` Recovery bereitstellt, muss ein nicht
+abgeschlossener Run über `quarantine-status` read-only untersucht und ohne
+weitere Mutation gestoppt werden.
+
+Rollback, Purge und automatische Bereinigung bleiben unabhängig gesperrt.

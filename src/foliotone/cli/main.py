@@ -174,6 +174,7 @@ from foliotone.workflows.metadata_write_report import (
 )
 from foliotone.workflows.quarantine_operation import (
     QuarantineAuthorizationResult,
+    QuarantineOperationResult,
     QuarantineOperatorError,
     QuarantineOperatorService,
     create_quarantine_operator_service,
@@ -453,7 +454,11 @@ def _add_metadata_write_binders(
     )
 
 
-def _add_quarantine_authorize_binders(parser: argparse.ArgumentParser) -> None:
+def _add_quarantine_binders(
+    parser: argparse.ArgumentParser,
+    *,
+    include_authorization: bool,
+) -> None:
     parser.add_argument(
         "--plan-id",
         required=True,
@@ -472,6 +477,13 @@ def _add_quarantine_authorize_binders(parser: argparse.ArgumentParser) -> None:
         type=EntityId.parse,
         help="Opaque locally configured quarantine capability identifier.",
     )
+    if include_authorization:
+        parser.add_argument(
+            "--authorization-id",
+            required=True,
+            type=EntityId.parse,
+            help="Opaque short-lived quarantine authorization identifier.",
+        )
     parser.add_argument(
         "--output",
         choices=("text", "json"),
@@ -1787,7 +1799,13 @@ def build_parser() -> argparse.ArgumentParser:
         "quarantine-authorize",
         help="Authorize one exact reviewed duplicate for the bounded W10 quarantine.",
     )
-    _add_quarantine_authorize_binders(quarantine_authorize)
+    _add_quarantine_binders(quarantine_authorize, include_authorization=False)
+
+    quarantine_execute = subparsers.add_parser(
+        "quarantine-execute",
+        help="Execute one authorized quarantine move after an exact stdin confirmation.",
+    )
+    _add_quarantine_binders(quarantine_execute, include_authorization=True)
 
     quarantine_status = subparsers.add_parser(
         "quarantine-status",
@@ -2017,8 +2035,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "and metadata-write-status."
         )
         print(
-            "Bounded single-file quarantine authorization is available through "
-            "quarantine-authorize; execute and recovery remain unavailable."
+            "Bounded single-file quarantine authorization and execution are available "
+            "through quarantine-authorize and quarantine-execute; recovery remains unavailable."
         )
         print("Other source-media and external-tool mutation commands remain unavailable.")
         return 0
@@ -2111,6 +2129,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "quarantine-authorize":
         return _run_quarantine_authorize(args)
+
+    if args.command == "quarantine-execute":
+        return _run_quarantine_execute(args)
 
     if args.command == "quarantine-status":
         return _run_quarantine_status(args)
@@ -4038,6 +4059,143 @@ def _emit_quarantine_authorization(
     print(f"Status: {result.status}")
     print(f"Authorized: {result.authorized_at.isoformat()}")
     print(f"Expires: {result.expires_at.isoformat()}")
+
+
+def _run_quarantine_execute(args: argparse.Namespace) -> int:
+    engine: Engine | None = None
+    try:
+        engine, service = _open_quarantine_operator()
+        prompt = service.confirmation_prompt(
+            plan_id=args.plan_id,
+            plan_content_hash=args.plan_content_hash,
+            capability_id=args.capability_id,
+            authorization_id=args.authorization_id,
+        )
+        confirmation = _read_quarantine_confirmation(prompt)
+        if confirmation is None:
+            return _quarantine_operation_error(
+                args,
+                "quarantine-execute",
+                "CONFIRMATION_INVALID",
+            )
+        result = service.execute(
+            plan_id=args.plan_id,
+            plan_content_hash=args.plan_content_hash,
+            capability_id=args.capability_id,
+            authorization_id=args.authorization_id,
+            confirmation_text=confirmation,
+        )
+    except QuarantineOperatorError as error:
+        return _quarantine_operation_error(
+            args,
+            "quarantine-execute",
+            error.code.value,
+            run_id=error.run_id,
+        )
+    except KeyboardInterrupt:
+        return _quarantine_operation_error(
+            args,
+            "quarantine-execute",
+            "CONFIRMATION_INVALID",
+        )
+    except (OperationalError, OSError, ValueError):
+        return _quarantine_operation_error(
+            args,
+            "quarantine-execute",
+            "RUNTIME_UNAVAILABLE",
+        )
+    except Exception:
+        return _quarantine_operation_error(
+            args,
+            "quarantine-execute",
+            "INTERNAL_ERROR",
+        )
+    finally:
+        if engine is not None:
+            engine.dispose()
+    _emit_quarantine_operation(args, "quarantine-execute", result)
+    return 0
+
+
+def _read_quarantine_confirmation(prompt: str) -> str | None:
+    prefix = "CONFIRM QUARANTINE "
+    if not isinstance(prompt, str) or not prompt.startswith(prefix):
+        return None
+    authorization_text, separator, plan_text = prompt.removeprefix(prefix).partition(" ")
+    if not separator:
+        return None
+    try:
+        authorization_id = EntityId.parse(authorization_text)
+        plan_id = EntityId.parse(plan_text)
+    except (TypeError, ValueError):
+        return None
+    if prompt != f"{prefix}{authorization_id} {plan_id}":
+        return None
+    sys.stderr.write(f"{prompt}\n")
+    sys.stderr.flush()
+    supplied = sys.stdin.readline(257)
+    if not supplied.endswith("\n") or len(supplied) > 256:
+        return None
+    supplied = supplied[:-1]
+    if supplied.endswith("\r"):
+        supplied = supplied[:-1]
+    if "\r" in supplied or "\n" in supplied:
+        return None
+    return supplied if hmac.compare_digest(supplied, prompt) else None
+
+
+def _emit_quarantine_operation(
+    args: argparse.Namespace,
+    command: str,
+    result: QuarantineOperationResult,
+) -> None:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": command,
+                "ok": True,
+                "profile": result.profile,
+                "authorization_id": str(result.authorization_id),
+                "run_id": str(result.run_id),
+                "plan_id": str(result.plan_id),
+                "scan_root_id": str(result.scan_root_id),
+                "status": result.status.value,
+            }
+        )
+        return
+    print(f"Authorization: {result.authorization_id}")
+    print(f"Run: {result.run_id}")
+    print(f"Plan: {result.plan_id}")
+    print(f"ScanRoot: {result.scan_root_id}")
+    print(f"Profile: {result.profile}")
+    print(f"Status: {result.status.value}")
+
+
+def _quarantine_operation_error(
+    args: argparse.Namespace,
+    command: str,
+    code: str,
+    *,
+    run_id: EntityId | None = None,
+) -> int:
+    if args.output == "json":
+        error: dict[str, object] = {"code": code}
+        if run_id is not None:
+            error["run_id"] = str(run_id)
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": command,
+                "ok": False,
+                "error": error,
+            }
+        )
+    else:
+        print(f"Quarantine operation failed: {code}.")
+        if run_id is not None:
+            print(f"Run: {run_id}")
+    return 2
 
 
 def _quarantine_authorization_error(

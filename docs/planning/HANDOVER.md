@@ -204,7 +204,52 @@ Tests erfolgreich und acht erwartungsgemäß übersprungen; ausschließlich der
 explizite Statusausgabe-Vertrag enthielt die neue
 `quarantine-authorize`-Zeile noch nicht. Die Test-Erwartung ist nun mit der
 bereits implementierten, mutationsfreien Statusausgabe synchronisiert. Der
-erneut korrigierte Head benötigt den vollständigen Gate.
+finale Head `bb9ef78` bestand danach Quality- und Linux-Image-Gate. PR #239
+wurde als Merge-Commit `5f5b068` auf `main` integriert; auch der Post-Merge-
+Contract war grün.
+
+`S-W10-05C` implementiert inzwischen den einmaligen Execute-Bedienpunkt.
+`quarantine-execute` nimmt zusätzlich zur Authorization-ID dieselben opaque
+Plan-/Hash-/Capability-Binder wie Authorize entgegen und fordert exakt
+`CONFIRM QUARANTINE <Authorization-ID> <Plan-ID>` über eine begrenzte, nicht
+geloggte `stdin`-Zeile. Vor dem Prompt wird die aktuelle Persistenz-Lineage
+geprüft; danach werden Capability, Plan, Reviews, Dependencies, Keeper und
+Candidate unter einer frischen `CONSOLIDATION_QUARANTINE_RUN`-Lease erneut
+aufgelöst und vollständig revalidiert.
+
+Run und bestätigtes `PREPARED`-Event entstehen in einer gefenceten
+Transaktion, die die aktuelle Plan-Lineage ein weiteres Mal prüft. Der Unique-
+Vertrag auf der Authorization macht sie genau einmal verbrauchbar. Erst danach
+ruft der Workflow den vorhandenen Interim-Executor auf; es existiert kein
+zweiter Move-, Copy-, Delete-, Callback- oder Toolpfad. Bei einem bereits
+erzeugten oder nach `PREPARED` fehlgeschlagenen Run darf die feste
+Fehlerprojektion dessen opaque Run-ID ausgeben, aber niemals Pfad, Dateiname,
+Materialhash, Confirmation-Text oder Fence.
+
+Eine abgelaufene Quarantäne-Lease vor `PREPARED` kann Execute nur in einer
+sofort serialisierten SQLite-Transaktion mit erhöhter Fence-Epoch übernehmen,
+wenn für ihre Owner-Run-ID kein persistierter Run existiert. Eine Lease mit
+persistiertem Run bleibt auch nach Ablauf Recovery-only. Ein unerwarteter
+Fehler ab dem Executor-Aufruf endet konservativ bei `MANUAL_REVIEW` und gibt
+die opaque Run-ID für Status beziehungsweise Recovery aus.
+
+Lokal bestanden 19 neue Confirmation-/CLI-/Lease-Unit-Tests, zehn neue
+synthetische Execution-Integrationsfälle und 20 direkt betroffene bestehende
+Quarantäne-Verträge. Die Tests verwenden nur temporäre synthetische Dateien
+und SQLite-Datenbanken; reale E-Books und private Runtime-Daten wurden nicht
+geöffnet. Ruff war für den geänderten Python-Scope grün. Ein vollständiger
+Mypy-Lauf über 235 Source-Dateien war grün; nach der finalen Race-Härtung
+wurden die beiden nochmals geänderten Source-Module erneut ohne Befund
+geprüft. Zusätzlich bestanden 22 betroffene Planungs-, Dokumentations-, W10-
+und Bootstrap-Verträge. Der vollständige PR-CI-Gate ist für den stabilen
+05C-Head noch offen. `S-W10-05D` ergänzt als Nächstes ausschließlich Recovery
+und die synthetische Crash-Matrix.
+
+ADR-0056 wurde dabei nur an den bereits akzeptierten Schema- und
+Ausführungsvertrag angeglichen: `confirmation_digest` liegt im atomaren
+`PREPARED`-Event, die eindeutige Run-Bindung verbraucht die Authorization, und
+eine preparedless abgelaufene Lease wird nur atomar ohne vorhandenen Run
+übernommen. Es wurde keine zusätzliche Mutation entschieden.
 
 Für `S-W10-MW01` bestanden lokal 114 fokussierte neue und direkt betroffene
 Unit-, Privacy-, Non-Execution- und Dokumentationsvertragstests in 0,57
@@ -279,7 +324,8 @@ Merge-Voraussetzung.
 `FG-W10-METADATA-WRITE` ist durch ADR-0063 entschieden; `S-W10-MW01` bis
 `S-W10-MW05` sind umgesetzt und schließen genau den begrenzten EPUB-
 Titelwriter. `S-W10-05B` schließt Quarantäne-Authorize; `S-W10-05C` ist der
-nächste reguläre Slice. Allgemeine Source-Media-
+gefencete Execute-Slice, `S-W10-05D` ist als Recovery-Slice als Nächstes
+auszuführen. Allgemeine Source-Media-
 Mutation, Music, Bilder, REST-API und grafische Oberfläche werden weder durch
 W9-006 noch durch den einen operation-spezifischen Writer aktiviert.
 
@@ -1235,12 +1281,12 @@ Der vollständige PR-CI-Gate läuft genau einmal auf dem stabilen Head und ist
 Merge-Voraussetzung.
 
 `W10-005` wird als getrennte `FRONTIER`-Wave bearbeitet. Capability-Auflösung
-und `quarantine-authorize` sind abgeschlossen. `S-W10-05C` ergänzt als
-Nächstes `quarantine-execute`, zweite Bestätigung und One-use-Fencing;
-`S-W10-05D` folgt mit `quarantine-recover` und synthetischer Crash-/Recovery-
-Abnahme. Kein Slice erweitert die Ein-Datei-/Same-Filesystem-Grenze oder
-behauptet atomare No-Replace-Semantik. Die zweite Bestätigung bleibt auf nicht
-geloggtes `stdin` beschränkt.
+`quarantine-authorize` sowie `quarantine-execute` mit zweiter Bestätigung und
+One-use-Fencing sind abgeschlossen. `S-W10-05D` folgt mit
+`quarantine-recover` und synthetischer Crash-/Recovery-Abnahme. Kein Slice
+erweitert die Ein-Datei-/Same-Filesystem-Grenze oder behauptet atomare
+No-Replace-Semantik. Die zweite Bestätigung bleibt auf nicht geloggtes `stdin`
+beschränkt.
 
 `OPS-001` ist ein getrenntes lokales Betriebsverfahren für den vollständigen
 privaten Inventory-/Hash-/Collection-/Verifier-Lauf. Es verwendet den

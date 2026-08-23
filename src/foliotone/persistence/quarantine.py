@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import Engine, insert, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import Connection, Engine, insert, select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from foliotone.consolidation.contracts import (
     ConsolidationFileEndpoint,
@@ -29,6 +31,7 @@ from foliotone.persistence.quarantine_schema import (
 )
 from foliotone.persistence.scan_root_lease import (
     OwnedScanRootWriteLease,
+    ScanRootWriteLeaseError,
     ScanRootWriteOwnerKind,
     SQLiteScanRootWriteLeaseStore,
 )
@@ -42,6 +45,10 @@ from foliotone.quarantine import (
 
 class QuarantineStoreError(RuntimeError):
     """An immutable quarantine persistence invariant was violated."""
+
+
+class QuarantineAuthorizationConsumedError(QuarantineStoreError):
+    """The one-use authorization already owns an execution run."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,6 +229,114 @@ class SQLiteQuarantineStore:
             ) from error
         return value
 
+    def get_authorization(
+        self,
+        authorization_id: EntityId,
+    ) -> QuarantineAuthorizationSnapshot | None:
+        """Load one immutable authorization without exposing private material."""
+
+        try:
+            with self._engine.connect() as connection:
+                row = (
+                    connection.execute(
+                        select(quarantine_authorizations).where(
+                            quarantine_authorizations.c.id == str(authorization_id)
+                        )
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+            return None if row is None else _authorization_from_row(dict(row))
+        except (TypeError, ValueError) as error:
+            raise QuarantineStoreError(
+                "quarantine authorization could not be read"
+            ) from error
+
+    def get_run_for_authorization(
+        self,
+        authorization_id: EntityId,
+    ) -> QuarantineExecutionRun | None:
+        """Return the sole run which consumes an authorization, if present."""
+
+        try:
+            with self._engine.connect() as connection:
+                row = (
+                    connection.execute(
+                        select(quarantine_execution_runs).where(
+                            quarantine_execution_runs.c.authorization_id
+                            == str(authorization_id)
+                        )
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+            return None if row is None else _run_from_row(dict(row))
+        except (TypeError, ValueError) as error:
+            raise QuarantineStoreError("quarantine execution run could not be read") from error
+
+    def get_run(self, run_id: EntityId) -> QuarantineExecutionRun | None:
+        """Load one immutable execution identity without reading event material."""
+
+        try:
+            with self._engine.connect() as connection:
+                row = (
+                    connection.execute(
+                        select(quarantine_execution_runs).where(
+                            quarantine_execution_runs.c.id == str(run_id)
+                        )
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+            return None if row is None else _run_from_row(dict(row))
+        except (TypeError, ValueError) as error:
+            raise QuarantineStoreError("quarantine execution run could not be read") from error
+
+    def takeover_expired_preparedless_lease(
+        self,
+        expired: OwnedScanRootWriteLease,
+        owner_run_id: EntityId,
+        *,
+        lease_token: str,
+        acquired_at: datetime,
+        lease_expires_at: datetime,
+    ) -> OwnedScanRootWriteLease:
+        """Atomically replace an expired quarantine lease that has no persisted run."""
+
+        if (
+            expired.owner_kind
+            is not ScanRootWriteOwnerKind.CONSOLIDATION_QUARANTINE_RUN
+            or expired.owner_run_id == owner_run_id
+        ):
+            raise QuarantineStoreError("quarantine lease takeover is invalid")
+        try:
+            with _immediate_transaction(self._engine) as connection:
+                persisted_run_id = connection.execute(
+                    select(quarantine_execution_runs.c.id).where(
+                        quarantine_execution_runs.c.id == str(expired.owner_run_id)
+                    )
+                ).scalar_one_or_none()
+                if persisted_run_id is not None:
+                    raise QuarantineStoreError(
+                        "persisted quarantine run requires recovery"
+                    )
+                return SQLiteScanRootWriteLeaseStore(
+                    self._engine
+                ).takeover_expired_in_transaction(
+                    connection,
+                    expired,
+                    owner_run_id,
+                    lease_token=lease_token,
+                    acquired_at=acquired_at,
+                    lease_expires_at=lease_expires_at,
+                )
+        except (QuarantineStoreError, ScanRootWriteLeaseError):
+            raise
+        except (SQLAlchemyError, TypeError, ValueError) as error:
+            raise QuarantineStoreError(
+                "quarantine lease takeover could not be completed"
+            ) from error
+
     def require_authorization_sources(
         self,
         plan: ConsolidationPlan,
@@ -345,6 +460,136 @@ class SQLiteQuarantineStore:
                     confirmation_digest=None,
                 )
             )
+        return value
+
+    def create_confirmed_prepared_run(
+        self,
+        value: QuarantineExecutionRun,
+        authorization: QuarantineAuthorizationSnapshot,
+        plan: ConsolidationPlan,
+        lease: OwnedScanRootWriteLease,
+        *,
+        confirmation_digest: str,
+        confirmed_at: datetime,
+        persisted_at: datetime,
+    ) -> QuarantineExecutionRun:
+        """Consume one authorization once and append confirmed PREPARED atomically."""
+
+        if (
+            not isinstance(value, QuarantineExecutionRun)
+            or not isinstance(authorization, QuarantineAuthorizationSnapshot)
+            or not isinstance(plan, ConsolidationPlan)
+            or not isinstance(confirmed_at, datetime)
+            or confirmed_at.tzinfo is None
+            or confirmed_at.utcoffset() is None
+            or not isinstance(persisted_at, datetime)
+            or persisted_at.tzinfo is None
+            or persisted_at.utcoffset() is None
+            or value.created_at != confirmed_at
+            or persisted_at < confirmed_at
+            or not authorization.authorized_at
+            <= confirmed_at
+            <= persisted_at
+            < authorization.expires_at
+            or not isinstance(confirmation_digest, str)
+            or len(confirmation_digest) != 64
+            or any(character not in "0123456789abcdef" for character in confirmation_digest)
+            or lease.owner_kind is not ScanRootWriteOwnerKind.CONSOLIDATION_QUARANTINE_RUN
+            or lease.owner_run_id != value.id
+            or lease.scan_root_id != value.scan_root_id
+            or value.authorization_id != authorization.id
+            or value.plan_id != authorization.plan_id
+            or value.scan_root_id != authorization.scan_root_id
+            or value.keeper_file_id != authorization.keeper_file_id
+            or value.candidate_file_id != authorization.candidate_file_id
+        ):
+            raise QuarantineStoreError("confirmed quarantine run is invalid")
+        if plan.keeper is None or plan.candidate is None:
+            raise QuarantineStoreError("confirmed quarantine plan binding differs")
+        assessment = build_quarantine_authorization(
+            plan=plan,
+            current_keeper=plan.keeper,
+            current_candidate=plan.candidate,
+            current_dependencies=plan.dependencies,
+            current_reviews=plan.required_reviews,
+            quarantine_capability_id=authorization.quarantine_capability_id,
+            authorized_at=authorization.authorized_at,
+            expires_at=authorization.expires_at,
+        )
+        if (
+            assessment.status is not QuarantineEligibilityStatus.ELIGIBLE
+            or assessment.authorization != authorization
+        ):
+            raise QuarantineStoreError("confirmed quarantine plan binding differs")
+        run_row = _run_row(value)
+        try:
+            with self._engine.begin() as connection:
+                SQLiteScanRootWriteLeaseStore(self._engine).fence(
+                    connection,
+                    lease,
+                    persisted_at,
+                )
+                SQLiteConsolidationStore(
+                    self._engine
+                ).require_current_approved_plan_in_transaction(connection, plan)
+                persisted_authorization = (
+                    connection.execute(
+                        select(quarantine_authorizations).where(
+                            quarantine_authorizations.c.id == str(authorization.id)
+                        )
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+                if (
+                    persisted_authorization is None
+                    or dict(persisted_authorization) != _authorization_row(authorization)
+                ):
+                    raise QuarantineStoreError(
+                        "confirmed quarantine authorization is unavailable"
+                    )
+                existing = (
+                    connection.execute(
+                        select(quarantine_execution_runs).where(
+                            quarantine_execution_runs.c.authorization_id
+                            == str(authorization.id)
+                        )
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+                if existing is not None:
+                    raise QuarantineAuthorizationConsumedError(
+                        "quarantine authorization was already consumed"
+                    )
+                connection.execute(insert(quarantine_execution_runs).values(**run_row))
+                connection.execute(
+                    insert(quarantine_execution_events).values(
+                        run_id=str(value.id),
+                        sequence_no=1,
+                        status=QuarantineRunStatus.PREPARED.value,
+                        occurred_at=datetime_to_db(confirmed_at),
+                        fence_epoch=lease.fence_epoch,
+                        finding_code=None,
+                        confirmation_digest=confirmation_digest,
+                    )
+                )
+        except QuarantineAuthorizationConsumedError:
+            raise
+        except IntegrityError as error:
+            if self.get_run_for_authorization(authorization.id) is not None:
+                raise QuarantineAuthorizationConsumedError(
+                    "quarantine authorization was already consumed"
+                ) from None
+            raise QuarantineStoreError(
+                "confirmed quarantine run could not be persisted"
+            ) from error
+        except QuarantineStoreError:
+            raise
+        except (ConsolidationStoreError, ValueError) as error:
+            raise QuarantineStoreError(
+                "confirmed quarantine run could not be persisted"
+            ) from error
         return value
 
     def append_event(
@@ -481,6 +726,27 @@ def _authorization_row(value: QuarantineAuthorizationSnapshot) -> dict[str, obje
     }
 
 
+def _authorization_from_row(values: dict[str, Any]) -> QuarantineAuthorizationSnapshot:
+    return QuarantineAuthorizationSnapshot(
+        EntityId.parse(str(values["id"])),
+        EntityId.parse(str(values["plan_id"])),
+        str(values["plan_content_hash"]),
+        EntityId.parse(str(values["scan_root_id"])),
+        EntityId.parse(str(values["keeper_file_id"])),
+        EntityId.parse(str(values["candidate_file_id"])),
+        EntityId.parse(str(values["keeper_observation_id"])),
+        EntityId.parse(str(values["candidate_observation_id"])),
+        str(values["keeper_full_sha256"]),
+        str(values["candidate_full_sha256"]),
+        EntityId.parse(str(values["quarantine_capability_id"])),
+        str(values["review_fingerprint"]),
+        _required_datetime(values["authorized_at"]),
+        _required_datetime(values["expires_at"]),
+        str(values["content_hash"]),
+        str(values["profile"]),
+    )
+
+
 def _run_row(value: QuarantineExecutionRun) -> dict[str, object]:
     return {
         "id": str(value.id),
@@ -493,6 +759,21 @@ def _run_row(value: QuarantineExecutionRun) -> dict[str, object]:
         "target_token": value.target_token,
         "created_at": datetime_to_db(value.created_at),
     }
+
+
+def _run_from_row(values: dict[str, Any]) -> QuarantineExecutionRun:
+    if str(values["profile"]) != "quarantine-execution/v1":
+        raise QuarantineStoreError("quarantine execution profile is invalid")
+    return QuarantineExecutionRun(
+        EntityId.parse(str(values["id"])),
+        EntityId.parse(str(values["authorization_id"])),
+        EntityId.parse(str(values["plan_id"])),
+        EntityId.parse(str(values["scan_root_id"])),
+        EntityId.parse(str(values["keeper_file_id"])),
+        EntityId.parse(str(values["candidate_file_id"])),
+        str(values["target_token"]),
+        _required_datetime(values["created_at"]),
+    )
 
 
 def _event_from_row(run_id: EntityId, values: dict[str, Any]) -> QuarantineExecutionEvent:
@@ -526,3 +807,18 @@ def _required_datetime(value: object) -> datetime:
     if parsed is None:
         raise QuarantineStoreError("quarantine authorization timestamp is missing")
     return parsed
+
+
+@contextmanager
+def _immediate_transaction(engine: Engine) -> Iterator[Connection]:
+    """Serialize a preparedless-run check with its expired-lease takeover."""
+
+    with engine.connect() as connection:
+        connection.exec_driver_sql("BEGIN IMMEDIATE")
+        try:
+            yield connection
+        except BaseException:
+            connection.rollback()
+            raise
+        else:
+            connection.commit()
