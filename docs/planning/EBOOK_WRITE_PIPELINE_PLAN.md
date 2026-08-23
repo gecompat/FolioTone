@@ -18,9 +18,9 @@ Recovery. ADR-0064 und `S-W10-MW05` schließen genau dieses Profil mit fester
 CLI, zweiter Bestätigung, unmittelbarer Verifikation, neuem Scan,
 `CollectionState` und immutable Reconciliation ab. Alle anderen Writer
 bleiben operation-spezifisch geschlossen. Für die ADR-0056-Quarantäne sind
-zusätzlich Capability-Auflösung und die current-state-gebundene,
-mutationsfreie `quarantine-authorize`-CLI durch `S-W10-05A` und
-`S-W10-05B` und `S-W10-05C` vorhanden; Recovery fehlt weiterhin.
+Capability-Auflösung, current-state-gebundenes `quarantine-authorize`, zweite
+Bestätigung, gefencetes `quarantine-execute` und die no-move Exact-State-
+Recovery durch `S-W10-05A` bis `S-W10-05D` vorhanden.
 
 ## Zweck und Autorität
 
@@ -237,7 +237,7 @@ Capability und Authorization.
 |---|---|---|
 | interne Review-/Decision-Persistenz | append-only vorhanden | keine Source-Mutation daraus ableiten |
 | nicht ausführbarer Duplicate-Plan | vorhanden | W9-Vertrag unverändert lassen |
-| eine reguläre Same-Filesystem-Datei quarantänisieren | Capability, Authorize, gefencetes Execute, enger Interim-Executor und read-only Status vorhanden; Recovery-Bedienung fehlt | `S-W10-05D`, danach optional `FG-W10-MOVE-BACKEND` |
+| eine reguläre Same-Filesystem-Datei quarantänisieren | Capability, Authorize, zweite Bestätigung, gefencetes Execute, enger Interim-Executor, no-move Exact-State-Recovery und read-only Status vorhanden | abgeschlossen; optionale Härtung bleibt `FG-W10-MOVE-BACKEND` |
 | atomarer/generalisierter Quarantäne-Move | nicht autorisiert | `FG-W10-MOVE-BACKEND` mit No-Replace, no-follow, Race- und Crash-Nachweis |
 | Metadaten in Source Media schreiben | ADR-0063/ADR-0064 erlauben operativ nur EPUB 3 plus einen `title`-`REPLACE`; vollständige Bedien-, Verifikations-, Scan-, Reconciliation- und Recoverykette vorhanden | jedes weitere Feld, Format oder jeder andere Zielträger benötigt ein eigenes Gate |
 | Sidecar erzeugen oder ändern | Entwicklung freigegeben; operativ nicht verfügbar | `FG-W10-SIDECAR-WRITE` |
@@ -326,9 +326,9 @@ ADR-0061, ADR-0062 und ADR-0063 aktivieren die folgenden getrennt prüfbaren Wav
    Persistenz mit vollständiger Lineage- und Idempotenzprüfung ergänzt.
 3. `S-W9-006C` hat den privacy-begrenzten SQLite-Read-only-Report und die CLI
    ergänzt und damit `W9-006` abgeschlossen.
-4. `S-W10-05A` bis `S-W10-05C` haben Capability-Auflösung, Authorize und das
-   gefencete Execute der Ein-Datei-Quarantäne abgeschlossen. `S-W10-05D`
-   ergänzt als Nächstes Recovery, ohne den Mutationstyp zu erweitern.
+4. `S-W10-05A` bis `S-W10-05D` haben Capability-Auflösung, Authorize, das
+   gefencete Execute und die feste no-move Exact-State-Recovery der
+   Ein-Datei-Quarantäne abgeschlossen, ohne den Mutationstyp zu erweitern.
 5. ADR-0063 hat `FG-W10-METADATA-WRITE` für genau EPUB 3,
    `SOURCE_METADATA` und einen einzelnen `title`-`REPLACE` entschieden. Der
    Vertrag verwendet einen lexikalischen `dc:title`-/`dcterms:modified`-

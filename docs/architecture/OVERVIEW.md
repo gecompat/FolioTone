@@ -365,12 +365,15 @@ Ausführbar sind ausschließlich die enge ADR-0056-Interim-Quarantäne und der
 durch ADR-0063/ADR-0064 begrenzte EPUB-Titelwriter; beide besitzen getrennte
 Capabilities und Authorizations.
 
-Für die Interim-Quarantäne stellen `S-W10-05A` bis `S-W10-05C` private
-Capability-Auflösung, current-state-gebundenes Authorize und das einmalige
-gefencete Execute bereit. Die zweite Bestätigung bindet Authorization- und
-Plan-ID über begrenztes `stdin`; der bestätigte `PREPARED`-Insert verbraucht
-die Authorization vor dem einzigen Aufruf des vorhandenen Interim-Executors.
-Recovery bleibt der getrennte nächste Slice `S-W10-05D`.
+Für die Interim-Quarantäne stellen `S-W10-05A` bis `S-W10-05D` private
+Capability-Auflösung, current-state-gebundenes Authorize, das einmalige
+gefencete Execute und no-move Exact-State-Recovery bereit. Die zweite
+Bestätigung bindet Authorization- und Plan-ID über begrenztes `stdin`; der
+bestätigte `PREPARED`-Insert verbraucht die Authorization vor dem einzigen
+Aufruf des vorhandenen Interim-Executors. Recovery nimmt nur die opaque
+Run-ID, revalidiert historische Bindungen unter einer Run-Lease und ergänzt
+bei exakter Source-/Zielverteilung ausschließlich fehlende append-only
+Ereignisse. Uneindeutigkeit endet ohne weitere Dateisystemmutation.
 
 ADR-0063 entscheidet als ersten weiteren technischen Vertrag ausschließlich
 einen EPUB-3-`SOURCE_METADATA`-Writer für genau einen

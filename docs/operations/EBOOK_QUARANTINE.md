@@ -1,11 +1,12 @@
 # Begrenzte E-Book-Duplikatquarantäne
 
 Diese Anleitung beschreibt den aktuellen ADR-0056-Bedienstand. Verfügbar sind
-`quarantine-authorize` und `quarantine-execute` für genau einen reviewten
-`EXACT_DUPLICATE`-Candidate. Authorize verändert Source Media nicht; Execute
-darf nach der vollständigen zweiten Prüfung genau diesen Candidate in den
-privaten Same-Filesystem-Quarantänebereich verschieben. `quarantine-recover`
-ist noch nicht verfügbar und folgt in einem getrennten Arbeitspaket.
+`quarantine-authorize`, `quarantine-execute` und `quarantine-recover` für genau
+einen reviewten `EXACT_DUPLICATE`-Candidate. Authorize verändert Source Media
+nicht; Execute darf nach der vollständigen zweiten Prüfung genau diesen
+Candidate in den privaten Same-Filesystem-Quarantänebereich verschieben.
+Recovery schließt ausschließlich einen bereits bestätigten Run anhand einer
+festen physischen Zustandsmatrix und führt selbst keinen Move aus.
 
 Die Authorization öffnet keine allgemeine Move-, Rename-, Purge-, Calibre-,
 Sidecar-, Archiv- oder Metadaten-Schreibschnittstelle. Die nicht atomare
@@ -72,6 +73,10 @@ Alle Source- und Quarantäneverzeichnisse der Datei müssen paarweise disjunkt
 sein. Für eine erfolgreiche Authorization müssen Source und Quarantäne auf
 derselben vom Betriebssystem gemeldeten Filesysteminstanz liegen. Absolute
 Pfade, Mountpunkte und Volume-Namen werden weder persistiert noch ausgegeben.
+Eine Capability-ID ist dauerhaft an genau diese Zuordnung gebunden. Eine
+geänderte Verzeichniszuordnung benötigt eine neue Capability-ID; die
+Wiederverwendung einer ID für andere Verzeichnisse ist ungültige
+Runtime-Konfiguration.
 
 ## Authorization
 
@@ -152,8 +157,42 @@ und ScanRoot-ID, Profil und `COMPLETED`. Feste Fehlercodes bleiben pfad-,
 dateinamen- und materialhashfrei. Falls bereits ein Run existiert oder nach
 `PREPARED` ein Fehler beobachtet wurde, kann zusätzlich dessen opaque Run-ID
 ausgegeben werden. Eine verbrauchte Authorization darf nicht erneut
-ausgeführt werden. Bis `S-W10-05D` Recovery bereitstellt, muss ein nicht
-abgeschlossener Run über `quarantine-status` read-only untersucht und ohne
-weitere Mutation gestoppt werden.
+ausgeführt werden.
+
+## Recovery
+
+Recovery nimmt ausschließlich die opaque ID eines bereits persistierten Runs
+entgegen:
+
+```text
+foliotone quarantine-recover \
+  --run-id <Run-ID> \
+  --output json
+```
+
+Plan-ID, Content Hash, Capability-ID, Authorization-ID, Datenbankpfad, Source-
+oder Zielpfad sind keine Argumente dieses Kommandos. Run, bestätigtes
+`PREPARED`-Event, historische Plan-/Observation-Lineage und Capability-ID
+werden aus der lokalen Runtime-Datenbank geladen. Die Authorization darf nach
+dem bestätigten `PREPARED` inzwischen abgelaufen sein; sie wird nicht erneut
+verbraucht. Ein technisch direkt angelegter `PREPARED`-Run ohne gebundenen
+Confirmation-Digest ist nicht recoveryfähig.
+
+Unter einer frischen oder ausschließlich für denselben Run übernommenen
+abgelaufenen `CONSOLIDATION_QUARANTINE_RUN`-Lease prüft Recovery vor jedem
+fehlenden Ereignis Größe, Modified-Zeitpunkt und vollständigen SHA-256 der
+historisch gebundenen Datei. Es gelten genau diese Fälle:
+
+| Journal und physischer Zustand | Ergebnis |
+|---|---|
+| `PREPARED`; exakte Source vorhanden, Ziel fehlt | Zustand unmittelbar erneut prüfen und `CANCELLED` anhängen; ein neuer Versuch benötigt eine neue Authorization und Bestätigung. |
+| `PREPARED`, `MOVED` oder `VERIFIED`; Source fehlt, exaktes Ziel vorhanden | Nur die fehlenden Ereignisse `MOVED`, `VERIFIED` und `COMPLETED` append-only ergänzen; vor jedem Ereignis erneut prüfen. |
+| Beide fehlen, beide existieren, fremde Bytes/Attribute, Symlink/Reparse Point, Hardlink, fremder Run-Lease oder widersprüchliches Journal | Keine Dateisystemmutation; `MANUAL_REVIEW` beziehungsweise ein fester gefenceter Fehler. |
+| Bereits `COMPLETED` oder `CANCELLED` | Idempotent denselben Terminalstatus ausgeben und keine Ereignisse ergänzen. |
+
+`quarantine-recover` ruft weder `os.rename` noch Copy, Delete, Overwrite oder
+ein externes Tool auf. Eine aktive Root-Writer-Lease blockiert jeden
+nichtterminalen Recovery-Fortschritt. Die erfolgreiche und die fehlerhafte
+Ausgabe bleiben auf opaque IDs, Profil und feste Status-/Fehlercodes begrenzt.
 
 Rollback, Purge und automatische Bereinigung bleiben unabhängig gesperrt.

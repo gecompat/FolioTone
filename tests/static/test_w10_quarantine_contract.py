@@ -41,7 +41,7 @@ def test_w10_backlog_keeps_atomic_hardening_separate_from_interim_execution() ->
     assert "| W10-001 | DECISION |" in backlog
     assert "| W10-002 | DONE |" in backlog
     assert "FG-W10-MOVE-BACKEND" in backlog
-    assert "| W10-005 | NEXT |" in backlog
+    assert "| W10-005 | DONE |" in backlog
     assert "S-W10-01" in status and "abgeschlossen" in status
     assert "S-W10-02" in status
     assert "Interim" in status
@@ -69,10 +69,31 @@ def test_s_w10_05c_opens_only_the_confirmed_interim_execute_path() -> None:
     assert "shutil" not in workflow
     assert '"quarantine-authorize"' in cli
     assert '"quarantine-execute"' in cli
-    assert '"quarantine-recover"' not in cli
     assert "| S-W10-05B | DONE |" in backlog
     assert "| S-W10-05C | DONE |" in backlog
-    assert "| S-W10-05D | NEXT |" in backlog
+
+
+def test_s_w10_05d_recovers_by_fixed_physical_state_without_another_move() -> None:
+    workflow = (
+        ROOT / "src/foliotone/workflows/quarantine_operation.py"
+    ).read_text(encoding="utf-8")
+    recovery = (
+        ROOT / "src/foliotone/quarantine/recovery.py"
+    ).read_text(encoding="utf-8")
+    cli = (ROOT / "src/foliotone/cli/main.py").read_text(encoding="utf-8")
+    backlog = (ROOT / "docs/planning/BACKLOG.md").read_text(encoding="utf-8")
+    recover = _method_source(workflow, "QuarantineOperatorService", "recover")
+
+    assert "self._recovery(" in recover
+    assert "recover_interim_quarantine" in workflow
+    assert "SOURCE_EXACT_TARGET_ABSENT" in recovery
+    assert "SOURCE_ABSENT_TARGET_EXACT" in recovery
+    assert "RECOVERY_STATE_AMBIGUOUS" in recovery
+    assert "os.rename" not in recovery
+    assert "shutil" not in recovery
+    assert '"quarantine-recover"' in cli
+    assert "| W10-005 | DONE |" in backlog
+    assert "| S-W10-05D | DONE |" in backlog
 
 
 def _method_source(module_source: str, class_name: str, method_name: str) -> str:

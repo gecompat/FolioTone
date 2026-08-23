@@ -1807,6 +1807,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_quarantine_binders(quarantine_execute, include_authorization=True)
 
+    quarantine_recover = subparsers.add_parser(
+        "quarantine-recover",
+        help="Recover one persisted quarantine run by its exact physical state.",
+    )
+    quarantine_recover.add_argument(
+        "--run-id",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque persisted quarantine run identifier.",
+    )
+    quarantine_recover.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format; defaults to text.",
+    )
+
     quarantine_status = subparsers.add_parser(
         "quarantine-status",
         help="Read one persisted W10 quarantine run without source access.",
@@ -2035,8 +2052,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             "and metadata-write-status."
         )
         print(
-            "Bounded single-file quarantine authorization and execution are available "
-            "through quarantine-authorize and quarantine-execute; recovery remains unavailable."
+            "Bounded single-file quarantine authorization, execution, and recovery are "
+            "available through quarantine-authorize, quarantine-execute, and "
+            "quarantine-recover."
         )
         print("Other source-media and external-tool mutation commands remain unavailable.")
         return 0
@@ -2132,6 +2150,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "quarantine-execute":
         return _run_quarantine_execute(args)
+
+    if args.command == "quarantine-recover":
+        return _run_quarantine_recover(args)
 
     if args.command == "quarantine-status":
         return _run_quarantine_status(args)
@@ -4114,6 +4135,37 @@ def _run_quarantine_execute(args: argparse.Namespace) -> int:
         if engine is not None:
             engine.dispose()
     _emit_quarantine_operation(args, "quarantine-execute", result)
+    return 0
+
+
+def _run_quarantine_recover(args: argparse.Namespace) -> int:
+    engine: Engine | None = None
+    try:
+        engine, service = _open_quarantine_operator()
+        result = service.recover(run_id=args.run_id)
+    except QuarantineOperatorError as error:
+        return _quarantine_operation_error(
+            args,
+            "quarantine-recover",
+            error.code.value,
+            run_id=error.run_id,
+        )
+    except (OperationalError, OSError, ValueError):
+        return _quarantine_operation_error(
+            args,
+            "quarantine-recover",
+            "RUNTIME_UNAVAILABLE",
+        )
+    except Exception:
+        return _quarantine_operation_error(
+            args,
+            "quarantine-recover",
+            "INTERNAL_ERROR",
+        )
+    finally:
+        if engine is not None:
+            engine.dispose()
+    _emit_quarantine_operation(args, "quarantine-recover", result)
     return 0
 
 

@@ -83,12 +83,14 @@ festen Authorize-/Execute-/Recover-/Status-Kommandos, zweiter Bestätigung über
 `stdin`, unmittelbarer Verifikation, explizitem Lease-Handoff, neuem Scan,
 `CollectionState` und immutable Reconciliation ab.
 
-`W10-005` bleibt die nächste getrennte `FRONTIER`-Wave. Capability-Auflösung
-und `quarantine-authorize` sind durch `S-W10-05A` und `S-W10-05B`
-abgeschlossen. `S-W10-05C` ergänzt Execute, zweite Bestätigung und
-One-use-Fencing. `S-W10-05D` schließt als Nächstes Recovery und synthetische
-Crash-Abnahme. Kein Paket öffnet einen weiteren Mutationstyp oder behauptet
-atomare No-Replace-Semantik.
+`W10-005` ist abgeschlossen. `S-W10-05A` bis `S-W10-05D` liefern
+Capability-Auflösung, Authorize, zweite Bestätigung, One-use-Fencing, Execute
+und eine feste synthetisch abgenommene Recovery-Matrix. Recovery nimmt nur
+eine opaque Run-ID, führt selbst keinen Move aus und ergänzt ausschließlich
+fehlende append-only Ereignisse für eine exakt gebundene Source-/Ziel-
+Verteilung. Kein Paket öffnet einen weiteren Mutationstyp oder behauptet
+atomare No-Replace-Semantik. `W9-007` ist der nächste getrennte book-only
+Slice und bleibt vollständig nicht ausführbar.
 
 ## W0 — Project Foundation
 
@@ -530,12 +532,14 @@ Library-, Rename- und Archivewrites bleiben an
 beziehungsweise `FG-W10-ARCHIVE-REWRITE` gebunden. W10-003 und W10-004
 halten Rollback/Purge und Verzeichnisbereinigung weiterhin getrennt.
 
-Die Quarantäne besitzt noch keine vollständige Bedienkette. Der private
-`QuarantineCapabilityResolver` und `quarantine-authorize` sind vorhanden;
-`S-W10-05C` ergänzt `quarantine-execute` mit zweiter Bestätigung über nicht
-geloggtes `stdin`; `S-W10-05D` ergänzt als Nächstes `quarantine-recover`.
-CLI-Argumente enthalten nur opaque IDs und Content Hashes. Der bestehende
-`quarantine-status` bleibt die maschinenlesbare read-only Statusprojektion.
+Die Quarantäne besitzt eine vollständige eng begrenzte Bedienkette. Der
+private `QuarantineCapabilityResolver`, `quarantine-authorize`, die zweite
+Bestätigung über nicht geloggtes `stdin`, `quarantine-execute` und
+`quarantine-recover` sind vorhanden. Recovery rekonstruiert die historischen
+Run-Binder und klassifiziert ausschließlich die feste exakte physische
+Zustandsmatrix; es führt keinen zweiten Move aus. CLI-Argumente enthalten nur
+opaque IDs und Content Hashes. `quarantine-status` bleibt die
+maschinenlesbare read-only Statusprojektion.
 
 Spätere Operationen wie Rollback, Purge, Metadatenupdate, Calibrewrite und
 explizit autorisierte externe Toolwrites benötigen jeweils eine eigene

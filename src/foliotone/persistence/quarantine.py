@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -141,7 +141,17 @@ class QuarantineStatusEventSnapshot:
 
 
 _NEXT = {
-    QuarantineRunStatus.PREPARED: frozenset(QuarantineRunStatus) - {QuarantineRunStatus.PREPARED},
+    QuarantineRunStatus.PREPARED: frozenset(
+        {
+            QuarantineRunStatus.MOVED,
+            QuarantineRunStatus.STALE,
+            QuarantineRunStatus.TOOL_UNAVAILABLE,
+            QuarantineRunStatus.VALIDATION_FAILED,
+            QuarantineRunStatus.FENCED_OUT,
+            QuarantineRunStatus.MANUAL_REVIEW,
+            QuarantineRunStatus.CANCELLED,
+        }
+    ),
     QuarantineRunStatus.MOVED: frozenset(
         {
             QuarantineRunStatus.VERIFIED,
@@ -365,11 +375,127 @@ class SQLiteQuarantineStore:
                 "quarantine authorization sources are unavailable"
             ) from error
 
+    def require_recovery_candidate(
+        self,
+        run: QuarantineExecutionRun,
+        authorization: QuarantineAuthorizationSnapshot,
+        plan: ConsolidationPlan,
+        lease: OwnedScanRootWriteLease,
+        *,
+        checked_at: datetime,
+    ) -> QuarantineAuthorizationSourceSnapshot:
+        """Return the immutable historical candidate locator under its run fence."""
+
+        if (
+            not isinstance(run, QuarantineExecutionRun)
+            or not isinstance(authorization, QuarantineAuthorizationSnapshot)
+            or not isinstance(plan, ConsolidationPlan)
+            or plan.candidate is None
+            or run.authorization_id != authorization.id
+            or run.plan_id != plan.id
+            or authorization.plan_id != plan.id
+            or authorization.plan_content_hash != plan.content_hash
+            or run.scan_root_id != authorization.scan_root_id
+            or run.scan_root_id != plan.scan_root_id
+            or run.keeper_file_id != authorization.keeper_file_id
+            or run.candidate_file_id != authorization.candidate_file_id
+            or run.candidate_file_id != plan.candidate.file_id
+            or lease.owner_kind
+            is not ScanRootWriteOwnerKind.CONSOLIDATION_QUARANTINE_RUN
+            or lease.owner_run_id != run.id
+            or lease.scan_root_id != run.scan_root_id
+        ):
+            raise QuarantineStoreError("quarantine recovery binding differs")
+        try:
+            with self._engine.begin() as connection:
+                SQLiteScanRootWriteLeaseStore(self._engine).fence(
+                    connection,
+                    lease,
+                    checked_at,
+                )
+                persisted_run = (
+                    connection.execute(
+                        select(quarantine_execution_runs).where(
+                            quarantine_execution_runs.c.id == str(run.id)
+                        )
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+                persisted_authorization = (
+                    connection.execute(
+                        select(quarantine_authorizations).where(
+                            quarantine_authorizations.c.id == str(authorization.id)
+                        )
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+                first_event = (
+                    connection.execute(
+                        select(quarantine_execution_events).where(
+                            quarantine_execution_events.c.run_id == str(run.id),
+                            quarantine_execution_events.c.sequence_no == 1,
+                        )
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+                latest_status = connection.execute(
+                    select(quarantine_execution_events.c.status)
+                    .where(quarantine_execution_events.c.run_id == str(run.id))
+                    .order_by(quarantine_execution_events.c.sequence_no.desc())
+                    .limit(1)
+                ).scalar_one_or_none()
+                confirmation_digest = (
+                    None if first_event is None else first_event["confirmation_digest"]
+                )
+                if (
+                    persisted_run is None
+                    or dict(persisted_run) != _run_row(run)
+                    or persisted_authorization is None
+                    or dict(persisted_authorization)
+                    != _authorization_row(authorization)
+                    or first_event is None
+                    or str(first_event["status"])
+                    != QuarantineRunStatus.PREPARED.value
+                    or first_event["fence_epoch"] is None
+                    or not isinstance(confirmation_digest, str)
+                    or len(confirmation_digest) != 64
+                    or any(
+                        character not in "0123456789abcdef"
+                        for character in confirmation_digest
+                    )
+                    or latest_status
+                    not in {
+                        QuarantineRunStatus.PREPARED.value,
+                        QuarantineRunStatus.MOVED.value,
+                        QuarantineRunStatus.VERIFIED.value,
+                    }
+                ):
+                    raise QuarantineStoreError(
+                        "quarantine recovery material differs"
+                    )
+                return self._authorization_source(
+                    connection,
+                    plan,
+                    plan.candidate,
+                    require_current_file=False,
+                )
+        except QuarantineStoreError:
+            raise
+        except (ScanRootWriteLeaseError, ValueError) as error:
+            raise QuarantineStoreError(
+                "quarantine recovery material is unavailable"
+            ) from error
+
     @staticmethod
     def _authorization_source(
         connection: Any,
         plan: ConsolidationPlan,
         endpoint: ConsolidationFileEndpoint,
+        *,
+        require_current_file: bool = True,
     ) -> QuarantineAuthorizationSourceSnapshot:
         row = (
             connection.execute(
@@ -413,14 +539,19 @@ class SQLiteQuarantineStore:
             str(row["scan_root_id"]) != str(plan.scan_root_id)
             or str(row["scan_run_id"]) != str(plan.source_scan_run_id)
             or str(row["media_type"]) != MediaType.EBOOK.value
-            or str(row["presence_state"]) != PresenceState.PRESENT.value
             or str(row["observation_file_id"]) != str(endpoint.file_id)
-            or str(row["file_relative_path"]) != relative_path
-            or int(row["file_size_bytes"]) != endpoint.expected_size_bytes
             or int(row["observation_size_bytes"]) != endpoint.expected_size_bytes
-            or file_modified_at != endpoint.expected_modified_at
             or observation_modified_at != endpoint.expected_modified_at
             or observed_at != endpoint.expected_observed_at
+            or (
+                require_current_file
+                and (
+                    str(row["presence_state"]) != PresenceState.PRESENT.value
+                    or str(row["file_relative_path"]) != relative_path
+                    or int(row["file_size_bytes"]) != endpoint.expected_size_bytes
+                    or file_modified_at != endpoint.expected_modified_at
+                )
+            )
         ):
             raise QuarantineStoreError("quarantine authorization source differs")
         return QuarantineAuthorizationSourceSnapshot(
@@ -643,7 +774,9 @@ class SQLiteQuarantineStore:
                 .where(quarantine_execution_events.c.run_id == str(run_id))
                 .order_by(quarantine_execution_events.c.sequence_no)
             ).mappings()
-            return tuple(_event_from_row(run_id, dict(row)) for row in rows)
+            events = tuple(_event_from_row(run_id, dict(row)) for row in rows)
+        _require_valid_event_sequence(events)
+        return events
 
     def read_status_snapshot(self, run_id: EntityId) -> QuarantineStatusSnapshot | None:
         """Read only the path-free fields permitted for a quarantine status report."""
@@ -691,8 +824,7 @@ class SQLiteQuarantineStore:
             raise QuarantineStoreError("quarantine status timestamp is missing")
         if not events:
             raise QuarantineStoreError("quarantine status has no prepared event")
-        if tuple(event.sequence_no for event in events) != tuple(range(1, len(events) + 1)):
-            raise QuarantineStoreError("quarantine status events are not gapless")
+        _require_valid_event_sequence(events)
         return QuarantineStatusSnapshot(
             run_id,
             EntityId.parse(str(run["authorization_id"])),
@@ -703,6 +835,23 @@ class SQLiteQuarantineStore:
             expires_at,
             events,
         )
+
+
+def _require_valid_event_sequence(
+    events: Sequence[QuarantineExecutionEvent | QuarantineStatusEventSnapshot],
+) -> None:
+    if not events:
+        return
+    if (
+        tuple(event.sequence_no for event in events)
+        != tuple(range(1, len(events) + 1))
+        or events[0].status is not QuarantineRunStatus.PREPARED
+        or any(
+            current.status not in _NEXT.get(previous.status, frozenset())
+            for previous, current in zip(events, events[1:], strict=False)
+        )
+    ):
+        raise QuarantineStoreError("quarantine event sequence is invalid")
 
 
 def _authorization_row(value: QuarantineAuthorizationSnapshot) -> dict[str, object]:

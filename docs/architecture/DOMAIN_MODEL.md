@@ -510,6 +510,15 @@ erstes append-only Event ist das unter der aktuellen Root-Fence atomar
 persistierte `PREPARED`; private Pfade und der Confirmation-Text gehören weder
 in Domainobjekte noch Statusprojektionen.
 
+`QuarantineRecoveryPhysicalState` ist eine private, nicht persistierte
+Exact-State-Klassifikation für genau diesen Run. Nur exakte historische Source
+bei abwesendem Ziel oder abwesende Source bei exaktem Ziel sind automatisch
+auflösbar. Recovery führt keinen Move aus: Sie storniert einen nach erneuter
+Prüfung unverändert gebliebenen `PREPARED`-Run oder ergänzt unter einer
+frischen Fence ausschließlich nachweislich fehlende `MOVED`-, `VERIFIED`- und
+`COMPLETED`-Events. Jeder andere physische oder journalbezogene Zustand
+verlangt `MANUAL_REVIEW`.
+
 ADR-0063 resolves the first such technical contract only for EPUB 3,
 `SOURCE_METADATA` and one reviewed `title` `REPLACE`. The W10 layer binds the
 existing plan to a concrete writer/version, a deterministic technical
