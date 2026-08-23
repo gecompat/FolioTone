@@ -220,6 +220,24 @@ enthält Inputidentität, Writer-/Toolversion, Konfiguration, erwartete
 Outputidentität, Kollisionsregeln, temporären Workspace, Recovery und
 Verifikation.
 
+ADR-0065 trennt dafür einen content-addressed
+`EbookOperationRecipeCandidate` als Reviewgegenstand vom daraus reduzierten
+`EbookOperationRecipePlan`. Die sechs Operationstypen besitzen eine feste
+Matrix für Zielart, Byteidentität, Collision Policy, privaten Workspace,
+Recovery und Post-operation-Verifikation. Es gibt keine freie Pfad-,
+Command-, argv-, Glob-, Batch- oder rekursive Verzeichnisfläche. Private
+relative Source-/Ziel-Locators sind materieller Teil der Candidate-Identität,
+bleiben aber aus `repr`, Standard-Reports und späteren normalen REST-/UI-
+Projektionen ausgeschlossen.
+
+`S-W9-007A` liefert ausschließlich immutable DTOs, reine Builder/Reducer,
+`canonical-json/v1`, Golden Values und den statischen Non-Execution-Gate.
+`S-W9-007B` ergänzt danach Review-Literale und insert-only Persistenz;
+`S-W9-007C` ergänzt einen echten SQLite-Read-only-Report und die CLI. Kein
+Paket erzeugt eine Capability oder Authorization. Rename, Reorganisation,
+Import, Export, Transformation und Archive-Rewrite bleiben jeweils an ihren
+eigenen späteren W10-Vertrag gebunden.
+
 Rename ist kein Identitätsbeweis. Archive-Extraction in einen privaten
 Workspace autorisiert weder Source-Rewrite noch Archivlöschung. Eine
 erfolgreiche Konvertierung oder Extraktion macht den Ausgangsdatensatz nicht
@@ -340,9 +358,13 @@ ADR-0061, ADR-0062 und ADR-0063 aktivieren die folgenden getrennt prüfbaren Wav
    read-only Status. `S-W10-MW04` ergänzt Linux-Executor und Recovery;
    `S-W10-MW05` schließt CLI, zweite Bestätigung, unmittelbare Verifikation,
    neuen Scan, `CollectionState` und Reconciliation ab.
+7. ADR-0065 und `S-W9-007A` liefern die reinen content-addressed Candidate-/
+   Plan-Verträge für sechs Operationsfamilien. `S-W9-007B` ergänzt als
+   nächste Wave Review und insert-only Persistenz; `S-W9-007C` schließt mit
+   einem privacy-begrenzten SQLite-Read-only-Report ab.
 
-`W9-007` und die übrigen operation-spezifischen Gates folgen danach in
-getrennten Waves. Read-only REST/API- und UI-Shell beginnen erst nach der
+Die operation-spezifischen W10-Gates folgen danach in getrennten Waves.
+Read-only REST/API- und UI-Shell beginnen erst nach der
 FUT-011-ADR; schreibende Controls benötigen zusätzlich die jeweils fertige
 W10-Kette. Music, Bilder und weitere Linien starten nur nach ausdrücklicher
 Aktivierung.

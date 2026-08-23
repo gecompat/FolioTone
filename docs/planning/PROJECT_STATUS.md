@@ -4,6 +4,58 @@ Stand: 2026-08-23
 
 ## Aktuelle Welle
 
+**S-W9-007A implementiert — operationstypisierte Rezepte bleiben nicht ausführbar**
+
+ADR-0065 definiert die Candidate-Review-Plan-Trennung für genau sechs
+E-Book-Operationsfamilien: `FILE_RENAME`, `FILE_REORGANIZE`, `FILE_IMPORT`,
+`FILE_EXPORT`, `FORMAT_TRANSFORM` und `ARCHIVE_REWRITE`. Der neue reine
+Package-Scope `foliotone.ebook_operation_recipes` enthält immutable und
+bounded Source-, Target-, Output-, Processor-, Dependency-, Evidence-,
+Review-, Precondition-, Blocker-, Candidate- und Plan-DTOs. Ein Candidate
+bindet einen abgeschlossenen `ScanRun`, vollständige Source-/Output-SHA-256,
+private relative Source-/Ziel-Locators und die operationstypisierte Collision-,
+Workspace-, Recovery- und Verification-Matrix.
+
+Die Builder berechnen alle materiellen Component-, Evidence-, Candidate- und
+Plan-Fingerprints über Unicode-NFC-normalisiertes `canonical-json/v1`.
+Candidate- und Plan-ID entstehen deterministisch per UUIDv5 aus dem jeweiligen
+Content Hash; Auditzeitpunkte ändern die Identität nicht. Der Reducer bildet
+fehlende oder stale Reviews, unbekannte Dependencies und unvollständige
+Lineage-/Target-/Output-/Processor-/Precondition-/Recovery-/Verification-
+Nachweise auf feste Blocker ab. Auch ein vollständig kompatibles `ACCEPT`
+ergibt ausschließlich `APPROVED_NON_EXECUTABLE`; der einzige Execution-State
+bleibt `NOT_EXECUTABLE`.
+
+Byte-erhaltende Dateioperationen binden Format, Größe und Full-SHA-256 der
+Primärquelle und verlangen einen nativen semantischen Processor. ToolProvider-
+Anforderungen für Transformation oder Archive-Rewrite enthalten nur
+Provider-, Tool-, Adapter- und Konfigurationsidentität, aber weder Command,
+argv, Executable-Pfad noch Environment. Nur `ARCHIVE_REWRITE` darf bounded
+Companion-Sources desselben `ScanRoot` und `ScanRun` binden. Absolute,
+Drive-relative oder mehrdeutige Locator werden abgewiesen; private Locator
+und Materialhashes fehlen in `repr` und im Planpayload.
+
+Ein statischer Non-Execution-Gate verbietet dem gesamten Package CLI-,
+Persistence-, Tooling-, Adapter-, Filesystem-, Prozess- und Tempimporte,
+mutierende Calls, bekannte externe Write-Commands und öffentliche Apply-/
+Delete-/Execute-/Move-/Purge-/Quarantine-/Rename-/Write-Flächen. Lokal
+bestanden 48 fokussierte synthetische Contract-, Determinismus-, Privacy-,
+Review-, Blocker- und Non-Execution-Tests in 0,21 Sekunden. Repository-Ruff
+war grün; Mypy prüfte 240 Source-Dateien ohne Befund, `compileall` war
+erfolgreich und `git diff --check` war sauber. Zusammen mit den betroffenen
+Planungs-, Dokumentations- und W10-Safety-Verträgen bestanden 70 Fälle in
+0,45 Sekunden. Reale E-Books, private Runtime-
+Daten, SQLite, Docker, externe Tools und die vollständige lokale Suite wurden
+ressourcenschonend nicht verwendet. Der exakte stabile PR-Head erhält genau
+einen vollständigen CI-Gate.
+
+`S-W9-007B` ist die nächste Wave. Sie ergänzt die feste Review-Paarung,
+Migration `0030` und insert-only Persistenz mit vollständiger Content- und
+Lineage-Revalidierung. `S-W9-007C` ergänzt danach ausschließlich den echten
+SQLite-Read-only-Report und die privacy-begrenzte CLI. Kein W9-007-Paket
+öffnet einen Writer; jedes spätere W10-Backend benötigt weiterhin seine
+eigene technische ADR und Capability-/Authorize-/Execute-/Recovery-Kette.
+
 **S-W10-05D implementiert — Quarantäne-Recovery schließt W10-005**
 
 `quarantine-recover` vervollständigt die durch ADR-0056 erlaubte
@@ -46,7 +98,8 @@ Dokumentationsverträge in 1,24 Sekunden. Die vollständige lokale Suite und
 Docker wurden gemäß Test Policy nicht gestartet. Es wurden ausschließlich
 kleine synthetische temporäre Dateien und SQLite-Datenbanken verwendet; reale
 E-Books und private Runtime-Daten wurden nicht geöffnet. Der vollständige
-PR-CI-Gate bleibt dem exakten stabilen Head vorbehalten.
+PR-CI-Gate wurde anschließend ausschließlich für den exakten korrigierten
+stabilen Head ausgeführt und ist unten dokumentiert.
 
 Der erste PR-Gate auf Head `6567a7ed2d5dbefecebc311ececa4445276e2271`
 erreichte nach grünen Install-, Ruff- und Mypy-Schritten die Test-Collection
@@ -56,15 +109,21 @@ Unterpakete kollidierten ihre Linux-Pytest-Imports. Der Unit-Test heißt nun
 eindeutig `test_quarantine_recovery_inspection.py`. Die vollständige lokale
 Collection erfasste danach alle 2.099 Tests ohne Fehler; ausgeführt wurden
 weiterhin nur die fokussierten Fälle. Produktionscode und
-Sicherheitsverhalten änderten sich durch die Umbenennung nicht. Der
-korrigierte Head benötigt einen neuen vollständigen PR-Gate.
+Sicherheitsverhalten änderten sich durch die Umbenennung nicht.
+
+Der korrigierte stabile Head
+`45dca9a9762eafeed8b46397595237c1bff75755` bestand Quality-Run
+`32612809402` und Linux-Image-Run `32612809367`. PR #241 wurde als
+`7c5f50ee298cc606c657da52bb361394365d84d2` auf `main` integriert; dessen
+Eltern sind der exakte Base- und Feature-Head. Auch Post-Merge-Run
+`32612937625` war grün.
 
 `W10-005` ist damit funktional vollständig; die bewusst nicht atomare
 No-Replace-Grenze des Interim-Executors und `FG-W10-MOVE-BACKEND` bleiben
-unverändert sichtbar. `W9-007` ist der nächste getrennte book-only Slice und
-definiert ausschließlich nicht ausführbare, reproduzierbare Operationsrezepte
-für Rename, Reorganisation, Import/Export, Transformation und Archive-/
-Containeränderungen. Er öffnet keinen weiteren Writer.
+unverändert sichtbar. `W9-007` hat danach mit dem vorangestellten reinen
+`S-W9-007A`-Vertrag begonnen. Die gesamte Wave definiert ausschließlich nicht
+ausführbare, reproduzierbare Operationsrezepte und öffnet keinen weiteren
+Writer.
 
 **S-W10-05C implementiert — Quarantäne-Execute ist einmalig und gefencet**
 
@@ -2214,23 +2273,25 @@ Noch nicht vorhanden sind unter anderem:
   Bibliothekskennzeichnung; ADR-0042 ist nur `Proposed`;
 - weitere externe Knowledge Provider über den implementierten Open-Library-
   Slice und den persistierten Provider Cache hinaus;
-- Quarantäne-Execute/-Recovery, atomarer No-Replace-Move, Rollback, Purge und
-  Verzeichnisbereinigung; ihre Entwicklung ist durch ADR-0061 freigegeben,
-  `quarantine-authorize` und der begrenzte EPUB-Titelwriter sind operativ
+- atomarer generalisierter No-Replace-Move, Quarantäne-Rollback, Purge und
+  Verzeichnisbereinigung; die enge Interim-Quarantäne einschließlich Execute
+  und no-move Recovery sowie der begrenzte EPUB-Titelwriter sind operativ
   vorhanden, weitere Writer bleiben operation-spezifisch geschlossen;
 - Web-API, Desktop-Oberfläche oder Dashboard; die aktuelle Produktoberfläche ist gemäß ADR-0016 ausschließlich die CLI.
 
 ## Sicherheitsgrenze
 
-ADR-0056 erlaubt als einzige reale W10-Ausnahme den engen Interim-Executor für
-genau eine ausdrücklich autorisierte reguläre Datei im selben vom
-Betriebssystem gemeldeten Filesystem. Die Ziel-Abwesenheitsprüfung vor
-`os.rename` ist nicht atomar; der Executor bietet weder Copy+Delete noch
-Cross-Volume-Fallback und keine allgemeine Move-/Rename-Schnittstelle.
+ADR-0056 erlaubt den engen Interim-Executor für genau eine ausdrücklich
+autorisierte reguläre Datei im selben vom Betriebssystem gemeldeten
+Filesystem. Die Ziel-Abwesenheitsprüfung vor `os.rename` ist nicht atomar;
+der Executor bietet weder Copy+Delete noch Cross-Volume-Fallback und keine
+allgemeine Move-/Rename-Schnittstelle. Getrennt davon erlauben ADR-0063 und
+ADR-0064 ausschließlich den vollständigen EPUB-3-Titelwriter-Vertrag.
 
 `DELETED`, `FileRelocationCandidate` und Scan-Resume sind ausschließlich
 Analyse-/Orchestrierungszustände. W9 erzeugt weiterhin ausschließlich
-dauerhaft nicht ausführbare `ConsolidationPlan`-Einträge. Atomarer
+dauerhaft nicht ausführbare `ConsolidationPlan`-,
+`MetadataCorrectionPlan`- und `EbookOperationRecipePlan`-Einträge. Atomarer
 No-Replace-Move, Rollback, Purge, Metadaten-/Sidecar-/Calibrewrite,
 Archive-Umschreibung und Verzeichnisbereinigung bleiben operativ nicht
 verfügbar. ADR-0061 erlaubt ihre getrennte Entwicklung, ersetzt aber keines

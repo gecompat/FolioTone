@@ -365,6 +365,16 @@ Ausführbar sind ausschließlich die enge ADR-0056-Interim-Quarantäne und der
 durch ADR-0063/ADR-0064 begrenzte EPUB-Titelwriter; beide besitzen getrennte
 Capabilities und Authorizations.
 
+ADR-0065 ergänzt für W9-007 einen davon getrennten reinen Planungsvertrag.
+Ein `EbookOperationRecipeCandidate` typisiert genau einen Rename-,
+Reorganisations-, Import-, Export-, Transformations- oder Archive-Rewrite-
+Slot und bindet vollständige Source-/Outputidentitäten, Dependencies sowie
+Processor-, Collision-, Workspace-, Recovery- und Verification-
+Anforderungen. Der daraus nach Review abgeleitete
+`EbookOperationRecipePlan` bleibt dauerhaft `NOT_EXECUTABLE`. Das Paket
+besitzt weder Filesystem-/Prozesszugriff noch eine mutierende öffentliche
+Surface; Persistenz und read-only Report folgen getrennt.
+
 Für die Interim-Quarantäne stellen `S-W10-05A` bis `S-W10-05D` private
 Capability-Auflösung, current-state-gebundenes Authorize, das einmalige
 gefencete Execute und no-move Exact-State-Recovery bereit. Die zweite

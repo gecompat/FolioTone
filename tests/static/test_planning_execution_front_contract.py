@@ -21,6 +21,9 @@ METADATA_WRITE_ADR = (
 METADATA_WRITE_OPERATOR_ADR = (
     ROOT / "docs/decisions/ADR-0064-metadata-write-operator-and-reconciliation.md"
 )
+OPERATION_RECIPE_ADR = (
+    ROOT / "docs/decisions/ADR-0065-non-executable-ebook-operation-recipes.md"
+)
 
 
 def _text(path: Path) -> str:
@@ -33,14 +36,18 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `W9-007` |" in backlog
-    assert "Zuerst entstehen reine, content-addressed" in backlog
+    assert "| NOW | `S-W9-007B` |" in backlog
+    assert "Zuerst folgen Review/Persistenz" in backlog
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
     assert "| S-W9-006A | DONE |" in backlog
     assert "| S-W9-006B | DONE |" in backlog
     assert "| S-W9-006C | DONE |" in backlog
     assert "| W9-007 | NEXT |" in backlog
+    assert "| FG-W9-007 | DONE |" in backlog
+    assert "| S-W9-007A | DONE |" in backlog
+    assert "| S-W9-007B | NEXT |" in backlog
+    assert "| S-W9-007C | READY |" in backlog
     assert "| W10-005 | DONE |" in backlog
     assert "| W10-006 | DONE |" in backlog
     assert "| S-W10-MW05 | DONE |" in backlog
@@ -180,6 +187,35 @@ def test_metadata_correction_gate_is_reviewed_bounded_and_non_executable() -> No
     assert all(marker in adr for marker in required)
     assert "ADR-0062" in documentation_index
     assert "| FG-W9-006 | DONE |" in backlog
+
+
+def test_operation_recipe_gate_is_typed_private_and_non_executable() -> None:
+    adr = _text(OPERATION_RECIPE_ADR)
+    documentation_index = _text(ROOT / "docs/README.md")
+    backlog = _text(BACKLOG)
+
+    required = (
+        "- Status: Accepted",
+        "ebook-operation-recipe-candidate/v1",
+        "ebook-operation-recipe-plan/v1",
+        "EbookOperationRecipeCandidate",
+        "EbookOperationRecipePlan",
+        "FILE_RENAME",
+        "FILE_REORGANIZE",
+        "FILE_IMPORT",
+        "FILE_EXPORT",
+        "FORMAT_TRANSFORM",
+        "ARCHIVE_REWRITE",
+        "ReviewType.EBOOK_OPERATION_RECIPE",
+        "ReviewCandidateKind.EBOOK_OPERATION_RECIPE_CANDIDATE",
+        "NOT_EXECUTABLE",
+        "S-W9-007A",
+        "S-W9-007B",
+        "S-W9-007C",
+    )
+    assert all(marker in adr for marker in required)
+    assert "ADR-0065" in documentation_index
+    assert "| FG-W9-007 | DONE |" in backlog
 
 
 def test_first_source_metadata_writer_gate_is_narrow_and_reconciled() -> None:
