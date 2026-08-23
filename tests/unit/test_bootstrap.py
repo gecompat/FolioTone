@@ -79,6 +79,10 @@ def test_status_command_is_non_destructive_bootstrap(
             "through ebook-metadata-correction-report."
         ),
         (
+            "Persisted non-executable e-book operation recipes can be inspected read-only "
+            "through ebook-operation-recipe-report."
+        ),
+        (
             "Bounded offline relation candidates and append-only matching review are "
             "available through ebook-match and ebook-match-review-* commands."
         ),

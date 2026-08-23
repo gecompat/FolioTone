@@ -36,18 +36,19 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `S-W9-007C` |" in backlog
-    assert "Der Report schließt `W9-007`" in backlog
+    assert "| NOW | `FG-W10-RENAME` |" in backlog
+    assert "Zuerst entscheidet eine eigene Frontier-Wave" in backlog
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
     assert "| S-W9-006A | DONE |" in backlog
     assert "| S-W9-006B | DONE |" in backlog
     assert "| S-W9-006C | DONE |" in backlog
-    assert "| W9-007 | NEXT |" in backlog
+    assert "| W9-007 | DONE |" in backlog
     assert "| FG-W9-007 | DONE |" in backlog
     assert "| S-W9-007A | DONE |" in backlog
     assert "| S-W9-007B | DONE |" in backlog
-    assert "| S-W9-007C | NEXT |" in backlog
+    assert "| S-W9-007C | DONE |" in backlog
+    assert "| FG-W10-RENAME | NEXT |" in backlog
     assert "| W10-005 | DONE |" in backlog
     assert "| W10-006 | DONE |" in backlog
     assert "| S-W10-MW05 | DONE |" in backlog
@@ -138,13 +139,13 @@ def test_ebook_write_pipeline_is_development_authorized_and_remains_gate_bound()
     assert "EBOOK_WRITE_PIPELINE_PLAN.md" in documentation_index
     assert "ADR-0061" in documentation_index
     assert "| W9-006 | DONE |" in backlog
-    assert "| W9-007 | NEXT |" in backlog
+    assert "| W9-007 | DONE |" in backlog
     assert "| FG-W10-WRITE-DEVELOPMENT | DONE |" in backlog
     assert "| FG-W10-METADATA-WRITE | DONE |" in backlog
+    assert "| FG-W10-RENAME | NEXT |" in backlog
     for gate in (
         "FG-W10-SIDECAR-WRITE",
         "FG-W10-EXTERNAL-LIBRARY-WRITE",
-        "FG-W10-RENAME",
         "FG-W10-ARCHIVE-REWRITE",
     ):
         assert f"| {gate} | DECISION |" in backlog

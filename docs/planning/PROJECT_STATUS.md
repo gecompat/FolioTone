@@ -4,6 +4,40 @@ Stand: 2026-08-23
 
 ## Aktuelle Welle
 
+**S-W9-007C implementiert — W9-007 besitzt eine echte read-only Oberfläche**
+
+`ebook-operation-recipe-report` nimmt genau eine opaque Plan-ID sowie die
+Darstellungswahl entgegen und öffnet eine bereits vorhandene SQLite-Datenbank
+ausschließlich über `mode=ro` und `query_only=ON`. Der Reader migriert nicht,
+rehydriert den Candidate-/Plan-Graph bounded über den insert-only Store und
+öffnet weder Source Media noch Ziel-Slots oder Tools.
+
+Text und JSON enthalten ausschließlich opaque Plan-/Candidate-IDs, Plan- und
+Candidate-Profil, Operationstyp, Plan- und Execution-Status, feste Counts,
+Reviewstatus und Blockerliterale. Private Locator, Source-/Target-/Evidence-
+IDs, Format-/Processorwerte, Content-/Materialhashes, Zeitpunkte und
+Datenbankpfade sind ausgeschlossen. Fehlender Plan, altes Schema,
+Datenbankausfall und unerwartete interne Fehler ergeben ausschließlich feste,
+detailfreie Fehlercodes. Es gibt keine `--private-details`-, Execute-, Apply-
+oder Write-Fläche.
+
+Zehn neue beziehungsweise direkt betroffene CLI-, JSON-/Text-Privacy-,
+Read-only-, Older-Schema-, Fehler-, Bootstrap- und statische Safety-Fälle
+bestanden in 14,38 Sekunden. Der zusätzliche akzeptierte Reviewpfad belegt in
+7,85 Sekunden einen blockerfreien Report mit genau einem Review Item und
+einer Decision. Ruff war für den geänderten Python-Scope grün; Mypy prüfte die
+fünf betroffenen Source-/Testdateien ohne Befund. Reale E-Books, private
+Runtime-Daten, Docker, externe Tools und die vollständige lokale Suite wurden
+nicht verwendet. Zusätzlich bestanden die 22 gezielt gebündelten
+Planungsfront-, Dokumentations-, Testeffizienz- und Report-Safety-Fälle in
+1,17 Sekunden. Der vollständige Gate bleibt dem exakten stabilen PR-Head
+vorbehalten.
+
+`W9-007` ist damit vollständig und weiterhin dauerhaft nicht ausführbar. Als
+nächste book-only Wave folgt ausschließlich das docs-only Frontier-Gate
+`FG-W10-RENAME`. Es entscheidet den technischen Sicherheitsvertrag für
+byte-erhaltenden Rename und Reorganisation, öffnet aber noch keinen Writer.
+
 **S-W9-007B implementiert — Review und Recipe-Historie sind insert-only**
 
 Der generische Review-Core besitzt jetzt die feste bidirektionale Paarung
@@ -32,8 +66,7 @@ Storefehlern; externe Endpoint-IDs bleiben opaque. In der finalen fokussierten
 Ausführung bestanden sieben neue synthetische Upgrade-/Downgrade-, Multi-
 Source-Roundtrip-, Review-/Plan-, Evidence-Lineage-, Privacy-,
 Datenbankfehler-, Bounds-, Immutability- und Rollback-Fälle in 15,90 Sekunden.
-58 unveränderte betroffene
-Regressionen waren grün, bevor
+58 unveränderte betroffene Regressionen waren grün, bevor
 eine erwartungsgemäß veraltete Schema-Head-Assertion auffiel; nach ihrer
 mechanischen Aktualisierung bestanden sechs unmittelbar betroffene
 Migrations-, Review- und Fixture-Fälle in 17,40 Sekunden. Zusätzlich waren 19
@@ -42,8 +75,11 @@ Stand in 1,08 Sekunden sowie neun gezielt ausgewählte ältere Migrationspfade
 in zwei begrenzten Läufen grün. Ruff war für den gesamten Source-Scope und alle
 geänderten Tests erfolgreich; Mypy prüfte alle 243 Source-Dateien ohne
 Befund. Reale E-Books, private Runtime-Daten, Docker, externe Tools und die
-vollständige lokale Suite wurden nicht verwendet. Der vollständige Gate
-bleibt dem exakten stabilen PR-Head vorbehalten.
+vollständige lokale Suite wurden nicht verwendet. Der stabile Remote-Head
+`ab2318ab61a9bb7b79445faff8b874d1f1301038` bestand Quality-Run
+`32616719567` und E-Book-Toolchain-Run `32616719527`. PR #243 wurde als
+`0c3e60c2688a8d902d4646ac38c8660539a4ab1d` auf `main` integriert;
+Post-Merge-Run `32616869792` war ebenfalls grün.
 
 **S-W9-007A implementiert — operationstypisierte Rezepte bleiben nicht ausführbar**
 
@@ -92,10 +128,10 @@ Tools wurden nicht verwendet. Der stabile Remote-Head
 `658563c1a1351a91546789e5e5c2b1160686ffb1` auf `main` integriert;
 Post-Merge-Run `32614626362` war ebenfalls grün.
 
-`S-W9-007C` ist die nächste Wave. Sie ergänzt ausschließlich den echten
-SQLite-Read-only-Report und die privacy-begrenzte CLI. Kein W9-007-Paket
-öffnet einen Writer; jedes spätere W10-Backend benötigt weiterhin seine
-eigene technische ADR und Capability-/Authorize-/Execute-/Recovery-Kette.
+`S-W9-007C` ergänzt den echten SQLite-Read-only-Report und schließt `W9-007`
+ab. Kein W9-007-Paket öffnet einen Writer; jedes spätere W10-Backend benötigt
+weiterhin seine eigene technische ADR und Capability-/Authorize-/Execute-/
+Recovery-Kette.
 
 **S-W10-05D implementiert — Quarantäne-Recovery schließt W10-005**
 
@@ -597,9 +633,11 @@ für den begrenzten EPUB-3-Titelwriter entschieden; `S-W10-MW01` und
 `S-W10-MW03` liefert Authorization, Journal, Capability/Fencing und read-only
 Status. `S-W10-MW04` liefert den internen Linux-Executor und Recovery;
 `S-W10-MW05` schließt Bedienung und Reconciliation ab.
-`W10-005` ist ebenfalls abgeschlossen; `W9-007` ist der nächste reguläre
-book-only Slice. Allgemeine reale Mutation, Music, Bilder, REST-API und
-grafische Oberfläche werden durch diesen Abschluss nicht aktiviert. Am
+`W10-005` und `W9-007` sind ebenfalls abgeschlossen. Als nächster Schritt ist
+`FG-W10-RENAME` ausschließlich als dokumentarische Frontier-Entscheidung
+vorgesehen; ein Rename-Executor wird dadurch noch nicht aktiviert. Allgemeine
+reale Mutation, Music, Bilder, REST-API und grafische Oberfläche werden durch
+diesen Abschluss nicht aktiviert. Am
 finalen lokalen Stand von S-W9-006C bestanden 41
 fokussierte Report-, Privacy-, Schema-, Bootstrap-, Store-, Consolidation-
 Regression- und statische Tests in 26,36 Sekunden. Ruff war für alle
@@ -664,10 +702,11 @@ book-only Leserichtung von Scan, Analyse, Quality, Resolution, Matching und
 Review über nicht ausführbare Metadatenkorrektur-/Konsolidierungspläne bis zu
 operation-spezifischen W10-Gates, Revalidierung, Fencing, Verifikation,
 Recovery und der späteren REST-/UI-Grenze. ADR-0061 autorisiert ihre
-kontrollierte Entwicklung, nicht eine pauschale reale Mutation. `W9-006` ist
-abgeschlossen; `W9-007` ist inzwischen `NEXT`. Der erste Metadata-Write-
-Vertrag ist abgeschlossen. Sidecar-, externe Library-, Rename- und Archive-
-Write-Gates stehen weiterhin als getrennte technische `DECISION`s an.
+kontrollierte Entwicklung, nicht eine pauschale reale Mutation. `W9-006` und
+`W9-007` sind abgeschlossen. Der erste Metadata-Write-Vertrag ist
+abgeschlossen. `FG-W10-RENAME` ist als nächstes, zunächst rein
+dokumentarisches Frontier-Gate vorgesehen; Sidecar-, externe Library- und
+Archive-Write-Gates bleiben getrennte technische `DECISION`s.
 
 **W10-Interim abgeschlossen — Executor und read-only Quarantänestatus sind vorhanden**
 

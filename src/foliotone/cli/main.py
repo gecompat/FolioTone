@@ -101,6 +101,12 @@ from foliotone.persistence.consolidation_report import (
     ConsolidationPlanReportReaderError,
     SQLiteConsolidationPlanReportReader,
 )
+from foliotone.persistence.ebook_operation_recipe_report import (
+    EbookOperationRecipePlanReport,
+    EbookOperationRecipePlanReportReaderError,
+    EbookOperationRecipePlanReportSchemaError,
+    SQLiteEbookOperationRecipePlanReportReader,
+)
 from foliotone.persistence.metadata_correction_report import (
     MetadataCorrectionPlanReport,
     MetadataCorrectionPlanReportReaderError,
@@ -1728,6 +1734,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output format; both variants remain path- and metadata-value-free.",
     )
 
+    operation_recipe_report = subparsers.add_parser(
+        "ebook-operation-recipe-report",
+        help="Read one persisted non-executable e-book operation recipe read-only.",
+    )
+    operation_recipe_report.add_argument(
+        "--plan",
+        required=True,
+        type=EntityId.parse,
+        help="Opaque persisted EbookOperationRecipePlan identifier.",
+    )
+    operation_recipe_report.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("FOLIOTONE_DATABASE", "/data/foliotone.db")),
+        help="Existing SQLite database path; opened strictly read-only.",
+    )
+    operation_recipe_report.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format; both variants remain locator-, material-, and hash-free.",
+    )
+
     metadata_write_authorize = subparsers.add_parser(
         "metadata-write-authorize",
         help="Prepare and authorize one exact reviewed EPUB title replacement.",
@@ -2040,6 +2069,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             "through ebook-metadata-correction-report."
         )
         print(
+            "Persisted non-executable e-book operation recipes can be inspected read-only "
+            "through ebook-operation-recipe-report."
+        )
+        print(
             "Bounded offline relation candidates and append-only matching review are "
             "available through ebook-match and ebook-match-review-* commands."
         )
@@ -2129,6 +2162,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "ebook-metadata-correction-report":
         return _run_ebook_metadata_correction_report(args)
+
+    if args.command == "ebook-operation-recipe-report":
+        return _run_ebook_operation_recipe_report(args)
 
     if args.command == "metadata-write-authorize":
         return _run_metadata_write_authorize(args)
@@ -3657,6 +3693,78 @@ def _ebook_metadata_correction_report_error(args: argparse.Namespace, code: str)
         )
     else:
         print("Metadata correction report failed: read-only state is unavailable.")
+    return 2
+
+
+def _run_ebook_operation_recipe_report(args: argparse.Namespace) -> int:
+    """Render one persisted operation recipe without mutable access."""
+
+    database: Path = args.database
+    if not database.is_file():
+        return _ebook_operation_recipe_report_error(args, "DATABASE_UNAVAILABLE")
+    try:
+        engine = create_sqlite_read_only_engine(database)
+        try:
+            report = SQLiteEbookOperationRecipePlanReportReader(engine).read(args.plan)
+        finally:
+            engine.dispose()
+    except EbookOperationRecipePlanReportSchemaError:
+        return _ebook_operation_recipe_report_error(args, "SCHEMA_UNAVAILABLE")
+    except EbookOperationRecipePlanReportReaderError:
+        return _ebook_operation_recipe_report_error(args, "PLAN_UNAVAILABLE")
+    except OperationalError:
+        return _ebook_operation_recipe_report_error(args, "SCHEMA_UNAVAILABLE")
+    except (OSError, ValueError):
+        return _ebook_operation_recipe_report_error(args, "DATABASE_UNAVAILABLE")
+    except Exception:
+        return _ebook_operation_recipe_report_error(args, "INTERNAL_READ_ERROR")
+
+    if args.output == "json":
+        _emit_json(report.payload())
+    else:
+        _print_ebook_operation_recipe_report(report)
+    return 0
+
+
+def _print_ebook_operation_recipe_report(
+    report: EbookOperationRecipePlanReport,
+) -> None:
+    print(f"Plan: {report.plan_id}")
+    print(f"Candidate: {report.candidate_id}")
+    print(f"Plan profile: {report.plan_profile}")
+    print(f"Candidate profile: {report.candidate_profile}")
+    print(f"Operation kind: {report.operation_kind}")
+    print(f"Status: {report.status}")
+    print(f"Execution state: {report.execution_state}")
+    print(f"Review status: {report.review_status}")
+    for label, value in (
+        ("Sources", report.counts.sources),
+        ("Dependencies", report.counts.dependencies),
+        ("Verifications", report.counts.verifications),
+        ("Candidate evidence refs", report.counts.candidate_evidence_refs),
+        ("Preconditions", report.counts.preconditions),
+        ("Blockers", report.counts.blockers),
+        ("Blocker evidence refs", report.counts.blocker_evidence_refs),
+        ("Review items", report.counts.review_items),
+        ("Decisions", report.counts.decisions),
+    ):
+        print(f"{label}: {value}")
+    for code in report.blocker_codes:
+        print(f"Blocker code: {code}")
+
+
+def _ebook_operation_recipe_report_error(args: argparse.Namespace, code: str) -> int:
+    if args.output == "json":
+        _emit_json(
+            {
+                "schema_version": 1,
+                "command": "ebook-operation-recipe-report",
+                "ok": False,
+                "error": {"code": code},
+            }
+        )
+    else:
+        print("E-book operation recipe report failed: read-only state is unavailable.")
     return 2
 
 

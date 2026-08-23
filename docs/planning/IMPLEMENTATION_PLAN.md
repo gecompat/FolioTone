@@ -94,8 +94,9 @@ Slice `W9-007` in reine Verträge, Persistenz/Review und read-only Ausgabe.
 `S-W9-007A` liefert die content-addressed Candidate-/Plan-DTOs, Builder,
 Reducer, Golden Values und den statischen Non-Execution-Gate. `S-W9-007B`
 liefert Review-Paarung, Migration `0030` und insert-only Persistenz.
-`S-W9-007C` folgt getrennt mit der read-only Ausgabe; der gesamte Slice bleibt
-nicht ausführbar.
+`S-W9-007C` liefert getrennt die echte SQLite-read-only Ausgabe. `W9-007` ist
+damit vollständig und bleibt nicht ausführbar; als nächste docs-only
+Entscheidungswave folgt `FG-W10-RENAME`.
 
 ## W0 — Project Foundation
 
@@ -499,8 +500,10 @@ Operationsfamilien, reine Builder/Reducer, kanonische Serialisierung und den
 Non-Execution-Vertrag. `S-W9-007B` ergänzt den Review-Core, Migration `0030`
 und die bounded insert-only Persistenz einschließlich kanonischem Rebuild und
 vollständiger lokaler Lineage-Revalidierung. `S-W9-007C` ergänzt den echten
-SQLite-Read-only-Report. Ein Ziel-Slot oder Rezept öffnet keinen Writer. Die
-vollständige Reihenfolge steht in `EBOOK_WRITE_PIPELINE_PLAN.md`.
+SQLite-Read-only-Report samt privacy-begrenzter CLI und schließt `W9-007` ab.
+Ein Ziel-Slot oder Rezept öffnet keinen Writer. Die vollständige Reihenfolge
+steht in `EBOOK_WRITE_PIPELINE_PLAN.md`; `FG-W10-RENAME` ist das nächste
+getrennte Entscheidungsgate.
 
 Identity and quality are separate inputs: a future quality evaluator may rank which equivalent representation is preferable only after identity is established.
 

@@ -375,7 +375,9 @@ Anforderungen. Der daraus nach Review abgeleitete
 besitzt weder Filesystem-/Prozesszugriff noch eine mutierende öffentliche
 Surface. Migration `0030` und ein getrennter bounded Store persistieren den
 Candidate-/Plan-Graph insert-only und revalidieren lokale Lineage; der
-read-only Report folgt getrennt.
+getrennte `ebook-operation-recipe-report` liest genau einen Plan über SQLite
+read-only und projiziert ausschließlich opaque IDs, Profile, Operationstyp,
+Status, Counts, Review und Blocker.
 
 Für die Interim-Quarantäne stellen `S-W10-05A` bis `S-W10-05D` private
 Capability-Auflösung, current-state-gebundenes Authorize, das einmalige
