@@ -75,4 +75,18 @@ def test_local_ui_has_german_accessible_read_only_workflows() -> None:
     assert "JSON.stringify" in script
     assert "textContent" in script
     assert "/api/v1/ebooks/collection-states/" in script
+    assert "next_cursor" in script
+    assert "Nächste Seite" in script
+    assert "/api/v1/ebooks/readiness" in script
+    assert "/api/v1/ebooks/collection-runs/" in script
+    assert "renderTable" in script
     assert "innerHTML" not in script
+
+
+def test_local_surface_workers_wait_for_the_schema_owner() -> None:
+    compose = Path("compose.yaml").read_text(encoding="utf-8")
+
+    assert compose.count("condition: service_healthy") == 3
+    assert "urlopen('http://127.0.0.1:8765/api/v1/health')" in compose
+    assert "operator-worker:\n    profiles: [\"local-surface\"]\n    depends_on:" in compose
+    assert "analysis-worker:\n    profiles: [\"local-surface\"]\n    depends_on:" in compose

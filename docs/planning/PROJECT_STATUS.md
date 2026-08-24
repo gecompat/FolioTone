@@ -8,7 +8,9 @@ Stand: 2026-08-24
 
 Die same-origin Browseroberfläche verwendet deutsche sichtbare Texte, Vanilla-
 HTML/CSS/JavaScript, Setup, Login, Logout, Passwort-Reauthentisierung, Suche,
-Übersicht und zugängliche Tabellen-/Listenbereiche für Jobs und Audit. `EBOOK`
+Übersicht, zugängliche Tabellen-/Listenbereiche für Jobs und Audit sowie
+gebundene Detailansichten für Snapshot, Scan, Analyse, Evidence, Reviews,
+Readiness und nicht ausführbare Pläne. `EBOOK`
 ist die einzige aktivierte Medienlinie; `MUSIC` und `IMAGE` bleiben sichtbar,
 aber deaktiviert. Es werden keine externen Assets geladen und die UI enthält
 keine W10-Route oder schreibendes Control.
@@ -23,10 +25,11 @@ Details noch Locator aus. Private Suchwerte bleiben ausschließlich unter
 `/api/v1/private`, nach Sessionrotation und `PRIVATE_READ`-Grant, mit
 `Cache-Control: no-store` erreichbar.
 
-Lokal bestanden 23 fokussierte Unit-, API-, Privacy-, Cursor-, OpenAPI-, UI-
-und Dokumentationsfälle mit ausschließlich synthetischen SQLite-Daten. Ruff,
-Mypy über 275 Quelldateien, `git diff --check` und `docker compose config
---quiet` waren grün. Der vollständige lokale Pytest-Gate erreichte 792 grüne
+Lokal bestanden 24 fokussierte Unit-, API-, Privacy-, Cursor-, OpenAPI-, UI-,
+Schema-Owner- und Dokumentationsfälle mit ausschließlich synthetischen SQLite-
+Daten. Ruff, Mypy über 275 Quelldateien, `git diff --check`, `docker compose
+config --quiet` und der leere lokale `local-surface`-Stack mit internem
+Loopback-Healthcheck waren grün. Der vollständige lokale Pytest-Gate erreichte 793 grüne
 Fälle und 10 erwartete Plattform-Skips, scheiterte aber reproduzierbar im
 unveränderten Archive-7zip-Test
 `test_explicit_provisioning_and_per_run_offline_availability` mit

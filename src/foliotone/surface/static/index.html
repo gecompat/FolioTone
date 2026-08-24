@@ -29,7 +29,13 @@
         <nav aria-label="Medienlinien"><ul id="media-lines"></ul></nav>
         <nav aria-label="E-Book-Bereiche"><a href="#search">Suche</a> <a href="#details">Details</a> <a href="#jobs">Jobs</a> <a href="#audit">Audit</a></nav>
         <section id="search"><h2>Suche</h2><form id="search-form"><label>Snapshot-ID <input name="snapshot" required></label><label>Query <input name="query" required></label><button>Suchen</button></form><div id="search-results" aria-live="polite"></div></section>
-        <section id="details"><h2>Details</h2><p>Scan-, Analyse-, Quality- und Evidence-Projektionen werden nur aus gebundenen Snapshots gelesen.</p></section>
+        <section id="details"><h2>Details</h2><p>Scan-, Analyse-, Quality- und Evidence-Projektionen werden nur aus gebundenen Snapshots gelesen.</p>
+          <form id="snapshot-details-form"><label>Snapshot-ID <input name="snapshot" required></label><button>CollectionState und Library Health laden</button></form><div id="snapshot-details" aria-live="polite"></div>
+          <form id="scan-details-form"><label>ScanRoot-ID <input name="scan_root" required></label><button>Scanstatus und Inventar laden</button></form><div id="scan-details" aria-live="polite"></div>
+          <form id="run-details-form"><label>CollectionRun-ID <input name="run" required></label><button>Analyse, Evidence und Reviews laden</button></form><div id="run-details" aria-live="polite"></div>
+          <section><h3>Tool- und Format-Readiness</h3><button id="readiness-action" type="button">Readiness laden</button><div id="readiness-details" aria-live="polite"></div></section>
+          <section><h3>Nicht ausführbare Pläne</h3><button id="plans-action" type="button">Pläne laden</button><div id="plan-list" aria-live="polite"></div></section>
+        </section>
         <section id="jobs"><h2>Jobs</h2><div id="job-list"></div></section>
         <section id="audit"><h2>Audit</h2><div id="audit-list"></div></section>
         <section><h2>Private Locator</h2><form id="reauth-form"><label>Passwort erneut eingeben <input name="password" type="password" required></label><button>Private Ansicht freigeben</button></form></section>

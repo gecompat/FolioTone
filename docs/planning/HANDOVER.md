@@ -42,13 +42,15 @@ enthalten keine Locator, Metadatenwerte, Hashes, Secrets oder Capability-
 Details. Private Suchwerte bleiben im getrennten `no-store`-Zweig und
 benötigen eine rotierte Session mit `PRIVATE_READ`-Grant. Die deutsche
 same-origin Vanilla-UI enthält Setup, Login, Logout, Reauthentisierung,
-Übersicht, Suche, Pagination-Ausgabe und Accessibility-Kernwege; sie enthält
-keinen Writer oder W10-Control.
+Übersicht, Suche, Pagination-Ausgabe, gebundene Detailansichten für Snapshot,
+Scan, Analyse, Evidence, Reviews, Readiness und nicht ausführbare Pläne sowie
+Accessibility-Kernwege; sie enthält keinen Writer oder W10-Control.
 
-Die gezielte lokale Abnahme umfasste 23 synthetische Unit-, API-, Privacy-,
-Cursor-, OpenAPI-, UI- und Dokumentationsfälle. Ruff, Mypy für 275 Source-
-Dateien, `git diff --check` und `docker compose config --quiet` waren grün.
-Der vollständige lokale Pytest-Gate erreichte 792 grüne Fälle und 10 erwartete
+Die gezielte lokale Abnahme umfasste 24 synthetische Unit-, API-, Privacy-,
+Cursor-, OpenAPI-, UI-, Schema-Owner- und Dokumentationsfälle. Ruff, Mypy für
+275 Source-Dateien, `git diff --check`, `docker compose config --quiet` und
+der leere lokale `local-surface`-Stack mit internem Loopback-Healthcheck waren
+grün. Der vollständige lokale Pytest-Gate erreichte 793 grüne Fälle und 10 erwartete
 Plattform-Skips, scheiterte jedoch reproduzierbar außerhalb des Surface-Scopes
 im Archive-7zip-Test `test_explicit_provisioning_and_per_run_offline_availability`
 mit `EVIDENCE_MISMATCH`. Der einmalige PR-CI-Gate bleibt für den stabilen Head

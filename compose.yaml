@@ -5,6 +5,12 @@ services:
       context: .
     ports:
       - "127.0.0.1:8765:8765"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/api/v1/health').read()"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 2s
     volumes:
       - "${FOLIOTONE_DATA_DIR:-./data}:/data:rw"
     read_only: true
@@ -18,6 +24,9 @@ services:
 
   analysis-worker:
     profiles: ["local-surface"]
+    depends_on:
+      surface-api:
+        condition: service_healthy
     build:
       context: .
     volumes:
@@ -36,6 +45,9 @@ services:
 
   operator-worker:
     profiles: ["local-surface"]
+    depends_on:
+      surface-api:
+        condition: service_healthy
     build:
       context: .
     volumes:
@@ -51,6 +63,9 @@ services:
     command: ["operator-worker", "--database", "/data/foliotone.db"]
 
   foliotone:
+    depends_on:
+      surface-api:
+        condition: service_healthy
     build:
       context: .
     volumes:

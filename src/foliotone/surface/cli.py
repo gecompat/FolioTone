@@ -78,6 +78,7 @@ def run_auth_reset(args: argparse.Namespace) -> int:
 def run_surface_api(args: argparse.Namespace) -> int:
     """Start only an explicit loopback listener, never a wildcard listener."""
     config = SurfaceRuntimeConfig(bind_host=args.host, port=args.port)
+    migrate(args.database)
     engine = create_sqlite_engine(args.database)
     surface_store = SQLiteSurfaceStore(engine)
     app = create_surface_app(
