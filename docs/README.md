@@ -25,6 +25,7 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 12. [E-Book-Toolchain unter Windows](operations/WINDOWS_EBOOK_TOOLCHAIN.md) beschreibt das explizite Docker-/WSL2-Provisioning und den formatspezifischen Doctor.
 13. [Begrenzter EPUB-Titelwriter](operations/EBOOK_METADATA_WRITE.md) beschreibt Voraussetzungen, Runtime-Konfiguration, Bestätigung, Status und Recovery des einzigen freigegebenen Source-Metadata-Profils.
 14. [Begrenzte E-Book-Duplikatquarantäne](operations/EBOOK_QUARANTINE.md) beschreibt Authorization, gefencetes Execute und die feste no-move Exact-State-Recovery für genau einen reviewten Duplicate Candidate.
+15. [Ausführungsvertrag für S-FUT11-03 und S-FUT11-04](planning/FUT11_NEXT_WAVES.md) bindet den decision-complete Application-, API-, UI-, Privacy-, Operator-Worker-, Test- und Git-Scope der beiden nächsten Produktwaves.
 
 ## Architektur
 
@@ -79,6 +80,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0066](decisions/ADR-0066-bounded-ebook-file-rename.md) entscheidet den ersten Datei-Writer ausschließlich für byte-identischen Same-Parent-Rename mit privater Capability, Linux-`renameat2(RENAME_NOREPLACE)`, Exact-State-Recovery und nicht vereinigender Scan-Reconciliation.
 - [ADR-0067](decisions/ADR-0067-local-single-operator-product-surface.md) entscheidet die lokale Einzelbenutzer-Produktoberfläche mit gemeinsamen Application-Verträgen, loopback-only REST-API, Browser-UI, Bootstrap/Auth, dauerhaften Jobs und getrenntem Operator-Worker.
 - [ADR-0068](decisions/ADR-0068-ai-repository-foundation-integration.md) integriert AI Repository Foundation `1.2.0` als namespacete Mindestbaseline, ohne strengere FolioTone-Verträge, Projektstatus, Adapter oder die Root-Lizenz zu ersetzen.
+- [ADR-0069](decisions/ADR-0069-ebook-rename-operator-job-handoff.md) bindet die operation-spezifische Jobübergabe des ersten GUI-Writers, verwirft die Raw Confirmation vor Persistenz und erhält alle ADR-0066-W10-Gates.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

@@ -398,6 +398,15 @@ Ein W10-Job wird nach einer möglichen irreversiblen Grenze niemals still
 wiederholt; Leaseverlust oder Crash führen in die operation-spezifische
 Status-/Recoverykette.
 
+ADR-0069 bindet die Prozessübergabe des ersten GUI-Writers. Die Raw
+Confirmation wird nur im begrenzten Execute-Request verarbeitet, exakt gegen
+die immutable Rename-Authorization geprüft und danach verworfen. Persistiert
+wird ausschließlich der domänengetrennte Digest mit operation-spezifischen
+opaque Bindern. Dieser Digest ist kein Secret und kein unabhängiger
+kryptografischer Nachweis gegen einen vollständig kompromittierten
+Webprozess. Er kann deshalb weder die getrennte Capability-Auflösung noch die
+One-use-W10-Authorization, Root-Fencing, Verifikation und Recovery ersetzen.
+
 ## Private data
 
 Runtime state may itself contain sensitive metadata about a private collection. `/data` is therefore excluded from Git. Logs should avoid dumping full extracted text, unnecessary absolute paths, raw external queries, tool command lines containing sensitive values, or credentials.
