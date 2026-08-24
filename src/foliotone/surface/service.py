@@ -86,10 +86,27 @@ class LocalSurfaceService:
     def setup_required(self) -> bool:
         return not self._store.has_user()
 
-    def grant_after_reauth(self, session: SurfaceSession, password: str) -> bool:
+    def reauthenticate(
+        self,
+        session: SurfaceSession,
+        password: str,
+        *,
+        scope: Scope = Scope.PRIVATE_READ,
+    ) -> tuple[str, str, SurfaceSession] | None:
+        """Rotate a session before granting a short-lived elevated read scope."""
         # A query by immutable user ID avoids a transport-level role assertion.
         user = self._store.find_user_by_id(session.user_id)
         if user is None or not verify_password(user.password_hash, password):
-            return False
-        self._store.create_grant(session.id, Scope.OPERATE)
-        return True
+            return None
+        token, csrf = generate_secret(), generate_secret()
+        rotated = self._store.rotate_session(
+            session,
+            token_digest=secret_digest(token, purpose="session"),
+            csrf_digest=secret_digest(csrf, purpose="csrf"),
+        )
+        self._store.create_grant(rotated, scope)
+        return token, csrf, rotated
+
+    def has_active_grant(self, session: SurfaceSession, scope: Scope) -> bool:
+        """Check an elevated scope without exposing grant contents to transport adapters."""
+        return self._store.has_active_grant(session.id, scope)

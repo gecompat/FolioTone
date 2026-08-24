@@ -6,12 +6,20 @@ from collections.abc import Callable
 from typing import Protocol
 
 from foliotone.application.contracts import (
+    ApplicationJobDetailQuery,
+    CollectionSearchQuery,
+    CollectionStateQuery,
+    EbookProjectionQuery,
     EbookToolchainReadinessQuery,
     LibraryHealthQuery,
     MediaLineRegistry,
+    SurfacePageQuery,
 )
+from foliotone.collection_state import CollectionQuerySpec
 from foliotone.core.ids import EntityId
 from foliotone.tooling.ebook_readiness import EbookToolchainReadinessReport
+from foliotone.workflows.collection_state import CollectionStateReport
+from foliotone.workflows.collection_state_query import CollectionQueryReport
 from foliotone.workflows.library_health import LibraryHealthReport
 
 
@@ -25,6 +33,60 @@ class LibraryHealthReader(Protocol):
         baseline_snapshot_id: EntityId | None,
         sample_limit: int,
     ) -> LibraryHealthReport: ...
+
+
+class CollectionStateReader(Protocol):
+    """Port for reading one immutable CollectionState projection."""
+
+    def read(self, snapshot_id: EntityId) -> CollectionStateReport: ...
+
+
+class CollectionSearchReader(Protocol):
+    """Port for the bounded persisted CollectionState search projection."""
+
+    def search(
+        self,
+        snapshot_id: EntityId,
+        spec: CollectionQuerySpec,
+        *,
+        private_details: bool = False,
+    ) -> CollectionQueryReport: ...
+
+
+class SurfaceReadModel(Protocol):
+    """Port for public, bounded surface-owned job and audit projections."""
+
+    def list_jobs(
+        self, *, after_id: str | None, limit: int
+    ) -> tuple[tuple[dict[str, object], ...], str | None]: ...
+
+    def job_detail(self, job_id: str) -> dict[str, object] | None: ...
+
+    def list_audit_events(
+        self, *, after_id: str | None, limit: int
+    ) -> tuple[tuple[dict[str, object], ...], str | None]: ...
+
+
+class EbookReadModel(Protocol):
+    """Port for path-free persisted E-Book status and evidence projections."""
+
+    def scan_status(self, scan_root_id: EntityId) -> dict[str, object] | None: ...
+
+    def inventory(self, scan_root_id: EntityId) -> dict[str, object] | None: ...
+
+    def collection_analysis(self, run_id: EntityId) -> dict[str, object] | None: ...
+
+    def review_queue(
+        self, run_id: EntityId, *, after_id: str | None, limit: int
+    ) -> tuple[tuple[dict[str, object], ...], str | None]: ...
+
+    def candidate_evidence(self, run_id: EntityId) -> dict[str, object] | None: ...
+
+    def list_plans(
+        self, *, after_id: str | None, limit: int
+    ) -> tuple[tuple[dict[str, object], ...], str | None]: ...
+
+    def plan_report(self, plan_id: EntityId) -> dict[str, object] | None: ...
 
 
 class FolioToneApplication:
@@ -67,3 +129,65 @@ class FolioToneApplication:
             baseline_snapshot_id=query.baseline_snapshot_id,
             sample_limit=query.sample_limit,
         )
+
+    def collection_state_report(
+        self,
+        reader: CollectionStateReader,
+        query: CollectionStateQuery,
+    ) -> CollectionStateReport:
+        """Read one immutable CollectionState through an injected persistence port."""
+        return reader.read(query.snapshot_id)
+
+    def collection_search(
+        self,
+        reader: CollectionSearchReader,
+        query: CollectionSearchQuery,
+    ) -> CollectionQueryReport:
+        """Run an existing bounded search through the application boundary."""
+        return reader.search(query.snapshot_id, query.spec, private_details=query.private_details)
+
+    def jobs(
+        self, reader: SurfaceReadModel, query: SurfacePageQuery
+    ) -> tuple[tuple[dict[str, object], ...], str | None]:
+        """Read a bounded public job list through the application boundary."""
+        return reader.list_jobs(after_id=query.after_id, limit=query.limit)
+
+    def job_detail(
+        self, reader: SurfaceReadModel, query: ApplicationJobDetailQuery
+    ) -> dict[str, object] | None:
+        """Read one public job detail through the application boundary."""
+        return reader.job_detail(query.job_id)
+
+    def audit_events(
+        self, reader: SurfaceReadModel, query: SurfacePageQuery
+    ) -> tuple[tuple[dict[str, object], ...], str | None]:
+        """Read a bounded, path-free audit list through the application boundary."""
+        return reader.list_audit_events(after_id=query.after_id, limit=query.limit)
+
+    def ebook_projection(
+        self, reader: EbookReadModel, query: EbookProjectionQuery, kind: str
+    ) -> dict[str, object] | None:
+        """Read one explicitly named E-Book projection through its port."""
+        readers = {
+            "scan-status": reader.scan_status,
+            "inventory": reader.inventory,
+            "collection-analysis": reader.collection_analysis,
+            "candidate-evidence": reader.candidate_evidence,
+            "plan-report": reader.plan_report,
+        }
+        try:
+            return readers[kind](query.projection_id)
+        except KeyError as error:
+            raise ValueError("E-Book projection kind is invalid") from error
+
+    def ebook_review_queue(
+        self, reader: EbookReadModel, query: EbookProjectionQuery, page: SurfacePageQuery
+    ) -> tuple[tuple[dict[str, object], ...], str | None]:
+        """Read a bounded Review Queue without exposing source locators."""
+        return reader.review_queue(query.projection_id, after_id=page.after_id, limit=page.limit)
+
+    def ebook_plans(
+        self, reader: EbookReadModel, page: SurfacePageQuery
+    ) -> tuple[tuple[dict[str, object], ...], str | None]:
+        """Read bounded permanently non-executable plan summaries."""
+        return reader.list_plans(after_id=page.after_id, limit=page.limit)

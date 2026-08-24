@@ -58,4 +58,5 @@ class SurfaceRuntimeConfig:
 
     @property
     def origin(self) -> str:
-        return f"http{'s' if self.secure_cookie else ''}://{self.bind_host}:{self.port}"
+        host = f"[{self.bind_host}]" if self.bind_host == "::1" else self.bind_host
+        return f"http{'s' if self.secure_cookie else ''}://{host}:{self.port}"

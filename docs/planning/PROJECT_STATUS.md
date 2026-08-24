@@ -4,6 +4,40 @@ Stand: 2026-08-24
 
 ## Aktuelle Welle
 
+**S-FUT11-03 implementiert — read-only E-Book-Oberfläche ohne W10-Control**
+
+Die same-origin Browseroberfläche verwendet deutsche sichtbare Texte, Vanilla-
+HTML/CSS/JavaScript, Setup, Login, Logout, Passwort-Reauthentisierung, Suche,
+Übersicht, zugängliche Tabellen-/Listenbereiche für Jobs und Audit sowie
+gebundene Detailansichten für Snapshot, Scan, Analyse, Evidence, Reviews,
+Readiness und nicht ausführbare Pläne. `EBOOK`
+ist die einzige aktivierte Medienlinie; `MUSIC` und `IMAGE` bleiben sichtbar,
+aber deaktiviert. Es werden keine externen Assets geladen und die UI enthält
+keine W10-Route oder schreibendes Control.
+
+Die API delegiert sämtliche fachlichen E-Book-Projektionen über Application-
+Ports. Sie liefert bounded, pfadfreie Scan-/Candidate-Hash-Status-, Tool- und
+Format-Readiness-, Inventory-, `CollectionState`-, Suche-, `Library Health`-,
+Analyse-/Quality-/Finding-, Candidate-Evidence-, Review-Queue- sowie
+`NOT_EXECUTABLE`-Planprojekte. Jobs, Audit und ein Jobdetail verwenden den
+gleichen Portvertrag und geben weder Jobinputs, Digests, Leases, Capability-
+Details noch Locator aus. Private Suchwerte bleiben ausschließlich unter
+`/api/v1/private`, nach Sessionrotation und `PRIVATE_READ`-Grant, mit
+`Cache-Control: no-store` erreichbar.
+
+Lokal bestanden 24 fokussierte Unit-, API-, Privacy-, Cursor-, OpenAPI-, UI-,
+Schema-Owner- und Dokumentationsfälle mit ausschließlich synthetischen SQLite-
+Daten. Ruff, Mypy über 275 Quelldateien, `git diff --check`, `docker compose
+config --quiet` und der leere lokale `local-surface`-Stack mit internem
+Loopback-Healthcheck waren grün. Der vollständige lokale Pytest-Gate erreichte 793 grüne
+Fälle und 10 erwartete Plattform-Skips, scheiterte aber reproduzierbar im
+unveränderten Archive-7zip-Test
+`test_explicit_provisioning_and_per_run_offline_availability` mit
+`EVIDENCE_MISMATCH`; der Fehler liegt außerhalb des Surface-Scopes und bleibt
+für den PR-CI-Gate offen. Die nächste reguläre Wave ist `S-FUT11-04`; sie
+bleibt bis zu ihrem eigenen Frontier-Gate und ihrer eigenen Autorisierung
+vollständig geschlossen.
+
 **WI-0001 abgeschlossen — AI Repository Foundation 1.4.0 mit persistenter Planungsidentität integriert**
 
 Die manifestierten v1.4-Core-Regeln, Registrierungsschemas und die explizit
@@ -13,8 +47,7 @@ für neue dauerhafte Planungsartefakte ab `WI-0001` den Modus
 `ADOPT_FORWARD`: UUIDv7-URN, registrierte flache Referenz sowie separate
 Wave-/Status-/Tier-Metadaten.
 [`ARTIFACT_REGISTRATION.md`](ARTIFACT_REGISTRATION.md) dokumentiert die
-alleinige Registration Authority; die Produktfront bleibt unverändert
-`S-FUT11-03`.
+alleinige Registration Authority; die Produktfront ist `S-FUT11-04`.
 
 **FG-FUT11-NEXT-WAVES entschieden — S-FUT11-03 und S-FUT11-04 sind ausführungsbereit spezifiziert**
 

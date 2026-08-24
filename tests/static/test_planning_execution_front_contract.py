@@ -47,8 +47,8 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `S-FUT11-03` (`NEXT`) |" in backlog
-    assert "| NEXT WAVES | `S-FUT11-03` -> `S-FUT11-04` |" in backlog
+    assert "| NOW | `S-FUT11-04` (`NEXT`) |" in backlog
+    assert "| NEXT WAVE | `S-FUT11-04` |" in backlog
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
     assert "| S-W9-006A | DONE |" in backlog
@@ -68,8 +68,8 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert "| S-FUT11-01 | DONE |" in backlog
     assert "| S-FUT11-02 | DONE |" in backlog
     assert "| FG-FUT11-NEXT-WAVES | DONE |" in backlog
-    assert "| S-FUT11-03 | NEXT |" in backlog
-    assert "| S-FUT11-04 | PLANNED |" in backlog
+    assert "| S-FUT11-03 | DONE |" in backlog
+    assert "| S-FUT11-04 | NEXT |" in backlog
     assert "| FG-W10-REORGANIZE | DECISION |" in backlog
     assert "| W10-005 | DONE |" in backlog
     assert "| W10-006 | DONE |" in backlog
@@ -396,8 +396,8 @@ def test_local_single_operator_surface_is_bounded_and_wave_planned() -> None:
     assert "| S-FUT11-01 | DONE |" in backlog
     assert "| S-FUT11-02 | DONE |" in backlog
     assert "| FG-FUT11-NEXT-WAVES | DONE |" in backlog
-    assert "| S-FUT11-03 | NEXT |" in backlog
-    assert "| S-FUT11-04 | PLANNED |" in backlog
+    assert "| S-FUT11-03 | DONE |" in backlog
+    assert "| S-FUT11-04 | NEXT |" in backlog
     assert all(
         marker in safety
         for marker in (
