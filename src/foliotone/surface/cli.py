@@ -11,9 +11,13 @@ import uvicorn
 
 from foliotone.persistence.sqlite import create_sqlite_engine, migrate
 from foliotone.persistence.surface import SQLiteSurfaceStore
+from foliotone.persistence.surface_read import SQLiteEbookSurfaceReadModel
 from foliotone.surface.api import create_surface_app
 from foliotone.surface.contracts import ProcessRole, SurfaceRuntimeConfig
 from foliotone.surface.service import LocalSurfaceService
+from foliotone.workflows.collection_state import SQLiteCollectionStateReportReader
+from foliotone.workflows.collection_state_query import CollectionQueryService
+from foliotone.workflows.library_health import SQLiteLibraryHealthReportReader
 
 
 def add_surface_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -74,7 +78,17 @@ def run_auth_reset(args: argparse.Namespace) -> int:
 def run_surface_api(args: argparse.Namespace) -> int:
     """Start only an explicit loopback listener, never a wildcard listener."""
     config = SurfaceRuntimeConfig(bind_host=args.host, port=args.port)
-    app = create_surface_app(_service(args.database), config=config)
+    engine = create_sqlite_engine(args.database)
+    surface_store = SQLiteSurfaceStore(engine)
+    app = create_surface_app(
+        LocalSurfaceService(surface_store),
+        config=config,
+        collection_state_reader=SQLiteCollectionStateReportReader(engine),
+        library_health_reader=SQLiteLibraryHealthReportReader(engine),
+        collection_search_reader=CollectionQueryService(engine),
+        surface_read_model=surface_store,
+        ebook_read_model=SQLiteEbookSurfaceReadModel(engine),
+    )
     uvicorn.run(app, host=config.bind_host, port=config.port, proxy_headers=False, access_log=False)
     return 0
 

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FolioTone</title>
+    <link rel="stylesheet" href="/assets/app.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Zum Inhalt</a>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="FolioTone Übersicht">FolioTone</a>
+      <button id="session-action" type="button">Anmelden</button>
+    </header>
+    <main id="content" tabindex="-1">
+      <section id="setup-panel" hidden>
+        <h1>Lokale Einrichtung</h1>
+        <p>Richte das lokale Einzelbenutzerkonto mit dem einmaligen Terminalcode ein.</p>
+        <form id="setup-form"><label>Terminalcode <input name="bootstrap_code" required></label><label>Benutzername <input name="username" required></label><label>Passwort <input name="password" type="password" required></label><button>Einrichten</button></form>
+      </section>
+      <section id="login-panel" hidden>
+        <h1>Anmelden</h1>
+        <p>Die lokale Oberfläche verbindet sich ausschließlich mit diesem Gerät.</p>
+        <form id="login-form"><label>Benutzername <input name="username" required></label><label>Passwort <input name="password" type="password" required></label><button>Anmelden</button></form>
+      </section>
+      <section id="overview-panel" hidden>
+        <h1>E-Book-Übersicht</h1>
+        <p id="surface-status" role="status">Status wird geladen.</p>
+        <nav aria-label="Medienlinien"><ul id="media-lines"></ul></nav>
+        <nav aria-label="E-Book-Bereiche"><a href="#search">Suche</a> <a href="#details">Details</a> <a href="#jobs">Jobs</a> <a href="#audit">Audit</a></nav>
+        <section id="search"><h2>Suche</h2><form id="search-form"><label>Snapshot-ID <input name="snapshot" required></label><label>Query <input name="query" required></label><button>Suchen</button></form><div id="search-results" aria-live="polite"></div></section>
+        <section id="details"><h2>Details</h2><p>Scan-, Analyse-, Quality- und Evidence-Projektionen werden nur aus gebundenen Snapshots gelesen.</p></section>
+        <section id="jobs"><h2>Jobs</h2><div id="job-list"></div></section>
+        <section id="audit"><h2>Audit</h2><div id="audit-list"></div></section>
+        <section><h2>Private Locator</h2><form id="reauth-form"><label>Passwort erneut eingeben <input name="password" type="password" required></label><button>Private Ansicht freigeben</button></form></section>
+      </section>
+    </main>
+    <script src="/assets/app.js"></script>
+  </body>
+</html>

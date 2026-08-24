@@ -26,6 +26,11 @@ def _now() -> datetime:
     return datetime.now(UTC).replace(microsecond=0)
 
 
+def _timestamp(value: object) -> str:
+    """Normalize SQLite's text timestamps without leaking adapter internals."""
+    return value.isoformat() if isinstance(value, datetime) else str(value)
+
+
 @dataclass(frozen=True, slots=True)
 class SurfaceUser:
     id: str
@@ -264,6 +269,61 @@ class SQLiteSurfaceStore:
             self._audit(connection, user_id, "SESSION_CREATED", "ACCEPTED")
         return session
 
+    def rotate_session(
+        self,
+        prior: SurfaceSession,
+        *,
+        token_digest: str,
+        csrf_digest: str,
+    ) -> SurfaceSession:
+        """Revoke one authenticated session and replace it atomically."""
+        now = _now()
+        rotated = SurfaceSession(
+            str(uuid4()),
+            prior.user_id,
+            csrf_digest,
+            now,
+            now + timedelta(hours=8),
+        )
+        with self._engine.begin() as connection:
+            revoked = connection.execute(
+                update(surface_sessions)
+                .where(
+                    and_(
+                        surface_sessions.c.id == prior.id,
+                        surface_sessions.c.revoked_at.is_(None),
+                        surface_sessions.c.expires_at > now,
+                    )
+                )
+                .values(revoked_at=now)
+            ).rowcount
+            if revoked != 1:
+                raise ValueError("session is no longer active")
+            connection.execute(
+                update(surface_grants)
+                .where(
+                    and_(
+                        surface_grants.c.session_id == prior.id,
+                        surface_grants.c.revoked_at.is_(None),
+                    )
+                )
+                .values(revoked_at=now)
+            )
+            connection.execute(
+                insert(surface_sessions).values(
+                    id=rotated.id,
+                    user_id=rotated.user_id,
+                    token_digest=token_digest,
+                    csrf_digest=rotated.csrf_digest,
+                    created_at=now,
+                    last_seen_at=now,
+                    expires_at=rotated.expires_at,
+                    revoked_at=None,
+                )
+            )
+            self._audit(connection, rotated.user_id, "SESSION_ROTATED", "ACCEPTED")
+        return rotated
+
     def session_for_token(self, token_digest: str) -> SurfaceSession | None:
         now = _now()
         with self._engine.begin() as connection:
@@ -297,11 +357,22 @@ class SQLiteSurfaceStore:
         )
 
     def revoke_session(self, session_id: str, *, actor_id: str | None = None) -> None:
+        now = _now()
         with self._engine.begin() as connection:
             connection.execute(
                 update(surface_sessions)
                 .where(surface_sessions.c.id == session_id)
-                .values(revoked_at=_now())
+                .values(revoked_at=now)
+            )
+            connection.execute(
+                update(surface_grants)
+                .where(
+                    and_(
+                        surface_grants.c.session_id == session_id,
+                        surface_grants.c.revoked_at.is_(None),
+                    )
+                )
+                .values(revoked_at=now)
             )
             self._audit(connection, actor_id, "SESSION_REVOKED", "ACCEPTED")
 
@@ -315,7 +386,16 @@ class SQLiteSurfaceStore:
             )
             connection.execute(
                 update(surface_grants)
-                .where(surface_grants.c.revoked_at.is_(None))
+                .where(
+                    and_(
+                        surface_grants.c.revoked_at.is_(None),
+                        surface_grants.c.session_id.in_(
+                            select(surface_sessions.c.id).where(
+                                surface_sessions.c.user_id == user_id
+                            )
+                        ),
+                    )
+                )
                 .values(revoked_at=now)
             )
             self._audit(connection, user_id, "AUTH_RESET", "ACCEPTED")
@@ -329,20 +409,152 @@ class SQLiteSurfaceStore:
             )
         self.revoke_all_for_user(user_id)
 
-    def create_grant(self, session_id: str, scope: Scope) -> None:
+    def create_grant(self, session: SurfaceSession, scope: Scope) -> None:
         now = _now()
         with self._engine.begin() as connection:
             connection.execute(
                 insert(surface_grants).values(
                     id=str(uuid4()),
-                    session_id=session_id,
+                    session_id=session.id,
                     scope=scope.value,
                     created_at=now,
                     expires_at=now + timedelta(minutes=15),
                     revoked_at=None,
                 )
             )
-            self._audit(connection, None, "OPERATOR_GRANT", "ACCEPTED")
+            self._audit(connection, session.user_id, "SESSION_GRANT_CREATED", "ACCEPTED")
+
+    def has_active_grant(self, session_id: str, scope: Scope) -> bool:
+        """Return whether exactly this still-active session has an unexpired scope grant."""
+        now = _now()
+        with self._engine.connect() as connection:
+            return (
+                connection.execute(
+                    select(surface_grants.c.id)
+                    .select_from(
+                        surface_grants.join(
+                            surface_sessions,
+                            surface_grants.c.session_id == surface_sessions.c.id,
+                        )
+                    )
+                    .where(
+                        and_(
+                            surface_grants.c.session_id == session_id,
+                            surface_grants.c.scope == scope.value,
+                            surface_grants.c.revoked_at.is_(None),
+                            surface_grants.c.expires_at > now,
+                            surface_sessions.c.revoked_at.is_(None),
+                            surface_sessions.c.expires_at > now,
+                        )
+                    )
+                    .limit(1)
+                ).first()
+                is not None
+            )
+
+    def list_jobs(
+        self, *, after_id: str | None, limit: int
+    ) -> tuple[tuple[dict[str, object], ...], str | None]:
+        """Return a bounded public projection without job inputs, digests, or leases."""
+        statement = select(
+            application_jobs.c.id,
+            application_jobs.c.command_profile,
+            application_jobs.c.created_at,
+            application_jobs.c.status,
+            application_jobs.c.worker_role,
+        ).order_by(application_jobs.c.id).limit(limit + 1)
+        if after_id is not None:
+            statement = statement.where(application_jobs.c.id > after_id)
+        with self._engine.connect() as connection:
+            rows = connection.execute(statement).mappings().all()
+        visible = rows[:limit]
+        return (
+            tuple(
+                {
+                    "job_id": str(row["id"]),
+                    "command_profile": str(row["command_profile"]),
+                    "created_at": _timestamp(row["created_at"]),
+                    "status": str(row["status"]),
+                    "worker_role": str(row["worker_role"]),
+                }
+                for row in visible
+            ),
+            None if len(rows) <= limit else str(visible[-1]["id"]),
+        )
+
+    def job_detail(self, job_id: str) -> dict[str, object] | None:
+        """Return one public job plus bounded state events, never its input envelope."""
+        with self._engine.connect() as connection:
+            job = connection.execute(
+                select(
+                    application_jobs.c.id,
+                    application_jobs.c.command_profile,
+                    application_jobs.c.created_at,
+                    application_jobs.c.status,
+                    application_jobs.c.worker_role,
+                ).where(application_jobs.c.id == job_id)
+            ).mappings().one_or_none()
+            if job is None:
+                return None
+            events = connection.execute(
+                select(
+                    application_job_events.c.sequence_no,
+                    application_job_events.c.status,
+                    application_job_events.c.occurred_at,
+                    application_job_events.c.finding_code,
+                )
+                .where(application_job_events.c.job_id == job_id)
+                .order_by(application_job_events.c.sequence_no)
+                .limit(100)
+            ).mappings().all()
+        return {
+            "job_id": str(job["id"]),
+            "command_profile": str(job["command_profile"]),
+            "created_at": _timestamp(job["created_at"]),
+            "status": str(job["status"]),
+            "worker_role": str(job["worker_role"]),
+            "events": [
+                {
+                    "sequence": int(event["sequence_no"]),
+                    "status": str(event["status"]),
+                    "occurred_at": _timestamp(event["occurred_at"]),
+                    "finding_code": event["finding_code"],
+                }
+                for event in events
+            ],
+        }
+
+    def list_audit_events(
+        self, *, after_id: str | None, limit: int
+    ) -> tuple[tuple[dict[str, object], ...], str | None]:
+        """Return an opaque, bounded append-only audit projection."""
+        statement = select(
+            surface_audit_events.c.id,
+            surface_audit_events.c.event_type,
+            surface_audit_events.c.decision,
+            surface_audit_events.c.job_id,
+            surface_audit_events.c.finding_code,
+            surface_audit_events.c.occurred_at,
+        ).order_by(surface_audit_events.c.id).limit(limit + 1)
+        if after_id is not None:
+            statement = statement.where(surface_audit_events.c.id > after_id)
+        with self._engine.connect() as connection:
+            rows = connection.execute(statement).mappings().all()
+        visible = rows[:limit]
+        return (
+            tuple(
+                {
+                    "audit_id": str(row["id"]),
+                    "event_type": str(row["event_type"]),
+                    "decision": str(row["decision"]),
+                    "job_id": None if row["job_id"] is None else str(row["job_id"]),
+                    "finding_code": row["finding_code"],
+                    "occurred_at": _timestamp(row["occurred_at"]),
+                }
+                for row in visible
+            ),
+            None if len(rows) <= limit else str(visible[-1]["id"]),
+        )
 
     def enqueue_job(
         self,

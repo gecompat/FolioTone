@@ -7,7 +7,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Final
 
-from foliotone.collection_state import DEFAULT_LIBRARY_HEALTH_DETAIL_LIMIT
+from foliotone.collection_state import DEFAULT_LIBRARY_HEALTH_DETAIL_LIMIT, CollectionQuerySpec
 from foliotone.core.ids import EntityId
 
 APPLICATION_CONTRACTS_PROFILE: Final = "application-contracts/v1"
@@ -106,3 +106,45 @@ class LibraryHealthQuery(ApplicationQuery):
     snapshot_id: EntityId
     baseline_snapshot_id: EntityId | None = None
     sample_limit: int = DEFAULT_LIBRARY_HEALTH_DETAIL_LIMIT
+
+
+@dataclass(frozen=True, slots=True)
+class CollectionStateQuery(ApplicationQuery):
+    """Read-only request for one immutable CollectionState snapshot."""
+
+    snapshot_id: EntityId
+
+
+@dataclass(frozen=True, slots=True)
+class CollectionSearchQuery(ApplicationQuery):
+    """Read-only, bounded search request for one CollectionState snapshot."""
+
+    snapshot_id: EntityId
+    spec: CollectionQuerySpec
+    private_details: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class SurfacePageQuery(ApplicationQuery):
+    """Bounded opaque-id page request for surface-owned read models."""
+
+    after_id: str | None = None
+    limit: int = 50
+
+    def __post_init__(self) -> None:
+        if not 1 <= self.limit <= 100:
+            raise ApplicationError("Surface page limit is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class ApplicationJobDetailQuery(ApplicationQuery):
+    """Read exactly one public ApplicationJob projection."""
+
+    job_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class EbookProjectionQuery(ApplicationQuery):
+    """Read one bounded E-Book projection by its opaque persisted identifier."""
+
+    projection_id: EntityId

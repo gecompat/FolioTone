@@ -33,6 +33,30 @@ serverseitige Sessions, Passwort-Reauthentisierung, höchstens 15 Minuten
 gültige Private-/Operator-Grants, OpenAPI 3.1, Keyset-Pagination, Privacy,
 append-only Audit und dauerhafte Jobs.
 
+S-FUT11-03 ist implementiert. Die read-only E-Book-Oberfläche liefert über
+Application-Ports bounded und path-free Scan-/Candidate-Hash-Status,
+Tool-/Format-Readiness, Inventory, `CollectionState`, Suche, `Library Health`,
+Analyse-/Quality-/Finding-Coverage, Candidate-Evidence, Review Queues,
+`NOT_EXECUTABLE`-Planreports, Jobs, Audit und ein Jobdetail. Normale Responses
+enthalten keine Locator, Metadatenwerte, Hashes, Secrets oder Capability-
+Details. Private Suchwerte bleiben im getrennten `no-store`-Zweig und
+benötigen eine rotierte Session mit `PRIVATE_READ`-Grant. Die deutsche
+same-origin Vanilla-UI enthält Setup, Login, Logout, Reauthentisierung,
+Übersicht, Suche, Pagination-Ausgabe und Accessibility-Kernwege; sie enthält
+keinen Writer oder W10-Control.
+
+Die gezielte lokale Abnahme umfasste 23 synthetische Unit-, API-, Privacy-,
+Cursor-, OpenAPI-, UI- und Dokumentationsfälle. Ruff, Mypy für 275 Source-
+Dateien, `git diff --check` und `docker compose config --quiet` waren grün.
+Der vollständige lokale Pytest-Gate erreichte 792 grüne Fälle und 10 erwartete
+Plattform-Skips, scheiterte jedoch reproduzierbar außerhalb des Surface-Scopes
+im Archive-7zip-Test `test_explicit_provisioning_and_per_run_offline_availability`
+mit `EVIDENCE_MISMATCH`. Der einmalige PR-CI-Gate bleibt für den stabilen Head
+offen. Die nächste Wave `S-FUT11-04` darf nur den ADR-0066-Same-Parent-
+`FILE_RENAME` durch den getrennten `operator-worker` adaptieren; die
+S-FUT11-03-API und -UI besitzen weiterhin keinen Source-Mount und keine
+W10-Capability.
+
 `FG-FUT11-NEXT-WAVES` macht die beiden offenen Waves ausführungsbereit.
 [`FUT11_NEXT_WAVES.md`](FUT11_NEXT_WAVES.md) bindet für `S-FUT11-03` die
 Application-/Persistence-Grenze, Vanilla-Web-Assets, resource-gebundene
