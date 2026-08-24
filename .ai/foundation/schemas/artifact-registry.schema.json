@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-repository-foundation/artifact-registry.schema.json",
+  "title": "AI Repository Foundation Artifact Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "profile", "registry_revision", "prefixes", "allocations"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "profile": {"const": "foundation-artifact-registry/v1"},
+    "registry_revision": {"type": "integer", "minimum": 0},
+    "prefixes": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "next_sequence", "width"],
+        "properties": {
+          "kind": {"type": "string", "minLength": 1},
+          "next_sequence": {"type": "integer", "minimum": 1},
+          "width": {"type": "integer", "minimum": 1, "maximum": 12}
+        }
+      }
+    },
+    "allocations": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[A-Z][A-Z0-9_]*-[0-9]+$"},
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+      }
+    }
+  }
+}

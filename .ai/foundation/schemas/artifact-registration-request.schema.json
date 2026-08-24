@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-repository-foundation/artifact-registration-request.schema.json",
+  "title": "AI Repository Foundation Artifact Registration Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "operation"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "operation": {"enum": ["init", "create", "register", "resolve", "validate"]},
+    "allocation_mode": {"enum": ["DIRECT", "DEFERRED"]},
+    "expected_registry_revision": {"type": ["integer", "null"], "minimum": 0},
+    "artifact_uid": {
+      "type": ["string", "null"],
+      "pattern": "^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "human_ref": {"type": ["string", "null"]},
+    "kind": {"type": ["string", "null"]},
+    "title": {"type": ["string", "null"]}
+  }
+}

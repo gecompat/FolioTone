@@ -38,6 +38,7 @@ addopts = "-ra"
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+extend-exclude = [".ai/foundation/reference_clients"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

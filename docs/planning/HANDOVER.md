@@ -4,7 +4,7 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
-W0-013 integriert AI Repository Foundation `1.2.0` semantisch. Vor
+W0-013 integriert AI Repository Foundation `1.2.0` semantisch. WI-0001 aktualisiert sie auf `1.4.0`, bewahrt alle historischen FolioTone-IDs und registriert neue dauerhafte Planungsartefakte ab `WI-0001` über die projektlokale Authority in [`ARTIFACT_REGISTRATION.md`](ARTIFACT_REGISTRATION.md); ADR-0070 ist der verbindliche Adoptionsentscheid. Vor
 Projektarbeit ist über den verwalteten Block im Root-`AGENTS.md` die
 namespacete Baseline unter `.ai/foundation/` zu lesen; für Projektfakten,
 Domain, Architektur, Status und bewusst strengere Privacy-, Test-, Git- und
