@@ -31,6 +31,10 @@ EBOOK_RENAME_ADR = (
 PRODUCT_SURFACE_ADR = (
     ROOT / "docs/decisions/ADR-0067-local-single-operator-product-surface.md"
 )
+OPERATOR_JOB_HANDOFF_ADR = (
+    ROOT / "docs/decisions/ADR-0069-ebook-rename-operator-job-handoff.md"
+)
+FUT11_NEXT_WAVES = PLANNING / "FUT11_NEXT_WAVES.md"
 
 
 def _text(path: Path) -> str:
@@ -63,7 +67,8 @@ def test_backlog_has_one_canonical_next_product_slice() -> None:
     assert "| FUT-011 | DONE |" in backlog
     assert "| S-FUT11-01 | DONE |" in backlog
     assert "| S-FUT11-02 | DONE |" in backlog
-    assert "| S-FUT11-03 | PLANNED |" in backlog
+    assert "| FG-FUT11-NEXT-WAVES | DONE |" in backlog
+    assert "| S-FUT11-03 | NEXT |" in backlog
     assert "| S-FUT11-04 | PLANNED |" in backlog
     assert "| FG-W10-REORGANIZE | DECISION |" in backlog
     assert "| W10-005 | DONE |" in backlog
@@ -390,7 +395,8 @@ def test_local_single_operator_surface_is_bounded_and_wave_planned() -> None:
     assert "| FUT-011 | DONE |" in backlog
     assert "| S-FUT11-01 | DONE |" in backlog
     assert "| S-FUT11-02 | DONE |" in backlog
-    assert "| S-FUT11-03 | PLANNED |" in backlog
+    assert "| FG-FUT11-NEXT-WAVES | DONE |" in backlog
+    assert "| S-FUT11-03 | NEXT |" in backlog
     assert "| S-FUT11-04 | PLANNED |" in backlog
     assert all(
         marker in safety
@@ -402,3 +408,43 @@ def test_local_single_operator_surface_is_bounded_and_wave_planned() -> None:
             "Absolute Pfade bleiben auch dort verboten",
         )
     )
+
+
+def test_next_surface_waves_are_decision_complete_and_w10_bounded() -> None:
+    adr = _text(OPERATOR_JOB_HANDOFF_ADR)
+    plan = _text(FUT11_NEXT_WAVES)
+    documentation_index = _text(ROOT / "docs/README.md")
+
+    assert all(
+        marker in adr
+        for marker in (
+            "- Status: Accepted",
+            "ebook-rename-operator-job/v1",
+            "AUTHORIZE",
+            "EXECUTE",
+            "RECOVER",
+            "Raw Confirmation",
+            "domänengetrennte",
+            "kein Secret",
+            "keine unabhängige kryptografische Benutzerunterschrift",
+            "ScanRootWriteLease",
+            "ADR-0066",
+        )
+    )
+    assert all(
+        marker in plan
+        for marker in (
+            "Status:** ausführungsbereit",
+            "S-FUT11-03",
+            "S-FUT11-04",
+            "Vanilla HTML",
+            "resource-gebundene opaque Keyset-Cursor",
+            "PRIVATE_READ",
+            "OPERATE",
+            "FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE",
+            "FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE",
+            "post-merge-contract",
+        )
+    )
+    assert "ADR-0069" in documentation_index
+    assert "FUT11_NEXT_WAVES.md" in documentation_index

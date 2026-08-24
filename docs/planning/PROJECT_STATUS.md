@@ -1,8 +1,35 @@
 # Projektstatus
 
-Stand: 2026-08-23
+Stand: 2026-08-24
 
 ## Aktuelle Welle
+
+**FG-FUT11-NEXT-WAVES entschieden — S-FUT11-03 und S-FUT11-04 sind ausführungsbereit spezifiziert**
+
+`FUT11_NEXT_WAVES.md` bindet den vollständigen Application-, API-, UI-,
+Privacy-, Worker-, Test- und Git-Vertrag für die beiden nächsten
+Produktwaves. `S-FUT11-03` bleibt die einzige `NEXT`-Wave und liefert die
+read-only E-Book-Oberfläche mit Vanilla-Web-Assets, resource-gebundenen
+Keyset-Cursorn, rotierter Session bei Reauthentisierung und getrennten
+`no-store`-Private-Projektionen. `S-FUT11-04` beginnt erst nach deren Merge
+und adaptiert ausschließlich den ADR-0066-Same-Parent-Rename.
+
+ADR-0069 entscheidet die noch offene Prozessübergabe. Authorize, Execute und
+Recover werden feste operation-spezifische `ApplicationJob`-Profile. Die API
+prüft die exakte Raw Confirmation gegen die immutable Authorization und
+verwirft sie; nur der vorhandene domänengetrennte Digest und opaque Binder
+werden persistiert. Der netzlose `operator-worker` revalidiert Digest,
+Authorization, Capability und sämtliche ADR-0066-Fences. Der Digest ist kein
+unabhängiger kryptografischer Beweis gegen einen vollständig kompromittierten
+Webprozess; ein stärkeres Out-of-band-Threat-Model benötigt eine neue ADR.
+
+Diese docs-only Gate-Wave implementiert keine API-Route, UI, Migration,
+Capability oder Source-Media-Mutation. Alle 64 statischen Verträge bestanden;
+darin enthalten waren 24 direkt betroffene Planungs- und
+Dokumentationsverträge. Ruff war für die geänderte Testdatei grün und
+`git diff --check` sauber. Mypy, Docker, Runtime-Tests, reale E-Books und
+private Daten waren für diesen reinen Planungs-/Vertragsscope nicht
+erforderlich. Der vollständige PR-CI-Gate bleibt vor dem Merge erforderlich.
 
 **S-FUT11-02 implementiert — lokale Auth-, API- und Worker-Basis ohne W10-Capability**
 

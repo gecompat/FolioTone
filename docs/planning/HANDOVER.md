@@ -33,6 +33,29 @@ serverseitige Sessions, Passwort-Reauthentisierung, höchstens 15 Minuten
 gültige Private-/Operator-Grants, OpenAPI 3.1, Keyset-Pagination, Privacy,
 append-only Audit und dauerhafte Jobs.
 
+`FG-FUT11-NEXT-WAVES` macht die beiden offenen Waves ausführungsbereit.
+[`FUT11_NEXT_WAVES.md`](FUT11_NEXT_WAVES.md) bindet für `S-FUT11-03` die
+Application-/Persistence-Grenze, Vanilla-Web-Assets, resource-gebundene
+Keyset-Cursor, Sessionrotation, private `no-store`-Projektionen, Tests und
+Stopbedingungen. Für `S-FUT11-04` bindet das Dokument die ausschließliche
+ADR-0066-Adaptierung, feste Operator-Jobprofile, Worker-Allowlist,
+W10-Nichtwiederholung sowie den sequenziellen PR-/Mergevertrag.
+
+ADR-0069 ergänzt die Confirmation-Übergabe zwischen API und netzlosem
+`operator-worker`. Die API prüft den exakten Klartext und verwirft ihn vor
+Persistenz; der Job enthält nur den bestehenden domänengetrennten Digest und
+opaque Binder. Der Digest ersetzt keine W10-Authorization, Capability,
+Revalidierung, Fencing, Verifikation oder Recovery und ist kein unabhängiger
+Beweis gegen einen vollständig kompromittierten API-Prozess. Ein stärkeres
+Out-of-band-Freigabemodell bleibt einer neuen ADR vorbehalten.
+
+Für diese docs-only Gate-Wave bestanden alle 64 statischen Verträge;
+24 davon waren die direkt betroffenen Planungs- und
+Dokumentationsverträge. Ruff war für die geänderte Testdatei grün und
+`git diff --check` sauber. Mypy, Docker, Runtime-Tests, reale E-Books und
+private Daten waren für diesen Scope nicht erforderlich. Der vollständige
+PR-CI-Gate bleibt für den stabilen Head vor dem Merge offen.
+
 Die Prozessgrenze ist bindend. `surface-api` besitzt keinen Source-Media-
 Mount und keine W10-Capability-Datei. Ein getrennter `analysis-worker`
 verarbeitet read-only Aufgaben; nur der netzlose `operator-worker` darf einen

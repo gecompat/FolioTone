@@ -143,6 +143,14 @@ aktiviert erkennbare Einstiege, aber keine vorgetäuschten Domainendpunkte. Ein
 Remote-/Mehrbenutzerprofil, MCP, Titelwriter-/Quarantäne-Controls und alle
 weiteren Writer bleiben außerhalb dieser vier Waves.
 
+Der decision-complete Datei-, Schnittstellen-, Privacy-, Worker-, Test- und
+Git-Vertrag für die beiden noch offenen Waves steht in
+[`FUT11_NEXT_WAVES.md`](FUT11_NEXT_WAVES.md). ADR-0069 ergänzt für
+`S-FUT11-04` die operation-spezifische Jobübergabe: Die Raw Confirmation wird
+im API-Prozess exakt geprüft und verworfen; nur der gebundene Digest gelangt
+in die Persistenz. Diese Bindung ersetzt keine W10-Authorization, Capability,
+Revalidierung, Fencing, Verifikation oder Recovery.
+
 ## W0 — Project Foundation
 
 Scope:
