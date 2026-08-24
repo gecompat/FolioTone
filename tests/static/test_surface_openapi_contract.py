@@ -86,7 +86,7 @@ def test_local_ui_has_german_accessible_read_only_workflows() -> None:
 def test_local_surface_workers_wait_for_the_schema_owner() -> None:
     compose = Path("compose.yaml").read_text(encoding="utf-8")
 
-    assert compose.count("condition: service_healthy") == 3
+    assert compose.count("condition: service_healthy") == 2
     assert "urlopen('http://127.0.0.1:8765/api/v1/health')" in compose
     assert "operator-worker:\n    profiles: [\"local-surface\"]\n    depends_on:" in compose
     assert "analysis-worker:\n    profiles: [\"local-surface\"]\n    depends_on:" in compose

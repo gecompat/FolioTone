@@ -63,9 +63,6 @@ services:
     command: ["operator-worker", "--database", "/data/foliotone.db"]
 
   foliotone:
-    depends_on:
-      surface-api:
-        condition: service_healthy
     build:
       context: .
     volumes:
