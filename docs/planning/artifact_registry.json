@@ -1,0 +1,65 @@
+{
+  "allocations": {
+    "WI-0001": "urn:uuid:01a0336d-2234-718d-9ab8-51e5c723aa31"
+  },
+  "prefixes": {
+    "CAP": {
+      "kind": "capability",
+      "next_sequence": 1,
+      "width": 4
+    },
+    "DEC": {
+      "kind": "decision",
+      "next_sequence": 1,
+      "width": 4
+    },
+    "EXP": {
+      "kind": "experiment",
+      "next_sequence": 1,
+      "width": 4
+    },
+    "GATE": {
+      "kind": "gate",
+      "next_sequence": 1,
+      "width": 4
+    },
+    "INC": {
+      "kind": "incident",
+      "next_sequence": 1,
+      "width": 4
+    },
+    "OPS": {
+      "kind": "operational_work",
+      "next_sequence": 1,
+      "width": 4
+    },
+    "REL": {
+      "kind": "release",
+      "next_sequence": 1,
+      "width": 4
+    },
+    "REQ": {
+      "kind": "requirement",
+      "next_sequence": 1,
+      "width": 4
+    },
+    "RISK": {
+      "kind": "risk",
+      "next_sequence": 1,
+      "width": 4
+    },
+    "TEST": {
+      "kind": "test",
+      "next_sequence": 1,
+      "width": 4
+    },
+    "WI": {
+      "kind": "work_item",
+      "next_sequence": 2,
+      "width": 4
+    }
+  },
+  "profile": "foundation-artifact-registry/v1",
+  "registry_revision": 1,
+  "schema_version": 1
+}

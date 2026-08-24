@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/ai-repository-foundation/artifact-record.schema.json",
+  "title": "AI Repository Foundation Artifact Record",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "artifact_uid", "human_ref", "kind", "title", "registration_state"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "artifact_uid": {
+      "type": "string",
+      "pattern": "^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "human_ref": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*-[0-9]+$"}
+      ]
+    },
+    "kind": {"type": "string", "minLength": 1},
+    "title": {"type": "string", "minLength": 1},
+    "registration_state": {"enum": ["DRAFT", "REGISTERED", "RETIRED"]},
+    "status": {"type": ["string", "null"]},
+    "aliases": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "default": []
+    },
+    "external_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["system", "value"],
+        "properties": {
+          "system": {"type": "string", "minLength": 1},
+          "value": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": true
+      },
+      "default": []
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "target"],
+        "properties": {
+          "type": {"type": "string", "minLength": 1},
+          "target": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": true
+      },
+      "default": []
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"registration_state": {"const": "REGISTERED"}}},
+      "then": {"properties": {"human_ref": {"type": "string"}}}
+    },
+    {
+      "if": {"properties": {"registration_state": {"const": "DRAFT"}}},
+      "then": {"properties": {"human_ref": {"type": ["string", "null"]}}}
+    }
+  ]
+}

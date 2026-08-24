@@ -48,19 +48,20 @@ Read these files in order:
 3. `docs/planning/IMPLEMENTATION_PLAN.md`
 4. `docs/planning/BACKLOG.md`
 5. `docs/planning/AI_WORKFLOW.md` before starting or handing over a wave
-6. `docs/planning/MODEL_ROUTING_POLICY.md` before selecting a model or delegating work
-7. `docs/quality/TEST_POLICY.md` before selecting local or CI checks
-8. `docs/quality/COST_EFFICIENT_DEVELOPMENT.md` before planning tests, CI or agent work
-9. `docs/planning/AI_TOOL_ADAPTERS.md` when tool-specific discovery or configuration is touched
-10. `docs/quality/DOCUMENTATION_STYLE.md` when documentation prose is touched
-11. `docs/quality/LANGUAGE_AND_TERMINOLOGY.md` when documentation prose or terminology is touched
-12. `docs/reference/GLOSSARY.md` when domain terminology is touched
-13. `docs/architecture/OVERVIEW.md`
-14. `docs/architecture/DOMAIN_MODEL.md`
-15. `docs/architecture/AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`
-16. `docs/reference/EXTERNAL_TOOLS.md` when work touches media analysis/tool orchestration
-17. `docs/reference/EXTERNAL_DATA_SOURCES.md` when work touches external knowledge/providers
-18. relevant files under `docs/architecture/` and `docs/decisions/`
+6. `docs/planning/ARTIFACT_REGISTRATION.md` before creating a durable planning, governance, gate, risk, operations, release or test reference
+7. `docs/planning/MODEL_ROUTING_POLICY.md` before selecting a model or delegating work
+8. `docs/quality/TEST_POLICY.md` before selecting local or CI checks
+9. `docs/quality/COST_EFFICIENT_DEVELOPMENT.md` before planning tests, CI or agent work
+10. `docs/planning/AI_TOOL_ADAPTERS.md` when tool-specific discovery or configuration is touched
+11. `docs/quality/DOCUMENTATION_STYLE.md` when documentation prose is touched
+12. `docs/quality/LANGUAGE_AND_TERMINOLOGY.md` when documentation prose or terminology is touched
+13. `docs/reference/GLOSSARY.md` when domain terminology is touched
+14. `docs/architecture/OVERVIEW.md`
+15. `docs/architecture/DOMAIN_MODEL.md`
+16. `docs/architecture/AUTHORITY_ENRICHMENT_AND_CLASSIFICATION.md`
+17. `docs/reference/EXTERNAL_TOOLS.md` when work touches media analysis/tool orchestration
+18. `docs/reference/EXTERNAL_DATA_SOURCES.md` when work touches external knowledge/providers
+19. relevant files under `docs/architecture/` and `docs/decisions/`
 
 If repository code and documentation disagree, treat the discrepancy as a defect. Determine the actual state, then update code and documentation together.
 

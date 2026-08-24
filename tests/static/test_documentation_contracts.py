@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -65,6 +66,13 @@ REQUIRED_GOVERNANCE_PATHS = (
     ".ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md",
     ".ai/foundation/PROJECT_RULES.md",
     ".ai/foundation/SEMANTIC_INTEGRATION_POLICY.md",
+    ".ai/foundation/PERSISTENT_IDENTITY_POLICY.md",
+    ".ai/foundation/ARTIFACT_REGISTRATION_POLICY.md",
+    ".ai/foundation/schemas/artifact-record.schema.json",
+    ".ai/foundation/schemas/artifact-registry.schema.json",
+    ".ai/foundation/schemas/artifact-registration-request.schema.json",
+    ".ai/foundation/reference_clients/artifact_reference.py",
+    ".ai/foundation/reference_clients/ArtifactReference.ps1",
     ".ai/foundation/WORKING_RULES.md",
     ".ai/foundation/MODEL_ROUTING_POLICY.md",
     ".ai/foundation/VALIDATION_POLICY.md",
@@ -76,6 +84,9 @@ REQUIRED_GOVERNANCE_PATHS = (
     ".ai/foundation/DEPENDENCY_POLICY.md",
     ".ai/foundation/repo_map.yaml",
     "docs/planning/AI_WORKFLOW.md",
+    "docs/planning/ARTIFACT_REGISTRATION.md",
+    "docs/planning/artifact_registry.json",
+    "docs/planning/artifacts/WI-0001.json",
     "docs/planning/AI_TOOL_ADAPTERS.md",
     "docs/planning/MODEL_ROUTING_POLICY.md",
     "docs/quality/TEST_POLICY.md",
@@ -128,8 +139,32 @@ def test_foundation_baseline_is_discoverable_and_versioned() -> None:
     assert agents.count("<!-- AI_REPOSITORY_FOUNDATION:END -->") == 1
     assert ".ai/foundation/FOUNDATION_RULESET.md" in agents
     assert ".ai/foundation/SEMANTIC_INTEGRATION_POLICY.md" in agents
-    assert "Ruleset version: 1.2.0" in ruleset
+    assert "docs/planning/ARTIFACT_REGISTRATION.md" in agents
+    assert "Ruleset version: 1.4.0" in ruleset
+    assert "PERSISTENT_IDENTITY_POLICY.md" in ruleset
+    assert "ARTIFACT_REGISTRATION_POLICY.md" in ruleset
 
+
+def test_artifact_registration_authority_is_discoverable_and_consistent() -> None:
+    registration = (ROOT / "docs/planning/ARTIFACT_REGISTRATION.md").read_text(
+        encoding="utf-8"
+    )
+    registry = json.loads(
+        (ROOT / "docs/planning/artifact_registry.json").read_text(encoding="utf-8")
+    )
+    artifact = json.loads(
+        (ROOT / "docs/planning/artifacts/WI-0001.json").read_text(encoding="utf-8")
+    )
+
+    assert "ADOPT_FORWARD" in registration
+    assert "DEFERRED" in registration
+    assert registry["profile"] == "foundation-artifact-registry/v1"
+    assert registry["registry_revision"] == 1
+    assert registry["allocations"] == {artifact["human_ref"]: artifact["artifact_uid"]}
+    assert artifact["registration_state"] == "REGISTERED"
+    assert artifact["metadata"]["wave"] == "W0"
+    assert artifact["metadata"]["tier"] == "FRONTIER"
+    assert artifact["relations"] == [{"type": "governed_by", "target": "ADR-0070"}]
 
 def test_foundation_attribution_is_complete_and_namespaced() -> None:
     notice = (

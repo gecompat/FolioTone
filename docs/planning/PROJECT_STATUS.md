@@ -4,6 +4,18 @@ Stand: 2026-08-24
 
 ## Aktuelle Welle
 
+**WI-0001 abgeschlossen — AI Repository Foundation 1.4.0 mit persistenter Planungsidentität integriert**
+
+Die manifestierten v1.4-Core-Regeln, Registrierungsschemas und die explizit
+gewählten Python-/PowerShell-Referenzclients liegen unter `.ai/foundation/`.
+ADR-0070 bewahrt alle historischen FolioTone-IDs (`PRESERVE`) und aktiviert
+für neue dauerhafte Planungsartefakte ab `WI-0001` den Modus
+`ADOPT_FORWARD`: UUIDv7-URN, registrierte flache Referenz sowie separate
+Wave-/Status-/Tier-Metadaten.
+[`ARTIFACT_REGISTRATION.md`](ARTIFACT_REGISTRATION.md) dokumentiert die
+alleinige Registration Authority; die Produktfront bleibt unverändert
+`S-FUT11-03`.
+
 **FG-FUT11-NEXT-WAVES entschieden — S-FUT11-03 und S-FUT11-04 sind ausführungsbereit spezifiziert**
 
 `FUT11_NEXT_WAVES.md` bindet den vollständigen Application-, API-, UI-,

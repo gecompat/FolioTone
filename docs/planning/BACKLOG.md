@@ -40,6 +40,7 @@ Ausführungsreihenfolge oder konkurrierende Statusachse.
 | W0-011 | DONE | Adopt binding documentation/language/terminology governance, canonical glossary, protected-license regression check, task-oriented docs index and Copilot instructions. |
 | W0-012 | DONE | Adopt vendor-neutral Wave orchestration, `LOCAL`/`ECONOMICAL`/`BALANCED`/`FRONTIER` routing, a local-first test policy and thin discovery adapters for Copilot, Junie, Codex and Databricks Genie Code. |
 | W0-013 | DONE | Integrate AI Repository Foundation `1.2.0` semantically under `.ai/foundation/`, preserve FolioTone's stricter project authority and existing adapters, record the compatibility decision in ADR-0068 and add target-side integrity contracts. |
+| WI-0001 | DONE | Integrate AI Repository Foundation `1.4.0` under `.ai/foundation/`; preserve historical FolioTone IDs, adopt registry-backed UUIDv7/task references prospectively, install the explicitly selected cross-language reference clients and record the authority in ADR-0070. |
 
 ## W1 — Core + Persistence
 

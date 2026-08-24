@@ -1,11 +1,13 @@
 schema_version: 1
-foundation_ruleset_version: 1.2.0
+foundation_ruleset_version: 1.4.0
 canonical_entrypoint: AGENTS.md
 authority:
   required_or_baseline:
     - .ai/foundation/FOUNDATION_RULESET.md
     - .ai/foundation/PROJECT_RULES.md
     - .ai/foundation/SEMANTIC_INTEGRATION_POLICY.md
+    - .ai/foundation/PERSISTENT_IDENTITY_POLICY.md
+    - .ai/foundation/ARTIFACT_REGISTRATION_POLICY.md
     - .ai/foundation/WORKING_RULES.md
     - .ai/foundation/MODEL_ROUTING_POLICY.md
     - .ai/foundation/VALIDATION_POLICY.md
@@ -15,6 +17,10 @@ authority:
     - .ai/foundation/THIRD_PARTY_AND_LICENSING.md
     - .ai/foundation/SOURCE_AND_EVIDENCE_POLICY.md
     - .ai/foundation/DEPENDENCY_POLICY.md
+  schemas:
+    - .ai/foundation/schemas/artifact-record.schema.json
+    - .ai/foundation/schemas/artifact-registry.schema.json
+    - .ai/foundation/schemas/artifact-registration-request.schema.json
 provenance:
   foundation_notice: .ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md
   target_root_license_behavior: independent_and_untouched
@@ -36,6 +42,38 @@ integration_contract:
     - TARGET_INTERNAL_CONFLICT
     - ORPHANED_AUTHORITY
     - ADAPTER_GOVERNANCE_MISPLACED
+identity_contract:
+  policy: .ai/foundation/PERSISTENT_IDENTITY_POLICY.md
+  required_invariants: stable_no_reuse_no_silent_rename_legacy_preservation_identity_vs_classification_explicit_relations_revision_separation_no_auth_by_id
+  default_machine_identifier: rfc9562_uuidv7_as_urn_uuid
+  compatible_uuid_profiles: uuidv7_uuidv4
+  default_human_reference: flat_typed_project_local
+  default_human_reference_pattern: PREFIX_SEQUENCE
+  prefix_meaning_reuse: prohibited
+  hierarchy_and_status: metadata_not_canonical_identity
+  external_references: aliases_or_locators_not_canonical_by_default
+  content_hash_scope: immutable_revision_or_content
+  existing_project_default_mode: PRESERVE
+  new_project_default_mode: FOUNDATION_DEFAULT
+  adoption_modes: PRESERVE_ADOPT_FORWARD_MIGRATE_EXPLICIT
+  migration_requires_explicit_decision: true
+  unknown_existing_project_choice: PRESERVE
+registration_contract:
+  policy: .ai/foundation/ARTIFACT_REGISTRATION_POLICY.md
+  artifact_schema: .ai/foundation/schemas/artifact-record.schema.json
+  registry_schema: .ai/foundation/schemas/artifact-registry.schema.json
+  request_schema: .ai/foundation/schemas/artifact-registration-request.schema.json
+  authority_scope: one_registration_authority_per_overlapping_identifier_scope
+  same_authority_for_humans_and_ai: true
+  implementation_language: project_selectable
+  python_required: false
+  powershell_supported: true
+  allocation_modes: DIRECT_DEFERRED
+  direct_requires_serialized_or_equivalent_unique_allocation: true
+  deferred_uid_is_final_before_human_reference: true
+  final_human_reference_must_be_authority_allocated: true
+  reference_clients: optional_capability
+  reference_client_capability: artifact-registration-clients
 validation_contract:
   foundation_integrity:
     label: FOUNDATION_INTEGRITY
