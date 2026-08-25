@@ -21,6 +21,9 @@ jobs:
     if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # CI mounts only its synthetic e-book fixture; production has no default.
+      FOLIOTONE_EBOOK_RENAME_WRITABLE_ROOT: ./media/ebooks
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
