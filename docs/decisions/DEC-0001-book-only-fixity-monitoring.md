@@ -80,6 +80,37 @@ ersetzen weder Identity Evidence noch eine W10-Authorization. Bulk-Accept,
 automatische Akzeptanz und Root-weite Reinitialisierung sind nicht Teil von
 Version 1.
 
+## Offenes Implementierungs-Gate
+
+Der akzeptierte Produktscope entscheidet noch nicht zwei für den
+Verifikations-Slice materielle Detailgrenzen. Deshalb bleibt dieser Slice bis
+zu einer ausdrücklichen Ergänzung dieser Entscheidung blockiert:
+
+1. `UNBASELINED` benötigt eine vollständig definierte Quelle für neue Dateien.
+   Die bevorzugte Variante bindet den Lauf an den neuesten `COMPLETED`-
+   `ScanRun` des betroffenen gefenceten E-Book-`ScanRoot` und bezeichnet nur
+   eine dort aktuelle `PRESENT`-Datei ohne aktiven erwarteten Zustand als
+   `UNBASELINED`. Dateien, die erst nach diesem Scan entstanden sind, wären
+   ausdrücklich außerhalb dieses Snapshots.
+   Die Alternative ist eine eigene vollständige read-only Discovery im
+   Verifikationslauf; sie benötigt einen neuen Vollständigkeits-, Drift- und
+   Abgrenzungsvertrag gegenüber dem Scanner.
+2. Die geforderte aktuelle Review-Lineage besitzt noch keinen Fixity-Typ. Die
+   bevorzugte Variante erweitert den generischen append-only Review-Core um
+   die feste Paarung `FIXITY_EXPECTATION`/`FIXITY_RESULT`: Subject ist genau
+   ein `FILE`, Candidate genau ein Ergebnis eines vollständig abgeschlossenen
+   Verifikationslaufs. Evidence- und Candidate-Set-Fingerprint binden aktiven
+   erwarteten Zustand, Aktivierung, Lauf und Ergebnis; nur die neueste exakt
+   passende `ACCEPT`-Decision darf danach `ACCEPT_CURRENT` oder
+   `RETIRE_MISSING` autorisieren. Die Alternative ist ein eigener
+   Fixity-Review-Ledger und würde den bestehenden Reviewvertrag duplizieren.
+
+Unabhängig von der Auswahl dürfen partielle Findings nur zu einem immutable
+`FAILED`-Lauf gehören und niemals als vollständige Verifikation erscheinen.
+Bis Discovery- und Reviewvariante entschieden sind, entstehen weder neue
+Verifikations-/Entscheidungstabellen noch Runtime-, CLI-, REST- oder
+Browserpfade.
+
 ## Prozess- und Privacy-Grenze
 
 Baseline und Verifikation laufen ausschließlich als manuell gestartete,

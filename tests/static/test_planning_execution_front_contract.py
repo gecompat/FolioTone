@@ -48,15 +48,18 @@ def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_backlog_marks_fixity_verification_as_the_only_active_product_slice() -> None:
+def test_backlog_blocks_fixity_verification_at_the_documented_detail_decision() -> None:
     backlog = _text(BACKLOG)
 
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | Verifikations-Slice von `WI-0003` (`FUT-009`) |" in backlog
-    assert "| NEXT WAVE | Verifikations-Slice von `WI-0003` |" in backlog
-    assert backlog.count("| NEXT |") == 1
+    assert (
+        "| NOW | Detailentscheidung für den Verifikations-Slice von `WI-0003` "
+        "(`FUT-009`) |" in backlog
+    )
+    assert "| NEXT WAVE | Keine bis zur Detailentscheidung |" in backlog
+    assert backlog.count("| NEXT |") == 0
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
     assert "| S-W9-006A | DONE |" in backlog
@@ -87,7 +90,7 @@ def test_backlog_marks_fixity_verification_as_the_only_active_product_slice() ->
     assert "| GATE-0001 | PLANNED |" in backlog
     assert "| WI-0004 | BLOCKED |" in backlog
     assert "| FUT-002 | DONE |" in backlog
-    assert "| WI-0003 (`FUT-009`) | NEXT |" in backlog
+    assert "| WI-0003 (`FUT-009`) | BLOCKED |" in backlog
     assert "| WI-0004 (`FUT-008`) | BLOCKED |" in backlog
     assert "Andere Planungsdokumente erläutern diese Aufgaben" in backlog
 
@@ -178,6 +181,9 @@ def test_fixity_decision_is_explicit_read_only_and_sliced() -> None:
         "vollständigen SHA-256",
         "UNEXPECTED_BYTE_CHANGE",
         "SOURCE_CHANGED_DURING_RUN",
+        "Offenes Implementierungs-Gate",
+        "FIXITY_EXPECTATION",
+        "FIXITY_RESULT",
         "`OPERATE`, W10-Capabilities",
         "Source Writes",
     )

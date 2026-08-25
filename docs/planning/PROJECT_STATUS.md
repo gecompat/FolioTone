@@ -4,7 +4,36 @@ Stand: 2026-08-25
 
 ## Aktuelle Welle
 
-**WI-0003 Baseline-Slice abgeschlossen — Verifikation und Einzelentscheidungen folgen**
+**WI-0003 Baseline-Slice abgeschlossen — Verifikation an Detailentscheidung blockiert**
+
+Der read-only Startaudit des Verifikations-Slices hat zwei materielle Lücken
+in `DEC-0001` bestätigt. `UNBASELINED` verlangt entweder eine Bindung an den
+neuesten abgeschlossenen Scan-Snapshot oder eine neue vollständige read-only
+Filesystem-Discovery. Außerdem besitzt der vorhandene generische Review-Core
+weder einen Fixity-Reviewtyp noch den erforderlichen Subject-, Candidate- und
+Fingerprintvertrag. Eine Zuordnung zu einem fachfremden Reviewtyp würde die
+bestehenden Domain- und SQLite-Constraints verletzen.
+
+`DEC-0001` dokumentiert die sicheren Optionen und bevorzugt den bestehenden
+Scan-Snapshot sowie eine feste Erweiterung des generischen Review-Cores um
+`FIXITY_EXPECTATION`/`FIXITY_RESULT`. Bis zur ausdrücklichen Auswahl bleibt
+`WI-0003` `BLOCKED`; es wurde kein Verifikations-, Entscheidungs-, Migrations-
+oder Surface-Code begonnen. Der nachgelagerte Surface-Slice, `GATE-0001` und
+`WI-0004` dürfen nicht vorgezogen werden. Eine unabhängige autorisierte
+Produktwave ist derzeit nicht dokumentiert.
+
+Die Blockerdokumentation wurde lokal mit sechs direkt betroffenen
+Planungs-, DEC-, Artefakt- und Baseline-Governance-Tests geprüft; nach dem
+unabhängigen Review bestanden die drei korrigierten Vertragschecks erneut.
+Beide zugelassenen Registry-Clients validierten Revision 7 mit sieben
+Allokationen. Ruff-Lint über die drei geänderten Testdateien, JSON-Prüfung,
+`git diff --check`, Privacy-/Secret-Suche und der LF-Vertrag waren sauber.
+Ein zusätzlicher, nach `TEST_POLICY.md` für diesen Scope nicht erforderlicher
+Ruff-0.16.3-Formatcheck meldete ausschließlich bereits vorhandene
+Ganzdatei-Umformatierungen außerhalb der geänderten Hunks in zwei Testdateien;
+sie wurden nicht als fachfremder Massendiff übernommen. Restrisiko ist die
+ungepinnte lokale Ruff-Formatversion; der kanonische CI-Gate verwendet nur
+`ruff check`.
 
 Der erste `DEC-0001`-Slice implementiert `ebook-fixity-baseline/v1` ohne
 Produktoberfläche. Eine echte SQLite-`query_only`-Projektion verlangt genau
@@ -30,8 +59,9 @@ Der Klartext wird nicht gespeichert; pro Profil und `ScanRoot` ist nur eine
 Aktivierung möglich, sodass kein impliziter Trust-on-first-use oder Root-Reset
 entsteht. Die Statusprojektion enthält weder Locator noch Hashwerte.
 
-Die nächste zulässige Wave ist der Verifikations-/Einzelentscheidungs-Slice
-von `WI-0003`. ApplicationJob, CLI, REST und Browser folgen erst danach.
+Nach der Detailentscheidung ist der Verifikations-/Einzelentscheidungs-Slice
+von `WI-0003` wieder die nächste zulässige Wave. ApplicationJob, CLI, REST und
+Browser folgen erst danach.
 Netzwerk, Source Writes, W10-Capabilities, Backup-/Replica-Vergleich und
 Restore bleiben ausgeschlossen.
 
@@ -42,13 +72,15 @@ Damit ist die wiederholt zeitaufwendige CRLF-Scheindifferenz für neue
 Worktrees und berührte Textdateien als Repositoryvertrag geschlossen; eine
 breite Renormalisierung unbetroffener Dateien ist nicht Teil dieses Slices.
 
-Lokal verifiziert sind Ruff und Mypy im betroffenen Source-Scope, 66 gezielte
-Windows-Tests für Domain, Store, Migrationen, Privacy, Dokumentation und
-Byte-Stabilität sowie sechs anwendbare Linux-Tests für no-follow Hashing und
-den synthetischen End-to-End-Build. Das aktuelle Linux-Produktimage wurde
-erfolgreich gebaut. Eine unbetroffene vollständige lokale Suite wurde gemäß
-`TEST_POLICY.md` nicht erneut ausgeführt; der vollständige PR-CI-Gate für den
-exakten Head steht noch aus.
+Für den gemergten Baseline-Head waren Ruff und Mypy im betroffenen
+Source-Scope, 66 gezielte Windows-Tests für Domain, Store, Migrationen,
+Privacy, Dokumentation und Byte-Stabilität sowie sechs anwendbare Linux-Tests
+für no-follow Hashing und den synthetischen End-to-End-Build. Das aktuelle
+Linux-Produktimage wurde erfolgreich gebaut. Der vollständige PR-CI-Gate für den exakten Head
+`b7eded40f6ca714caab83d98e71a5b910ea63962` war grün; der Post-Merge-Contract
+bestand auf `origin/main` `0ac6ad880ad684e9db674afb947cc06ff8651cee`.
+Eine unbetroffene vollständige lokale Suite wurde gemäß `TEST_POLICY.md` nicht
+erneut ausgeführt.
 
 **FUT-011-Betriebskorrektur abgeschlossen — Endbenutzeranleitung und Compose-Start**
 
@@ -134,8 +166,9 @@ während des Laufs veränderte Dateien. Änderungen an der Erwartung bleiben
 append-only und einzeln reviewpflichtig. Netzwerk, automatische Planung,
 Source Writes und jede W10-Capability sind ausgeschlossen.
 
-`WI-0003` bleibt die einzige `NEXT`-Wave. Nach dem Baseline-Slice folgen
-Verifikation/Einzelentscheidungen und danach die
+`WI-0003` bleibt die einzige geplante Produktfolge, ist aber bis zur
+Fixity-Detailentscheidung `BLOCKED`. Danach folgen
+Verifikation/Einzelentscheidungen und anschließend die
 Application-/CLI-/REST-/Browser-Surface in getrennten Pull Requests.
 Der vollständige Vertrag und die Stopbedingungen stehen in
 [`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md).
