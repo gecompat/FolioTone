@@ -154,7 +154,7 @@ def test_0035_migration_adds_fixity_tables_owner_and_immutable_triggers(
     assert all(f"{table}_no_update" in triggers for table in FIXITY_TABLES)
 
 
-def test_0035_empty_downgrade_and_occupied_guard(tmp_path: Path) -> None:
+def test_0035_migration_empty_downgrade_and_occupied_guard(tmp_path: Path) -> None:
     empty_database = tmp_path / "fixity-empty-downgrade.db"
     migrate(empty_database)
     command.downgrade(

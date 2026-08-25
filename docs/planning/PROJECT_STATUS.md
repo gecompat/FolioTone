@@ -42,7 +42,7 @@ Damit ist die wiederholt zeitaufwendige CRLF-Scheindifferenz für neue
 Worktrees und berührte Textdateien als Repositoryvertrag geschlossen; eine
 breite Renormalisierung unbetroffener Dateien ist nicht Teil dieses Slices.
 
-Lokal verifiziert sind Ruff und Mypy im betroffenen Source-Scope, 58 gezielte
+Lokal verifiziert sind Ruff und Mypy im betroffenen Source-Scope, 66 gezielte
 Windows-Tests für Domain, Store, Migrationen, Privacy, Dokumentation und
 Byte-Stabilität sowie sechs anwendbare Linux-Tests für no-follow Hashing und
 den synthetischen End-to-End-Build. Das aktuelle Linux-Produktimage wurde
