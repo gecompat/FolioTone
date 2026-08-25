@@ -11,15 +11,17 @@ Full-SHA-256-Fixity-Baseline für genau einen E-Book-`ScanRoot`: echte
 SQLite-`query_only`-Projektion, neuester insgesamt abgeschlossener `ScanRun`,
 frische no-follow Hashes, append-only Build/Entries/Manifest/Aktivierung und
 rootweites Fencing. Ein partieller oder fehlgeschlagener Build ist kein
-Manifest. Der Verifikations-Slice ist gegenwärtig `BLOCKED`: `DEC-0001`
-entscheidet noch nicht, ob `UNBASELINED` ausschließlich aus dem neuesten
-abgeschlossenen Scan-Snapshot oder aus einer eigenen vollständigen read-only
-Discovery stammt. Ebenso fehlen ein Fixity-spezifischer Reviewtyp und dessen
-Fingerprint-Lineage. Bevorzugt sind der Scan-Snapshot und die feste generische
-Review-Core-Erweiterung `FIXITY_EXPECTATION`/`FIXITY_RESULT`; beide Varianten
-benötigen eine ausdrückliche Entscheidung. CLI plus lokale REST-/Browser-
-Surface bleiben der letzte `WI-0003`-Slice. Der gesamte Vertrag bleibt
-read-only gegenüber Source Media und besitzt keine W10-Capability.
+Manifest. Der Verifikations- und Einzelentscheidungs-Slice ist `NEXT`:
+`DEC-0001` bindet `UNBASELINED` ausschließlich an `PRESENT`-Dateien des
+neuesten insgesamt `COMPLETED`-Scan-Snapshots ohne aktive Erwartung. Eine
+eigene Filesystem-Discovery findet nicht statt. Reviews erweitern den
+generischen append-only Core um `FIXITY_EXPECTATION`/`FIXITY_RESULT`; Subject
+ist genau ein `FILE`, Candidate genau ein immutable Ergebnis eines
+`COMPLETED`-Verifikationslaufs. Nur eine aktuelle exakt passende `ACCEPT`-
+Decision darf eine einzelne append-only Erwartungsrevision erzeugen. CLI plus
+lokale REST-/Browser-Surface bleiben der letzte `WI-0003`-Slice. Der gesamte
+Vertrag bleibt read-only gegenüber Source Media und besitzt keine
+W10-Capability.
 
 `DEC-0002` hält den gewählten Scope einer EPUB-3-zu-EPUB-3-Ableitung mit
 reviewten Metadaten und getrenntem Output-Root als `Proposed` fest.

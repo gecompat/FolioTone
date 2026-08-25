@@ -80,36 +80,133 @@ ersetzen weder Identity Evidence noch eine W10-Authorization. Bulk-Accept,
 automatische Akzeptanz und Root-weite Reinitialisierung sind nicht Teil von
 Version 1.
 
-## Offenes Implementierungs-Gate
+## Festgelegter Verifikations- und Reviewvertrag
 
-Der akzeptierte Produktscope entscheidet noch nicht zwei für den
-Verifikations-Slice materielle Detailgrenzen. Deshalb bleibt dieser Slice bis
-zu einer ausdrücklichen Ergänzung dieser Entscheidung blockiert:
+Der Verifikationslauf bindet den neuesten `ScanRun` insgesamt für den
+betroffenen, gefenceten E-Book-`ScanRoot`; dieser Lauf muss `COMPLETED` sein.
+Ein neuerer `RUNNING`-, `FAILED`- oder `INTERRUPTED`-Lauf blockiert den Start,
+statt auf einen älteren Snapshot zurückzufallen. Der gebundene Snapshot und
+der zu Laufbeginn aktive erwartete Zustand bleiben für den gesamten Lauf
+unverändert.
 
-1. `UNBASELINED` benötigt eine vollständig definierte Quelle für neue Dateien.
-   Die bevorzugte Variante bindet den Lauf an den neuesten `COMPLETED`-
-   `ScanRun` des betroffenen gefenceten E-Book-`ScanRoot` und bezeichnet nur
-   eine dort aktuelle `PRESENT`-Datei ohne aktiven erwarteten Zustand als
-   `UNBASELINED`. Dateien, die erst nach diesem Scan entstanden sind, wären
-   ausdrücklich außerhalb dieses Snapshots.
-   Die Alternative ist eine eigene vollständige read-only Discovery im
-   Verifikationslauf; sie benötigt einen neuen Vollständigkeits-, Drift- und
-   Abgrenzungsvertrag gegenüber dem Scanner.
-2. Die geforderte aktuelle Review-Lineage besitzt noch keinen Fixity-Typ. Die
-   bevorzugte Variante erweitert den generischen append-only Review-Core um
-   die feste Paarung `FIXITY_EXPECTATION`/`FIXITY_RESULT`: Subject ist genau
-   ein `FILE`, Candidate genau ein Ergebnis eines vollständig abgeschlossenen
-   Verifikationslaufs. Evidence- und Candidate-Set-Fingerprint binden aktiven
-   erwarteten Zustand, Aktivierung, Lauf und Ergebnis; nur die neueste exakt
-   passende `ACCEPT`-Decision darf danach `ACCEPT_CURRENT` oder
-   `RETIRE_MISSING` autorisieren. Die Alternative ist ein eigener
-   Fixity-Review-Ledger und würde den bestehenden Reviewvertrag duplizieren.
+Die Baseline-Aktivierung mit ihren exakten Entries bildet die initiale
+Erwartungsrevision `0`; sie benötigt keinen nachträglichen Rewrite. Jede
+spätere Einzelentscheidung erhöht eine rootlokale Revisionssequenz genau um
+eins und verkettet ihren Digest mit Aktivierung und Vorgänger. Ein
+Verifikationslauf bindet Revisionsnummer und -Digest, nicht nur eine
+veränderliche Projektion des neuesten Zustands.
 
-Unabhängig von der Auswahl dürfen partielle Findings nur zu einem immutable
-`FAILED`-Lauf gehören und niemals als vollständige Verifikation erscheinen.
-Bis Discovery- und Reviewvariante entschieden sind, entstehen weder neue
-Verifikations-/Entscheidungstabellen noch Runtime-, CLI-, REST- oder
-Browserpfade.
+Die Ergebnismenge ist genau die Vereinigung aus allen im gebundenen Snapshot
+aktuellen `PRESENT`-Dateien und allen dort nicht mehr `PRESENT` vorhandenen,
+aktiven Erwartungen. Eine `PRESENT`-Datei ohne aktive Erwartung ist
+`UNBASELINED`. Eine aktive Erwartung ohne `PRESENT`-Datei im Snapshot ist
+`MISSING`. Dateien, die erst nach dem gebundenen Scan entstehen, liegen
+außerhalb dieses Laufs und werden erst nach einem neuen abgeschlossenen Scan
+sichtbar. Die Verifikation startet weder einen Scan noch eine eigene
+Filesystem-Discovery.
+
+`UNREADABLE` bezeichnet genau eine bekannte reguläre Datei, deren aktueller
+relativer Locator innerhalb eines ansonsten vollständig erreichbaren Roots
+sicher aufgelöst wurde, deren Bytes aber nicht vollständig gelesen werden
+konnten. `SOURCE_CHANGED_DURING_RUN` bezeichnet eine während des frischen
+Reads veränderte einzelne Source. Kann der Root selbst nicht sicher geöffnet
+oder seine Snapshot-Coverage nicht hergestellt werden, geht das Fencing
+verloren oder ist ein Locator unsicher, endet dagegen der gesamte Lauf
+`FAILED`. Ein solcher Lauf darf keine falschen `MISSING`-Ergebnisse erzeugen.
+Partielle Ergebnisse bleiben ausschließlich unter diesem immutable
+fehlgeschlagenen Lauf nachvollziehbar und sind keine Review-Candidates. Nur
+ein Lauf mit exakt einem Ergebnis für jedes Element der gebundenen
+Vereinigungsmenge wird `COMPLETED`.
+
+Die vorhandene generische append-only Review-Domäne wird um die feste Paarung
+`ReviewType.FIXITY_EXPECTATION` und
+`ReviewCandidateKind.FIXITY_RESULT` erweitert; es entsteht kein zweiter
+Fixity-Review-Ledger. Das Review-Subject ist genau
+`EntityKind.FILE` mit der betroffenen `file_id`. `candidate_id` bezeichnet
+genau ein immutable persistiertes Ergebnis eines `COMPLETED`-
+`FixityVerificationRun`; die Candidate-Menge besteht ausschließlich aus
+diesem Ergebnis. Das Kompatibilitätsprofil ist exakt
+`ebook-fixity-decision/v1`.
+
+### Kanonische Fingerprints
+
+Alle folgenden Payloads verwenden `canonical-json/v1` und werden als UTF-8
+mit SHA-256 gehasht. Die genannten Felder sind geschlossen: kein Feld darf
+ergänzt oder ausgelassen werden. Nicht vorhandene fachliche Werte werden als
+JSON-`null` codiert; IDs, Enums und Digests sind Strings, Bytegrößen und
+Revisionsnummern JSON-Integer. Eine semantische Änderung benötigt ein neues
+Profil.
+
+Der `result_content_digest` bindet exakt dieses Objekt:
+
+```text
+profile = ebook-fixity-result/v1
+result_type
+file_id
+expected = {observation_id, size_bytes, sha256, relative_locator}
+current = {observation_id, size_bytes, sha256, relative_locator}
+failure_code
+```
+
+Die beiden Zustandsobjekte sind immer vorhanden; jedes ihrer Felder kann
+`null` sein. Ein privater relativer Locator fließt nur in diesen internen
+Digest ein und wird nicht im Fingerprint-Payload oder in einer
+Standardprojektion offengelegt.
+
+Der `evidence_fingerprint` bindet exakt dieses Objekt:
+
+```text
+profile = ebook-fixity-evidence-fingerprint/v1
+review_type = FIXITY_EXPECTATION
+subject_kind = FILE
+subject_id = <file_id>
+scan_root_id
+baseline_activation_id
+expectation_revision_no
+expectation_revision_digest
+scan_run_id
+verification_run_id
+verification_run_content_digest
+result_id
+result_content_digest
+decision_compatibility_version = ebook-fixity-decision/v1
+```
+
+Der `candidate_set_fingerprint` bindet exakt dieses Objekt:
+
+```text
+profile = ebook-fixity-candidate-set-fingerprint/v1
+candidate_kind = FIXITY_RESULT
+candidates = [{result_id, result_content_digest}]
+decision_compatibility_version = ebook-fixity-decision/v1
+```
+
+`candidates` enthält genau dieses eine Element. Der technische
+`producer_version` wird entsprechend ADR-0028/ADR-0031 gespeichert, aber nicht
+in diese Reuse-Fingerprints aufgenommen; eine semantische Änderung muss das
+Kompatibilitätsprofil erhöhen. Eine neue Verifikation, eine geänderte aktive
+Erwartung oder eine Abweichung eines genannten Binders macht die alte
+Review-Lineage unbrauchbar. Nur die neueste, exakt kompatible generische
+`ACCEPT`-Decision darf eine fachliche Einzelentscheidung autorisieren;
+`REJECT` und `DEFER` ändern keinen erwarteten Zustand.
+
+`ACCEPT_CURRENT` ist ausschließlich für `UNEXPECTED_BYTE_CHANGE` und
+`UNBASELINED` zulässig und übernimmt die frisch beobachtete Größe, den
+Full-SHA-256, die Observation-Identität und den privaten relativen Locator des
+Ergebnisses. `RETIRE_MISSING` ist ausschließlich für `MISSING` zulässig und
+erzeugt einen Tombstone für genau eine aktive Erwartung. `VERIFIED`,
+`UNREADABLE` und `SOURCE_CHANGED_DURING_RUN` sind keine
+Entscheidungs-Candidates. Jede erfolgreiche fachliche Entscheidung ergänzt
+genau eine neue append-only Erwartungsrevision. Exakt gleiche Retries sind
+idempotent; ein abweichender Retry mit derselben Idempotenzidentität wird
+abgewiesen. Bulk-Accept, automatische Akzeptanz und Root-weite
+Reinitialisierung bleiben ausgeschlossen.
+
+Der nächste Slice ergänzt dafür eine additive Persistenzmigration mit
+immutable Verifikationsläufen, gapless Events, Ergebnissen und
+Erwartungsrevisionen, erweitert die geschlossenen generischen Review-Literale
+und ergänzt den Lease-Owner `EBOOK_FIXITY_VERIFICATION`. Er enthält noch keine
+Application-, CLI-, REST- oder Browserpfade.
 
 ## Prozess- und Privacy-Grenze
 

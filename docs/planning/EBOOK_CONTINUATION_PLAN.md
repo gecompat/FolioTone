@@ -15,8 +15,8 @@ Ausführungsachse und autorisiert keine W10-Operation.
 Die verbindliche Reihenfolge lautet:
 
 1. `WI-0003` (`FUT-009`) implementiert book-only Fixity Monitoring nach
-   `DEC-0001`. Der Verifikations-Slice ist bis zur dort dokumentierten
-   Discovery- und Review-Detailentscheidung blockiert.
+   `DEC-0001`. Der Verifikations- und Einzelentscheidungs-Slice ist nach der
+   festgelegten Scan-Snapshot- und generischen Review-Core-Variante `NEXT`.
 2. `GATE-0001` qualifiziert danach das deterministische EPUB-3-zu-EPUB-3-
    Transformationsprofil und entscheidet, ob `DEC-0002` akzeptiert werden kann.
 3. `WI-0004` (`FUT-008`) bleibt bis zu diesem positiven Gate blockiert und
@@ -45,15 +45,21 @@ frisch gestreamten Bytes ein höchstens 15 Minuten aktivierbares Manifest.
 Partielle Builds bleiben append-only als fehlgeschlagen nachvollziehbar, sind
 aber keine aktivierbaren Manifeste.
 
-Vor dem Verifikations-Slice sind zwei Varianten ausdrücklich auszuwählen. Für
-`UNBASELINED` bevorzugt der Plan die Bindung an den neuesten `COMPLETED`-
-`ScanRun` des betroffenen E-Book-`ScanRoot`; eine eigene Filesystem-Discovery
-wäre nur mit einem neuen Vollständigkeits- und Driftvertrag zulässig. Für Einzelentscheidungen
-bevorzugt der Plan die Erweiterung des generischen append-only Review-Cores um
-die feste Paarung `FIXITY_EXPECTATION`/`FIXITY_RESULT`; ein dedizierter
-Fixity-Review-Ledger würde vorhandene Mechanik duplizieren. Bis zu dieser
-Detailentscheidung existiert keine `NEXT`-Produktwave. Surface,
-`GATE-0001` und `WI-0004` bleiben nachgelagert.
+Der Verifikationslauf bindet den neuesten `ScanRun` insgesamt des gefenceten
+E-Book-`ScanRoot`; er muss `COMPLETED` sein. `UNBASELINED` entsteht nur für
+eine dort `PRESENT` beobachtete Datei ohne aktive Erwartung. Nach dem Scan neu
+entstandene Dateien liegen bis zum nächsten abgeschlossenen Scan außerhalb
+des Snapshots; der Lauf startet weder Scan noch eigene Discovery.
+
+Einzelentscheidungen verwenden die feste generische Review-Core-Paarung
+`FIXITY_EXPECTATION`/`FIXITY_RESULT` und das Kompatibilitätsprofil
+`ebook-fixity-decision/v1`. Nur eine aktuelle exakt passende `ACCEPT`-
+Decision zu genau einem Ergebnis eines `COMPLETED`-Laufs darf
+`ACCEPT_CURRENT` oder `RETIRE_MISSING` auslösen. Jede fachliche Entscheidung
+ergänzt genau eine append-only Erwartungsrevision; Bulk-Accept und Root-Reset
+bleiben ausgeschlossen. Dieser Verifikations-/Entscheidungs-Slice ist die
+einzige `NEXT`-Produktwave. Surface, `GATE-0001` und `WI-0004` bleiben
+nachgelagert.
 
 ## GATE-0001 und WI-0004 — EPUB-Transformation
 

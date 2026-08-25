@@ -299,11 +299,41 @@ append-only. Das Manifest bindet den neuesten insgesamt erfolgreichen
 15-Minuten-Fenster beginnt erst mit dem fertigen Manifest. Normale
 Statusprojektionen enthalten weder Locator noch Hashwerte.
 
-Der nächste Slice ergänzt `FixityVerificationRun` und append-only
-Einzelentscheidungen. Eine Verifikation liest die Bytes erneut; nur eine
-reviewte Einzelentscheidung darf einen neuen erwarteten Zustand erzeugen.
-Keine dieser Identitäten beweist eine Ursache für die Änderung oder erteilt
-Mutation Authority.
+Der nächste Slice ergänzt `FixityVerificationRun`, `FixityResult` und
+append-only `FixityExpectationRevision`. Ein Verifikationslauf bindet den
+neuesten `ScanRun` insgesamt desselben gefenceten Roots und akzeptiert ihn nur
+als `COMPLETED`. Seine exakte Arbeitsmenge ist die Vereinigung aus den dort
+aktuellen `PRESENT`-Dateien und den aktiven Erwartungen, die dort nicht mehr
+`PRESENT` sind. Eine neue Datei außerhalb dieses Scan-Snapshots gehört nicht
+zum Lauf; eine eigene Discovery findet nicht statt.
+
+Die aktivierte Baseline bildet ohne Datenrewrite die Erwartungsrevision `0`.
+Jede spätere `FixityExpectationRevision` ist rootlokal gapless, bindet den
+Digest ihres Vorgängers und überlagert genau einen Baseline- oder bereits
+revidierten File-Zustand. Ein Lauf bindet die exakte Revisionsnummer und ihren
+Digest.
+
+Ein `FixityResult` gehört genau zu einem Element dieser Arbeitsmenge und trägt
+einen der in `DEC-0001` geschlossenen Ergebniswerte. Nur ein vollständig
+gedeckter Lauf wird `COMPLETED`. Ein Root-/Coverage-/Fence-Fehler macht den
+Lauf `FAILED`; seine partiellen Ergebnisse sind keine Review-Candidates.
+
+Fixity-Reviews verwenden den generischen append-only Review-Core mit
+`ReviewType.FIXITY_EXPECTATION`,
+`ReviewCandidateKind.FIXITY_RESULT`, Subject `EntityKind.FILE` und genau einem
+Result-Candidate. Eine fixity-spezifische Candidate-Auflösung verweigert
+unbekannte Ergebnisse, Ergebnisse eines nicht abgeschlossenen Laufs und nicht
+entscheidungstaugliche Result-Typen vor dem Review-Insert. Fingerprints binden
+die aktive Erwartung, Scan-, Lauf-, Result- und Byte-Lineage unter
+`ebook-fixity-decision/v1`.
+
+Nur die neueste exakt passende generische `ACCEPT`-Decision darf eine einzelne
+`FixityExpectationRevision` erzeugen. `ACCEPT_CURRENT` übernimmt die frisch
+beobachtete Byteidentität einer geänderten oder unbaselined Datei;
+`RETIRE_MISSING` tombstoned genau eine fehlende aktive Erwartung. Eine Revision
+verändert nur erwartete Evidence. Keine dieser Identitäten beweist eine
+Ursache für die Änderung, verändert Source Media oder erteilt Mutation
+Authority.
 
 ### Vorgeschlagenes EPUB-Transformationsmodell
 

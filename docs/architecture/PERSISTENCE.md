@@ -635,6 +635,42 @@ gemeinsam; der domain-separierte Confirmation-Digest ist Bestandteil des
 immutable Aktivierungs-Digests. Die Migration verweigert einen Downgrade,
 sobald Fixity-Daten oder eine aktive Fixity-Lease vorhanden sind.
 
+### Geplante insert-only E-Book-Fixity-Verifikation
+
+Der nächste `WI-0003`-Slice ergänzt mit
+`0036_ebook_fixity_verification` die Tabellen
+`ebook_fixity_verification_runs`, `ebook_fixity_verification_events`,
+`ebook_fixity_verification_results` und
+`ebook_fixity_expectation_revisions`. Runs binden genau einen Root, die
+Baseline-Aktivierung, die beim Start aktive Erwartungsrevision und den
+neuesten `ScanRun` insgesamt; dieser muss `COMPLETED` sein. Events bleiben
+gapless, Ergebnisse sind je Run und gebundenem File eindeutig, und nur die
+exakte Vereinigungsmenge aus Snapshot-`PRESENT` und aktiven Erwartungen darf
+einen Run `COMPLETED` abschließen. Partielle Results eines `FAILED`-Laufs
+bleiben insert-only erhalten, dürfen aber nicht als Review-Candidate
+aufgelöst werden.
+
+Dieselbe Migration erweitert die geschlossenen Literale des vorhandenen
+generischen Review-Cores um `FIXITY_EXPECTATION` und `FIXITY_RESULT` sowie den
+Lease-Owner um `EBOOK_FIXITY_VERIFICATION`; sie erzeugt keinen zweiten
+Review-Ledger. Der fixity-spezifische Candidate-Resolver akzeptiert genau ein
+immutable Result eines `COMPLETED`-Laufs und bindet dessen kanonischen Digest
+in Evidence- und Candidate-Set-Fingerprint unter
+`ebook-fixity-decision/v1`.
+
+Eine `ebook_fixity_expectation_revision` bindet genau eine aktuelle
+kompatible generische `ACCEPT`-Decision und entweder `ACCEPT_CURRENT` mit der
+frisch beobachteten privaten Byte-/Locator-Lineage oder `RETIRE_MISSING` mit
+einem Tombstone für genau eine aktive Erwartung. Die vorhandene
+Baseline-Aktivierung bildet ohne neuen Datensatz Revision `0`; danach ist die
+Revisionssequenz je Root gapless. Ihr Digest verkettet Baseline-Aktivierung,
+Vorgängerrevision und die eine Änderung, sodass jeder neue Lauf einen exakten
+aktiven erwarteten Zustand binden kann. Exakte Retries sind über ihre
+Idempotenzidentität stabil; divergierende Wiederverwendung, Update, Delete,
+Bulk-Accept und Root-Reset werden abgewiesen. Standardprojektionen enthalten
+weder Locator noch Hashwerte. Ein Downgrade mit Verifikationsdaten,
+Erwartungsrevisionen oder aktiver Fixity-Verifikationslease wird verweigert.
+
 ### Gefencete Metadaten-Write-Authorization und Journal
 
 Migration `0027_metadata_write_operations` erweitert den bestehenden
