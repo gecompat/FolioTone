@@ -23,6 +23,7 @@ class ReviewType(StrEnum):
     CONSOLIDATION_CANDIDATE = "CONSOLIDATION_CANDIDATE"
     METADATA_CORRECTION = "METADATA_CORRECTION"
     EBOOK_OPERATION_RECIPE = "EBOOK_OPERATION_RECIPE"
+    FIXITY_EXPECTATION = "FIXITY_EXPECTATION"
 
 
 class ReviewCandidateKind(StrEnum):
@@ -33,6 +34,7 @@ class ReviewCandidateKind(StrEnum):
     CONSOLIDATION_CANDIDATE = "CONSOLIDATION_CANDIDATE"
     METADATA_CORRECTION_CANDIDATE = "METADATA_CORRECTION_CANDIDATE"
     EBOOK_OPERATION_RECIPE_CANDIDATE = "EBOOK_OPERATION_RECIPE_CANDIDATE"
+    FIXITY_RESULT = "FIXITY_RESULT"
 
 
 class ReviewItemState(StrEnum):
@@ -115,16 +117,29 @@ class ReviewItem:
             raise ValueError("metadata correction candidate requires its review type")
         if (
             self.review_type is ReviewType.EBOOK_OPERATION_RECIPE
-            and self.candidate_kind
-            is not ReviewCandidateKind.EBOOK_OPERATION_RECIPE_CANDIDATE
+            and self.candidate_kind is not ReviewCandidateKind.EBOOK_OPERATION_RECIPE_CANDIDATE
         ):
             raise ValueError("e-book operation recipe review requires its candidate kind")
         if (
-            self.candidate_kind
-            is ReviewCandidateKind.EBOOK_OPERATION_RECIPE_CANDIDATE
+            self.candidate_kind is ReviewCandidateKind.EBOOK_OPERATION_RECIPE_CANDIDATE
             and self.review_type is not ReviewType.EBOOK_OPERATION_RECIPE
         ):
             raise ValueError("e-book operation recipe candidate requires its review type")
+        if (
+            self.review_type is ReviewType.FIXITY_EXPECTATION
+            and self.candidate_kind is not ReviewCandidateKind.FIXITY_RESULT
+        ):
+            raise ValueError("fixity review requires a fixity result")
+        if (
+            self.candidate_kind is ReviewCandidateKind.FIXITY_RESULT
+            and self.review_type is not ReviewType.FIXITY_EXPECTATION
+        ):
+            raise ValueError("fixity result requires its review type")
+        if (
+            self.review_type is ReviewType.FIXITY_EXPECTATION
+            and self.subject_kind is not EntityKind.FILE
+        ):
+            raise ValueError("fixity review requires a FILE subject")
         require_aware_datetime(self.created_at, "created_at")
 
 

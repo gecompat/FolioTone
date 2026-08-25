@@ -23,11 +23,11 @@ verwenden danach dieselben Application-Verträge.
 
 [`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md) setzt die
 Lieferfolge nach `S-FUT11-04` fort. `DEC-0001` aktiviert `WI-0003`
-(`FUT-009`) für read-only Fixity Monitoring. Der Baseline-Slice ist umgesetzt;
-der Verifikations- und append-only Einzelentscheidungs-Slice ist `NEXT`.
-`DEC-0001` bindet ihn an den neuesten abgeschlossenen Scan-Snapshot und an die
+(`FUT-009`) für read-only Fixity Monitoring. Baseline, Verifikation und
+append-only Einzelentscheidungen sind umgesetzt. `DEC-0001` bindet die
+Verifikation an den neuesten abgeschlossenen Scan-Snapshot und an die
 generische Review-Core-Paarung `FIXITY_EXPECTATION`/`FIXITY_RESULT` mit exakt
-einem immutable Ergebnis je Review. Danach folgt die Produktoberfläche. Erst
+einem immutable Ergebnis je Review. Die Produktoberfläche ist `NEXT`. Erst
 nach deren Abschluss
 qualifiziert `GATE-0001` den vorgeschlagenen
 `DEC-0002`-Vertrag für eine deterministische EPUB-3-zu-EPUB-3-Ableitung.

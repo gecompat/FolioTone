@@ -212,6 +212,8 @@ class SQLiteResolutionReviewStore:
                 _require_metadata_correction_review(connection, item)
             elif item.review_type is ReviewType.EBOOK_OPERATION_RECIPE:
                 _require_ebook_operation_recipe_review(connection, item)
+            elif item.review_type is ReviewType.FIXITY_EXPECTATION:
+                _require_fixity_expectation_review(connection, item)
             else:
                 raise ResolutionReviewStoreError("review type is not supported by this store")
             result = connection.execute(
@@ -698,6 +700,113 @@ def _require_ebook_operation_recipe_review(
         )
 
 
+def _require_fixity_expectation_review(
+    connection: Connection,
+    item: ReviewItem,
+) -> None:
+    """Bind one review item to one actionable result of one completed run."""
+
+    from foliotone.fixity.verification_contracts import (
+        EBOOK_FIXITY_DECISION_PROFILE,
+        EbookFixityVerificationResult,
+        EbookFixityVerificationResultRecord,
+    )
+    from foliotone.fixity.verification_fingerprints import (
+        verification_candidate_set_fingerprint,
+        verification_evidence_fingerprint,
+    )
+    from foliotone.persistence import fixity_verification_schema as fv_schema
+
+    if (
+        item.candidate_kind is not ReviewCandidateKind.FIXITY_RESULT
+        or item.subject_kind is not EntityKind.FILE
+        or item.decision_compatibility_version != EBOOK_FIXITY_DECISION_PROFILE
+    ):
+        raise ResolutionReviewStoreError(
+            "fixity expectation review requires its closed FILE/result contract"
+        )
+    result = fv_schema.ebook_fixity_verification_results
+    run = fv_schema.ebook_fixity_verification_runs
+    event = fv_schema.ebook_fixity_verification_events
+    row = (
+        connection.execute(
+            select(
+                result,
+                run.c.scan_root_id,
+                run.c.baseline_activation_id,
+                run.c.expectation_revision_no,
+                run.c.expectation_revision_digest,
+                run.c.source_scan_run_id,
+                event.c.content_digest.label("run_content_digest"),
+            )
+            .select_from(
+                result.join(run, run.c.id == result.c.run_id).join(
+                    event,
+                    and_(
+                        event.c.run_id == run.c.id,
+                        event.c.sequence_no == 1,
+                        event.c.status == "COMPLETED",
+                    ),
+                )
+            )
+            .where(result.c.id == str(item.candidate_id))
+        )
+        .mappings()
+        .one_or_none()
+    )
+    if row is None or str(row["file_id"]) != str(item.subject_id):
+        raise ResolutionReviewStoreError(
+            "fixity result is unavailable or its verification run is incomplete"
+        )
+    try:
+        record = EbookFixityVerificationResultRecord(
+            result_id=EntityId.parse(str(row["id"])),
+            run_id=EntityId.parse(str(row["run_id"])),
+            file_id=EntityId.parse(str(row["file_id"])),
+            result=EbookFixityVerificationResult(str(row["result_type"])),
+            expected_observation_id=_optional_entity_id(row["expected_observation_id"]),
+            expected_size_bytes=_optional_int(row["expected_size_bytes"]),
+            expected_sha256=_optional_text(row["expected_sha256"]),
+            expected_relative_locator=_optional_text(row["expected_relative_locator"]),
+            current_observation_id=_optional_entity_id(row["current_observation_id"]),
+            current_size_bytes=_optional_int(row["current_size_bytes"]),
+            current_sha256=_optional_text(row["current_sha256"]),
+            current_relative_locator=_optional_text(row["current_relative_locator"]),
+            failure_code=_optional_text(row["failure_code"]),
+            content_digest=str(row["content_digest"]),
+        )
+    except (TypeError, ValueError) as error:
+        raise ResolutionReviewStoreError("fixity result contract is invalid") from error
+    if record.result not in {
+        EbookFixityVerificationResult.UNEXPECTED_BYTE_CHANGE,
+        EbookFixityVerificationResult.UNBASELINED,
+        EbookFixityVerificationResult.MISSING,
+    }:
+        raise ResolutionReviewStoreError("fixity result is not decision-actionable")
+    run_digest = _optional_text(row["run_content_digest"])
+    if run_digest is None:
+        raise ResolutionReviewStoreError("completed fixity run has no content digest")
+    expected_evidence = verification_evidence_fingerprint(
+        subject_id=record.file_id,
+        scan_root_id=EntityId.parse(str(row["scan_root_id"])),
+        baseline_activation_id=EntityId.parse(str(row["baseline_activation_id"])),
+        expectation_revision_no=int(row["expectation_revision_no"]),
+        expectation_revision_digest=str(row["expectation_revision_digest"]),
+        scan_run_id=EntityId.parse(str(row["source_scan_run_id"])),
+        verification_run_id=record.run_id,
+        verification_run_content_digest=run_digest,
+        result_id=record.result_id,
+        result_content_digest=record.content_digest,
+    )
+    if (
+        item.evidence_fingerprint != expected_evidence
+        or item.candidate_set_fingerprint != verification_candidate_set_fingerprint(record)
+    ):
+        raise ResolutionReviewStoreError(
+            "fixity review fingerprints do not match the immutable result"
+        )
+
+
 def _material_descriptors(
     evidence: tuple[ResolutionEvidenceLink, ...],
 ) -> set[tuple[str, str, str, str]]:
@@ -722,6 +831,18 @@ def _required_datetime(value: datetime) -> str:
     if encoded is None:
         raise AssertionError("non-null datetime encoded as None")
     return encoded
+
+
+def _optional_entity_id(value: object) -> EntityId | None:
+    return None if value is None else EntityId.parse(str(value))
+
+
+def _optional_int(value: object) -> int | None:
+    return None if value is None else int(str(value))
+
+
+def _optional_text(value: object) -> str | None:
+    return None if value is None else str(value)
 
 
 _ENTITY_TABLES = {

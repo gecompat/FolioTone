@@ -21,7 +21,9 @@ class EbookFixityHashErrorCode(StrEnum):
     """Fixed, private-data-free hashing failure codes."""
 
     SECURE_OPEN_UNAVAILABLE = "SECURE_OPEN_UNAVAILABLE"
-    SOURCE_UNAVAILABLE = "SOURCE_UNAVAILABLE"
+    ROOT_UNAVAILABLE = "ROOT_UNAVAILABLE"
+    UNSAFE_LOCATOR = "UNSAFE_LOCATOR"
+    SOURCE_UNREADABLE = "SOURCE_UNREADABLE"
     SOURCE_CHANGED = "SOURCE_CHANGED"
     CANCELLED = "CANCELLED"
 
@@ -40,16 +42,16 @@ class EbookFixityRootReader:
     def __init__(self, source_root: Path) -> None:
         self._source_root = source_root
         self._root_fd = -1
-        self._root_identity: tuple[int, int, int, int, int, int] | None = None
+        self._root_identity: tuple[int, int] | None = None
 
     def __enter__(self) -> EbookFixityRootReader:
         _require_secure_open_support()
         if not isinstance(self._source_root, Path) or not self._source_root.is_absolute():
-            _fail(EbookFixityHashErrorCode.SOURCE_UNAVAILABLE)
+            _fail(EbookFixityHashErrorCode.ROOT_UNAVAILABLE)
         try:
             named = os.stat(self._source_root, follow_symlinks=False)
             if not _safe_directory(named):
-                _fail(EbookFixityHashErrorCode.SOURCE_UNAVAILABLE)
+                _fail(EbookFixityHashErrorCode.ROOT_UNAVAILABLE)
             self._root_fd = os.open(
                 self._source_root,
                 os.O_RDONLY
@@ -59,14 +61,14 @@ class EbookFixityRootReader:
             )
             opened = os.fstat(self._root_fd)
             if not _safe_directory(opened) or _named_identity(named) != _named_identity(opened):
-                _fail(EbookFixityHashErrorCode.SOURCE_UNAVAILABLE)
-            self._root_identity = _stable_identity(opened)
+                _fail(EbookFixityHashErrorCode.ROOT_UNAVAILABLE)
+            self._root_identity = _named_identity(opened)
         except EbookFixityHashError:
             self.close()
             raise
         except OSError:
             self.close()
-            _fail(EbookFixityHashErrorCode.SOURCE_UNAVAILABLE)
+            _fail(EbookFixityHashErrorCode.ROOT_UNAVAILABLE)
         return self
 
     def __exit__(self, *_exception: object) -> None:
@@ -113,7 +115,10 @@ class EbookFixityRootReader:
             while True:
                 if cancelled is not None and cancelled():
                     _fail(EbookFixityHashErrorCode.CANCELLED)
-                block = os.read(file_fd, chunk_bytes)
+                try:
+                    block = os.read(file_fd, chunk_bytes)
+                except OSError:
+                    _fail(EbookFixityHashErrorCode.SOURCE_UNREADABLE)
                 if not block:
                     break
                 total += len(block)
@@ -122,8 +127,13 @@ class EbookFixityRootReader:
                 digest.update(block)
                 if on_bytes_read is not None:
                     on_bytes_read(len(block))
-            after = os.fstat(file_fd)
-            named_after = os.stat(parts[-1], dir_fd=parent_fd, follow_symlinks=False)
+            try:
+                after = os.fstat(file_fd)
+                named_after = os.stat(parts[-1], dir_fd=parent_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                _fail(EbookFixityHashErrorCode.SOURCE_CHANGED)
+            except OSError:
+                _fail(EbookFixityHashErrorCode.SOURCE_UNREADABLE)
             if (
                 total != source.expected_size_bytes
                 or _stable_identity(before) != _stable_identity(after)
@@ -140,7 +150,7 @@ class EbookFixityRootReader:
         except EbookFixityHashError:
             raise
         except OSError:
-            _fail(EbookFixityHashErrorCode.SOURCE_UNAVAILABLE)
+            _fail(EbookFixityHashErrorCode.SOURCE_UNREADABLE)
         finally:
             if file_fd >= 0:
                 try:
@@ -155,20 +165,33 @@ class EbookFixityRootReader:
 
     def _require_root_unchanged(self) -> None:
         try:
+            named = os.stat(self._source_root, follow_symlinks=False)
             current = os.fstat(self._root_fd)
         except OSError:
-            _fail(EbookFixityHashErrorCode.SOURCE_UNAVAILABLE)
-        if self._root_identity != _stable_identity(current) or not _safe_directory(current):
-            _fail(EbookFixityHashErrorCode.SOURCE_CHANGED)
+            _fail(EbookFixityHashErrorCode.ROOT_UNAVAILABLE)
+        if (
+            not _safe_directory(named)
+            or not _safe_directory(current)
+            or self._root_identity != _named_identity(named)
+            or self._root_identity != _named_identity(current)
+        ):
+            _fail(EbookFixityHashErrorCode.ROOT_UNAVAILABLE)
+
+    def check_root(self) -> None:
+        """Fail closed when the held root can no longer prove the same safe directory."""
+
+        if self._root_fd < 0 or self._root_identity is None:
+            raise RuntimeError("fixity root reader is not open")
+        self._require_root_unchanged()
 
 
 def _open_directory_at(
     parent_fd: int, component: str
-) -> tuple[int, tuple[int, int, int, int, int, int]]:
+) -> tuple[int, tuple[int, int]]:
     try:
         named = os.stat(component, dir_fd=parent_fd, follow_symlinks=False)
         if not _safe_directory(named):
-            _fail(EbookFixityHashErrorCode.SOURCE_UNAVAILABLE)
+            _fail(EbookFixityHashErrorCode.UNSAFE_LOCATOR)
         descriptor = os.open(
             component,
             os.O_RDONLY
@@ -181,17 +204,19 @@ def _open_directory_at(
         if not _safe_directory(opened) or _named_identity(named) != _named_identity(opened):
             os.close(descriptor)
             _fail(EbookFixityHashErrorCode.SOURCE_CHANGED)
-        return descriptor, _stable_identity(opened)
+        return descriptor, _named_identity(opened)
     except EbookFixityHashError:
         raise
+    except FileNotFoundError:
+        _fail(EbookFixityHashErrorCode.SOURCE_CHANGED)
     except OSError:
-        _fail(EbookFixityHashErrorCode.SOURCE_UNAVAILABLE)
+        _fail(EbookFixityHashErrorCode.UNSAFE_LOCATOR)
 
 
 def _require_directory_chain_unchanged(
     components: tuple[str, ...],
     directory_fds: list[int],
-    directory_identities: list[tuple[int, int, int, int, int, int]],
+    directory_identities: list[tuple[int, int]],
 ) -> None:
     """Re-resolve every held parent from the root after the file hash."""
 
@@ -207,14 +232,16 @@ def _require_directory_chain_unchanged(
             if (
                 not _safe_directory(named)
                 or not _safe_directory(opened)
-                or _stable_identity(named) != expected
-                or _stable_identity(opened) != expected
+                or _named_identity(named) != expected
+                or _named_identity(opened) != expected
             ):
                 _fail(EbookFixityHashErrorCode.SOURCE_CHANGED)
     except EbookFixityHashError:
         raise
-    except OSError:
+    except FileNotFoundError:
         _fail(EbookFixityHashErrorCode.SOURCE_CHANGED)
+    except OSError:
+        _fail(EbookFixityHashErrorCode.UNSAFE_LOCATOR)
 
 
 def _open_source_at(
@@ -224,7 +251,12 @@ def _open_source_at(
 ) -> tuple[int, os.stat_result]:
     try:
         named = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
-        _require_expected_source(named, source)
+    except FileNotFoundError:
+        _fail(EbookFixityHashErrorCode.SOURCE_CHANGED)
+    except OSError:
+        _fail(EbookFixityHashErrorCode.UNSAFE_LOCATOR)
+    _require_expected_source(named, source)
+    try:
         descriptor = os.open(
             name,
             os.O_RDONLY
@@ -244,8 +276,10 @@ def _open_source_at(
         return descriptor, opened
     except EbookFixityHashError:
         raise
+    except FileNotFoundError:
+        _fail(EbookFixityHashErrorCode.SOURCE_CHANGED)
     except OSError:
-        _fail(EbookFixityHashErrorCode.SOURCE_UNAVAILABLE)
+        _fail(EbookFixityHashErrorCode.SOURCE_UNREADABLE)
 
 
 def _require_expected_source(
@@ -256,7 +290,10 @@ def _require_expected_source(
         not stat.S_ISREG(details.st_mode)
         or stat.S_ISLNK(details.st_mode)
         or _is_reparse(details)
-        or details.st_size != source.expected_size_bytes
+    ):
+        _fail(EbookFixityHashErrorCode.UNSAFE_LOCATOR)
+    if (
+        details.st_size != source.expected_size_bytes
         or datetime.fromtimestamp(details.st_mtime, tz=UTC) != source.expected_modified_at
     ):
         _fail(EbookFixityHashErrorCode.SOURCE_CHANGED)

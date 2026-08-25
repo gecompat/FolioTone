@@ -48,17 +48,14 @@ def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_backlog_advances_fixity_verification_after_the_detail_decision() -> None:
+def test_backlog_advances_to_fixity_surface_after_verification() -> None:
     backlog = _text(BACKLOG)
 
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert (
-        "| NOW | Verifikations- und Einzelentscheidungs-Slice von `WI-0003` "
-        "(`FUT-009`) |" in backlog
-    )
-    assert "| NEXT WAVE | `WI-0003` Verifikation und Einzelentscheidungen |" in backlog
+    assert "| NOW | Surface-Slice von `WI-0003` (`FUT-009`) |" in backlog
+    assert "| NEXT WAVE | `WI-0003` Surface |" in backlog
     assert backlog.count("| NEXT |") == 1
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog

@@ -635,9 +635,9 @@ gemeinsam; der domain-separierte Confirmation-Digest ist Bestandteil des
 immutable Aktivierungs-Digests. Die Migration verweigert einen Downgrade,
 sobald Fixity-Daten oder eine aktive Fixity-Lease vorhanden sind.
 
-### Geplante insert-only E-Book-Fixity-Verifikation
+### Insert-only E-Book-Fixity-Verifikation
 
-Der nächste `WI-0003`-Slice ergänzt mit
+Der zweite `WI-0003`-Slice ergänzt mit
 `0036_ebook_fixity_verification` die Tabellen
 `ebook_fixity_verification_runs`, `ebook_fixity_verification_events`,
 `ebook_fixity_verification_results` und
@@ -661,7 +661,9 @@ in Evidence- und Candidate-Set-Fingerprint unter
 Eine `ebook_fixity_expectation_revision` bindet genau eine aktuelle
 kompatible generische `ACCEPT`-Decision und entweder `ACCEPT_CURRENT` mit der
 frisch beobachteten privaten Byte-/Locator-Lineage oder `RETIRE_MISSING` mit
-einem Tombstone für genau eine aktive Erwartung. Die vorhandene
+einem Tombstone für genau eine aktive Erwartung. Der ausgewählte Run muss der
+neueste Verifikationslauf dieses Roots sein; jeder neuere Lauf invalidiert die
+ältere Review-Lineage. Die vorhandene
 Baseline-Aktivierung bildet ohne neuen Datensatz Revision `0`; danach ist die
 Revisionssequenz je Root gapless. Ihr Digest verkettet Baseline-Aktivierung,
 Vorgängerrevision und die eine Änderung, sodass jeder neue Lauf einen exakten

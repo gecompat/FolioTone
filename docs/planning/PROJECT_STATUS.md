@@ -4,7 +4,7 @@ Stand: 2026-08-25
 
 ## Aktuelle Welle
 
-**WI-0003 Verifikation und Einzelentscheidungen `NEXT`**
+**WI-0003 Surface `NEXT` — Verifikation und Einzelentscheidungen implementiert**
 
 Die A/A-Detailentscheidung ergänzt `DEC-0001`. Der Verifikationslauf bindet
 den neuesten `ScanRun` insgesamt des betroffenen gefenceten E-Book-
@@ -14,7 +14,7 @@ Nach diesem Scan neu entstandene Dateien liegen bis zum nächsten
 abgeschlossenen Scan außerhalb des Laufs. Verifikation startet weder einen
 Scan noch eine eigene Filesystem-Discovery.
 
-Der generische append-only Review-Core wird um
+Der generische append-only Review-Core ist um
 `ReviewType.FIXITY_EXPECTATION` und
 `ReviewCandidateKind.FIXITY_RESULT` erweitert. Subject ist genau ein `FILE`,
 Candidate genau ein immutable Ergebnis eines vollständig `COMPLETED`-
@@ -24,17 +24,42 @@ Root, Baseline-Aktivierung, aktive Erwartungsrevision, Scan, Lauf, Ergebnis
 sowie vorhandene erwartete und aktuelle Byteidentitäten. Nur die neueste
 exakt passende generische `ACCEPT`-Decision darf `ACCEPT_CURRENT` für
 `UNEXPECTED_BYTE_CHANGE`/`UNBASELINED` oder `RETIRE_MISSING` für `MISSING`
-autorisieren. Jede fachliche Entscheidung ergänzt genau eine append-only
-Erwartungsrevision; Bulk-Accept und Root-Reset bleiben ausgeschlossen.
+autorisieren. Jeder neuere Verifikationslauf, auch ein fehlgeschlagener,
+invalidiert die ältere Review-Lineage. Jede fachliche Entscheidung ergänzt
+genau eine append-only Erwartungsrevision; Bulk-Accept und Root-Reset bleiben
+ausgeschlossen.
 
-Der nächste Implementierungsslice umfasst nur Domain-, Persistenz-, Workflow-
-und Review-Core-Verträge samt additiver Migration und synthetischen Tests.
-ApplicationJob, CLI, REST und Browser folgen danach. Netzwerk, Source Writes,
-W10-Capabilities, Backup-/Replica-Vergleich und Restore bleiben
-ausgeschlossen. Diese Entscheidungswelle ändert keinen Runtime- oder
-SQLite-Code.
+Migration `0036_ebook_fixity_verification` persistiert immutable Runs,
+gapless Events, je Run/File eindeutige Results und rootlokal gapless
+Erwartungsrevisionen insert-only. Der Store leitet aktive Baseline, neueste
+ScanRun- und Revisionsbinder atomar ab, liefert die exakte Vereinigungsmenge
+bounded per Keyset und schließt nur nach SQL-Anti-Join-Coverage sowie
+streaming Ergebnis-Digest ab. Ein abgelaufener Verification-Lease wird beim
+sicheren Takeover unter dem alten Run `FAILED/LEASE_EXPIRED`; partielle
+Results bleiben nicht reviewbar.
 
-Lokal bestanden alle 32 Tests der drei direkt betroffenen Static-
+Der interne Coordinator hält den neuen Lease-Owner
+`EBOOK_FIXITY_VERIFICATION`, erneuert das Fence im Hintergrund und verwendet
+höchstens zwei frische no-follow Full-SHA-256-Worker. Root-Ausfall,
+unsicherer Locator oder verlorenes Fencing beenden den gesamten Lauf
+fail-closed. Ein sicher aufgelöster einzelner Lesefehler beziehungsweise
+Source-Drift bleibt dagegen als `UNREADABLE` beziehungsweise
+`SOURCE_CHANGED_DURING_RUN` unter genau diesem Run nachvollziehbar. Der Lauf
+startet weder Scan noch Discovery und verändert keine Source Media.
+
+Die feste generische Review-Paarung und die kanonischen Result-, Evidence-
+und Candidate-Set-Fingerprints erlauben nur eine aktuelle exakt passende
+`ACCEPT`-Decision. `ACCEPT_CURRENT` und `RETIRE_MISSING` ergänzen jeweils
+genau eine append-only Revision; nur deren Revisions-ID ist die
+Idempotenzidentität. Ein divergierender Retry, Bulk-Accept oder Root-Reset
+wird abgewiesen.
+
+ApplicationJob, CLI, REST und Browser sind damit der letzte `WI-0003`-Slice
+und `NEXT`. Netzwerk, Source Writes, W10-Capabilities, Backup-/Replica-
+Vergleich und Restore bleiben ausgeschlossen.
+
+Für die vorausgehende A/A-Entscheidungswave bestanden lokal alle 32 Tests der
+drei direkt betroffenen Static-
 Vertragsdateien. Beide zugelassenen Registry-Clients validierten Revision 7
 mit sieben Allokationen; Ruff über die drei Testdateien, JSON-Prüfung,
 `git diff --check`, Privacy-/Secret-Suche und der LF-Vertrag waren grün. Ein
@@ -45,6 +70,28 @@ Das unabhängige `BALANCED`-Review beanstandete zunächst einen historischen
 bestätigte das Re-Review `APPROVE`. Mypy, Docker, Runtime-Tests, reale Medien
 und die vollständige unbetroffene Suite wurden für diesen reinen
 Entscheidungs-/Dokumentationsscope gemäß `TEST_POLICY.md` nicht ausgeführt.
+
+Für den Implementierungsslice bestanden 20 gezielte Persistenz-, Lease- und
+Review-Integrationstests, 13 Domain-/Review-Vertragstests und vier
+synthetische Workflow-Fälle. Der Windows-Hashselector bestand den
+plattformneutralen Fall und übersprang neun Linux-only no-follow-Fälle; der
+exakte Selector im vorhandenen lokalen Linux-Testimage bestand diese neun
+no-follow-Fälle und übersprang nur den Windows-Fallback. Zwei vorausgehende
+Containeraufrufe waren keine Testnachweise: einmal war der Windows-Bindpfad
+für den WSL-Daemon ungültig,
+einmal enthielt das Runtime- statt Testimage kein Pytest.
+Weitere Zwischenläufe mit doppelt angewandtem Pytest-Entrypoint und einem zu
+früh gesetzten `os.stat`-Monkeypatch waren ebenfalls keine Nachweise; der
+zuletzt genannte Regressionstest wurde korrigiert und danach im vollständigen
+Linux-Selector grün ausgeführt.
+
+Mypy war für zwölf betroffene Source-Dateien grün. Ruff bestand über alle
+geänderten Python-Dateien, die 32 direkt betroffenen Dokumentations- und
+Planungsverträge waren grün und `git diff --check` war sauber. Verwendet
+wurden ausschließlich synthetische Dateizustände und temporäre Datenbanken;
+reale Medien, private Runtime-Daten, Netzwerk, Source Writes und W10 wurden
+nicht verwendet. Die vollständige unbetroffene lokale Suite und der einmalige
+vollständige PR-CI-Gate bleiben bewusst bis zum stabilen Head ausstehend.
 
 Der erste `DEC-0001`-Slice implementiert `ebook-fixity-baseline/v1` ohne
 Produktoberfläche. Eine echte SQLite-`query_only`-Projektion verlangt genau
@@ -70,8 +117,7 @@ Der Klartext wird nicht gespeichert; pro Profil und `ScanRoot` ist nur eine
 Aktivierung möglich, sodass kein impliziter Trust-on-first-use oder Root-Reset
 entsteht. Die Statusprojektion enthält weder Locator noch Hashwerte.
 
-Damit ist der Verifikations-/Einzelentscheidungs-Slice von `WI-0003` die
-nächste zulässige Wave.
+Damit ist der Surface-Slice von `WI-0003` die nächste zulässige Wave.
 
 Die Root-`.gitattributes` setzt für gewöhnliche Textdateien nun unabhängig
 von `core.autocrlf` verbindlich `LF`. Explizit binäre beziehungsweise bereits
@@ -109,9 +155,9 @@ append-only und einzeln reviewpflichtig. Netzwerk, automatische Planung,
 Source Writes und jede W10-Capability sind ausgeschlossen.
 
 Die frühere Fixity-Detailentscheidung ist inzwischen abgeschlossen.
-`WI-0003` bleibt die einzige geplante Produktfolge und führt den
-Verifikations-/Einzelentscheidungs-Slice als `NEXT`; anschließend folgt die
-Application-/CLI-/REST-/Browser-Surface in einem getrennten Pull Request.
+`WI-0003` bleibt die einzige geplante Produktfolge. Baseline, Verifikation und
+Einzelentscheidungen sind implementiert; die Application-/CLI-/REST-/Browser-
+Surface ist als letzter getrennter Slice `NEXT`.
 Der vollständige Vertrag und die Stopbedingungen stehen in
 [`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md).
 

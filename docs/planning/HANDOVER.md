@@ -11,17 +11,26 @@ Full-SHA-256-Fixity-Baseline für genau einen E-Book-`ScanRoot`: echte
 SQLite-`query_only`-Projektion, neuester insgesamt abgeschlossener `ScanRun`,
 frische no-follow Hashes, append-only Build/Entries/Manifest/Aktivierung und
 rootweites Fencing. Ein partieller oder fehlgeschlagener Build ist kein
-Manifest. Der Verifikations- und Einzelentscheidungs-Slice ist `NEXT`:
-`DEC-0001` bindet `UNBASELINED` ausschließlich an `PRESENT`-Dateien des
-neuesten insgesamt `COMPLETED`-Scan-Snapshots ohne aktive Erwartung. Eine
-eigene Filesystem-Discovery findet nicht statt. Reviews erweitern den
+Manifest. Der Verifikations- und Einzelentscheidungs-Slice ist ebenfalls
+implementiert: `DEC-0001` bindet `UNBASELINED` ausschließlich an `PRESENT`-
+Dateien des neuesten insgesamt `COMPLETED`-Scan-Snapshots ohne aktive
+Erwartung. Eine eigene Filesystem-Discovery findet nicht statt. Reviews erweitern den
 generischen append-only Core um `FIXITY_EXPECTATION`/`FIXITY_RESULT`; Subject
 ist genau ein `FILE`, Candidate genau ein immutable Ergebnis eines
 `COMPLETED`-Verifikationslaufs. Nur eine aktuelle exakt passende `ACCEPT`-
-Decision darf eine einzelne append-only Erwartungsrevision erzeugen. CLI plus
-lokale REST-/Browser-Surface bleiben der letzte `WI-0003`-Slice. Der gesamte
-Vertrag bleibt read-only gegenüber Source Media und besitzt keine
-W10-Capability.
+Decision des neuesten Verifikationslaufs darf eine einzelne append-only
+Erwartungsrevision erzeugen; jeder neuere Lauf invalidiert die ältere Review-
+Lineage. CLI plus lokale REST-/Browser-Surface sind `NEXT` und bleiben der
+letzte `WI-0003`-Slice. Der gesamte Vertrag bleibt read-only gegenüber Source
+Media und besitzt keine W10-Capability.
+
+Migration `0036_ebook_fixity_verification` und der interne Coordinator bilden
+die exakte Vereinigungsmenge bounded per SQL-Keyset ab, versiegeln nur
+vollständige Runs und erhalten Lease-Expiry, partielle Ergebnisse sowie
+Einzelentscheidungen append-only. Standardstatus bleibt pfad- und hashfrei.
+Die nächste Wave darf ausschließlich die gemeinsame manuelle Job-/
+Application-/CLI-/REST-/Browser-Surface ergänzen; sie darf weder Discovery,
+Netzwerk noch eine W10- oder Source-Write-Capability hinzufügen.
 
 `DEC-0002` hält den gewählten Scope einer EPUB-3-zu-EPUB-3-Ableitung mit
 reviewten Metadaten und getrenntem Output-Root als `Proposed` fest.

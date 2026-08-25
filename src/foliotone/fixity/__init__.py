@@ -23,6 +23,26 @@ from foliotone.fixity.hashing import (
     EbookFixityHashErrorCode,
     EbookFixityRootReader,
 )
+from foliotone.fixity.verification_contracts import (
+    EBOOK_FIXITY_DECISION_PROFILE,
+    EBOOK_FIXITY_VERIFICATION_PROFILE,
+    EbookFixityExpectationAction,
+    EbookFixityExpectationDecisionInput,
+    EbookFixityExpectationRevision,
+    EbookFixityVerificationEvent,
+    EbookFixityVerificationEventKind,
+    EbookFixityVerificationResult,
+    EbookFixityVerificationResultRecord,
+    EbookFixityVerificationRun,
+    EbookFixityVerificationRunStatus,
+)
+from foliotone.fixity.verification_fingerprints import (
+    verification_candidate_set_fingerprint,
+    verification_evidence_fingerprint,
+    verification_result_fingerprint,
+    verification_results_digest,
+    verification_run_content_digest,
+)
 
 __all__ = [
     "EBOOK_FIXITY_BASELINE_PROFILE",
@@ -40,6 +60,22 @@ __all__ = [
     "EbookFixityHashError",
     "EbookFixityHashErrorCode",
     "EbookFixityRootReader",
+    "EBOOK_FIXITY_DECISION_PROFILE",
+    "EBOOK_FIXITY_VERIFICATION_PROFILE",
+    "EbookFixityExpectationAction",
+    "EbookFixityExpectationDecisionInput",
+    "EbookFixityExpectationRevision",
+    "EbookFixityVerificationEvent",
+    "EbookFixityVerificationEventKind",
+    "EbookFixityVerificationResult",
+    "EbookFixityVerificationResultRecord",
+    "EbookFixityVerificationRun",
+    "EbookFixityVerificationRunStatus",
     "expected_fixity_baseline_confirmation",
+    "verification_candidate_set_fingerprint",
+    "verification_evidence_fingerprint",
+    "verification_result_fingerprint",
+    "verification_results_digest",
+    "verification_run_content_digest",
     "verify_fixity_baseline_confirmation",
 ]

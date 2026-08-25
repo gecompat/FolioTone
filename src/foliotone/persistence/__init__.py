@@ -108,6 +108,14 @@ from foliotone.persistence.fixity import (
     SQLiteEbookFixityBaselineProjection,
     SQLiteEbookFixityBaselineStore,
 )
+from foliotone.persistence.fixity_verification import (
+    DEFAULT_EBOOK_FIXITY_VERIFICATION_LEASE_DURATION,
+    EbookFixityVerificationStatusSnapshot,
+    EbookFixityVerificationStoreError,
+    EbookFixityVerificationWorkItem,
+    OwnedEbookFixityVerificationRun,
+    SQLiteEbookFixityVerificationStore,
+)
 from foliotone.persistence.library_health import (
     LibraryHealthBuildResult,
     LibraryHealthStoreError,
@@ -266,8 +274,12 @@ __all__ = [
     "EvidenceQueryLimitError",
     "DEFAULT_EBOOK_FIXITY_BATCH_SIZE",
     "DEFAULT_EBOOK_FIXITY_LEASE_DURATION",
+    "DEFAULT_EBOOK_FIXITY_VERIFICATION_LEASE_DURATION",
     "EbookFixityBaselineSource",
     "EbookFixityBaselineStoreError",
+    "EbookFixityVerificationStatusSnapshot",
+    "EbookFixityVerificationStoreError",
+    "EbookFixityVerificationWorkItem",
     "EBOOK_COLLECTION_PLAN_BATCH_SIZE",
     "CreatedEbookCollectionRun",
     "EbookCollectionCounts",
@@ -343,6 +355,8 @@ __all__ = [
     "SQLiteEbookInventoryReportStore",
     "SQLiteEbookFixityBaselineProjection",
     "SQLiteEbookFixityBaselineStore",
+    "OwnedEbookFixityVerificationRun",
+    "SQLiteEbookFixityVerificationStore",
     "SQLiteEbookOperationRecipeStore",
     "SQLiteEbookRenameStore",
     "SQLiteEbookCollectionReportStore",
