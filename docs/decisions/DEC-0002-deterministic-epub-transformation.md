@@ -63,6 +63,25 @@ Scheitert die exakte Reproduzierbarkeit, bleibt `DEC-0002` vorgeschlagen und
 EPUB-Verpackungsstufe oder ein anderer ToolProvider eine neue dokumentierte
 Bewertung; das Gate wählt keine unbewiesene Alternative.
 
+## Ergebnis von GATE-0001
+
+`GATE-0001` wurde am 2026-08-25 mit calibre 9.13.0 und dem festen
+`ebook-polish --opf`-Profil abgeschlossen. Zwei frische, netzlose und zeitlich
+getrennte Containerläufe erzeugten unterschiedliche Bytelängen und SHA-256.
+calibre setzte jeweils die reale UTC-Zeit in `dcterms:modified` und in
+ZIP-Zeitstempel. Die vollständige OPF-Projektion erhielt Serienname, -typ und
+-position in beiden Outputs; eine partielle Projektion wäre wegen der
+`apply_null=True`-Semantik keine zulässige Preserve-/Patch-Schnittstelle.
+Beide Outputs waren EPUBCheck-konform, was die fehlende Bytegleichheit nicht
+aufhebt. Der vollständige Nachweis steht in
+[`GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md`](../quality/GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md).
+
+Die Entscheidung bleibt deshalb `Proposed` und `WI-0004` `BLOCKED`. Vor einem
+neuen Gate ist ausdrücklich zwischen einer FolioTone-eigenen kanonischen
+Verpackung nach calibre, einem begrenzten nativen OPF-Patch mit kanonischer
+Verpackung oder einem anderen ToolProvider zu entscheiden. Keine Richtung ist
+durch dieses negative Gate freigegeben.
+
 ## Geplante W10-Kette
 
 Nach einem akzeptierten Gate entstehen getrennte Waves für den erweiterten
@@ -83,5 +102,6 @@ automatischer Batch-Publish bleiben ausgeschlossen.
 CLI wird vor der Job-/REST-/Browser-Adaptierung geliefert. Der `surface-api`
 erhält weder Source-/Output-Mount noch Capability; nur der netzlose
 `operator-worker` darf nach Revalidierung die operation-spezifische Capability
-auflösen. Diese vorgeschlagene Entscheidung ist bis zum positiven
-`GATE-0001` keine W10-Authorization.
+auflösen. Das negative `GATE-0001` erteilt keine W10-Authorization; dafür
+bleiben eine ausdrückliche Folgerichtung und ein positives neues Profilgate
+zwingend.

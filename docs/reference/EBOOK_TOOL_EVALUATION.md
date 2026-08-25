@@ -210,12 +210,15 @@ Offizielle Referenzen:
 ### Verbindliche Sicherheitsuntergrenze
 
 Die veröffentlichte Advisory `GHSA-2j4m-2q7x-2c47`/`CVE-2026-53511` bewertet
-eine Code-Execution-Lücke beim Lesen manipulierter EPUB-, OPF- oder PDF-Metadaten
-als `High`. Betroffen sind calibre-Versionen bis einschließlich 9.9.0; 9.10.0
-ist als korrigierte Version ausgewiesen.
+eine Code-Execution-Lücke beim Lesen manipulierter EPUB-, OPF- oder PDF-
+Metadaten als `High`. Betroffen sind calibre-Versionen bis einschließlich
+9.9.0; 9.10.0 war für diesen Befund die korrigierte Version. Die neuere
+Advisory `GHSA-4f7g-rjfp-hmvx`/`CVE-2026-73248` betrifft jedoch Versionen bis
+einschließlich 9.11.0 und ist erst ab 9.12.0 behoben. Sie konnte die Sperre für
+Python-Templates umgehen.
 
 Der Adapter muss deshalb die erkannte Version **vor** dem Öffnen der Source-Datei
-prüfen. Unbekannte Versionen und Versionen kleiner als 9.10.0 erzeugen eine
+prüfen. Unbekannte Versionen und Versionen kleiner als 9.12.0 erzeugen eine
 auditierbare `FAILED`-Ausführung ohne Medienanalyse. Sowohl Versionsabfrage als
 auch Analyse verwenden ein ephemeres `CALIBRE_CONFIG_DIRECTORY`; globale
 Calibre-Konfiguration und Plugins werden nicht als implizite Eingabe verwendet.
@@ -236,6 +239,7 @@ Zusätzliche Grenzen:
 Offizielle Advisory:
 
 - https://github.com/kovidgoyal/calibre/security/advisories/GHSA-2j4m-2q7x-2c47
+- https://github.com/kovidgoyal/calibre/security/advisories/GHSA-4f7g-rjfp-hmvx
 
 ### `calibredb`
 

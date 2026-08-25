@@ -288,7 +288,10 @@ def test_artifact_registration_authority_is_discoverable_and_consistent() -> Non
     ]
     assert artifacts["DEC-0001"]["status"] == "ACCEPTED"
     assert artifacts["WI-0003"]["status"] == "DONE"
-    assert artifacts["GATE-0001"]["status"] == "NEXT"
+    assert artifacts["GATE-0001"]["status"] == "DONE"
+    assert artifacts["GATE-0001"]["metadata"]["outcome"] == (
+        "FAIL_EXACT_REPRODUCIBILITY"
+    )
     assert artifacts["WI-0004"]["status"] == "BLOCKED"
 
 

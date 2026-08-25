@@ -341,9 +341,10 @@ Der vorhandene `EbookOperationRecipePlan` bleibt auch für
 `FORMAT_TRANSFORM` dauerhaft `NOT_EXECUTABLE`. `DEC-0002` schlägt zusätzlich
 einen privaten `EbookTransformationDryRun` vor, der Source, reviewte
 Metadatenauswahl, Toolchain-/Konfigurationsidentität und den erwarteten
-Output-Hash bindet. Erst `GATE-0001` darf dieses Modell nach einem exakten
-Byte-Replay für eine W10-Preparation konkretisieren. Bis dahin sind diese
-Begriffe kein implementierter Domain- oder Persistenzvertrag.
+Output-Hash bindet. Das negative `GATE-0001` konkretisiert dieses Modell
+nicht. Erst ein neues positives Profilgate nach exaktem Byte-Replay darf eine
+W10-Preparation öffnen. Bis dahin sind diese Begriffe kein implementierter
+Domain- oder Persistenzvertrag.
 
 ## Music layer
 

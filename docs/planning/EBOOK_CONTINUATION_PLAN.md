@@ -17,10 +17,12 @@ Die verbindliche Reihenfolge lautet:
 1. `WI-0003` (`FUT-009`) implementiert book-only Fixity Monitoring nach
    `DEC-0001`. Baseline, Verifikation, Einzelentscheidungen und die gemeinsame
    Application-/CLI-/REST-/Browser-Surface sind umgesetzt.
-2. `GATE-0001` qualifiziert als nächste Wave das deterministische EPUB-3-zu-EPUB-3-
-   Transformationsprofil und entscheidet, ob `DEC-0002` akzeptiert werden kann.
-3. `WI-0004` (`FUT-008`) bleibt bis zu diesem positiven Gate blockiert und
-   liefert anschließend die Transformationskette in kleinen Pull Requests.
+2. `GATE-0001` hat calibre 9.13.0 mit einem festen EPUB-3-zu-EPUB-3-Profil
+   und vollständigem Metadatensnapshot geprüft. Die Serie blieb erhalten;
+   das Profil wurde wegen fehlender Byte-Reproduzierbarkeit abgelehnt.
+3. `DEC-0002` benötigt jetzt eine ausdrückliche Folgerichtung und danach ein
+   neues positives Profilgate. `WI-0004` (`FUT-008`) bleibt bis dahin
+   blockiert.
 
 `FUT-002` ist durch EPUBCheck, `ebook-quality/v1` und die getrennte
 Struktur-/Format-Risk-Projektion bereits umgesetzt und wird im Backlog
@@ -57,17 +59,25 @@ Einzelentscheidungen verwenden die feste generische Review-Core-Paarung
 Decision zu genau einem Ergebnis eines `COMPLETED`-Laufs darf
 `ACCEPT_CURRENT` oder `RETIRE_MISSING` auslösen. Jede fachliche Entscheidung
 ergänzt genau eine append-only Erwartungsrevision; Bulk-Accept und Root-Reset
-bleiben ausgeschlossen. Die Fixity-Surface ist umgesetzt. `GATE-0001` ist die
-einzige `NEXT`-Wave; `WI-0004` bleibt bis zu einem positiven Gate blockiert.
+bleiben ausgeschlossen. Die Fixity-Surface ist umgesetzt. Das nachfolgende
+`GATE-0001` ist negativ abgeschlossen; derzeit ist keine Transformationswave
+`NEXT`, und `WI-0004` bleibt bis zu einer Entscheidung und einem positiven
+neuen Profilgate blockiert.
 
 ## GATE-0001 und WI-0004 — EPUB-Transformation
 
-`GATE-0001` ist eine `FRONTIER`-Wave. Es prüft das gelockte Toolchain-Image
-lokal und netzlos mit synthetischen EPUBs. Nur ein dokumentierter positiver
-Byte-Reproduzierbarkeits-, Security-, Lizenz- und Automationsnachweis darf
-`DEC-0002` auf `Accepted` und `WI-0004` auf `READY` setzen.
+`GATE-0001` wurde als `FRONTIER`-Wave mit dem gelockten Toolchain-Image lokal,
+netzlos und ausschließlich synthetisch ausgeführt. Der feste calibre-
+9.13.0-Pfad erhielt die vollständig projizierte Serie, scheiterte aber an
+Byte-Reproduzierbarkeit. Der
+Nachweis liegt unter
+[`GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md`](../quality/GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md).
+Nur ein späterer dokumentierter positiver Byte-Reproduzierbarkeits-,
+Security-, Lizenz- und Automationsnachweis darf `DEC-0002` auf `Accepted` und
+`WI-0004` auf `READY` setzen.
 
-Bei positivem Gate folgt `WI-0004` in dieser Reihenfolge:
+Nach ausdrücklicher Folgerichtung und positivem neuem Gate folgt `WI-0004` in
+dieser Reihenfolge:
 
 | Slice | Ergebnis | Tier | Stopbedingung |
 |---|---|---|---|

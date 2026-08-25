@@ -41,7 +41,7 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 13. [Begrenzter EPUB-Titelwriter](operations/EBOOK_METADATA_WRITE.md) beschreibt Voraussetzungen, Runtime-Konfiguration, Bestätigung, Status und Recovery des einzigen freigegebenen Source-Metadata-Profils.
 14. [Begrenzte E-Book-Duplikatquarantäne](operations/EBOOK_QUARANTINE.md) beschreibt Authorization, gefencetes Execute und die feste no-move Exact-State-Recovery für genau einen reviewten Duplicate Candidate.
 15. [Ausführungsvertrag für S-FUT11-03 und S-FUT11-04](planning/FUT11_NEXT_WAVES.md) bindet den decision-complete Application-, API-, UI-, Privacy-, Operator-Worker-, Test- und Git-Scope der beiden nächsten Produktwaves.
-16. [Nächste E-Book-Entwicklung](planning/EBOOK_CONTINUATION_PLAN.md) dokumentiert den Abschluss von `WI-0003`, `GATE-0001` als einzige `NEXT`-Wave sowie die davon blockierte EPUB-Transformation `WI-0004`.
+16. [Nächste E-Book-Entwicklung](planning/EBOOK_CONTINUATION_PLAN.md) dokumentiert den Abschluss von `WI-0003`, das negative Ergebnis von `GATE-0001` und die bis zur Folgerichtung blockierte EPUB-Transformation `WI-0004`.
 
 ## Architektur
 
@@ -99,7 +99,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0069](decisions/ADR-0069-ebook-rename-operator-job-handoff.md) bindet die operation-spezifische Jobübergabe des ersten GUI-Writers, verwirft die Raw Confirmation vor Persistenz und erhält alle ADR-0066-W10-Gates.
 - [ADR-0070](decisions/ADR-0070-foundation-v14-identity-registration.md) bewahrt historische FolioTone-IDs und aktiviert die registrygestützte persistente Identität für neue Planungsartefakte im Modus `ADOPT_FORWARD`.
 - [DEC-0001](decisions/DEC-0001-book-only-fixity-monitoring.md) akzeptiert die explizit aktivierte, read-only Full-SHA-256-Baseline sowie frische Verifikation und append-only Einzelentscheidungen für genau einen E-Book-`ScanRoot`.
-- [DEC-0002](decisions/DEC-0002-deterministic-epub-transformation.md) hält den gewählten EPUB-3-Transformationsscope als `Proposed` fest; erst `GATE-0001` darf nach Tool-, Byte-Reproduzierbarkeits-, Security- und Lizenznachweis eine W10-Implementierung öffnen.
+- [DEC-0002](decisions/DEC-0002-deterministic-epub-transformation.md) hält den EPUB-3-Transformationsscope als `Proposed` fest; das negative `GATE-0001` öffnet keine W10-Implementierung und verlangt eine ausdrückliche Folgerichtung mit neuem Profilgate.
 
 ## Qualität, Sprache und Dokumentationsregeln
 
@@ -108,6 +108,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [Modell- und Agenten-Routing](planning/MODEL_ROUTING_POLICY.md) definiert die Tiers `LOCAL`, `ECONOMICAL`, `BALANCED` und `FRONTIER` ohne dauerhafte Bindung an einen Anbieter oder Modellnamen.
 - [Tool-Adapter für KI-Systeme](planning/AI_TOOL_ADAPTERS.md) beschreibt die dünne Discovery-Schicht für Codex, Copilot, Junie und Databricks Genie Code sowie die getrennte Rolle von Databricks Genie Agents.
 - [Local-first-Teststrategie](quality/TEST_POLICY.md) definiert fokussierte lokale Nachweise und den einmaligen vollständigen PR-Gate.
+- [Negativer EPUB-Transformationsnachweis](quality/GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md) dokumentiert das reproduzierbare Scheitern des festen calibre-9.13.0-Profils und die offene Folgerichtung ohne W10-Autorisierung.
 - [Verbindlicher Schreibstil](quality/DOCUMENTATION_STYLE.md) regelt fachliche Präzision, Nachvollziehbarkeit und den geschützten README-Lizenzblock.
 - [Sprach- und Terminologierichtlinie](quality/LANGUAGE_AND_TERMINOLOGY.md) definiert Deutsch als kanonische erklärende Dokumentationssprache und schützt technische Literale vor Übersetzung.
 - [Kosten- und kontexteffiziente Entwicklung](quality/COST_EFFICIENT_DEVELOPMENT.md) definiert Local-first-Logauswertung, gestufte Tests, isolierte SQLite-Template-Kopien und begrenzte Agentenübergaben.
@@ -115,6 +116,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [Lokaler W2-Smoke-Test](quality/LOCAL_SMOKE_TEST.md) dokumentiert den abgeschlossenen manuellen W2-Plattformtest.
 - [Synthetischer E-Book-Vergleichskorpus v1](../tests/fixtures/ebook_comparison/v1/README.md) dokumentiert die ursprüngliche Ground Truth für spätere Matching-Tests.
 - [Synthetischer E-Book-Vergleichskorpus v2](../tests/fixtures/ebook_comparison/v2/README.md) ergänzt Multi-Format-, Sparse-, Malformed-, Distanz- und Skalierungsfälle.
+- [Synthetischer GATE-0001-Eingang](../tests/fixtures/ebook_transform/gate-0001/README.md) erzeugt das byte-stabile EPUB-/OPF-Fixture für den negativen Transformationsnachweis.
 
 Automatische Dokumentationsprüfungen sind bewusst konservativ. Sie verhindern bekannte Regressionen wie Änderungen am geschützten Lizenzblock oder alte Projektnamen, ersetzen aber kein fachliches oder sprachliches Review.
 

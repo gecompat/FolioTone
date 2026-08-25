@@ -135,7 +135,7 @@ niemals Werkzeuge. Das Containerprofil bindet Source Media read-only ein und
 
 The first W3 vertical slice invokes only
 `ebook-meta FILE --to-opf metadata.opf`. It records the exact tool/adapter/config
-identity, rejects calibre versions below 9.10.0 or unrecognized versions before
+identity, rejects calibre versions below 9.12.0 or unrecognized versions before
 analysis, isolates calibre configuration, persists a bounded OPF artifact and
 maps selected raw fields to `ToolResult` records attached to the concrete
 `FileObservation`. The CLI does not expose calibre setter options, and no result
@@ -464,15 +464,16 @@ aktivierte Baseline bindet frisch gestreamte Full-SHA-256-Werte genau eines
 E-Book-`ScanRoot`; spätere Verifikationen und append-only Einzelentscheidungen
 erzeugen Evidence, aber keine Ursache, Identity-Entscheidung oder Mutation
 Authority. `WI-0003` liefert Baseline, Verifikation und die gemeinsame
-Application-/CLI-/REST-/Browser-Surface; `GATE-0001` ist die nächste
-Ausführungsfront.
+Application-/CLI-/REST-/Browser-Surface. Das nachfolgende `GATE-0001` ist
+negativ abgeschlossen; `DEC-0002` benötigt eine ausdrückliche Folgerichtung.
 
 `DEC-0002` ist der vorgeschlagene technische Rahmen für eine neue EPUB-3-
 Ableitung in einem getrennten Output-Root. Der bestehende W9-
-`FORMAT_TRANSFORM`-Plan bleibt `NOT_EXECUTABLE`. Erst `GATE-0001` darf nach
-exaktem Byte-Replay sowie aktueller Tool-, Security- und Lizenzqualifikation
-die spätere operation-spezifische W10-Kette öffnen; bis dahin ist `WI-0004`
-blockiert.
+`FORMAT_TRANSFORM`-Plan bleibt `NOT_EXECUTABLE`. `GATE-0001` hat das rohe
+calibre-9.13.0-Profil trotz erhaltener vollständiger Serienprojektion wegen
+fehlendem exaktem Byte-Replay abgelehnt. Nur ein neues positives Profilgate nach aktueller
+Tool-, Security- und Lizenzqualifikation darf die spätere
+operation-spezifische W10-Kette öffnen; bis dahin ist `WI-0004` blockiert.
 
 Für die Interim-Quarantäne stellen `S-W10-05A` bis `S-W10-05D` private
 Capability-Auflösung, current-state-gebundenes Authorize, das einmalige

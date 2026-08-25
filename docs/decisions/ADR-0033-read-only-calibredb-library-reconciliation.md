@@ -24,6 +24,11 @@ CSV-Ausgabe. Dieselbe Dokumentation beschreibt unter anderem `add`, `remove`,
 `backup_metadata` und `embed_metadata` als schreibende oder exportierende
 Operationen.
 
+Die Sicherheitsuntergrenze wurde am 2026-08-25 aufgrund der offiziellen
+Advisory `GHSA-4f7g-rjfp-hmvx` von 9.10.0 auf 9.12.0 angehoben. Versionen bis
+einschließlich 9.11.0 erlaubten beim Lesen manipulierter E-Books eine
+Template-Codeausführung trotz gesetzter Python-Template-Sperre.
+
 ## Toolmanifest und feste Command Shapes
 
 Der Adapter besitzt genau ein Manifest:
@@ -35,7 +40,7 @@ Der Adapter besitzt genau ein Manifest:
 | Capability | `LIBRARY_READ` |
 | Executable | `calibredb` |
 | akzeptierte Exitcodes | ausschließlich `0` |
-| minimale calibre-Version | `9.10.0` |
+| minimale calibre-Version | `9.12.0` |
 | Versionsermittlung | ausschließlich `calibredb --version` |
 | Source-Verhalten | read-only |
 
@@ -263,3 +268,4 @@ Bestandteil des CI-Gates.
 
 - https://manual.calibre-ebook.com/en/generated/en/calibredb.html
 - https://manual.calibre-ebook.com/en/db_api.html
+- https://github.com/kovidgoyal/calibre/security/advisories/GHSA-4f7g-rjfp-hmvx

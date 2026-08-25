@@ -8,7 +8,7 @@ from pathlib import Path
 from foliotone.analyzers.ebook import ObservedFileError, resolve_observed_file
 from foliotone.core import FileObservation
 
-MINIMUM_SAFE_CALIBRE_VERSION = (9, 10, 0)
+MINIMUM_SAFE_CALIBRE_VERSION = (9, 12, 0)
 
 _VERSION_PATTERN = re.compile(
     r"\bcalibre\s+(?P<major>\d+)\.(?P<minor>\d+)(?:\.(?P<patch>\d+))?",
@@ -31,7 +31,7 @@ def calibre_version_policy(version_text: str) -> str | None:
         int(match.group("patch") or 0),
     )
     if version < MINIMUM_SAFE_CALIBRE_VERSION:
-        return "calibre 9.10.0 or newer is required; source analysis was not started"
+        return "calibre 9.12.0 or newer is required; source analysis was not started"
     return None
 
 

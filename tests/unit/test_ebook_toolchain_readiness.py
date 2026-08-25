@@ -89,7 +89,7 @@ def test_incompatible_calibre_is_reported_before_format_readiness(tmp_path: Path
     by_tool = {tool.tool: tool for tool in report.tools}
     assert by_tool["ebook-meta"].status == "INCOMPATIBLE"
     assert by_tool["ebook-meta"].reason is not None
-    assert "9.10.0" in by_tool["ebook-meta"].reason
+    assert "9.12.0" in by_tool["ebook-meta"].reason
     assert next(item for item in report.formats if item.format == "PDF").ready
     assert not next(item for item in report.formats if item.format == "EPUB").ready
 

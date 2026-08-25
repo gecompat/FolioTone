@@ -11,7 +11,7 @@
       "target": "ADR-0065"
     },
     {
-      "type": "resolved_by",
+      "type": "evaluated_by",
       "target": "GATE-0001"
     },
     {

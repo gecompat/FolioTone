@@ -28,10 +28,12 @@ append-only Einzelentscheidungen sowie die gemeinsame Produktoberfläche sind
 umgesetzt. `DEC-0001` bindet die
 Verifikation an den neuesten abgeschlossenen Scan-Snapshot und an die
 generische Review-Core-Paarung `FIXITY_EXPECTATION`/`FIXITY_RESULT` mit exakt
-einem immutable Ergebnis je Review. Als nächste Front qualifiziert
-`GATE-0001` den vorgeschlagenen
-`DEC-0002`-Vertrag für eine deterministische EPUB-3-zu-EPUB-3-Ableitung.
-`WI-0004` (`FUT-008`) bleibt bis zu einem positiven Gate blockiert. Diese
+einem immutable Ergebnis je Review. `GATE-0001` hat den vorgeschlagenen
+`DEC-0002`-Vertrag mit calibre 9.13.0 und vollständigem Metadatensnapshot
+geprüft. Die projizierte Serie blieb erhalten; das Profil wurde wegen
+fehlender Byte-Reproduzierbarkeit abgelehnt.
+`DEC-0002` benötigt eine ausdrückliche Folgerichtung und ein neues positives
+Profilgate. `WI-0004` (`FUT-008`) bleibt bis dahin blockiert. Diese
 registrierten Artefakte ersetzen weder historische IDs noch die permanente
 W9-Non-Execution-Grenze.
 
