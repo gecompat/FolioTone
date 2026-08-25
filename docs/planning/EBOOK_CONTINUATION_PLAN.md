@@ -38,6 +38,13 @@ Jeder Slice verwendet höchstens zwei Hash-Worker, ausschließlich synthetische
 Fixtures und einen eigenen Branch/Worktree/PR. Weder Baseline noch
 Verifikation verwendet W10, Netzwerk oder Source Writes.
 
+Der Baseline-Slice ist umgesetzt. Ein Build projiziert den neuesten `ScanRun`
+insgesamt nur dann, wenn dieser `COMPLETED` ist, und versiegelt erst nach allen
+frisch gestreamten Bytes ein höchstens 15 Minuten aktivierbares Manifest.
+Partielle Builds bleiben append-only als fehlgeschlagen nachvollziehbar, sind
+aber keine aktivierbaren Manifeste. Die nächste Ausführungsfront ist der
+Verifikations-Slice.
+
 ## GATE-0001 und WI-0004 — EPUB-Transformation
 
 `GATE-0001` ist eine `FRONTIER`-Wave. Es prüft das gelockte Toolchain-Image

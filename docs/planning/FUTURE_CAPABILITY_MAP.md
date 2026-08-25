@@ -51,10 +51,11 @@ Statusachse und keine öffentlichen Runtime-Literale.
   Modellwahl gemäß `MODEL_ROUTING_POLICY.md` feststehen.
 - ADR-0061 erlaubt die kontrollierte Entwicklung der E-Book-Writer. Operativ
   verfügbar sind ausschließlich die enge ADR-0056-Interim-Ein-Datei-
-  Quarantäne und der durch ADR-0063/ADR-0064 begrenzte EPUB-Titelwriter.
-  Andere Source-Media-Mutation, Purge, Retagging und Verzeichnisbereinigung
-  bleiben unabhängig von dieser Map geschlossen, bis ihr technischer Vertrag
-  und ihre vollständige Bedien-/Recoverykette abgeschlossen sind.
+  Quarantäne, der durch ADR-0063/ADR-0064 begrenzte EPUB-Titelwriter und der
+  ADR-0066-Same-Parent-Rename. Andere Source-Media-Mutation, Purge, Retagging
+  und Verzeichnisbereinigung bleiben unabhängig von dieser Map geschlossen,
+  bis ihr technischer Vertrag und ihre vollständige Bedien-/Recoverykette
+  abgeschlossen sind.
 - Eine geplante Fähigkeit darf den aktiven E-Book-Endgame-Pfad nicht durch
   eine vorzeitige generische Neuarchitektur unterbrechen.
 
@@ -160,7 +161,8 @@ Auf EB-08 aufbauend:
 6. Restore-Evidence als separate spätere Fähigkeit.
 
 `DEC-0001` löst aus Punkt 5 ausschließlich das erste read-only Fixity-
-Monitoring für genau einen E-Book-`ScanRoot` heraus. `WI-0003` ist dafür
+Monitoring für genau einen E-Book-`ScanRoot` heraus. Der Baseline-Slice von
+`WI-0003` ist implementiert; Verifikation und Einzelentscheidungen sind
 `NEXT`. Root-/Replica-Rollen, Backup-Vergleich und Restore-Evidence bleiben
 außerhalb dieser ersten Version.
 
@@ -277,7 +279,7 @@ ist, existiert dafür weder REST-Endpunkt noch aktivierbares UI-Control.
 | Inbox und Importplanung | neue Objekte gegen den Bestand prüfen | strategischer Vorschlag, danach | neu | eigener Root-/Plan-Vertrag |
 | Acquisition/Desired Set | vorhandene Erwerbskandidaten und Lücken gegenüber einem expliziten Sollbestand erkennen | strategischer Vorschlag, später | FUT-007 teilweise | Sollbestand-, Provider- und Rechte-Evidence |
 | Library Health | unabhängige Zustandsdimensionen zusammenfassen | book-only implementiert | ADR-0058, ADR-0060, `CS-03`, FUT-006 | medienübergreifende Generalisierung erst nach eigener Music-Dimensionierung |
-| Fixity Monitoring | unerwartete Byteänderungen in genau einem E-Book-Root erkennen und einzeln reviewen | `WI-0003` ist `NEXT` | `DEC-0001`, `WI-0003` (`FUT-009`) | zuerst Baseline, danach Verifikation/Einzelentscheidungen und Surface |
+| Fixity Monitoring | unerwartete Byteänderungen in genau einem E-Book-Root erkennen und einzeln reviewen | Baseline implementiert, `WI-0003` bleibt `NEXT` | `DEC-0001`, `WI-0003` (`FUT-009`) | Verifikation/Einzelentscheidungen, danach Surface |
 | Backup-/Replica-Reconciliation | Replica-Lücken und Restore-Evidence erkennen | strategischer Vorschlag, später | frühere FUT-009-Idee teilweise | Root-/Replica-Rollen und eigener Restore-Vertrag |
 | EPUB-Transformation | normalisierte EPUB-3-Ableitung mit reviewten Metadaten in getrenntem Output-Root erzeugen | vorgeschlagen und technisch blockiert | ADR-0065, `DEC-0002`, `GATE-0001`, `WI-0004` (`FUT-008`) | exakte Byte-Reproduzierbarkeit sowie aktuelle Tool-, Security- und Lizenzqualifikation |
 | Music Vertical Slice | Musik auf Work-/Recording-/Release-Ebene verstehen | bestehender Plan, bewusst zurückgestellt | W4, W5, W6, W7 | nach reifer E-Book-Linie |

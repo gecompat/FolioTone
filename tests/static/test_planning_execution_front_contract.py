@@ -48,14 +48,14 @@ def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_backlog_marks_fixity_baseline_as_the_only_active_product_slice() -> None:
+def test_backlog_marks_fixity_verification_as_the_only_active_product_slice() -> None:
     backlog = _text(BACKLOG)
 
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `WI-0003` (`FUT-009`) |" in backlog
-    assert "| NEXT WAVE | Baseline-Slice von `WI-0003` |" in backlog
+    assert "| NOW | Verifikations-Slice von `WI-0003` (`FUT-009`) |" in backlog
+    assert "| NEXT WAVE | Verifikations-Slice von `WI-0003` |" in backlog
     assert backlog.count("| NEXT |") == 1
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog

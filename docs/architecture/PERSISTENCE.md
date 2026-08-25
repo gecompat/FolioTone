@@ -615,6 +615,26 @@ frischen `EBOOK_RENAME_RUN`-Fence darf das passende terminale `VERIFIED` oder
 schützen die Evidence. Die Persistenz schreibt keine `FileRecord`-Identity um
 und setzt keinen `FileRelocationCandidate` voraus.
 
+### Insert-only E-Book-Fixity-Baseline
+
+Migration `0035_ebook_fixity_baseline` ergänzt fünf Tabellen für Build,
+gapless Lifecycle-Events, private Entries, das versiegelte Manifest und genau
+eine Aktivierung des Profils `ebook-fixity-baseline/v1` je E-Book-`ScanRoot`.
+Update- und Delete-Trigger schützen alle Datensätze. Der Manifest-Trigger
+verlangt dieselbe vollständige Menge aktueller `PRESENT`-Records und
+Observationen des gebundenen neuesten `COMPLETED`-`ScanRun` wie der gefencete
+Store; ein Entry-Teilbestand kann kein `READY`-Manifest bilden. Das
+Aktivierungsfenster beginnt nach dem vollständigen Versiegeln und ist in
+Domain und SQLite auf höchstens 15 Minuten begrenzt.
+
+Relative Locator und erwartete Full-SHA-256-Werte bleiben ausschließlich in
+der privaten Entry-Tabelle. Statusprojektionen enthalten weder Locator noch
+Hashes. Ein abgelaufener Baseline-Build wird bei atomarer Lease-Übernahme mit
+`FAILED/LEASE_EXPIRED` abgeschlossen. Aktivierung und Lease-Release committen
+gemeinsam; der domain-separierte Confirmation-Digest ist Bestandteil des
+immutable Aktivierungs-Digests. Die Migration verweigert einen Downgrade,
+sobald Fixity-Daten oder eine aktive Fixity-Lease vorhanden sind.
+
 ### Gefencete Metadaten-Write-Authorization und Journal
 
 Migration `0027_metadata_write_operations` erweitert den bestehenden

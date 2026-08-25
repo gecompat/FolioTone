@@ -4,6 +4,52 @@ Stand: 2026-08-25
 
 ## Aktuelle Welle
 
+**WI-0003 Baseline-Slice abgeschlossen — Verifikation und Einzelentscheidungen folgen**
+
+Der erste `DEC-0001`-Slice implementiert `ebook-fixity-baseline/v1` ohne
+Produktoberfläche. Eine echte SQLite-`query_only`-Projektion verlangt genau
+einen aktivierten E-Book-`ScanRoot` und den neuesten `ScanRun` insgesamt im
+Status `COMPLETED`. Ein späterer `FAILED`-, `INTERRUPTED`- oder `RUNNING`-Lauf
+blockiert die Baseline fail-closed. Die Projektion liefert gapless und bounded
+alle aktuellen `PRESENT`-Beobachtungen; absolute Pfade werden nicht
+persistiert.
+
+Der interne Builder hält einen eigenen `EBOOK_FIXITY_BASELINE`-
+`ScanRootWriteLease`, erneuert dessen Fence im Hintergrund und verwendet
+höchstens zwei no-follow Hash-Worker. Jede reguläre Datei wird frisch und in
+bounded Chunks gelesen. Inode, Dateityp, Größe, Modified- und Change-Zeit
+werden vor und nach dem Stream geprüft. Ein unsicherer Locator, Source-Drift,
+Lesefehler oder Fenceverlust erzeugt kein Manifest.
+
+Migration `0035_ebook_fixity_baseline` persistiert Build, gapless Events,
+private Entries, ein erst nach vollständiger Prüfung erzeugtes Manifest und
+die Aktivierung in getrennten insert-only Tabellen mit Update-/Delete-
+Triggern. Das Aktivierungsfenster beginnt am fertigen Manifest, beträgt
+höchstens 15 Minuten und verlangt exakt `ACCEPT FIXITY BASELINE <manifest-id>`.
+Der Klartext wird nicht gespeichert; pro Profil und `ScanRoot` ist nur eine
+Aktivierung möglich, sodass kein impliziter Trust-on-first-use oder Root-Reset
+entsteht. Die Statusprojektion enthält weder Locator noch Hashwerte.
+
+Die nächste zulässige Wave ist der Verifikations-/Einzelentscheidungs-Slice
+von `WI-0003`. ApplicationJob, CLI, REST und Browser folgen erst danach.
+Netzwerk, Source Writes, W10-Capabilities, Backup-/Replica-Vergleich und
+Restore bleiben ausgeschlossen.
+
+Die Root-`.gitattributes` setzt für gewöhnliche Textdateien nun unabhängig
+von `core.autocrlf` verbindlich `LF`. Explizit binäre beziehungsweise bereits
+enger festgelegte Archive- und Fixture-Regeln bleiben nachgelagert erhalten.
+Damit ist die wiederholt zeitaufwendige CRLF-Scheindifferenz für neue
+Worktrees und berührte Textdateien als Repositoryvertrag geschlossen; eine
+breite Renormalisierung unbetroffener Dateien ist nicht Teil dieses Slices.
+
+Lokal verifiziert sind Ruff und Mypy im betroffenen Source-Scope, 58 gezielte
+Windows-Tests für Domain, Store, Migrationen, Privacy, Dokumentation und
+Byte-Stabilität sowie sechs anwendbare Linux-Tests für no-follow Hashing und
+den synthetischen End-to-End-Build. Das aktuelle Linux-Produktimage wurde
+erfolgreich gebaut. Eine unbetroffene vollständige lokale Suite wurde gemäß
+`TEST_POLICY.md` nicht erneut ausgeführt; der vollständige PR-CI-Gate für den
+exakten Head steht noch aus.
+
 **WI-0002 abgeschlossen — FUT-009 und FUT-008 sind auf der Ausführungsfront verankert**
 
 Die projektlokale Registration Authority hat bei verifiziertem
@@ -22,9 +68,9 @@ während des Laufs veränderte Dateien. Änderungen an der Erwartung bleiben
 append-only und einzeln reviewpflichtig. Netzwerk, automatische Planung,
 Source Writes und jede W10-Capability sind ausgeschlossen.
 
-`WI-0003` ist die einzige `NEXT`-Wave. Sie beginnt mit dem kleinsten
-Baseline-Slice; Verifikation/Einzelentscheidungen und danach
-Application-/CLI-/REST-/Browser-Surface folgen in getrennten Pull Requests.
+`WI-0003` bleibt die einzige `NEXT`-Wave. Nach dem Baseline-Slice folgen
+Verifikation/Einzelentscheidungen und danach die
+Application-/CLI-/REST-/Browser-Surface in getrennten Pull Requests.
 Der vollständige Vertrag und die Stopbedingungen stehen in
 [`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md).
 

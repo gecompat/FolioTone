@@ -76,7 +76,7 @@ scan_root_write_leases = Table(
         "'EBOOK_COLLECTION_RUN', 'EBOOK_ANALYSIS', 'ARCHIVE_COLLECTION_RUN', "
         "'CONSOLIDATION_QUARANTINE_RUN', 'METADATA_WRITE_PREPARATION', "
         "'METADATA_WRITE_RUN', 'EBOOK_RENAME_PREPARATION', "
-        "'EBOOK_RENAME_RUN') "
+        "'EBOOK_RENAME_RUN', 'EBOOK_FIXITY_BASELINE') "
         "AND owner_run_id IS NOT NULL "
         "AND lease_expires_at IS NOT NULL AND heartbeat_at IS NOT NULL "
         "AND acquired_at IS NOT NULL AND fence_epoch >= 1 "

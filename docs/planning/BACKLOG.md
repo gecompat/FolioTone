@@ -13,10 +13,10 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | `WI-0003` (`FUT-009`) | `DEC-0001` aktiviert book-only Fixity Monitoring; ausschließlich der Baseline-Slice ist als nächste vollständige Produktwave zulässig. |
+| NOW | Verifikations-Slice von `WI-0003` (`FUT-009`) | Der Baseline-Slice ist implementiert; als nächste vollständige Produktwave sind ausschließlich frische Verifikation und append-only Einzelentscheidungen zulässig. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
-| NEXT WAVE | Baseline-Slice von `WI-0003` | Immutable Draft-/Aktivierungsverträge, insert-only Persistenz und read-only Projektion für genau einen E-Book-`ScanRoot`; keine Verifikation, REST-/Browser-Surface oder W10-Fähigkeit in diesem Slice. |
-| LATER | weitere `WI-0003`-Slices, danach `GATE-0001`, `WI-0004` und W4 | Verifikation/Einzelentscheidungen und Surface schließen Fixity ab. Erst danach darf das EPUB-Transformationsgate beginnen; Music bleibt die nächste vollständige Mediendomäne nach ausdrücklicher Aktivierung. |
+| NEXT WAVE | Verifikations-Slice von `WI-0003` | Frische Full-SHA-256-Verifikation, feste Ergebnisse und append-only Einzelentscheidungen; keine REST-/Browser-Surface oder W10-Fähigkeit in diesem Slice. |
+| LATER | Surface-Slice von `WI-0003`, danach `GATE-0001`, `WI-0004` und W4 | Application-/CLI-/REST-/Browser-Surface schließt Fixity ab. Erst danach darf das EPUB-Transformationsgate beginnen; Music bleibt die nächste vollständige Mediendomäne nach ausdrücklicher Aktivierung. |
 | DECISION | `GATE-0001`, `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-REORGANIZE`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004 | `DEC-0002` ist bis zur ToolProvider-, Byte-Reproduzierbarkeits-, Security- und Lizenzqualifikation nur `Proposed`. ADR-0067 öffnet keine benachbarte Operation. |
 | BLOCKED | `WI-0004`, `FG-A-SECRET`, `FG-A3-MEMBER-BYTE` | EPUB-Transformation wartet auf `GATE-0001`; Secretkanal und Archive-Member-Byte-Identity bleiben unabhängig blockiert. |
 
@@ -312,7 +312,7 @@ Interim-Quarantäneexecutor öffnen.
 | FUT-006 | DECISION | Die allgemeine `Library Health`-Idee wird für den ersten book-only Slice durch ADR-0058 und `CS-03` konkretisiert; eine medienübergreifende Generalisierung bleibt bis nach Music W4 offen. |
 | FUT-007 | PLANNED | Completeness/gap detection for book series, album tracks/releases and classical multi-part works, reusing external specialist evidence where possible. |
 | WI-0004 (`FUT-008`) | BLOCKED | W9-007 hat den dauerhaft nicht ausführbaren `FORMAT_TRANSFORM`-Rezeptvertrag abgeschlossen. Die ausführbare EPUB-3-Ableitung wartet auf `GATE-0001` und den Accepted-Status von `DEC-0002`. |
-| WI-0003 (`FUT-009`) | NEXT | Implementiere `DEC-0001` in der festen Folge Baseline, Verifikation/Einzelentscheidungen und Application-/CLI-/REST-/Browser-Surface; die Primärquelle bleibt read-only. |
+| WI-0003 (`FUT-009`) | NEXT | Der Baseline-Slice implementiert immutable Build-/Entry-/Manifest-/Aktivierungsverträge, Migration `0035`, rootweites Fencing, maximal zwei frische no-follow Hash-Worker und eine echte SQLite-`query_only`-Projektion. Als Nächstes folgen Verifikation/Einzelentscheidungen, danach die Application-/CLI-/REST-/Browser-Surface; die Primärquelle bleibt read-only. |
 | FUT-010 | DECISION | Decide ADR-0042 and the staged FG-FED-IDENTITY/BUNDLE/MERGE/CARRIER contracts for portable object lineage and bounded, idempotent exchange between FolioTone systems. The first slice uses only synthetic packages and read-only carrier detection; it must define node clone/restore semantics, privacy, trust, replay/conflict handling and Decision Compatibility without introducing a universal Asset type. Embedded metadata, Sidecar and external-library writes remain separate W10-blocked work. |
 | FUT-011 | DONE | ADR-0067 akzeptiert `local-single-operator/v1`: gemeinsame Application-Verträge für CLI/REST/Worker, getrennte E-Book-/Musik-/Bilder-Einstiege, loopback-only same-origin REST-/Browser-Shell, Username/Passwort mit lokalem One-time-Bootstrap, zeitbegrenzte Private-/Operator-Grants, OpenAPI, Keyset-Pagination, Privacy, Audit, dauerhafte Jobs und einen vom Webprozess getrennten Operator-Worker. Nur E-Books werden aktiviert; jede W10-Oberfläche bleibt operation-spezifisch. |
 
