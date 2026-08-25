@@ -202,7 +202,8 @@ idempotent; ein abweichender Retry mit derselben Idempotenzidentität wird
 abgewiesen. Bulk-Accept, automatische Akzeptanz und Root-weite
 Reinitialisierung bleiben ausgeschlossen.
 
-Der nächste Slice ergänzt dafür eine additive Persistenzmigration mit
+Der Verifikations- und Entscheidungsslice verwendet dafür eine additive
+Persistenzmigration mit
 immutable Verifikationsläufen, gapless Events, Ergebnissen und
 Erwartungsrevisionen, erweitert die geschlossenen generischen Review-Literale
 und ergänzt den Lease-Owner `EBOOK_FIXITY_VERIFICATION`. Er enthält noch keine

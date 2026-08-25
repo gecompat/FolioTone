@@ -299,7 +299,7 @@ append-only. Das Manifest bindet den neuesten insgesamt erfolgreichen
 15-Minuten-Fenster beginnt erst mit dem fertigen Manifest. Normale
 Statusprojektionen enthalten weder Locator noch Hashwerte.
 
-Der nächste Slice ergänzt `FixityVerificationRun`, `FixityResult` und
+Der zweite Slice ergänzt `FixityVerificationRun`, `FixityResult` und
 append-only `FixityExpectationRevision`. Ein Verifikationslauf bindet den
 neuesten `ScanRun` insgesamt desselben gefenceten Roots und akzeptiert ihn nur
 als `COMPLETED`. Seine exakte Arbeitsmenge ist die Vereinigung aus den dort

@@ -84,8 +84,111 @@ def test_secure_reader_rejects_parent_symlink(tmp_path: Path) -> None:
         expected_modified_at=datetime.fromtimestamp(path.stat().st_mtime, tz=UTC),
     )
 
-    with EbookFixityRootReader(root) as reader, pytest.raises(EbookFixityHashError):
+    with EbookFixityRootReader(root) as reader, pytest.raises(EbookFixityHashError) as caught:
         reader.hash(source)
+
+    assert caught.value.code is EbookFixityHashErrorCode.UNSAFE_LOCATOR
+
+
+@pytest.mark.skipif(not _secure_open_supported(), reason="requires Linux dir_fd no-follow")
+def test_secure_reader_distinguishes_missing_source_drift(tmp_path: Path) -> None:
+    root = tmp_path.resolve()
+    path = root / "book.epub"
+    path.write_bytes(b"book")
+    source = _source(path, root)
+    path.unlink()
+
+    with EbookFixityRootReader(root) as reader, pytest.raises(EbookFixityHashError) as caught:
+        reader.hash(source)
+
+    assert caught.value.code is EbookFixityHashErrorCode.SOURCE_CHANGED
+
+
+@pytest.mark.skipif(not _secure_open_supported(), reason="requires Linux dir_fd no-follow")
+def test_secure_reader_distinguishes_unreadable_stream(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path.resolve()
+    path = root / "book.epub"
+    path.write_bytes(b"book")
+    source = _source(path, root)
+
+    def unreadable(_descriptor: int, _size: int) -> bytes:
+        raise PermissionError
+
+    monkeypatch.setattr(os, "read", unreadable)
+    with EbookFixityRootReader(root) as reader, pytest.raises(EbookFixityHashError) as caught:
+        reader.hash(source)
+
+    assert caught.value.code is EbookFixityHashErrorCode.SOURCE_UNREADABLE
+
+
+@pytest.mark.skipif(not _secure_open_supported(), reason="requires Linux dir_fd no-follow")
+def test_secure_reader_rejects_unresolved_final_locator(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path.resolve()
+    path = root / "book.epub"
+    path.write_bytes(b"book")
+    source = _source(path, root)
+    real_stat = os.stat
+
+    def unresolved(path: object, *args: object, **kwargs: object) -> os.stat_result:
+        if path == "book.epub" and kwargs.get("dir_fd") is not None:
+            raise PermissionError
+        return real_stat(path, *args, **kwargs)
+
+    with EbookFixityRootReader(root) as reader:
+        monkeypatch.setattr(os, "stat", unresolved)
+        with pytest.raises(EbookFixityHashError) as caught:
+            reader.hash(source)
+
+    assert caught.value.code is EbookFixityHashErrorCode.UNSAFE_LOCATOR
+
+
+@pytest.mark.skipif(not _secure_open_supported(), reason="requires Linux dir_fd no-follow")
+def test_secure_reader_ignores_new_file_outside_bound_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path.resolve()
+    path = root / "book.epub"
+    path.write_bytes(b"abcdefgh")
+    source = _source(path, root)
+    real_read = os.read
+    created = False
+
+    def creating_read(descriptor: int, size: int) -> bytes:
+        nonlocal created
+        block = real_read(descriptor, size)
+        if block and not created:
+            created = True
+            (root / "after-scan.epub").write_bytes(b"later")
+        return block
+
+    monkeypatch.setattr(os, "read", creating_read)
+    with EbookFixityRootReader(root) as reader:
+        digest = reader.hash(source, chunk_bytes=4)
+
+    assert digest == "9c56cc51b374c3ba189210d5b6d4bf57790d351c96c47c02190ecf1e430635ab"
+
+
+@pytest.mark.skipif(not _secure_open_supported(), reason="requires Linux dir_fd no-follow")
+def test_secure_reader_rejects_root_path_replacement(tmp_path: Path) -> None:
+    root = tmp_path / "ebooks"
+    root.mkdir()
+    path = root / "book.epub"
+    path.write_bytes(b"book")
+
+    with EbookFixityRootReader(root) as reader:
+        root.rename(tmp_path / "old-ebooks")
+        root.mkdir()
+        with pytest.raises(EbookFixityHashError) as caught:
+            reader.check_root()
+
+    assert caught.value.code is EbookFixityHashErrorCode.ROOT_UNAVAILABLE
 
 
 @pytest.mark.skipif(not _secure_open_supported(), reason="requires Linux dir_fd no-follow")

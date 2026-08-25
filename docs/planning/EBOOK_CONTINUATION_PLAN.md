@@ -15,8 +15,8 @@ Ausführungsachse und autorisiert keine W10-Operation.
 Die verbindliche Reihenfolge lautet:
 
 1. `WI-0003` (`FUT-009`) implementiert book-only Fixity Monitoring nach
-   `DEC-0001`. Der Verifikations- und Einzelentscheidungs-Slice ist nach der
-   festgelegten Scan-Snapshot- und generischen Review-Core-Variante `NEXT`.
+   `DEC-0001`. Baseline, Verifikation und Einzelentscheidungen sind umgesetzt;
+   die gemeinsame Application-/CLI-/REST-/Browser-Surface ist `NEXT`.
 2. `GATE-0001` qualifiziert danach das deterministische EPUB-3-zu-EPUB-3-
    Transformationsprofil und entscheidet, ob `DEC-0002` akzeptiert werden kann.
 3. `WI-0004` (`FUT-008`) bleibt bis zu diesem positiven Gate blockiert und
@@ -45,7 +45,7 @@ frisch gestreamten Bytes ein höchstens 15 Minuten aktivierbares Manifest.
 Partielle Builds bleiben append-only als fehlgeschlagen nachvollziehbar, sind
 aber keine aktivierbaren Manifeste.
 
-Der Verifikationslauf bindet den neuesten `ScanRun` insgesamt des gefenceten
+Der implementierte Verifikationslauf bindet den neuesten `ScanRun` insgesamt des gefenceten
 E-Book-`ScanRoot`; er muss `COMPLETED` sein. `UNBASELINED` entsteht nur für
 eine dort `PRESENT` beobachtete Datei ohne aktive Erwartung. Nach dem Scan neu
 entstandene Dateien liegen bis zum nächsten abgeschlossenen Scan außerhalb
@@ -57,9 +57,8 @@ Einzelentscheidungen verwenden die feste generische Review-Core-Paarung
 Decision zu genau einem Ergebnis eines `COMPLETED`-Laufs darf
 `ACCEPT_CURRENT` oder `RETIRE_MISSING` auslösen. Jede fachliche Entscheidung
 ergänzt genau eine append-only Erwartungsrevision; Bulk-Accept und Root-Reset
-bleiben ausgeschlossen. Dieser Verifikations-/Entscheidungs-Slice ist die
-einzige `NEXT`-Produktwave. Surface, `GATE-0001` und `WI-0004` bleiben
-nachgelagert.
+bleiben ausgeschlossen. Die Fixity-Surface ist die einzige `NEXT`-
+Produktwave. `GATE-0001` und `WI-0004` bleiben nachgelagert.
 
 ## GATE-0001 und WI-0004 — EPUB-Transformation
 

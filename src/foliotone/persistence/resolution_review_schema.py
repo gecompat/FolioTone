@@ -137,13 +137,14 @@ review_items = Table(
     CheckConstraint(
         "review_type IN ('AUTHORITY_RESOLUTION', 'CLASSIFICATION', 'MATCH_RELATION', "
         "'KEEP_PREFERENCE', 'CONSOLIDATION_CANDIDATE', 'METADATA_CORRECTION', "
-        "'EBOOK_OPERATION_RECIPE')",
+        "'EBOOK_OPERATION_RECIPE', 'FIXITY_EXPECTATION')",
         name="ck_review_items_type",
     ),
     CheckConstraint(
         "candidate_kind IN ('RESOLUTION_CANDIDATE', 'CLASSIFICATION_ASSERTION', "
         "'RELATION', 'KEEP_PREFERENCE', 'CONSOLIDATION_CANDIDATE', "
-        "'METADATA_CORRECTION_CANDIDATE', 'EBOOK_OPERATION_RECIPE_CANDIDATE')",
+        "'METADATA_CORRECTION_CANDIDATE', 'EBOOK_OPERATION_RECIPE_CANDIDATE', "
+        "'FIXITY_RESULT')",
         name="ck_review_items_candidate_kind",
     ),
     CheckConstraint(
@@ -159,6 +160,12 @@ review_items = Table(
         "(review_type <> 'EBOOK_OPERATION_RECIPE' "
         "AND candidate_kind <> 'EBOOK_OPERATION_RECIPE_CANDIDATE')",
         name="ck_review_items_ebook_operation_recipe_pair",
+    ),
+    CheckConstraint(
+        "(review_type = 'FIXITY_EXPECTATION' AND candidate_kind = 'FIXITY_RESULT' "
+        "AND subject_kind = 'FILE') OR (review_type <> 'FIXITY_EXPECTATION' "
+        "AND candidate_kind <> 'FIXITY_RESULT')",
+        name="ck_review_items_fixity_pair",
     ),
     CheckConstraint(
         "state IN ('PENDING', 'DECIDED', 'DEFERRED', 'STALE')",
