@@ -227,10 +227,13 @@ unveränderte Oberfläche, alle drei Suchtreffer sowie weder Browserwarnungen
 noch Browserfehler. Die fünf vorhandenen Hardcopies bleiben repräsentativ.
 Für den Nachzieh-Slice bestanden alle 32 betroffenen Dokumentations- und
 Planungsfrontverträge. Ruff für die geänderte Testdatei, `git diff --check` und
-die Privacy-Suche über ausschließlich neue Diff-Zeilen waren grün. Der
-vollständige PR-CI-Gate bleibt dem stabilen Folge-Head vorbehalten. Die
-Korrektur implementiert keinen `WI-0003`-Slice, verändert dessen Status `NEXT`
-nicht und öffnet keine Source-Media-Authority.
+die Privacy-Suche über ausschließlich neue Diff-Zeilen waren grün. Der stabile
+Folge-Head `638960040f9a530033a2faf742d1ef52d9b6a5ea` bestand Quality-Run
+`32852576953` und Linux-Image-Run `32852577531`. PR #267 wurde als regulärer
+Zwei-Eltern-Merge-Commit `7d69870d0c7c6f2dd35ad507293642e32b0f177f`
+integriert; Push-/Post-Merge-Run `32852910444` bestand auf genau diesem
+`origin/main`. Die Korrektur implementiert keinen `WI-0003`-Slice, verändert
+dessen Status `NEXT` nicht und öffnet keine Source-Media-Authority.
 
 **WI-0002 abgeschlossen — FUT-009 und FUT-008 sind auf der Ausführungsfront verankert**
 
