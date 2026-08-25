@@ -147,7 +147,7 @@ def test_0035_migration_adds_fixity_tables_owner_and_immutable_triggers(
         }
     engine.dispose()
 
-    assert revision == "0035_ebook_fixity_baseline"
+    assert revision == "0036_ebook_fixity_verification"
     assert "EBOOK_FIXITY_BASELINE" in lease_sql
     assert "ebook_fixity_entries_gapless" in triggers
     assert "ebook_fixity_activation_ready" in triggers

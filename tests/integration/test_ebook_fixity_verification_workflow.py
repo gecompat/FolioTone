@@ -329,7 +329,7 @@ def test_verifier_completes_exact_changed_new_missing_and_verified_workset(
         batch_size=2,
     )
 
-    run = verifier.verify(Path("C:/synthetic/ebooks"), worker_count=2)
+    run = verifier.verify(Path.cwd() / "synthetic" / "ebooks", worker_count=2)
 
     assert run.status.value == "COMPLETED"
     assert run.result_count == 4
@@ -382,7 +382,7 @@ def test_verifier_persists_root_failure_without_false_missing_results(
     )
 
     with pytest.raises(workflow.EbookFixityVerificationError):
-        verifier.verify(Path("C:/synthetic/ebooks"))
+        verifier.verify(Path.cwd() / "synthetic" / "ebooks")
 
     with engine.connect() as connection:
         failed_run_id = EntityId.parse(

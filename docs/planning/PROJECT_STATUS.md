@@ -90,8 +90,20 @@ geänderten Python-Dateien, die 32 direkt betroffenen Dokumentations- und
 Planungsverträge waren grün und `git diff --check` war sauber. Verwendet
 wurden ausschließlich synthetische Dateizustände und temporäre Datenbanken;
 reale Medien, private Runtime-Daten, Netzwerk, Source Writes und W10 wurden
-nicht verwendet. Die vollständige unbetroffene lokale Suite und der einmalige
-vollständige PR-CI-Gate bleiben bewusst bis zum stabilen Head ausstehend.
+nicht verwendet. Die vollständige unbetroffene lokale Suite wurde gemäß
+`TEST_POLICY.md` bewusst nicht zusätzlich lokal ausgeführt.
+
+Der erste PR-CI-Lauf auf `152c37a` bestand `linux-image`, legte im
+`quality`-Testschritt aber 16 veraltete Testverträge offen: 14 historische
+Migrationsprüfungen erwarteten noch Schema-Head `0035` beziehungsweise das
+alte Head-Tabellenset; zwei synthetische Workflowtests verwendeten einen nur
+unter Windows absoluten Testpfad. Es handelte sich nicht um einen Produkt- oder
+Migrationsfehler. Die Head-Verträge wurden auf `0036` und das exakte
+Vier-Tabellen-Delta aktualisiert, die Testpfade hostneutral abgeleitet. Alle 16
+zuvor roten Knoten bestanden danach unabhängig lokal; die beiden
+Workflowfälle bestanden zusätzlich im Linux-Testcontainer. Der vollständige
+PR-CI-Gate muss auf dem korrigierten stabilen Head vor dem Merge erneut grün
+sein.
 
 Der erste `DEC-0001`-Slice implementiert `ebook-fixity-baseline/v1` ohne
 Produktoberfläche. Eine echte SQLite-`query_only`-Projektion verlangt genau
