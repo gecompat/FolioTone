@@ -47,9 +47,9 @@ anschließend 96 fokussierte Surface-, Migration-, Fixity-, Planning- und
 Dokumentationsfälle mit sechs erwarteten Linux-Skips. Ruff war vollständig
 grün, Mypy prüfte 284 Source-Dateien ohne Befund und `git diff --check` war
 sauber. Der einmalige vollständige PR-CI-Gate bleibt für den stabilen Head
-offen. Die Korrektur verändert weder den aktuellen Status `BLOCKED` von
-`WI-0003` an der in `DEC-0001` dokumentierten Detailentscheidung noch dessen
-Baseline-Scope und öffnet keine zusätzliche Source-Media-Operation.
+offen. Die Korrektur verändert weder `WI-0003` als aktuellen `NEXT`-
+Verifikations-/Einzelentscheidungs-Slice noch dessen Baseline-Scope und öffnet
+keine zusätzliche Source-Media-Operation.
 
 `WI-0002` verankert die nächste E-Book-Folge in
 [`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md). `DEC-0001` ist
