@@ -53,13 +53,15 @@ waren grün. Der vollständige lokale Pytest-Gate bestand mit 2.271 grünen Fäl
 und 19 erwarteten Plattform-Skips. `.gitattributes` und ein Hashvertrag
 schützen signierte Archive-Runtime-Evidenzen vor CRLF-Transformationen; die
 Command-Tests verwenden den dokumentierten Windows-Long-Path-Vertrag. Der
-einmalige PR-CI-Gate bleibt für den stabilen Head offen. ADR-0069 erlaubt für Proposal ausdrücklich den ausschließlich lesenden,
+PR #259 integrierte den stabilen Head `4ec5b78` als Merge-Commit `c336167`.
+`quality`, `linux-image` und `verify-recipe` waren für diesen Head grün; der
+Post-Merge-Contract auf `c336167` bestand ebenfalls. ADR-0069 erlaubt für Proposal ausdrücklich den ausschließlich lesenden,
 durch ADR-0066 validierten Zugriff des `surface-api` auf die pfad- und
 capability-freie `FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE`. Capability-
 Auflösung, Source-Mount, Authorize, Execute und Recover bleiben im getrennten
-`operator-worker`; er löst den Scope bei Authorize erneut auf. Die laufende
-S-FUT11-04-Wave darf ausschließlich den ADR-0066-Same-Parent-`FILE_RENAME`
-adaptieren und ist erst nach allen lokalen und PR-CI-Gates abgeschlossen.
+`operator-worker`; er löst den Scope bei Authorize erneut auf. `S-FUT11-04`
+ist abgeschlossen. Keine weitere Produktwave ist ohne ausdrückliche
+Aktivierung oder ein eigenes akzeptiertes Gate zulässig.
 
 `FG-FUT11-NEXT-WAVES` macht die beiden offenen Waves ausführungsbereit.
 [`FUT11_NEXT_WAVES.md`](FUT11_NEXT_WAVES.md) bindet für `S-FUT11-03` die

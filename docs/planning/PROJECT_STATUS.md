@@ -4,7 +4,7 @@ Stand: 2026-08-25
 
 ## Aktuelle Welle
 
-**S-FUT11-04 in Umsetzung — begrenzter Same-Parent-Rename über isolierten Operator-Worker**
+**S-FUT11-04 abgeschlossen — begrenzter Same-Parent-Rename über isolierten Operator-Worker**
 
 Die same-origin Browseroberfläche verwendet deutsche sichtbare Texte, Vanilla-
 HTML/CSS/JavaScript, Setup, Login, Logout, Passwort-Reauthentisierung, Suche,
@@ -12,8 +12,9 @@ HTML/CSS/JavaScript, Setup, Login, Logout, Passwort-Reauthentisierung, Suche,
 gebundene Detailansichten für Snapshot, Scan, Analyse, Evidence, Reviews,
 Readiness und nicht ausführbare Pläne. `EBOOK`
 ist die einzige aktivierte Medienlinie; `MUSIC` und `IMAGE` bleiben sichtbar,
-aber deaktiviert. Es werden keine externen Assets geladen und die UI enthält
-keine W10-Route oder schreibendes Control.
+aber deaktiviert. Es werden keine externen Assets geladen. Der `surface-api`
+besitzt keinen Source-Media-Mount und keine W10-Capability; nur der getrennte
+`operator-worker` führt die operation-spezifischen Writer-Jobs aus.
 
 Die API delegiert sämtliche fachlichen E-Book-Projektionen über Application-
 Ports. Sie liefert bounded, pfadfreie Scan-/Candidate-Hash-Status-, Tool- und
@@ -36,8 +37,10 @@ für Windows den dokumentierten `\\?\`-Pfadvertrag. ADR-0069 erlaubt für Propos
 lesenden, durch ADR-0066 validierten Zugriff des `surface-api` auf die pfad-
 und capability-freie Dependency-Scope-Datei. Capability-Auflösung, Source-
 Mount und alle W10-Operationen verbleiben im `operator-worker`; Authorize
-validiert den Scope erneut. Die neue API-/Job-Adaptierung ist noch nicht als
-abgeschlossene Wave oder CI-Nachweis dokumentiert.
+validiert den Scope erneut. PR #259 integrierte den exakten Head `4ec5b78` als
+Merge-Commit `c336167`; `quality`, `linux-image` und `verify-recipe` waren für
+diesen Head grün, ebenso der Post-Merge-Contract auf `c336167`. Eine weitere
+Produktwave ist nicht aktiviert.
 
 **WI-0001 abgeschlossen — AI Repository Foundation 1.4.0 mit persistenter Planungsidentität integriert**
 
@@ -48,7 +51,8 @@ für neue dauerhafte Planungsartefakte ab `WI-0001` den Modus
 `ADOPT_FORWARD`: UUIDv7-URN, registrierte flache Referenz sowie separate
 Wave-/Status-/Tier-Metadaten.
 [`ARTIFACT_REGISTRATION.md`](ARTIFACT_REGISTRATION.md) dokumentiert die
-alleinige Registration Authority; die Produktfront ist `S-FUT11-04`.
+alleinige Registration Authority; nach `S-FUT11-04` ist keine Produktfront
+aktiviert.
 
 **FG-FUT11-NEXT-WAVES entschieden — S-FUT11-03 und S-FUT11-04 sind ausführungsbereit spezifiziert**
 
