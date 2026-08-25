@@ -44,6 +44,7 @@ from foliotone.core.enums import ToolCapability
 PACKAGE_ROOT = (
     Path(__file__).parents[2] / "packaging" / "archive" / "7zip-26.02"
 )
+REPOSITORY_ROOT = PACKAGE_ROOT.parents[2]
 
 
 def _canonical_write(path: Path, value: object) -> None:
@@ -53,6 +54,24 @@ def _canonical_write(path: Path, value: object) -> None:
         encoding="utf-8",
         newline="\n",
     )
+
+
+def test_signed_runtime_evidence_is_checkout_byte_stable() -> None:
+    """Prevent Git line-ending conversion from invalidating reviewed evidence bytes."""
+    attributes = (REPOSITORY_ROOT / ".gitattributes").read_text(encoding="utf-8")
+    assert (
+        "packaging/archive/7zip-26.02/archive-runtime-evidence/*.jsonl binary"
+        in attributes
+    )
+    release = load_archive_runtime_release(PACKAGE_ROOT / "archive-runtime-release.json")
+    assert release is not None
+    evidence = PACKAGE_ROOT / "archive-runtime-evidence"
+    for filename, key in (
+        ("custom-slsa.jsonl", "custom_slsa_bundle_sha256"),
+        ("spdx.jsonl", "spdx_bundle_sha256"),
+        ("trusted_root.jsonl", "trusted_root_snapshot_sha256"),
+    ):
+        assert hashlib.sha256((evidence / filename).read_bytes()).hexdigest() == release[key]
 
 
 def _docker_inspect(release: dict[str, object]) -> dict[str, object]:
