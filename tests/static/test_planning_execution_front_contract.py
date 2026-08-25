@@ -48,18 +48,18 @@ def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_backlog_blocks_fixity_verification_at_the_documented_detail_decision() -> None:
+def test_backlog_advances_fixity_verification_after_the_detail_decision() -> None:
     backlog = _text(BACKLOG)
 
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
     assert (
-        "| NOW | Detailentscheidung für den Verifikations-Slice von `WI-0003` "
+        "| NOW | Verifikations- und Einzelentscheidungs-Slice von `WI-0003` "
         "(`FUT-009`) |" in backlog
     )
-    assert "| NEXT WAVE | Keine bis zur Detailentscheidung |" in backlog
-    assert backlog.count("| NEXT |") == 0
+    assert "| NEXT WAVE | `WI-0003` Verifikation und Einzelentscheidungen |" in backlog
+    assert backlog.count("| NEXT |") == 1
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
     assert "| S-W9-006A | DONE |" in backlog
@@ -90,7 +90,7 @@ def test_backlog_blocks_fixity_verification_at_the_documented_detail_decision() 
     assert "| GATE-0001 | PLANNED |" in backlog
     assert "| WI-0004 | BLOCKED |" in backlog
     assert "| FUT-002 | DONE |" in backlog
-    assert "| WI-0003 (`FUT-009`) | BLOCKED |" in backlog
+    assert "| WI-0003 (`FUT-009`) | NEXT |" in backlog
     assert "| WI-0004 (`FUT-008`) | BLOCKED |" in backlog
     assert "Andere Planungsdokumente erläutern diese Aufgaben" in backlog
 
@@ -181,9 +181,27 @@ def test_fixity_decision_is_explicit_read_only_and_sliced() -> None:
         "vollständigen SHA-256",
         "UNEXPECTED_BYTE_CHANGE",
         "SOURCE_CHANGED_DURING_RUN",
-        "Offenes Implementierungs-Gate",
-        "FIXITY_EXPECTATION",
-        "FIXITY_RESULT",
+        "Festgelegter Verifikations- und Reviewvertrag",
+        "ReviewType.FIXITY_EXPECTATION",
+        "ReviewCandidateKind.FIXITY_RESULT",
+        "EntityKind.FILE",
+        "ebook-fixity-decision/v1",
+        "canonical-json/v1",
+        "Nicht vorhandene fachliche Werte werden als",
+        "ebook-fixity-result/v1",
+        "ebook-fixity-evidence-fingerprint/v1",
+        "ebook-fixity-candidate-set-fingerprint/v1",
+        "candidates = [{result_id, result_content_digest}]",
+        "`producer_version` wird entsprechend ADR-0028/ADR-0031 gespeichert",
+        "Review-Lineage unbrauchbar. Nur die neueste, exakt kompatible generische",
+        "`ACCEPT`-Decision darf eine fachliche Einzelentscheidung autorisieren",
+        "Dateien, die erst nach dem gebundenen Scan entstehen",
+        "weder einen Scan noch eine eigene",
+        "Partielle Ergebnisse",
+        "keine Review-Candidates",
+        "`ACCEPT_CURRENT` ist ausschließlich für `UNEXPECTED_BYTE_CHANGE` und",
+        "`RETIRE_MISSING` ist ausschließlich für `MISSING`",
+        "`UNREADABLE` und `SOURCE_CHANGED_DURING_RUN` sind keine",
         "`OPERATE`, W10-Capabilities",
         "Source Writes",
     )

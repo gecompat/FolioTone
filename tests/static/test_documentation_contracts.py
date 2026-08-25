@@ -257,7 +257,7 @@ def test_artifact_registration_authority_is_discoverable_and_consistent() -> Non
         {"type": "governed_by", "target": "ADR-0070"}
     ]
     assert artifacts["DEC-0001"]["status"] == "ACCEPTED"
-    assert artifacts["WI-0003"]["status"] == "BLOCKED"
+    assert artifacts["WI-0003"]["status"] == "NEXT"
     assert artifacts["GATE-0001"]["status"] == "PLANNED"
     assert artifacts["WI-0004"]["status"] == "BLOCKED"
 
