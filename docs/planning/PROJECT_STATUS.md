@@ -145,8 +145,8 @@ Dokumentationsfälle mit sechs erwarteten Linux-Skips. Ruff war vollständig
 grün, Mypy prüfte nun 284 Quelldateien ohne Befund und `git diff --check` war
 sauber. Der einmalige vollständige PR-CI-Gate bleibt für den stabilen Head
 auszuführen. Diese Korrektur implementiert keinen `WI-0003`-Slice und
-verändert weder dessen Status als einzige `NEXT`-Wave noch
-Source-Media-Authority.
+verändert weder dessen aktuellen Status `BLOCKED` an der in `DEC-0001`
+dokumentierten Detailentscheidung noch Source-Media-Authority.
 
 **WI-0002 abgeschlossen — FUT-009 und FUT-008 sind auf der Ausführungsfront verankert**
 
