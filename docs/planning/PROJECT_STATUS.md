@@ -4,6 +4,53 @@ Stand: 2026-08-25
 
 ## Aktuelle Welle
 
+**WI-0002 abgeschlossen — FUT-009 und FUT-008 sind auf der Ausführungsfront verankert**
+
+Die projektlokale Registration Authority hat bei verifiziertem
+`origin/main` und exklusiver `DIRECT`-Allokation `DEC-0001`, `WI-0003`,
+`DEC-0002`, `GATE-0001` und `WI-0004` registriert. `WI-0002` bezeichnet den
+gemeinsamen docs-only Plananker. Registry und Artefakte verwenden UUIDv7-URN,
+stabile flache Referenzen und explizite Beziehungen; historische Labels
+`FUT-009` und `FUT-008` bleiben als Aliase der beiden Work Items erhalten.
+
+`DEC-0001` akzeptiert ausschließlich lesendes book-only Fixity Monitoring für
+genau einen E-Book-`ScanRoot`. Eine Baseline entsteht aus frisch gestreamten
+Full-SHA-256-Werten des neuesten abgeschlossenen Scans und wird erst durch eine
+exakte, höchstens 15 Minuten gültige Bestätigung aktiviert. Verifikationen
+unterscheiden bestätigte, unerwartet geänderte, fehlende, neue, unlesbare und
+während des Laufs veränderte Dateien. Änderungen an der Erwartung bleiben
+append-only und einzeln reviewpflichtig. Netzwerk, automatische Planung,
+Source Writes und jede W10-Capability sind ausgeschlossen.
+
+`WI-0003` ist die einzige `NEXT`-Wave. Sie beginnt mit dem kleinsten
+Baseline-Slice; Verifikation/Einzelentscheidungen und danach
+Application-/CLI-/REST-/Browser-Surface folgen in getrennten Pull Requests.
+Der vollständige Vertrag und die Stopbedingungen stehen in
+[`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md).
+
+`DEC-0002` dokumentiert den gewählten Produktscope einer EPUB-3-zu-EPUB-3-
+Ableitung mit reviewten Metadaten, getrenntem verwaltetem Output-Root,
+bounded Batch-Preparation und Einzel-Publish. Die Entscheidung bleibt
+`Proposed`: Erst `GATE-0001` muss ein festes netzloses ToolProvider-Profil,
+aktuelle Maintenance-/Lizenz-/Security-Bedingungen sowie byteidentischen Dry
+Run und Replay mit synthetischen Fixtures belegen. `WI-0004` bleibt bis zu
+diesem positiven Gate blockiert; es existiert keine Transformations-
+Capability oder Runtime-Operation.
+
+Der Plananker verändert weder Python-Runtime, SQLite-Schema, API, UI,
+Container noch Source-Media-Authority. Lokal bestanden die 29 betroffenen
+Dokumentations-, Planungsfront-, Foundation-Discovery- und Safety-Verträge in
+`tests/static/test_documentation_contracts.py` sowie
+`tests/static/test_planning_execution_front_contract.py`. Ruff über genau
+diese beiden geänderten Testdateien, beide zugelassenen Registry-Clients mit
+Revision 7 und sieben Allokationen sowie `git diff --check` waren grün. Der
+erste Pytest-Aufruf ohne installierte Projektumgebung war wegen
+`ModuleNotFoundError: foliotone` nicht ausführbar; der dokumentierte Ersatzlauf
+mit `PYTHONPATH=src` war grün. Mypy, Docker, Runtime-Tests,
+reale Medien und die vollständige lokale Suite wurden für diesen reinen
+Planungs-/Vertragsscope nicht ausgeführt. Der vollständige PR-CI-Gate bleibt
+dem exakten stabilen Head vorbehalten.
+
 **S-FUT11-04 abgeschlossen — begrenzter Same-Parent-Rename über isolierten Operator-Worker**
 
 Die same-origin Browseroberfläche verwendet deutsche sichtbare Texte, Vanilla-

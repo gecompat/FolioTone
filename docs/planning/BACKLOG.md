@@ -13,12 +13,12 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | Keine Produktwave | Nach dem Abschluss von `S-FUT11-04` ist keine weitere Produktwave ausdrücklich aktiviert. |
+| NOW | `WI-0003` (`FUT-009`) | `DEC-0001` aktiviert book-only Fixity Monitoring; ausschließlich der Baseline-Slice ist als nächste vollständige Produktwave zulässig. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
-| NEXT WAVE | Entscheidung erforderlich | W4 und weitere W10-Produktoberflächen bleiben bis zu einer ausdrücklichen Aktivierung oder ihrem eigenen akzeptierten Gate zurückgestellt. |
-| LATER | W4 sowie die Music-Anteile aus W5 bis W7 | Music bleibt die nächste vollständige Mediendomäne nach ausdrücklicher Aktivierung; weitere Medien erhalten eigene Einstiegspunkte. |
-| DECISION | `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-REORGANIZE`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004 | ADR-0067 öffnet keine benachbarte Operation. Titelwrite und Quarantäne benötigen vor UI-Controls jeweils eine getrennte Produktoberflächen-Wave; die übrigen Operationen behalten zusätzlich ihr technisches Gate. |
-| BLOCKED | `FG-A-SECRET`, `FG-A3-MEMBER-BYTE` | Secretkanal und Archive-Member-Byte-Identity sind von der E-Book-Write-Freigabe nicht betroffen. |
+| NEXT WAVE | Baseline-Slice von `WI-0003` | Immutable Draft-/Aktivierungsverträge, insert-only Persistenz und read-only Projektion für genau einen E-Book-`ScanRoot`; keine Verifikation, REST-/Browser-Surface oder W10-Fähigkeit in diesem Slice. |
+| LATER | weitere `WI-0003`-Slices, danach `GATE-0001`, `WI-0004` und W4 | Verifikation/Einzelentscheidungen und Surface schließen Fixity ab. Erst danach darf das EPUB-Transformationsgate beginnen; Music bleibt die nächste vollständige Mediendomäne nach ausdrücklicher Aktivierung. |
+| DECISION | `GATE-0001`, `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-REORGANIZE`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004 | `DEC-0002` ist bis zur ToolProvider-, Byte-Reproduzierbarkeits-, Security- und Lizenzqualifikation nur `Proposed`. ADR-0067 öffnet keine benachbarte Operation. |
+| BLOCKED | `WI-0004`, `FG-A-SECRET`, `FG-A3-MEMBER-BYTE` | EPUB-Transformation wartet auf `GATE-0001`; Secretkanal und Archive-Member-Byte-Identity bleiben unabhängig blockiert. |
 
 Andere Planungsdokumente erläutern diese Aufgaben, setzen aber keine eigene
 Ausführungsreihenfolge oder konkurrierende Statusachse.
@@ -41,6 +41,7 @@ Ausführungsreihenfolge oder konkurrierende Statusachse.
 | W0-012 | DONE | Adopt vendor-neutral Wave orchestration, `LOCAL`/`ECONOMICAL`/`BALANCED`/`FRONTIER` routing, a local-first test policy and thin discovery adapters for Copilot, Junie, Codex and Databricks Genie Code. |
 | W0-013 | DONE | Integrate AI Repository Foundation `1.2.0` semantically under `.ai/foundation/`, preserve FolioTone's stricter project authority and existing adapters, record the compatibility decision in ADR-0068 and add target-side integrity contracts. |
 | WI-0001 | DONE | Integrate AI Repository Foundation `1.4.0` under `.ai/foundation/`; preserve historical FolioTone IDs, adopt registry-backed UUIDv7/task references prospectively, install the explicitly selected cross-language reference clients and record the authority in ADR-0070. |
+| WI-0002 | DONE | Verankert `DEC-0001`, `WI-0003`, `DEC-0002`, `GATE-0001`, `WI-0004` und den gemeinsamen E-Book-Fortsetzungsplan auf der kanonischen Ausführungsfront. |
 
 ## W1 — Core + Persistence
 
@@ -293,6 +294,9 @@ Interim-Quarantäneexecutor öffnen.
 | S-W10-RN04 | DONE | Feste Authorize-/Execute-/Recover-/Status-Kommandos, exakte zweite `stdin`-Bestätigung, expliziter Lease-Handoff, neuer inkrementeller Vollscan mit einem Hash-Worker, `CollectionState`, Migration `0032_ebook_rename_reconciliation` und immutable `EbookRenameReconciliationSnapshot` machen ausschließlich das enge Same-Parent-Rename-Profil operativ. Standardausgaben bleiben pfad-, locator-, hash-, attribut- und fencefrei. |
 | FG-W10-REORGANIZE | DECISION | Entscheide `FILE_REORGANIZE` separat mit zwei Parent-FDs, Haltbarkeit beider Verzeichniseinträge, vorhandener beziehungsweise neuer Zielverzeichnisstruktur, Dependencies, Recovery und Reconciliation. ADR-0066 autorisiert keinen Parentwechsel. |
 | FG-W10-ARCHIVE-REWRITE | DECISION | Entscheide Archive-/Container-Rewrite separat; erfolgreiche Extraction oder Transformation darf keine Source-Löschung implizieren. |
+| DEC-0002 | DECISION | Vorgeschlagener Vertrag für genau EPUB 3 nach EPUB 3, reviewte Metadaten, einen getrennten verwalteten Output-Root, byteidentischen Dry Run/Replay und Einzel-Publish. Er ist bis `GATE-0001` keine W10-Authorization. |
+| GATE-0001 | PLANNED | Qualifiziere nach `WI-0003` genau ein festes netzloses Transformationsprofil mit synthetischen Fixtures, aktueller Tool-/Lizenz-/Security-Prüfung und exakter Byte-Reproduzierbarkeit. |
+| WI-0004 | BLOCKED | Implementiere erst nach positivem `GATE-0001` den W9-Metadaten-/Transformationssnapshot, Dry Run, operation-spezifische Authority, Publish/Recovery, CLI sowie bounded Batch-Preparation mit Einzelreview in REST/Browser. |
 | W10-003 | DECISION | Decide verified rollback and separately approved purge after a retention period; never make successful extraction imply archive deletion. |
 | W10-004 | DECISION | Decide bottom-up empty-directory cleanup as a separate approved operation with fresh enumeration, root/reparse/Calibre/sidecar guards and an auditable reconstruction record. |
 
@@ -301,14 +305,14 @@ Interim-Quarantäneexecutor öffnen.
 | ID | Status | Item |
 |---|---|---|
 | FUT-001 | PLANNED | Extend the implemented e-book cover Evidence to music-release artwork and later calibrate cross-item visual-distance use; perceptual hashes remain supporting Evidence only. |
-| FUT-002 | PLANNED | E-book structural/quality assessment, separate from identity; reuse EPUB validation tools where suitable. |
+| FUT-002 | DONE | EPUBCheck, `ebook-quality/v1` und W3-012 liefern die getrennte strukturelle Konformitäts-, Quality- und `FORMAT_RISK`-Bewertung ohne Identity-Verdict oder Gesamtscore. |
 | FUT-003 | PLANNED | Audio quality/corruption assessment, separate from identity; reuse ffmpeg/ffprobe or specialist tools where suitable. |
 | FUT-004 | PLANNED | Research further authority/catalog providers (e.g. VIAF, ISNI, national libraries, Cover Art Archive, Discogs) only after current access/license review. |
 | FUT-005 | PLANNED | Learn deterministic local alias/parsing/ranking rules from review history before considering more complex ML. |
 | FUT-006 | DECISION | Die allgemeine `Library Health`-Idee wird für den ersten book-only Slice durch ADR-0058 und `CS-03` konkretisiert; eine medienübergreifende Generalisierung bleibt bis nach Music W4 offen. |
 | FUT-007 | PLANNED | Completeness/gap detection for book series, album tracks/releases and classical multi-part works, reusing external specialist evidence where possible. |
-| FUT-008 | PLANNED | Reproducible transformation/normalization recipes with versioning, dry-run and replay semantics. |
-| FUT-009 | PLANNED | Integrity/fixity monitoring for unexpected file changes/bit rot independent of duplicate detection. |
+| WI-0004 (`FUT-008`) | BLOCKED | W9-007 hat den dauerhaft nicht ausführbaren `FORMAT_TRANSFORM`-Rezeptvertrag abgeschlossen. Die ausführbare EPUB-3-Ableitung wartet auf `GATE-0001` und den Accepted-Status von `DEC-0002`. |
+| WI-0003 (`FUT-009`) | NEXT | Implementiere `DEC-0001` in der festen Folge Baseline, Verifikation/Einzelentscheidungen und Application-/CLI-/REST-/Browser-Surface; die Primärquelle bleibt read-only. |
 | FUT-010 | DECISION | Decide ADR-0042 and the staged FG-FED-IDENTITY/BUNDLE/MERGE/CARRIER contracts for portable object lineage and bounded, idempotent exchange between FolioTone systems. The first slice uses only synthetic packages and read-only carrier detection; it must define node clone/restore semantics, privacy, trust, replay/conflict handling and Decision Compatibility without introducing a universal Asset type. Embedded metadata, Sidecar and external-library writes remain separate W10-blocked work. |
 | FUT-011 | DONE | ADR-0067 akzeptiert `local-single-operator/v1`: gemeinsame Application-Verträge für CLI/REST/Worker, getrennte E-Book-/Musik-/Bilder-Einstiege, loopback-only same-origin REST-/Browser-Shell, Username/Passwort mit lokalem One-time-Bootstrap, zeitbegrenzte Private-/Operator-Grants, OpenAPI, Keyset-Pagination, Privacy, Audit, dauerhafte Jobs und einen vom Webprozess getrennten Operator-Worker. Nur E-Books werden aktiviert; jede W10-Oberfläche bleibt operation-spezifisch. |
 

@@ -1,6 +1,12 @@
 {
   "allocations": {
-    "WI-0001": "urn:uuid:01a0336d-2234-718d-9ab8-51e5c723aa31"
+    "DEC-0001": "urn:uuid:01a037f5-a629-7026-8df2-78faaa6b73c2",
+    "DEC-0002": "urn:uuid:01a037f5-a7ed-7ca5-9663-152268a2b2b9",
+    "GATE-0001": "urn:uuid:01a037f5-a948-77a1-9c67-52962383f7d1",
+    "WI-0001": "urn:uuid:01a0336d-2234-718d-9ab8-51e5c723aa31",
+    "WI-0002": "urn:uuid:01a037f5-a4f5-7706-8f1e-1280f69f231b",
+    "WI-0003": "urn:uuid:01a037f5-a719-756c-80b8-a902c4e3877d",
+    "WI-0004": "urn:uuid:01a037f5-aa10-748a-9f8f-401b9f442490"
   },
   "prefixes": {
     "CAP": {
@@ -10,7 +16,7 @@
     },
     "DEC": {
       "kind": "decision",
-      "next_sequence": 1,
+      "next_sequence": 3,
       "width": 4
     },
     "EXP": {
@@ -20,7 +26,7 @@
     },
     "GATE": {
       "kind": "gate",
-      "next_sequence": 1,
+      "next_sequence": 2,
       "width": 4
     },
     "INC": {
@@ -55,11 +61,11 @@
     },
     "WI": {
       "kind": "work_item",
-      "next_sequence": 2,
+      "next_sequence": 5,
       "width": 4
     }
   },
   "profile": "foundation-artifact-registry/v1",
-  "registry_revision": 1,
+  "registry_revision": 7,
   "schema_version": 1
 }

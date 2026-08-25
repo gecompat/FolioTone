@@ -26,6 +26,7 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 13. [Begrenzter EPUB-Titelwriter](operations/EBOOK_METADATA_WRITE.md) beschreibt Voraussetzungen, Runtime-Konfiguration, Bestätigung, Status und Recovery des einzigen freigegebenen Source-Metadata-Profils.
 14. [Begrenzte E-Book-Duplikatquarantäne](operations/EBOOK_QUARANTINE.md) beschreibt Authorization, gefencetes Execute und die feste no-move Exact-State-Recovery für genau einen reviewten Duplicate Candidate.
 15. [Ausführungsvertrag für S-FUT11-03 und S-FUT11-04](planning/FUT11_NEXT_WAVES.md) bindet den decision-complete Application-, API-, UI-, Privacy-, Operator-Worker-, Test- und Git-Scope der beiden nächsten Produktwaves.
+16. [Nächste E-Book-Entwicklung](planning/EBOOK_CONTINUATION_PLAN.md) verankert `WI-0003` Fixity Monitoring als einzige `NEXT`-Wave und ordnet danach `GATE-0001` sowie die blockierte EPUB-Transformation `WI-0004` ein.
 
 ## Architektur
 
@@ -81,6 +82,9 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0067](decisions/ADR-0067-local-single-operator-product-surface.md) entscheidet die lokale Einzelbenutzer-Produktoberfläche mit gemeinsamen Application-Verträgen, loopback-only REST-API, Browser-UI, Bootstrap/Auth, dauerhaften Jobs und getrenntem Operator-Worker.
 - [ADR-0068](decisions/ADR-0068-ai-repository-foundation-integration.md) integriert AI Repository Foundation `1.2.0` als namespacete Mindestbaseline, ohne strengere FolioTone-Verträge, Projektstatus, Adapter oder die Root-Lizenz zu ersetzen.
 - [ADR-0069](decisions/ADR-0069-ebook-rename-operator-job-handoff.md) bindet die operation-spezifische Jobübergabe des ersten GUI-Writers, verwirft die Raw Confirmation vor Persistenz und erhält alle ADR-0066-W10-Gates.
+- [ADR-0070](decisions/ADR-0070-foundation-v14-identity-registration.md) bewahrt historische FolioTone-IDs und aktiviert die registrygestützte persistente Identität für neue Planungsartefakte im Modus `ADOPT_FORWARD`.
+- [DEC-0001](decisions/DEC-0001-book-only-fixity-monitoring.md) akzeptiert die explizit aktivierte, read-only Full-SHA-256-Baseline sowie frische Verifikation und append-only Einzelentscheidungen für genau einen E-Book-`ScanRoot`.
+- [DEC-0002](decisions/DEC-0002-deterministic-epub-transformation.md) hält den gewählten EPUB-3-Transformationsscope als `Proposed` fest; erst `GATE-0001` darf nach Tool-, Byte-Reproduzierbarkeits-, Security- und Lizenznachweis eine W10-Implementierung öffnen.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

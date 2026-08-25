@@ -12,7 +12,9 @@ Capability und eine kurzlebige Authorization gebunden.
 
 - source media mounts are read-only in the standard container configuration;
 - no source-media delete command exists;
-- no source-media move or rename command exists;
+- no general source-media move or rename command exists; only the
+  ADR-0056 single-file interim quarantine and ADR-0066 same-parent rename have
+  operation-specific command chains;
 - no general metadata-write command exists; the sole source-metadata exception
   is the ADR-0063/ADR-0064 EPUB-3 `title`-`REPLACE` operator;
 - no Calibre write adapter exists;
@@ -20,6 +22,10 @@ Capability und eine kurzlebige Authorization gebunden.
 - external ToolProviders may use only analysis-safe operations against source media;
 - W9 consolidation and metadata-correction plans are data records only and
   remain permanently `NOT_EXECUTABLE`.
+- `DEC-0001` Fixity Monitoring remains read-only and grants no W10 authority;
+  `DEC-0002` is only `Proposed`, so no EPUB transformation command or
+  capability exists before a positive `GATE-0001` and an accepted technical
+  decision.
 
 ## External tool safety
 

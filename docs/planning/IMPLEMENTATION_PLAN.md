@@ -21,6 +21,15 @@ Einzelbenutzer-Produktoberfläche. Bis die jeweilige FUT-011-Wave umgesetzt
 ist, bleibt die CLI der einzige ausführbare Adapter. CLI, REST und Worker
 verwenden danach dieselben Application-Verträge.
 
+[`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md) setzt die
+Lieferfolge nach `S-FUT11-04` fort. `DEC-0001` aktiviert `WI-0003`
+(`FUT-009`) als einzige `NEXT`-Wave für read-only Fixity Monitoring. Erst nach
+deren Abschluss qualifiziert `GATE-0001` den vorgeschlagenen
+`DEC-0002`-Vertrag für eine deterministische EPUB-3-zu-EPUB-3-Ableitung.
+`WI-0004` (`FUT-008`) bleibt bis zu einem positiven Gate blockiert. Diese
+registrierten Artefakte ersetzen weder historische IDs noch die permanente
+W9-Non-Execution-Grenze.
+
 ## Aktuelle Lieferfolge nach dem E-Book-Endgame
 
 Die kanonische Reihenfolge und der operative Status stehen ausschließlich in
@@ -61,9 +70,10 @@ desselben `ScanRoot` vergleichen.
 
 Maschinenlesbare Vertragsreports bleiben pfadfrei. Lokale interaktive
 Metadatenwerte benötigen ausdrücklich `--private-details`; absolute Pfade
-bleiben ausgeschlossen. Nach Abschluss der drei Waves wird keine andere
-Medienlinie automatisch gestartet. Music W4 bleibt die nächste geplante
-vollständige Mediendomäne, benötigt aber eine ausdrückliche Aktivierung.
+bleiben ausgeschlossen. Nach Abschluss der drei Waves wurde keine andere
+Medienlinie automatisch gestartet. Die inzwischen ausdrücklich aktivierte
+E-Book-Fortsetzung beginnt mit `WI-0003`; Music W4 bleibt die nächste geplante
+vollständige Mediendomäne und benötigt weiterhin eine eigene Aktivierung.
 
 ADR-0061 aktiviert `W9-006` als nächsten regulären E-Book-Slice. ADR-0062
 definiert dafür zuerst einen separaten, reviewbaren

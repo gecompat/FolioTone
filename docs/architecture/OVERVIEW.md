@@ -411,9 +411,10 @@ W9 plant mögliche Aktionen ausschließlich nicht ausführbar. ADR-0061 erlaubt
 die kontrollierte Entwicklung operation-spezifischer E-Book-Writer; eine reale
 W10-Mutation benötigt zusätzlich die eigene akzeptierte technische ADR, die
 vollständige Bedien-/Recoverykette und eine konkrete lokale Authorization.
-Ausführbar sind ausschließlich die enge ADR-0056-Interim-Quarantäne und der
-durch ADR-0063/ADR-0064 begrenzte EPUB-Titelwriter; beide besitzen getrennte
-Capabilities und Authorizations.
+Ausführbar sind ausschließlich die enge ADR-0056-Interim-Quarantäne, der
+durch ADR-0063/ADR-0064 begrenzte EPUB-Titelwriter und der durch ADR-0066
+begrenzte Same-Parent-Rename; alle drei besitzen getrennte Capabilities,
+Authorizations und Recoveryketten.
 
 ADR-0065 ergänzt für W9-007 einen davon getrennten reinen Planungsvertrag.
 Ein `EbookOperationRecipeCandidate` typisiert genau einen Rename-,
@@ -455,6 +456,19 @@ wieder aktuelle Source und weiterhin fehlende Target-Historie.
 erste schreibende UI-Wave ausschließlich einen Adapter für den bereits
 vollständigen Same-Parent-Rename; Titelwrite, Quarantäne und weitere Writer
 benötigen getrennte Produktoberflächen-Waves.
+
+`DEC-0001` ergänzt davon unabhängig ein read-only Fixity-Modell. Eine explizit
+aktivierte Baseline bindet frisch gestreamte Full-SHA-256-Werte genau eines
+E-Book-`ScanRoot`; spätere Verifikationen und append-only Einzelentscheidungen
+erzeugen Evidence, aber keine Ursache, Identity-Entscheidung oder Mutation
+Authority. `WI-0003` liefert Baseline, Verifikation und Surface nacheinander.
+
+`DEC-0002` ist der vorgeschlagene technische Rahmen für eine neue EPUB-3-
+Ableitung in einem getrennten Output-Root. Der bestehende W9-
+`FORMAT_TRANSFORM`-Plan bleibt `NOT_EXECUTABLE`. Erst `GATE-0001` darf nach
+exaktem Byte-Replay sowie aktueller Tool-, Security- und Lizenzqualifikation
+die spätere operation-spezifische W10-Kette öffnen; bis dahin ist `WI-0004`
+blockiert.
 
 Für die Interim-Quarantäne stellen `S-W10-05A` bis `S-W10-05D` private
 Capability-Auflösung, current-state-gebundenes Authorize, das einmalige
