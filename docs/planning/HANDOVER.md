@@ -46,10 +46,27 @@ Korrektur bestand die damalige vollständige Suite mit 2.278 grünen Fällen und
 anschließend 96 fokussierte Surface-, Migration-, Fixity-, Planning- und
 Dokumentationsfälle mit sechs erwarteten Linux-Skips. Ruff war vollständig
 grün, Mypy prüfte 284 Source-Dateien ohne Befund und `git diff --check` war
-sauber. Der einmalige vollständige PR-CI-Gate bleibt für den stabilen Head
-offen. Die Korrektur verändert weder `WI-0003` als aktuellen `NEXT`-
-Verifikations-/Einzelentscheidungs-Slice noch dessen Baseline-Scope und öffnet
-keine zusätzliche Source-Media-Operation.
+sauber. Der stabile Head `e210da91cfe1b57ff3e764b8e4b91ed48251b167`
+bestand Quality-Run `32840820539` und Linux-Image-Run `32840820548`. PR #264
+wurde als Zwei-Eltern-Merge-Commit
+`cda6b3a5448c21e5384de52423b9eb8011494293` integriert; der Push-/Post-Merge-
+Run `32851122034` war auf genau diesem `origin/main` grün.
+
+Der direkte Nachzieh-Slice dokumentiert den neuen internen `WI-0003`-Stand,
+ohne eine noch nicht vorhandene Bedienung vorzutäuschen. `FixityBaseline`,
+`FixityVerificationRun` und append-only Einzelentscheidungen besitzen noch
+keinen öffentlichen Application-, CLI-, REST- oder Browserpfad;
+`Library Health` und `ebook-postscan-verify` sind kein Ersatz. Der aktuelle
+CLI-Hilfetext und das Surface-Routing bestätigten diese Grenze. Ein realer
+Browserlauf gegen eine neue synthetische Drei-EPUB-Datenbank am Schema-Head
+`0036` zeigte weiterhin alle drei Suchtreffer, weder Browserwarnungen noch
+Browserfehler und keine Fixity-Controls. Die fünf vorhandenen Hardcopies
+bleiben repräsentativ. Alle 32 betroffenen Dokumentations- und
+Planungsfrontverträge bestanden; Ruff für die geänderte Testdatei,
+`git diff --check` und die Privacy-Suche über ausschließlich neue Diff-Zeilen
+waren grün. Der vollständige PR-CI-Gate bleibt dem stabilen Folge-Head
+vorbehalten. Die Korrektur verändert `WI-0003 = NEXT`, dessen Baseline-Scope
+und Source-Media-Authority nicht.
 
 `WI-0002` verankert die nächste E-Book-Folge in
 [`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md). `DEC-0001` ist

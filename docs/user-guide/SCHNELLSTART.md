@@ -69,6 +69,11 @@ mehrdimensionale `Library Health`-Projektion. Achte insbesondere auf:
 Ein Befund ist ein prüfbarer Hinweis und nicht automatisch ein Fehler oder eine
 Freigabe für eine Änderung.
 
+Dieser Schritt aktiviert keine `FixityBaseline` und führt keine
+`FixityVerificationRun` aus. Die dafür vorgesehene Endbenutzer-Surface ist im
+aktuellen Stand noch nicht verfügbar; die genaue Abgrenzung steht im Abschnitt
+[Dateiintegrität](BENUTZERHANDBUCH.md#dateiintegrität-fixity).
+
 ## 4. Scanstatus und Inventar laden
 
 1. Trage im nächsten Formular die notierte `ScanRoot`-ID ein.

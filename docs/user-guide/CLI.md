@@ -159,6 +159,18 @@ Ein Toolfehler verändert vorhandene Source Media nicht. Ein `NOT_READY` aus
 dem Doctor ist eine fehlende Voraussetzung für abhängige Analysen, keine
 Beschädigung der Datenbank.
 
+### Abgrenzung zum Fixity Monitoring
+
+`ebook-postscan-verify` prüft die abgeschlossene Hash-, Inventar- und
+Collection-Kette. Der Befehl baut oder aktiviert keine `FixityBaseline` und
+startet keinen `FixityVerificationRun`.
+
+Für Baseline, Fixity-Verifikation und append-only Einzelentscheidungen gibt es
+im aktuellen Stand noch keinen öffentlichen CLI-Befehl. Verwende weder interne
+Python-Klassen noch direkte SQLite-Änderungen als Ersatz. Die geplanten CLI-
+Aufrufe werden erst zusammen mit der gemeinsamen Application-/REST-/Browser-
+Surface dokumentiert.
+
 ## CollectionState, Suche und Berichte
 
 | Befehl | Zweck |

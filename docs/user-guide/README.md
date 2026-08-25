@@ -31,6 +31,13 @@ Analyseabdeckung, Evidence, Reviews, nicht ausführbare Pläne, Jobs und Audit.
 Der erste Scan und der Aufbau eines `CollectionState` werden derzeit noch über
 die CLI gestartet.
 
+Die internen Verträge für `FixityBaseline`, `FixityVerificationRun` und
+append-only Einzelentscheidungen sind implementiert. Dafür existiert im
+aktuellen Stand jedoch noch keine öffentliche Application-, CLI-, REST- oder
+Browserbedienung. `Library Health` und `ebook-postscan-verify` ersetzen diese
+Fixity-Surface nicht. Das Benutzerhandbuch beschreibt deshalb noch keinen
+ausführbaren Fixity-Workflow.
+
 Die Bildschirmaufnahmen wurden mit einer eigens erzeugten synthetischen
 E-Book-Datenbank aufgenommen. Sichtbare opaque IDs sind nur Beispiele für
 diesen Dokumentationslauf und dürfen nicht in einen eigenen Workflow kopiert

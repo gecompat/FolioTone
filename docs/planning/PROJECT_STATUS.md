@@ -209,10 +209,28 @@ erwarteten Plattform-Skips. Auf dem kombinierten exakten Head bestanden danach
 96 fokussierte Surface-, Migration-, Fixity-, Planning- und
 Dokumentationsfälle mit sechs erwarteten Linux-Skips. Ruff war vollständig
 grün, Mypy prüfte nun 284 Quelldateien ohne Befund und `git diff --check` war
-sauber. Der einmalige vollständige PR-CI-Gate bleibt für den stabilen Head
-auszuführen. Diese Korrektur implementiert keinen `WI-0003`-Slice und
-verändert weder dessen aktuellen Status `NEXT` als getrennten
-Verifikations-/Einzelentscheidungs-Slice noch Source-Media-Authority.
+sauber. Der stabile PR-Head `e210da91cfe1b57ff3e764b8e4b91ed48251b167`
+bestand Quality-Run `32840820539` und Linux-Image-Run `32840820548`. PR #264
+wurde als regulärer Zwei-Eltern-Merge-Commit
+`cda6b3a5448c21e5384de52423b9eb8011494293` integriert; Push-/Post-Merge-Run
+`32851122034` bestand auf genau diesem `origin/main`.
+
+Der anschließende Dokumentationsabgleich grenzt den inzwischen intern
+implementierten `WI-0003`-Stand ausdrücklich von der noch fehlenden
+Application-/CLI-/REST-/Browser-Surface ab. `foliotone --help` enthält keinen
+Fixity-Befehl, und das aktuelle Surface-Routing enthält keinen Fixity-Endpunkt.
+Das Handbuch erfindet deshalb weder Befehle noch einen ausführbaren Workflow
+und erklärt zusätzlich, dass `Library Health` und `ebook-postscan-verify`
+keine `FixityBaseline` bauen oder verifizieren. Ein realer Browserlauf gegen
+eine neue synthetische Drei-EPUB-Datenbank am Schema-Head `0036` zeigte die
+unveränderte Oberfläche, alle drei Suchtreffer sowie weder Browserwarnungen
+noch Browserfehler. Die fünf vorhandenen Hardcopies bleiben repräsentativ.
+Für den Nachzieh-Slice bestanden alle 32 betroffenen Dokumentations- und
+Planungsfrontverträge. Ruff für die geänderte Testdatei, `git diff --check` und
+die Privacy-Suche über ausschließlich neue Diff-Zeilen waren grün. Der
+vollständige PR-CI-Gate bleibt dem stabilen Folge-Head vorbehalten. Die
+Korrektur implementiert keinen `WI-0003`-Slice, verändert dessen Status `NEXT`
+nicht und öffnet keine Source-Media-Authority.
 
 **WI-0002 abgeschlossen — FUT-009 und FUT-008 sind auf der Ausführungsfront verankert**
 

@@ -92,6 +92,29 @@ logischen `ScanRoot`-Namen, baust aus dem neuen abgeschlossenen `ScanRun` einen
 neuen `CollectionState` und verwendest dessen neue `Snapshot-ID`. Alte
 Snapshots bleiben unveränderlich und können über die CLI verglichen werden.
 
+## Dateiintegrität (Fixity)
+
+FolioTone besitzt intern bereits Verträge und Persistenz für eine explizit
+aktivierte `FixityBaseline`, einen daran gebundenen `FixityVerificationRun`
+und append-only Einzelentscheidungen. Dieser interne Stand ist noch nicht als
+Application-, CLI-, REST- oder Browserbedienung veröffentlicht.
+
+Für Endbenutzer bedeutet diese Grenze:
+
+- In der grafischen Oberfläche lässt sich noch keine `FixityBaseline` bauen
+  oder aktivieren.
+- Es lässt sich noch kein `FixityVerificationRun` starten oder anzeigen.
+- Die Ergebnisse `UNEXPECTED_BYTE_CHANGE`, `MISSING` und `UNBASELINED` können
+  noch nicht über einen öffentlichen Bedienweg einzeln reviewt werden.
+- `Library Health` bewertet den snapshotgebundenen Sammlungszustand und ist
+  keine Fixity-Verifikation.
+- `ebook-postscan-verify` prüft die vorhandene Hash-, Inventar- und
+  Collection-Kette; der Befehl baut oder verifiziert keine `FixityBaseline`.
+
+Verwende keine internen Python-Klassen, direkten SQLite-Änderungen oder
+selbst erfundenen Befehle als Ersatz. Der bedienbare Workflow wird erst mit der
+getrennten Fixity-Surface dokumentiert.
+
 ## Suche
 
 Die Browser-Suche erwartet derzeit keinen freien Suchtext, sondern einen
