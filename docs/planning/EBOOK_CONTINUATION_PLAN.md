@@ -15,7 +15,8 @@ Ausführungsachse und autorisiert keine W10-Operation.
 Die verbindliche Reihenfolge lautet:
 
 1. `WI-0003` (`FUT-009`) implementiert book-only Fixity Monitoring nach
-   `DEC-0001` und ist die einzige `NEXT`-Wave.
+   `DEC-0001`. Der Verifikations-Slice ist bis zur dort dokumentierten
+   Discovery- und Review-Detailentscheidung blockiert.
 2. `GATE-0001` qualifiziert danach das deterministische EPUB-3-zu-EPUB-3-
    Transformationsprofil und entscheidet, ob `DEC-0002` akzeptiert werden kann.
 3. `WI-0004` (`FUT-008`) bleibt bis zu diesem positiven Gate blockiert und
@@ -42,8 +43,17 @@ Der Baseline-Slice ist umgesetzt. Ein Build projiziert den neuesten `ScanRun`
 insgesamt nur dann, wenn dieser `COMPLETED` ist, und versiegelt erst nach allen
 frisch gestreamten Bytes ein höchstens 15 Minuten aktivierbares Manifest.
 Partielle Builds bleiben append-only als fehlgeschlagen nachvollziehbar, sind
-aber keine aktivierbaren Manifeste. Die nächste Ausführungsfront ist der
-Verifikations-Slice.
+aber keine aktivierbaren Manifeste.
+
+Vor dem Verifikations-Slice sind zwei Varianten ausdrücklich auszuwählen. Für
+`UNBASELINED` bevorzugt der Plan die Bindung an den neuesten `COMPLETED`-
+`ScanRun` des betroffenen E-Book-`ScanRoot`; eine eigene Filesystem-Discovery
+wäre nur mit einem neuen Vollständigkeits- und Driftvertrag zulässig. Für Einzelentscheidungen
+bevorzugt der Plan die Erweiterung des generischen append-only Review-Cores um
+die feste Paarung `FIXITY_EXPECTATION`/`FIXITY_RESULT`; ein dedizierter
+Fixity-Review-Ledger würde vorhandene Mechanik duplizieren. Bis zu dieser
+Detailentscheidung existiert keine `NEXT`-Produktwave. Surface,
+`GATE-0001` und `WI-0004` bleiben nachgelagert.
 
 ## GATE-0001 und WI-0004 — EPUB-Transformation
 

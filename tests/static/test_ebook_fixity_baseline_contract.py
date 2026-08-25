@@ -78,7 +78,8 @@ def test_decision_planning_and_governance_match_the_implemented_slice() -> None:
 
     assert "ebook-fixity-baseline/v1" in decision
     assert "ACCEPT FIXITY BASELINE <manifest-id>" in decision
-    assert "| NEXT WAVE | Verifikations-Slice von `WI-0003` |" in backlog
+    assert "| NEXT WAVE | Keine bis zur Detailentscheidung |" in backlog
+    assert "| WI-0003 (`FUT-009`) | BLOCKED |" in backlog
     assert "Migration `0035_ebook_fixity_baseline`" in status
     assert "SQLite-`query_only`-Projektion" in status
     assert "CLI plus the completed staged" in agents
