@@ -42,6 +42,8 @@ class JobStatus(StrEnum):
     RECOVERY_REQUIRED = "RECOVERY_REQUIRED"
 
 
+
+
 @dataclass(frozen=True, slots=True)
 class SurfaceRuntimeConfig:
     """Loopback-only runtime configuration for one same-origin surface."""

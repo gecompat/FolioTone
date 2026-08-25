@@ -46,18 +46,20 @@ same-origin Vanilla-UI enthält Setup, Login, Logout, Reauthentisierung,
 Scan, Analyse, Evidence, Reviews, Readiness und nicht ausführbare Pläne sowie
 Accessibility-Kernwege; sie enthält keinen Writer oder W10-Control.
 
-Die gezielte lokale Abnahme umfasste 24 synthetische Unit-, API-, Privacy-,
-Cursor-, OpenAPI-, UI-, Schema-Owner- und Dokumentationsfälle. Ruff, Mypy für
-275 Source-Dateien, `git diff --check`, `docker compose config --quiet` und
-der leere lokale `local-surface`-Stack mit internem Loopback-Healthcheck waren
-grün. Der vollständige lokale Pytest-Gate erreichte 793 grüne Fälle und 10 erwartete
-Plattform-Skips, scheiterte jedoch reproduzierbar außerhalb des Surface-Scopes
-im Archive-7zip-Test `test_explicit_provisioning_and_per_run_offline_availability`
-mit `EVIDENCE_MISMATCH`. Der einmalige PR-CI-Gate bleibt für den stabilen Head
-offen. Die nächste Wave `S-FUT11-04` darf nur den ADR-0066-Same-Parent-
-`FILE_RENAME` durch den getrennten `operator-worker` adaptieren; die
-S-FUT11-03-API und -UI besitzen weiterhin keinen Source-Mount und keine
-W10-Capability.
+Die gezielte lokale Abnahme umfasste 86 synthetische Adapter-, API-, Privacy-,
+Cursor-, OpenAPI-, UI-, Schema-Owner- und Dokumentationsfälle. Ruff vollständig,
+Mypy für 276 Source-Dateien, `git diff --check` und `docker compose config --quiet`
+waren grün. Der vollständige lokale Pytest-Gate bestand mit 2.271 grünen Fällen
+und 19 erwarteten Plattform-Skips. `.gitattributes` und ein Hashvertrag
+schützen signierte Archive-Runtime-Evidenzen vor CRLF-Transformationen; die
+Command-Tests verwenden den dokumentierten Windows-Long-Path-Vertrag. Der
+einmalige PR-CI-Gate bleibt für den stabilen Head offen. ADR-0069 erlaubt für Proposal ausdrücklich den ausschließlich lesenden,
+durch ADR-0066 validierten Zugriff des `surface-api` auf die pfad- und
+capability-freie `FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE`. Capability-
+Auflösung, Source-Mount, Authorize, Execute und Recover bleiben im getrennten
+`operator-worker`; er löst den Scope bei Authorize erneut auf. Die laufende
+S-FUT11-04-Wave darf ausschließlich den ADR-0066-Same-Parent-`FILE_RENAME`
+adaptieren und ist erst nach allen lokalen und PR-CI-Gates abgeschlossen.
 
 `FG-FUT11-NEXT-WAVES` macht die beiden offenen Waves ausführungsbereit.
 [`FUT11_NEXT_WAVES.md`](FUT11_NEXT_WAVES.md) bindet für `S-FUT11-03` die

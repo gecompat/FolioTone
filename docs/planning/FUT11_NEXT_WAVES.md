@@ -124,10 +124,14 @@ wird an den Job gebunden.
 
 Der `operator-worker` claimt ausschließlich `AUTHORIZE`, `EXECUTE` und
 `RECOVER` dieses Profils. Nur er löst
-`FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE` und
-`FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE` auf und erhält den engsten
-beschreibbaren E-Book-Mount bei `network=none`. API und Analyseworker behalten
-keine Rename-Capability und keinen Source-Write-Mount.
+`FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE` auf und erhält über das ohne
+Default erforderliche `FOLIOTONE_EBOOK_RENAME_WRITABLE_ROOT` nur den exakt
+capabilitygebundenen `ScanRoot` als beschreibbaren E-Book-Mount bei
+`network=none`. Für Proposal darf
+`surface-api` ausschließlich die durch ADR-0066 validierte, pfad- und
+capability-freie `FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE` lesen. API
+und Analyseworker behalten keine Rename-Capability und keinen Source-Write-
+Mount; der Worker löst den Scope bei Authorize erneut auf.
 
 Joblease und Job-Fence sind zusätzliche Transportgrenzen. Sie ersetzen weder
 One-use-W10-Authorization noch `ScanRootWriteLease`, W10-Fence, Revalidierung,

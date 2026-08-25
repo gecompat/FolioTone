@@ -27,7 +27,7 @@
         <h1>E-Book-Übersicht</h1>
         <p id="surface-status" role="status">Status wird geladen.</p>
         <nav aria-label="Medienlinien"><ul id="media-lines"></ul></nav>
-        <nav aria-label="E-Book-Bereiche"><a href="#search">Suche</a> <a href="#details">Details</a> <a href="#jobs">Jobs</a> <a href="#audit">Audit</a></nav>
+        <nav aria-label="E-Book-Bereiche"><a href="#search">Suche</a> <a href="#details">Details</a> <a href="#rename">Umbenennen</a> <a href="#jobs">Jobs</a> <a href="#audit">Audit</a></nav>
         <section id="search"><h2>Suche</h2><form id="search-form"><label>Snapshot-ID <input name="snapshot" required></label><label>Query <input name="query" required></label><button>Suchen</button></form><div id="search-results" aria-live="polite"></div></section>
         <section id="details"><h2>Details</h2><p>Scan-, Analyse-, Quality- und Evidence-Projektionen werden nur aus gebundenen Snapshots gelesen.</p>
           <form id="snapshot-details-form"><label>Snapshot-ID <input name="snapshot" required></label><button>CollectionState und Library Health laden</button></form><div id="snapshot-details" aria-live="polite"></div>
@@ -35,6 +35,17 @@
           <form id="run-details-form"><label>CollectionRun-ID <input name="run" required></label><button>Analyse, Evidence und Reviews laden</button></form><div id="run-details" aria-live="polite"></div>
           <section><h3>Tool- und Format-Readiness</h3><button id="readiness-action" type="button">Readiness laden</button><div id="readiness-details" aria-live="polite"></div></section>
           <section><h3>Nicht ausführbare Pläne</h3><button id="plans-action" type="button">Pläne laden</button><div id="plan-list" aria-live="polite"></div></section>
+        </section>
+        <section id="rename"><h2>Begrenztes Umbenennen</h2><p>Nur ein reviewter Same-Parent-Rename nach ADR-0066. Diese Oberfläche erteilt keine Capability und führt keine Dateioperation direkt aus.</p>
+          <form id="rename-review-reauth-form"><label>Passwort erneut eingeben <input name="password" type="password" required></label><button>Review freigeben</button></form>
+          <form id="rename-proposal-form"><label>Observation-ID <input name="observation_id" required></label><label>Dependency-Scope-ID <input name="dependency_scope_id" required></label><label>Neuer Basename <input name="target_basename" required></label><button>Vorschlag erstellen</button></form>
+          <form id="rename-review-form"><label>Candidate-ID <input name="candidate_id" required></label><label>Entscheidung <select name="decision"><option>ACCEPT</option><option>REJECT</option><option>DEFER</option></select></label><button>Review speichern</button></form>
+          <form id="rename-plan-form"><label>Candidate-ID <input name="candidate_id" required></label><button>Nicht ausführbaren Plan erzeugen</button></form>
+          <form id="rename-operate-reauth-form"><label>Passwort erneut eingeben <input name="password" type="password" required></label><button>Operation freigeben</button></form>
+          <form id="rename-authorize-form"><label>Plan-ID <input name="plan_id" required></label><label>Plan-Content-Hash <input name="plan_content_hash" required></label><label>Capability-ID <input name="capability_id" required></label><button>Authorize-Job anlegen</button></form>
+          <form id="rename-execute-form"><label>Plan-ID <input name="plan_id" required></label><label>Plan-Content-Hash <input name="plan_content_hash" required></label><label>Capability-ID <input name="capability_id" required></label><label>Authorization-ID <input name="authorization_id" required></label><label>Bestätigung <input name="confirmation" required></label><button>Execute-Job anlegen</button></form>
+          <form id="rename-recover-form"><label>Run-ID <input name="run_id" required></label><button>Recovery-Job anlegen</button></form>
+          <div id="rename-result" aria-live="polite"></div>
         </section>
         <section id="jobs"><h2>Jobs</h2><div id="job-list"></div></section>
         <section id="audit"><h2>Audit</h2><div id="audit-list"></div></section>

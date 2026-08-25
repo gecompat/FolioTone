@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -19,6 +20,11 @@ from foliotone.application import (
     CollectionSearchQuery,
     CollectionStateQuery,
     EbookProjectionQuery,
+    EbookRenameOperatorJobProfile,
+    EbookRenamePlanCommand,
+    EbookRenamePreviewQuery,
+    EbookRenameProposalCommand,
+    EbookRenameReviewCommand,
     EbookToolchainReadinessQuery,
     FolioToneApplication,
     LibraryHealthQuery,
@@ -29,12 +35,13 @@ from foliotone.application.services import (
     CollectionSearchReader,
     CollectionStateReader,
     EbookReadModel,
+    EbookRenamePlanningPort,
     LibraryHealthReader,
     SurfaceReadModel,
 )
 from foliotone.collection_state import parse_collection_query_spec
-from foliotone.core import EntityId
-from foliotone.persistence.surface import SurfaceSession
+from foliotone.core import EntityId, ReviewDecisionValue
+from foliotone.persistence.surface import EbookRenameOperatorJobBinder, SurfaceSession
 from foliotone.surface.contracts import (
     CSRF_HEADER_NAME,
     MAX_REQUEST_BYTES,
@@ -45,7 +52,7 @@ from foliotone.surface.contracts import (
     SurfaceRuntimeConfig,
 )
 from foliotone.surface.read import CursorCodec, CursorError
-from foliotone.surface.security import SurfaceSecurityError
+from foliotone.surface.security import SurfaceSecurityError, secret_digest
 from foliotone.surface.service import LocalSurfaceService
 
 _SECURITY_HEADERS = {
@@ -72,6 +79,31 @@ class LoginRequest(BaseModel):
 
 class ReauthRequest(BaseModel):
     password: str = Field(min_length=15, max_length=4096)
+
+
+class EbookRenameProposalRequest(BaseModel):
+    observation_id: str = Field(min_length=36, max_length=36)
+    dependency_scope_id: str = Field(min_length=36, max_length=36)
+    target_basename: str = Field(min_length=1, max_length=255)
+
+
+class EbookRenameReviewRequest(BaseModel):
+    decision: str = Field(pattern="^(ACCEPT|REJECT|DEFER)$")
+
+
+class EbookRenameAuthorizationRequest(BaseModel):
+    plan_id: str = Field(min_length=36, max_length=36)
+    plan_content_hash: str = Field(pattern="^[0-9a-f]{64}$")
+    capability_id: str = Field(min_length=36, max_length=36)
+
+
+class EbookRenameExecutionRequest(EbookRenameAuthorizationRequest):
+    authorization_id: str = Field(min_length=36, max_length=36)
+    confirmation: str = Field(min_length=1, max_length=256)
+
+
+class EbookRenameRecoveryRequest(BaseModel):
+    run_id: str = Field(min_length=36, max_length=36)
 
 
 class SurfaceSecurityMiddleware(BaseHTTPMiddleware):
@@ -145,6 +177,7 @@ def create_surface_app(
     collection_search_reader: CollectionSearchReader | None = None,
     surface_read_model: SurfaceReadModel | None = None,
     ebook_read_model: EbookReadModel | None = None,
+    ebook_rename_planning: EbookRenamePlanningPort | None = None,
 ) -> FastAPI:
     """Create a transport adapter that exposes no source-media authority."""
     config = config or SurfaceRuntimeConfig()
@@ -206,6 +239,76 @@ def create_surface_app(
         if not service.has_active_grant(session, Scope.PRIVATE_READ):
             raise HTTPException(403, "PRIVATE_READ_GRANT_REQUIRED")
         return session
+
+    def review_dependency(
+        session: SurfaceSession = Depends(  # noqa: B008 - FastAPI dependency declaration
+            csrf_dependency
+        ),
+    ) -> SurfaceSession:
+        if not service.has_active_grant(session, Scope.REVIEW):
+            raise HTTPException(403, "REVIEW_GRANT_REQUIRED")
+        return session
+
+    def operate_dependency(
+        session: SurfaceSession = Depends(  # noqa: B008 - FastAPI dependency declaration
+            csrf_dependency
+        ),
+    ) -> SurfaceSession:
+        if not service.has_active_grant(session, Scope.OPERATE):
+            raise HTTPException(403, "OPERATE_GRANT_REQUIRED")
+        return session
+
+    def rename_planning() -> EbookRenamePlanningPort:
+        if ebook_rename_planning is None:
+            raise HTTPException(503, "EBOOK_RENAME_UNAVAILABLE")
+        return ebook_rename_planning
+
+    def require_idempotency(value: str | None) -> str:
+        if value is None or not 1 <= len(value) <= 128:
+            raise HTTPException(400, "IDEMPOTENCY_KEY_REQUIRED")
+        return value
+
+    def job_digests(
+        profile: EbookRenameOperatorJobProfile,
+        binder: EbookRenameOperatorJobBinder,
+        key: str,
+    ) -> tuple[str, str]:
+        material = json.dumps(
+            {
+                "profile": profile.value,
+                "plan_id": binder.plan_id,
+                "plan_content_hash": binder.plan_content_hash,
+                "capability_id": binder.capability_id,
+                "authorization_id": binder.authorization_id,
+                "run_id": binder.run_id,
+                "confirmation_digest": binder.confirmation_digest,
+                "operate_grant_id": binder.operate_grant_id,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        return (
+            secret_digest(material, purpose="ebook-rename-job-input"),
+            secret_digest(key, purpose="ebook-rename-job-idempotency"),
+        )
+
+    def planning_receipt(
+        *,
+        profile: str,
+        session: SurfaceSession,
+        idempotency_key: str | None,
+        semantic_input: dict[str, str],
+    ) -> tuple[dict[str, object] | None, dict[str, str]]:
+        """Replay one actor-bound planning response; never retain raw transport input."""
+        key = require_idempotency(idempotency_key)
+        material = json.dumps(semantic_input, sort_keys=True, separators=(",", ":"))
+        arguments = {
+            "actor_id": session.user_id,
+            "command_profile": profile,
+            "input_digest": secret_digest(material, purpose="ebook-rename-planning-input"),
+            "idempotency_digest": secret_digest(key, purpose="ebook-rename-planning-idempotency"),
+        }
+        return service.claim_ebook_rename_command_receipt(**arguments), arguments
 
     @app.get("/", include_in_schema=False, response_class=HTMLResponse)
     async def shell() -> FileResponse:
@@ -317,6 +420,255 @@ def create_surface_app(
         return JSONResponse(
             content={"status": "PRIVATE_READ_ACTIVE"},
             headers={"Cache-Control": "no-store"},
+        )
+
+    @app.post("/api/v1/ebooks/rename/candidates", status_code=201)
+    async def ebook_rename_propose(
+        payload: EbookRenameProposalRequest,
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+        session: SurfaceSession = Depends(review_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        existing, receipt = planning_receipt(
+            profile="ebook-rename-proposal/v1",
+            session=session,
+            idempotency_key=idempotency_key,
+            semantic_input={
+                "observation_id": payload.observation_id,
+                "dependency_scope_id": payload.dependency_scope_id,
+                "target_basename": payload.target_basename,
+            },
+        )
+        if existing is not None:
+            return existing
+        try:
+            result = application.ebook_rename_proposal(
+                rename_planning(),
+                EbookRenameProposalCommand(
+                    observation_id=EntityId.parse(payload.observation_id),
+                    dependency_scope_id=EntityId.parse(payload.dependency_scope_id),
+                    target_basename=payload.target_basename,
+                ),
+            )
+        except (ValueError, RuntimeError):
+            raise HTTPException(400, "EBOOK_RENAME_PROPOSAL_REJECTED") from None
+        response: dict[str, object] = {
+            "candidate_id": str(result.candidate_id),
+            "review_item_id": str(result.review_item_id),
+            "review_state": result.review_state.value,
+            "dependency_states": [value.value for value in result.dependency_states],
+        }
+        return service.record_ebook_rename_command_receipt(**receipt, response=response)
+
+    def ebook_rename_preview_response(
+        candidate_id: str, *, private_details: bool
+    ) -> dict[str, object]:
+        try:
+            preview = application.ebook_rename_preview(
+                rename_planning(),
+                EbookRenamePreviewQuery(candidate_id=EntityId.parse(candidate_id)),
+            )
+        except (ValueError, RuntimeError):
+            raise HTTPException(404, "EBOOK_RENAME_CANDIDATE_UNAVAILABLE") from None
+        result: dict[str, object] = {
+            "candidate_id": str(preview.candidate_id),
+            "candidate_profile": preview.candidate_profile,
+            "operation_kind": preview.operation_kind.value,
+            "status": preview.status.value,
+            "execution_state": "NOT_EXECUTABLE",
+            "review_state": preview.review_state.value,
+            "counts": {
+                "sources": preview.source_count,
+                "dependencies": preview.dependency_count,
+                "evidence_refs": preview.evidence_count,
+                "blockers": len(preview.blocker_codes),
+            },
+            "blocker_codes": list(preview.blocker_codes),
+        }
+        if private_details:
+            result["private_details"] = {
+                "source_relative_locator": preview.source_relative_locator,
+                "target_relative_locator": preview.target_relative_locator,
+            }
+        return result
+
+    @app.get("/api/v1/ebooks/rename/candidates/{candidate_id}")
+    async def ebook_rename_preview(
+        candidate_id: str,
+        _session: SurfaceSession = Depends(session_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        return ebook_rename_preview_response(candidate_id, private_details=False)
+
+    @app.get("/api/v1/private/ebooks/rename/candidates/{candidate_id}")
+    async def ebook_rename_private_preview(
+        candidate_id: str,
+        _session: SurfaceSession = Depends(private_read_dependency),  # noqa: B008
+    ) -> JSONResponse:
+        return JSONResponse(
+            content=ebook_rename_preview_response(candidate_id, private_details=True),
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.post("/api/v1/ebooks/rename/candidates/{candidate_id}/reviews", status_code=201)
+    async def ebook_rename_review(
+        candidate_id: str,
+        payload: EbookRenameReviewRequest,
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+        session: SurfaceSession = Depends(review_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        existing, receipt = planning_receipt(
+            profile="ebook-rename-review/v1",
+            session=session,
+            idempotency_key=idempotency_key,
+            semantic_input={"candidate_id": candidate_id, "decision": payload.decision},
+        )
+        if existing is not None:
+            return existing
+        try:
+            result = application.ebook_rename_review(
+                rename_planning(),
+                EbookRenameReviewCommand(
+                    candidate_id=EntityId.parse(candidate_id),
+                    decision=ReviewDecisionValue(payload.decision),
+                ),
+            )
+        except (ValueError, RuntimeError):
+            raise HTTPException(400, "EBOOK_RENAME_REVIEW_REJECTED") from None
+        response: dict[str, object] = {
+            "candidate_id": str(result.candidate_id),
+            "review_item_id": str(result.review_item_id),
+            "decision_id": str(result.decision_id),
+            "decision": result.decision.value,
+            "sequence_no": result.sequence_no,
+        }
+        return service.record_ebook_rename_command_receipt(**receipt, response=response)
+
+    @app.post("/api/v1/ebooks/rename/candidates/{candidate_id}/plans", status_code=201)
+    async def ebook_rename_plan(
+        candidate_id: str,
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+        session: SurfaceSession = Depends(review_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        existing, receipt = planning_receipt(
+            profile="ebook-rename-plan/v1",
+            session=session,
+            idempotency_key=idempotency_key,
+            semantic_input={"candidate_id": candidate_id},
+        )
+        if existing is not None:
+            return existing
+        try:
+            result = application.ebook_rename_plan(
+                rename_planning(), EbookRenamePlanCommand(candidate_id=EntityId.parse(candidate_id))
+            )
+        except (ValueError, RuntimeError):
+            raise HTTPException(400, "EBOOK_RENAME_PLAN_REJECTED") from None
+        response: dict[str, object] = {
+            "plan_id": str(result.plan_id),
+            "candidate_id": str(result.candidate_id),
+            "status": result.status.value,
+            "execution_state": "NOT_EXECUTABLE",
+            "review_state": result.review_state.value,
+            "blocker_codes": list(result.blocker_codes),
+        }
+        return service.record_ebook_rename_command_receipt(**receipt, response=response)
+
+    def enqueue_rename_job(
+        *,
+        profile: EbookRenameOperatorJobProfile,
+        binder: EbookRenameOperatorJobBinder,
+        session: SurfaceSession,
+        idempotency_key: str | None,
+    ) -> dict[str, str]:
+        key = require_idempotency(idempotency_key)
+        input_digest, idempotency_digest = job_digests(profile, binder, key)
+        try:
+            job_id = service.enqueue_ebook_rename_operator_job(
+                actor_id=session.user_id,
+                input_digest=input_digest,
+                idempotency_digest=idempotency_digest,
+                binder=binder,
+            )
+        except ValueError:
+            raise HTTPException(409, "EBOOK_RENAME_JOB_REJECTED") from None
+        return {"job_id": job_id, "status": "WAITING"}
+
+    @app.post("/api/v1/ebooks/rename/authorizations", status_code=202)
+    async def ebook_rename_authorize(
+        payload: EbookRenameAuthorizationRequest,
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+        session: SurfaceSession = Depends(operate_dependency),  # noqa: B008
+    ) -> dict[str, str]:
+        grant_id = service.active_operate_grant_id(session)
+        if grant_id is None:
+            raise HTTPException(403, "OPERATE_GRANT_REQUIRED")
+        return enqueue_rename_job(
+            profile=EbookRenameOperatorJobProfile.AUTHORIZE,
+            binder=EbookRenameOperatorJobBinder(
+                profile=EbookRenameOperatorJobProfile.AUTHORIZE,
+                plan_id=payload.plan_id,
+                plan_content_hash=payload.plan_content_hash,
+                capability_id=payload.capability_id,
+                operate_grant_id=grant_id,
+            ),
+            session=session,
+            idempotency_key=idempotency_key,
+        )
+
+    @app.post("/api/v1/ebooks/rename/executions", status_code=202)
+    async def ebook_rename_execute(
+        payload: EbookRenameExecutionRequest,
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+        session: SurfaceSession = Depends(operate_dependency),  # noqa: B008
+    ) -> dict[str, str]:
+        grant_id = service.active_operate_grant_id(session)
+        if grant_id is None:
+            raise HTTPException(403, "OPERATE_GRANT_REQUIRED")
+        try:
+            confirmation_digest = service.ebook_rename_confirmation_digest(
+                plan_id=payload.plan_id,
+                plan_content_hash=payload.plan_content_hash,
+                capability_id=payload.capability_id,
+                authorization_id=payload.authorization_id,
+                confirmation_text=payload.confirmation,
+            )
+        except ValueError:
+            raise HTTPException(400, "EBOOK_RENAME_CONFIRMATION_REJECTED") from None
+        return enqueue_rename_job(
+            profile=EbookRenameOperatorJobProfile.EXECUTE,
+            binder=EbookRenameOperatorJobBinder(
+                profile=EbookRenameOperatorJobProfile.EXECUTE,
+                plan_id=payload.plan_id,
+                plan_content_hash=payload.plan_content_hash,
+                capability_id=payload.capability_id,
+                operate_grant_id=grant_id,
+                authorization_id=payload.authorization_id,
+                confirmation_digest=confirmation_digest,
+            ),
+            session=session,
+            idempotency_key=idempotency_key,
+        )
+
+    @app.post("/api/v1/ebooks/rename/recoveries", status_code=202)
+    async def ebook_rename_recover(
+        payload: EbookRenameRecoveryRequest,
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+        session: SurfaceSession = Depends(operate_dependency),  # noqa: B008
+    ) -> dict[str, str]:
+        grant_id = service.active_operate_grant_id(session)
+        if grant_id is None:
+            raise HTTPException(403, "OPERATE_GRANT_REQUIRED")
+        return enqueue_rename_job(
+            profile=EbookRenameOperatorJobProfile.RECOVER,
+            binder=EbookRenameOperatorJobBinder(
+                profile=EbookRenameOperatorJobProfile.RECOVER,
+                plan_id=None,
+                plan_content_hash=None,
+                capability_id=None,
+                operate_grant_id=grant_id,
+                run_id=payload.run_id,
+            ),
+            session=session,
+            idempotency_key=idempotency_key,
         )
 
     def collection_search_response(
@@ -672,5 +1024,54 @@ def create_surface_app(
         )
         response.headers["Cache-Control"] = "no-store"
         return {"status": "PRIVATE_READ_GRANT_ISSUED", "csrf": csrf}
+
+    @app.post("/api/v1/session/reauth-operate")
+    async def reauth_operate(
+        payload: ReauthRequest,
+        response: Response,
+        session: SurfaceSession = Depends(  # noqa: B008 - FastAPI dependency declaration
+            csrf_dependency
+        ),
+    ) -> dict[str, str]:
+        """Rotate the session before the bounded first-writer commands are accepted."""
+        rotated = service.reauthenticate(session, payload.password, scope=Scope.OPERATE)
+        if rotated is None:
+            raise HTTPException(401, "REAUTH_REJECTED")
+        token, csrf, _session = rotated
+        response.set_cookie(
+            SESSION_COOKIE_NAME,
+            token,
+            httponly=True,
+            samesite="strict",
+            secure=config.secure_cookie,
+            path="/",
+            max_age=None,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return {"status": "OPERATE_GRANT_ISSUED", "csrf": csrf}
+
+    @app.post("/api/v1/session/reauth-review")
+    async def reauth_review(
+        payload: ReauthRequest,
+        response: Response,
+        session: SurfaceSession = Depends(  # noqa: B008 - FastAPI dependency declaration
+            csrf_dependency
+        ),
+    ) -> dict[str, str]:
+        rotated = service.reauthenticate(session, payload.password, scope=Scope.REVIEW)
+        if rotated is None:
+            raise HTTPException(401, "REAUTH_REJECTED")
+        token, csrf, _session = rotated
+        response.set_cookie(
+            SESSION_COOKIE_NAME,
+            token,
+            httponly=True,
+            samesite="strict",
+            secure=config.secure_cookie,
+            path="/",
+            max_age=None,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return {"status": "REVIEW_GRANT_ISSUED", "csrf": csrf}
 
     return app

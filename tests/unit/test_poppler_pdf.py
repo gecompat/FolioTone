@@ -19,7 +19,11 @@ from foliotone.adapters.poppler.pdf import (
     parse_pdfinfo_output,
     poppler_version_policy,
 )
-from foliotone.analyzers.ebook import TEXT_FINGERPRINT_KIND, TEXT_NORMALIZATION_PROFILE
+from foliotone.analyzers.ebook import (
+    TEXT_FINGERPRINT_KIND,
+    TEXT_NORMALIZATION_PROFILE,
+    resolve_observed_file,
+)
 from foliotone.core import (
     EntityId,
     FileObservation,
@@ -221,7 +225,7 @@ def test_analyzer_uses_fixed_commands_and_persists_pdf_evidence(tmp_path: Path) 
         "-enc",
         "UTF-8",
         "-isodates",
-        str(source_file.resolve()),
+        str(resolve_observed_file(source_root, observation)),
     )
     assert info_command.capability is ToolCapability.TECHNICAL_METADATA
     assert info_command.version_args == ("-v",)
@@ -240,7 +244,7 @@ def test_analyzer_uses_fixed_commands_and_persists_pdf_evidence(tmp_path: Path) 
         "-nopgbrk",
         "-remove-hyphens",
         "all",
-        str(source_file.resolve()),
+        str(resolve_observed_file(source_root, observation)),
         "content.txt",
     )
     assert text_command.capability is ToolCapability.EXTRACT_TEXT

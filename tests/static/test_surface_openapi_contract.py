@@ -39,17 +39,27 @@ def test_openapi_contract_is_pinned_and_has_no_unregistered_media_crud(
         "/api/v1/ebooks/collection-runs/{run_id}/evidence",
         "/api/v1/ebooks/plans",
         "/api/v1/ebooks/plans/{plan_id}",
+        "/api/v1/ebooks/rename/candidates",
+        "/api/v1/ebooks/rename/candidates/{candidate_id}",
+        "/api/v1/ebooks/rename/candidates/{candidate_id}/reviews",
+        "/api/v1/ebooks/rename/candidates/{candidate_id}/plans",
+        "/api/v1/ebooks/rename/authorizations",
+        "/api/v1/ebooks/rename/executions",
+        "/api/v1/ebooks/rename/recoveries",
         "/api/v1/media-lines",
         "/api/v1/setup-status",
         "/api/v1/setup",
         "/api/v1/session",
         "/api/v1/session/reauth",
+        "/api/v1/session/reauth-operate",
+        "/api/v1/session/reauth-review",
         "/api/v1/private/ebooks/collection-states/{snapshot_id}/search",
+        "/api/v1/private/ebooks/rename/candidates/{candidate_id}",
         "/api/v1/private/session",
     }
     assert (
         hashlib.sha256(payload).hexdigest()
-        == "ca02b4075701a368b532f7d0c471726cb96e566d164373fbe717f883d3fc9498"
+        == "1cb2d81c7a4de1df3633cd6ac2b8d0107d60cf1e8fcd411b8314683044a46ce1"
     )
 
 
@@ -64,6 +74,8 @@ def test_local_ui_has_german_accessible_read_only_workflows() -> None:
         'id="setup-form"',
         'id="login-form"',
         'id="reauth-form"',
+        'id="rename-proposal-form"',
+        'id="rename-execute-form"',
         'id="search-form"',
         'aria-live="polite"',
         "Jobs",
@@ -81,6 +93,8 @@ def test_local_ui_has_german_accessible_read_only_workflows() -> None:
     assert "/api/v1/ebooks/collection-runs/" in script
     assert "renderTable" in script
     assert "innerHTML" not in script
+    assert '"Idempotency-Key"' in script
+    assert "/api/v1/ebooks/rename/executions" in script
 
 
 def test_local_surface_workers_wait_for_the_schema_owner() -> None:
@@ -90,3 +104,7 @@ def test_local_surface_workers_wait_for_the_schema_owner() -> None:
     assert "urlopen('http://127.0.0.1:8765/api/v1/health')" in compose
     assert "operator-worker:\n    profiles: [\"local-surface\"]\n    depends_on:" in compose
     assert "analysis-worker:\n    profiles: [\"local-surface\"]\n    depends_on:" in compose
+    assert "FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE" in compose
+    assert "FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE" in compose
+    assert "FOLIOTONE_EBOOK_RENAME_WRITABLE_ROOT:?set the exact authorized ScanRoot" in compose
+    assert "${FOLIOTONE_EBOOKS_DIR:-./media/ebooks}:/media/ebooks:rw" not in compose

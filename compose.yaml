@@ -13,6 +13,9 @@ services:
       start_period: 2s
     volumes:
       - "${FOLIOTONE_DATA_DIR:-./data}:/data:rw"
+      - "${FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE:-./runtime/ebook-rename-dependency-scopes.json}:/run/foliotone/ebook-rename-dependency-scopes.json:ro"
+    environment:
+      FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE: /run/foliotone/ebook-rename-dependency-scopes.json
     read_only: true
     tmpfs:
       - /tmp
@@ -52,6 +55,12 @@ services:
       context: .
     volumes:
       - "${FOLIOTONE_DATA_DIR:-./data}:/data:rw"
+      - "${FOLIOTONE_EBOOK_RENAME_WRITABLE_ROOT:?set the exact authorized ScanRoot for this operator run}:/media/ebooks:rw"
+      - "${FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE:-./runtime/ebook-rename-capabilities.json}:/run/foliotone/ebook-rename-capabilities.json:ro"
+      - "${FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE:-./runtime/ebook-rename-dependency-scopes.json}:/run/foliotone/ebook-rename-dependency-scopes.json:ro"
+    environment:
+      FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE: /run/foliotone/ebook-rename-capabilities.json
+      FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE: /run/foliotone/ebook-rename-dependency-scopes.json
     read_only: true
     network_mode: none
     tmpfs:

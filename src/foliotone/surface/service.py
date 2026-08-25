@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from foliotone.persistence.surface import SQLiteSurfaceStore, SurfaceSession, SurfaceUser
+from foliotone.persistence.surface import (
+    EbookRenameOperatorJobBinder,
+    SQLiteSurfaceStore,
+    SurfaceSession,
+    SurfaceUser,
+)
 from foliotone.surface.contracts import Scope
 from foliotone.surface.security import (
     PASSWORD_PROFILE,
@@ -110,3 +115,41 @@ class LocalSurfaceService:
     def has_active_grant(self, session: SurfaceSession, scope: Scope) -> bool:
         """Check an elevated scope without exposing grant contents to transport adapters."""
         return self._store.has_active_grant(session.id, scope)
+
+    def active_operate_grant_id(self, session: SurfaceSession) -> str | None:
+        """Return the exact current OPERATE grant for an immutable W10 job binder."""
+        return self._store.active_operate_grant_id(session)
+
+    def has_active_operate_grant(self, *, grant_id: str, actor_id: str) -> bool:
+        """Recheck a worker-bound OPERATE grant without exposing it publicly."""
+        return self._store.has_active_operate_grant(grant_id=grant_id, actor_id=actor_id)
+
+    def ebook_rename_confirmation_digest(self, **binders: str) -> str:
+        """Validate raw confirmation without resolving a capability or source locator."""
+        return self._store.ebook_rename_confirmation_digest(**binders)
+
+    def ebook_rename_command_receipt(self, **arguments: str) -> dict[str, object] | None:
+        return self._store.ebook_rename_command_receipt(**arguments)
+
+    def claim_ebook_rename_command_receipt(self, **arguments: str) -> dict[str, object] | None:
+        return self._store.claim_ebook_rename_command_receipt(**arguments)
+
+    def record_ebook_rename_command_receipt(
+        self, *, response: dict[str, object], **arguments: str
+    ) -> dict[str, object]:
+        return self._store.record_ebook_rename_command_receipt(**arguments, response=response)
+
+    def enqueue_ebook_rename_operator_job(
+        self,
+        *,
+        actor_id: str,
+        input_digest: str,
+        idempotency_digest: str,
+        binder: EbookRenameOperatorJobBinder,
+    ) -> str:
+        return self._store.enqueue_ebook_rename_operator_job(
+            actor_id=actor_id,
+            input_digest=input_digest,
+            idempotency_digest=idempotency_digest,
+            binder=binder,
+        )

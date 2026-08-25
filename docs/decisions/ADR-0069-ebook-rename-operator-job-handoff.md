@@ -49,6 +49,13 @@ erzeugte Authorization- oder Run-ID und den festen Outcome an den Job. Form-
 und Immutability-Constraints verhindern unzulässige Feldkombinationen,
 Update, Delete und eine Umdeutung des Command-Profils.
 
+Proposal, Review und Plan erhalten vor ihrer fachlichen Mutation einen
+separaten actor-, Command- und semantisch-inputgebundenen Receipt-Binder. Ein
+gleicher Key liefert nach Abschluss die gespeicherte pfadfreie Antwort; ein
+abweichender Input wird abgewiesen. Ein noch nicht abgeschlossener Binder
+bleibt fail-closed und verhindert insbesondere einen zweiten append-only
+Review-Entscheid. Der Binder speichert weder Raw Confirmation noch Locator.
+
 ## Worker- und W10-Vertrag
 
 Der `operator-worker` besitzt eine feste Allowlist genau dieser drei Profile.
@@ -75,14 +82,27 @@ W10-Run fort oder verweist auf dessen Status-/Recoveryweg.
 ## API- und Prozessgrenzen
 
 `surface-api` darf Proposal, Private Preview, Review und Plan über die
-gemeinsame Application-Grenze bedienen und Operator-Jobs anlegen. Authorize,
-Execute und Recover werden niemals im API-Prozess ausgeführt.
+gemeinsame Application-Grenze bedienen und Operator-Jobs anlegen. Für
+`Proposal` darf er ausschließlich die bereits durch ADR-0066 definierte,
+owner-only geschützte `FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE` lesend
+auflösen. Die Datei enthält keine Collection-Pfade, Capabilities oder freien
+Befehle; der bestehende Resolver prüft Größe, reguläre Datei, Linkfreiheit,
+Owner und Modus fail-closed. Diese Ausnahme gilt weder für Capability- noch
+Source-Media-Konfiguration und nicht für Authorize, Execute oder Recover.
+Der `operator-worker` löst denselben Scope bei Authorize erneut auf; fehlende,
+mehrdeutige oder materiell abweichende Scope-Lineage blockiert die
+Autorisierung. Authorize, Execute und Recover werden niemals im API-Prozess
+ausgeführt.
 
 Der `surface-api` und der `analysis-worker` behalten read-only beziehungsweise
 keinen Source-Media-Mount und erhalten keine Rename-Capability-Datei. Nur der
 `operator-worker` erhält `network=none`, die owner-geschützte Rename- und
 Dependency-Scope-Konfiguration sowie den für ADR-0066 erforderlichen engsten
-beschreibbaren Mount.
+beschreibbaren Mount. Das Compose-Profil verlangt dafür ohne Default
+`FOLIOTONE_EBOOK_RENAME_WRITABLE_ROOT`; der Startoperator setzt ihn auf genau
+den in der einen Capability gebundenen `ScanRoot`, nie auf eine Sammlung oder
+einen übergeordneten Medienpfad. Ein anderer Mount ist eine fail-closed
+Startkonfigurationsabweichung, keine Ausführungsoption.
 
 ## Aussagegrenze
 

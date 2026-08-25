@@ -488,7 +488,7 @@ def test_migration_0030_preserves_review_history_and_old_triggers(
                 "AND name='metadata_correction_plan_reviews_no_update'"
             )
         ).scalar_one()
-    assert revision == "0033_local_surface_foundation"
+    assert revision == "0034_ebook_rename_operator_jobs"
     assert retained == str(decision_id)
     assert retained_plan_review == str(plan_id)
     assert restored_trigger == "metadata_correction_plan_reviews_no_update"

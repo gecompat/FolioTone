@@ -1,10 +1,10 @@
 # Projektstatus
 
-Stand: 2026-08-24
+Stand: 2026-08-25
 
 ## Aktuelle Welle
 
-**S-FUT11-03 implementiert — read-only E-Book-Oberfläche ohne W10-Control**
+**S-FUT11-04 in Umsetzung — begrenzter Same-Parent-Rename über isolierten Operator-Worker**
 
 Die same-origin Browseroberfläche verwendet deutsche sichtbare Texte, Vanilla-
 HTML/CSS/JavaScript, Setup, Login, Logout, Passwort-Reauthentisierung, Suche,
@@ -25,18 +25,19 @@ Details noch Locator aus. Private Suchwerte bleiben ausschließlich unter
 `/api/v1/private`, nach Sessionrotation und `PRIVATE_READ`-Grant, mit
 `Cache-Control: no-store` erreichbar.
 
-Lokal bestanden 24 fokussierte Unit-, API-, Privacy-, Cursor-, OpenAPI-, UI-,
+Lokal bestanden 86 fokussierte Adapter-, API-, Privacy-, Cursor-, OpenAPI-, UI-,
 Schema-Owner- und Dokumentationsfälle mit ausschließlich synthetischen SQLite-
-Daten. Ruff, Mypy über 275 Quelldateien, `git diff --check`, `docker compose
-config --quiet` und der leere lokale `local-surface`-Stack mit internem
-Loopback-Healthcheck waren grün. Der vollständige lokale Pytest-Gate erreichte 793 grüne
-Fälle und 10 erwartete Plattform-Skips, scheiterte aber reproduzierbar im
-unveränderten Archive-7zip-Test
-`test_explicit_provisioning_and_per_run_offline_availability` mit
-`EVIDENCE_MISMATCH`; der Fehler liegt außerhalb des Surface-Scopes und bleibt
-für den PR-CI-Gate offen. Die nächste reguläre Wave ist `S-FUT11-04`; sie
-bleibt bis zu ihrem eigenen Frontier-Gate und ihrer eigenen Autorisierung
-vollständig geschlossen.
+Daten. Ruff vollständig, Mypy über 276 Quelldateien, `git diff --check` und
+`docker compose config --quiet` waren grün. Der vollständige lokale Pytest-Gate
+bestand mit 2.271 grünen Fällen und 19 erwarteten Plattform-Skips. Die
+signierten Archive-Runtime-Evidenzen sind durch `.gitattributes` und einen
+Hashvertrag gegen CRLF-Transformationen geschützt; die Command-Tests verwenden
+für Windows den dokumentierten `\\?\`-Pfadvertrag. ADR-0069 erlaubt für Proposal nun den ausschließlich
+lesenden, durch ADR-0066 validierten Zugriff des `surface-api` auf die pfad-
+und capability-freie Dependency-Scope-Datei. Capability-Auflösung, Source-
+Mount und alle W10-Operationen verbleiben im `operator-worker`; Authorize
+validiert den Scope erneut. Die neue API-/Job-Adaptierung ist noch nicht als
+abgeschlossene Wave oder CI-Nachweis dokumentiert.
 
 **WI-0001 abgeschlossen — AI Repository Foundation 1.4.0 mit persistenter Planungsidentität integriert**
 

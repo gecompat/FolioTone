@@ -24,6 +24,7 @@ from foliotone.analyzers.ebook import (
     COVER_FINGERPRINT_PROFILE,
     EbookCoverError,
     fingerprint_ebook_cover,
+    resolve_observed_file,
 )
 from foliotone.core import (
     EntityId,
@@ -189,7 +190,7 @@ def test_analyzer_uses_fixed_command_and_persists_cover_evidence(
     assert runtime.command.args[1].endswith("extract_cover.py")
     assert runtime.command.args[2:] == (
         "--",
-        str(source_file.resolve()),
+        str(resolve_observed_file(source_root, observation)),
         "cover.bin",
         "cover-result.json",
         str(observation.size_bytes),

@@ -10,6 +10,10 @@ from foliotone.application.contracts import (
     CollectionSearchQuery,
     CollectionStateQuery,
     EbookProjectionQuery,
+    EbookRenamePlanCommand,
+    EbookRenamePreviewQuery,
+    EbookRenameProposalCommand,
+    EbookRenameReviewCommand,
     EbookToolchainReadinessQuery,
     LibraryHealthQuery,
     MediaLineRegistry,
@@ -17,9 +21,16 @@ from foliotone.application.contracts import (
 )
 from foliotone.collection_state import CollectionQuerySpec
 from foliotone.core.ids import EntityId
+from foliotone.core.review_models import ReviewDecisionValue
 from foliotone.tooling.ebook_readiness import EbookToolchainReadinessReport
 from foliotone.workflows.collection_state import CollectionStateReport
 from foliotone.workflows.collection_state_query import CollectionQueryReport
+from foliotone.workflows.ebook_rename_planning import (
+    EbookRenamePlanResult,
+    EbookRenamePreview,
+    EbookRenameProposalResult,
+    EbookRenameReviewResult,
+)
 from foliotone.workflows.library_health import LibraryHealthReport
 
 
@@ -87,6 +98,22 @@ class EbookReadModel(Protocol):
     ) -> tuple[tuple[dict[str, object], ...], str | None]: ...
 
     def plan_report(self, plan_id: EntityId) -> dict[str, object] | None: ...
+
+
+class EbookRenamePlanningPort(Protocol):
+    """The existing ADR-0066 planning workflow behind the Application boundary."""
+
+    def propose(
+        self, observation_id: EntityId, dependency_scope_id: EntityId, target_basename: str
+    ) -> EbookRenameProposalResult: ...
+
+    def preview(self, candidate_id: EntityId) -> EbookRenamePreview: ...
+
+    def review(
+        self, candidate_id: EntityId, decision: ReviewDecisionValue
+    ) -> EbookRenameReviewResult: ...
+
+    def plan(self, candidate_id: EntityId) -> EbookRenamePlanResult: ...
 
 
 class FolioToneApplication:
@@ -191,3 +218,29 @@ class FolioToneApplication:
     ) -> tuple[tuple[dict[str, object], ...], str | None]:
         """Read bounded permanently non-executable plan summaries."""
         return reader.list_plans(after_id=page.after_id, limit=page.limit)
+
+    def ebook_rename_proposal(
+        self, service: EbookRenamePlanningPort, command: EbookRenameProposalCommand
+    ) -> EbookRenameProposalResult:
+        return service.propose(
+            command.observation_id, command.dependency_scope_id, command.target_basename
+        )
+
+    def ebook_rename_preview(
+        self, service: EbookRenamePlanningPort, query: EbookRenamePreviewQuery
+    ) -> EbookRenamePreview:
+        return service.preview(query.candidate_id)
+
+    def ebook_rename_review(
+        self, service: EbookRenamePlanningPort, command: EbookRenameReviewCommand
+    ) -> EbookRenameReviewResult:
+        try:
+            decision = ReviewDecisionValue(command.decision)
+        except ValueError as error:
+            raise ValueError("E-book rename review decision is invalid") from error
+        return service.review(command.candidate_id, decision)
+
+    def ebook_rename_plan(
+        self, service: EbookRenamePlanningPort, command: EbookRenamePlanCommand
+    ) -> EbookRenamePlanResult:
+        return service.plan(command.candidate_id)
