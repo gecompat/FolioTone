@@ -93,9 +93,11 @@ Evidence Source und wird nicht zur kanonischen FolioTone-Datenbank.
 
 `ebook-meta` is also a read/write executable. The implemented adapter exposes no
 setter arguments, isolates `CALIBRE_CONFIG_DIRECTORY`, persists a bounded OPF
-artifact and rejects unknown versions or calibre versions below 9.10.0 before
-opening Source Media. This minimum follows `GHSA-2j4m-2q7x-2c47` /
-`CVE-2026-53511`; versions through 9.9.0 are affected.
+artifact and rejects unknown versions or calibre versions below 9.12.0 before
+opening Source Media. The current floor follows
+`GHSA-4f7g-rjfp-hmvx`/`CVE-2026-73248`; versions through 9.11.0 are affected.
+The older `GHSA-2j4m-2q7x-2c47`/`CVE-2026-53511` remains relevant but sets
+only the superseded 9.10.0 floor.
 
 ADR-0063 bewertet den Setterpfad von calibre 9.13.0 zusätzlich für den ersten
 Source-Metadata-Writer. `ebook-meta --title` ist dafür zu breit: Die

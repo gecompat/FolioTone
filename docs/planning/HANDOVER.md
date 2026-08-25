@@ -108,14 +108,15 @@ Aktivierung ohne Browserwarnung oder -fehler.
 
 `DEC-0002` hält den gewählten Scope einer EPUB-3-zu-EPUB-3-Ableitung mit
 reviewten Metadaten und getrenntem Output-Root als `Proposed` fest.
-`GATE-0001` ist nach Abschluss von `WI-0003` die nächste Wave und muss zuerst ToolProvider,
-Byte-Reproduzierbarkeit, Security, Lizenz und netzlosen Containerbetrieb mit
-synthetischen Fixtures qualifizieren. Bis zu einem positiven Gate bleibt
-`WI-0004` (`FUT-008`) `BLOCKED`; W9-007-Rezepte bleiben dauerhaft
-`NOT_EXECUTABLE` und es existiert kein Transformationswriter. Der nach dem
-Plananker-Merge ausgeführte read-only E-Book-Blocker-Audit fand keinen Blocker
-für den Baseline-Slice; die offenen Transformationsfragen bleiben ausschließlich
-bei `GATE-0001` und `DEC-0002`.
+`GATE-0001` ist negativ abgeschlossen: Zwei frische netzlose calibre-9.13.0-
+Läufe mit dem festen `ebook-polish --opf`-Profil lieferten bei gleicher
+Bytelänge unterschiedliche SHA-256, weil reale Zeitwerte in OPF und ZIP einflossen;
+zusätzlich gingen nicht projizierte Serienverfeinerungen verloren. Die
+aktuelle calibre-Sicherheitsuntergrenze ist 9.12.0. `WI-0004` (`FUT-008`)
+bleibt `BLOCKED`; W9-007-Rezepte bleiben dauerhaft `NOT_EXECUTABLE` und es
+existiert kein Transformationswriter. `DEC-0002` benötigt vor einem neuen
+Gate die ausdrückliche Wahl zwischen kanonischer FolioTone-Verpackung nach
+calibre, nativem OPF-Patch plus Verpackung oder einem anderen ToolProvider.
 
 W0-013 integriert AI Repository Foundation `1.2.0` semantisch. WI-0001 aktualisiert sie auf `1.4.0`, bewahrt alle historischen FolioTone-IDs und registriert neue dauerhafte Planungsartefakte ab `WI-0001` über die projektlokale Authority in [`ARTIFACT_REGISTRATION.md`](ARTIFACT_REGISTRATION.md); ADR-0070 ist der verbindliche Adoptionsentscheid. Vor
 Projektarbeit ist über den verwalteten Block im Root-`AGENTS.md` die
@@ -1069,8 +1070,8 @@ PDF-Evidence. Details und Lizenzen stehen in
 
 `foliotone ebook-metadata` analysiert eine persistierte `FileObservation` über
 die unveränderliche Befehlsform `ebook-meta FILE --to-opf metadata.opf`.
-Unbekannte calibre-Versionen sowie Versionen kleiner als 9.10.0 werden wegen
-`GHSA-2j4m-2q7x-2c47` vor dem Dateiöffnen abgelehnt. Calibre-Konfiguration ist
+Unbekannte calibre-Versionen sowie Versionen kleiner als 9.12.0 werden wegen
+`GHSA-4f7g-rjfp-hmvx` vor dem Dateiöffnen abgelehnt. Calibre-Konfiguration ist
 ephemer; das maximal 4 MiB große OPF wird als integritätsgeprüftes
 `CALIBRE_OPF`-Artefakt gespeichert. Ausgewählte Felder werden als rohe
 `ToolResult`-Evidence gegen die konkrete Observation persistiert.
@@ -1382,7 +1383,7 @@ blockiert die Übernahme. ADR-0025 ist verbindlich.
 
 - `CalibreMetadataAnalyzer` und CLI `foliotone ebook-metadata`;
 - feste read-only `ebook-meta FILE --to-opf`-Argumentform ohne Setter;
-- Sicherheitsuntergrenze calibre 9.10.0 vor dem Öffnen der Eingabe;
+- Sicherheitsuntergrenze calibre 9.12.0 vor dem Öffnen der Eingabe;
 - ephemere `CALIBRE_CONFIG_DIRECTORY` für Versionsabfrage und Analyse;
 - begrenztes, integritätsgeprüftes OPF-Artefakt;
 - rohe OPF2-/OPF3-Beobachtungen unter `calibre_metadata`;
@@ -1401,7 +1402,7 @@ blockiert die Übernahme. ADR-0025 ist verbindlich.
 - `CalibreTextAnalyzer` und CLI `foliotone ebook-text`;
 - explizite EPUB/MOBI/AZW/AZW3-Allowlist und eine feste
   `ebook-convert FILE content.txt`-Befehlsform ohne frei übergebbare Optionen;
-- `ToolCapability.EXTRACT_TEXT` sowie Sicherheitsuntergrenze calibre 9.10.0;
+- `ToolCapability.EXTRACT_TEXT` sowie Sicherheitsuntergrenze calibre 9.12.0;
 - UTF-8-Plaintext, Unix-Zeilenenden und deaktivierte Zeilenaufteilung;
 - maximal 64 MiB großes privates, integritätsgeprüftes `CALIBRE_TEXT`-Artefakt;
 - FolioTone-eigene versionierte `NFKC`-/Whitespace-Normalisierung und SHA-256;

@@ -4,6 +4,44 @@ Stand: 2026-08-25
 
 ## Aktuelle Welle
 
+**GATE-0001 `DONE` (negativ) — rohes calibre-Profil nicht reproduzierbar**
+
+Das gelockte E-Book-Toolchain-Image wurde mit einem festen
+`ebook-polish --opf`-Profil, ausschließlich synthetischem EPUB 3 und zwei
+frischen netzlosen Containerläufen charakterisiert. Trotz fester Image-ID,
+Argumente, Locale, Zeitzone, `SOURCE_DATE_EPOCH`, privater Calibre-
+Konfiguration und Ressourcenlimits unterschieden sich die vollständigen
+SHA-256 trotz gleicher Outputgröße. calibre setzte die reale UTC-Zeit in
+`dcterms:modified` und ZIP-Zeitstempel; nicht projizierte raffinierte
+Serienmetadaten gingen ebenfalls verloren. Beide Outputs bestanden
+EPUBCheck 5.3.0 ohne Fatal, Error oder Warning, was die Byte- und
+Preserved-Field-Abweichungen nicht aufhebt.
+
+Die gemeinsame calibre-Sicherheitsuntergrenze ist aufgrund der offiziellen
+Advisory `GHSA-4f7g-rjfp-hmvx` von 9.10.0 auf 9.12.0 angehoben; das gelockte
+9.13.0 liegt darüber. `GATE-0001` öffnet keine Writer- oder W10-Capability.
+`DEC-0002` bleibt `Proposed` und `WI-0004` `BLOCKED`. Vor weiterer
+Transformationsentwicklung ist ausdrücklich zwischen kanonischer
+FolioTone-Verpackung nach calibre, einem begrenzten nativen OPF-Patch mit
+kanonischer Verpackung oder einem anderen ToolProvider zu entscheiden und ein
+neues Profilgate zu registrieren. Der vollständige Nachweis steht in
+[`GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md`](../quality/GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md).
+
+Lokal bestanden 168 betroffene calibre-, Readiness-, Fixture- und
+Dokumentationsverträge. Nach der abschließenden Evidenzpräzisierung bestanden
+die 35 direkt betroffenen statischen Verträge erneut. Ruff war für alle
+geänderten Python-Dateien grün, Mypy für den geänderten Sourcevertrag,
+`git diff --check`, die Added-Files-Privacy-/Secret-Suche sowie beide
+Registry-Clients für Revision 7 mit sieben Allokationen waren ebenfalls grün.
+Die zwei exakten Transformations- und EPUBCheck-Doppelläufe verwendeten nur
+synthetische Daten. Die vollständige unbetroffene lokale Suite wurde gemäß
+`TEST_POLICY.md` nicht ausgeführt; ein vollständiger PR-CI-Gate bleibt für den
+exakten stabilen Head erforderlich. Malicious-Fixture-Randfälle wurden nach
+dem harten Reproduzierbarkeits- und Preserved-Field-Fehlschlag nicht mehr als
+positiv qualifiziert oder unnötig ausgeführt.
+
+## Zuletzt abgeschlossene Produktwave
+
 **WI-0003 Surface `DONE` — vollständige read-only Fixity-Bedienung implementiert**
 
 `WI-0003` liefert jetzt die drei geplanten Slices gemeinsam: die explizit
@@ -47,9 +85,9 @@ Der gesamte Slice bleibt read-only gegenüber Source Media. Höchstens zwei
 frische no-follow Hash-Worker, rootweites Lease/Fencing und die unveränderten
 `DEC-0001`-Binder gelten weiterhin. Netzwerk, Source Writes,
 W10-Capabilities, Backup-/Replica-Vergleich, Restore, automatische Planung und
-Zeitsteuerung bleiben ausgeschlossen. `GATE-0001` ist die nächste
-Ausführungsfront; `DEC-0002` bleibt `Proposed` und `WI-0004` bis zu einem
-positiven Gate `BLOCKED`.
+Zeitsteuerung bleiben ausgeschlossen. Das nachfolgende `GATE-0001` ist
+inzwischen negativ abgeschlossen; `DEC-0002` bleibt `Proposed` und `WI-0004`
+bis zu einem positiven neuen Profilgate `BLOCKED`.
 
 Für den finalen betroffenen lokalen Satz bestanden 232 Tests für CLI,
 Application-Verträge, REST, Browser-Assets, Job-Fencing, Fixity-Persistenz,
@@ -268,19 +306,19 @@ Source Writes und jede W10-Capability sind ausgeschlossen.
 
 Die frühere Fixity-Detailentscheidung ist inzwischen abgeschlossen.
 `WI-0003` ist mit Baseline, Verifikation, Einzelentscheidungen und gemeinsamer
-Application-/CLI-/REST-/Browser-Surface abgeschlossen. `GATE-0001` ist die
-nächste Produktfolge.
+Application-/CLI-/REST-/Browser-Surface abgeschlossen. Die damals nächste
+Produktfolge `GATE-0001` ist inzwischen negativ abgeschlossen.
 Der vollständige Vertrag und die Stopbedingungen stehen in
 [`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md).
 
 `DEC-0002` dokumentiert den gewählten Produktscope einer EPUB-3-zu-EPUB-3-
 Ableitung mit reviewten Metadaten, getrenntem verwaltetem Output-Root,
 bounded Batch-Preparation und Einzel-Publish. Die Entscheidung bleibt
-`Proposed`: Erst `GATE-0001` muss ein festes netzloses ToolProvider-Profil,
-aktuelle Maintenance-/Lizenz-/Security-Bedingungen sowie byteidentischen Dry
-Run und Replay mit synthetischen Fixtures belegen. `WI-0004` bleibt bis zu
-diesem positiven Gate blockiert; es existiert keine Transformations-
-Capability oder Runtime-Operation.
+`Proposed`: `GATE-0001` belegte, dass das feste rohe calibre-Profil weder
+byteidentischen Dry Run und Replay noch alle Preserved Fields liefert.
+`WI-0004` bleibt bis zur ausdrücklichen Folgerichtung und einem positiven
+neuen Profilgate blockiert; es existiert keine Transformations-Capability oder
+Runtime-Operation.
 
 Der Plananker verändert weder Python-Runtime, SQLite-Schema, API, UI,
 Container noch Source-Media-Authority. Lokal bestanden die 29 betroffenen
@@ -2217,8 +2255,8 @@ steht in `docs/reference/EBOOK_TOOL_EVALUATION.md`.
 Zusatzargumente sind nicht verfügbar.
 
 Vor dem Öffnen der Source-Datei wird die calibre-Version geprüft. Unbekannte
-Versionen und Versionen kleiner als 9.10.0 werden wegen
-`GHSA-2j4m-2q7x-2c47`/`CVE-2026-53511` als auditierbare `FAILED`-Ausführung
+Versionen und Versionen kleiner als 9.12.0 werden wegen
+`GHSA-4f7g-rjfp-hmvx`/`CVE-2026-73248` als auditierbare `FAILED`-Ausführung
 abgelehnt. Versionsabfrage und Analyse verwenden ein ephemeres
 `CALIBRE_CONFIG_DIRECTORY`.
 
@@ -2279,7 +2317,7 @@ Unix-Zeilenenden und deaktivierte Zeilenaufteilung. Aufrufende Komponenten
 können keine calibre-Konvertierungsoptionen ergänzen. KFX, AZW1, AZW4 und
 weitere Formate gehören nicht zu diesem Textvertrag.
 
-Die Sicherheitsuntergrenze calibre 9.10.0, das ephemere
+Die Sicherheitsuntergrenze calibre 9.12.0, das ephemere
 `CALIBRE_CONFIG_DIRECTORY` und `CALIBRE_ALLOW_PYTHON_TEMPLATES=0` gelten auch
 für diesen Adapter. Die Ausgabe wird vor dem Workspace-Cleanup als privates,
 maximal 64 MiB großes `CALIBRE_TEXT`-Artefakt mit Größe und SHA-256 übernommen.

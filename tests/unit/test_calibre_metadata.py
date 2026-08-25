@@ -101,7 +101,8 @@ SAMPLE_OPF3 = b"""<?xml version="1.0" encoding="utf-8"?>
     ("version", "accepted"),
     (
         ("ebook-meta (calibre 9.13.0)", True),
-        ("calibre 9.10", True),
+        ("calibre 9.12", True),
+        ("calibre 9.11.0", False),
         ("ebook-meta (calibre 9.9.105)", False),
         ("calibre 8.16.2", False),
         ("unexpected output", False),

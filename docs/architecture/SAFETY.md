@@ -25,9 +25,9 @@ Capability und eine kurzlebige Authorization gebunden.
 - `DEC-0001` Fixity Monitoring remains read-only and grants no W10 authority.
   Its baseline builder uses query-only SQLite projection, no-follow bounded
   reads, a root-wide fence and no implicit Trust-on-first-use or reset.
-- `DEC-0002` is only `Proposed`, so no EPUB transformation command or
-  capability exists before a positive `GATE-0001` and an accepted technical
-  decision.
+- `DEC-0002` is only `Proposed`; the negative `GATE-0001` grants no EPUB
+  transformation command or capability. A new positive profile gate and an
+  accepted technical decision remain mandatory.
 
 ## External tool safety
 

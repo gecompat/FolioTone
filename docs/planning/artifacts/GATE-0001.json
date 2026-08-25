@@ -21,8 +21,10 @@
   ],
   "schema_version": 1,
   "title": "EPUB-Transformationsprofil und ToolProvider qualifizieren",
-  "status": "NEXT",
+  "status": "DONE",
   "metadata": {
+    "evidence_path": "docs/quality/GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md",
+    "outcome": "FAIL_EXACT_REPRODUCIBILITY",
     "scope": "ebook-transformation-tool-qualification",
     "tier": "FRONTIER",
     "wave": "FUT-008-GATE"

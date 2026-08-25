@@ -1,0 +1,10 @@
+{
+  "profile": "ebook-transform-gate-input/v1",
+  "source_sha256": "adfb26f4a3548821485e8a1da1bfdbc60b8485d349eb971cbc347974d07edd28",
+  "source_size_bytes": 2699,
+  "reviewed_metadata_sha256": "35fd5b46b968a93412191ea3c1771d63f2998232b1e8fe316714307b15a11d71",
+  "reviewed_metadata_size_bytes": 483,
+  "zip_timestamp": "2026-08-25T10:00:00Z",
+  "zip_compression": "STORED",
+  "license": "synthetic-project-fixture"
+}
