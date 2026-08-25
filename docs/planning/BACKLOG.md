@@ -13,9 +13,9 @@ Produktgate und keine Implementierungsfreigabe.
 
 | Horizont | Aufgabe | Begründung |
 |---|---|---|
-| NOW | `S-FUT11-04` (`NEXT`) | Implementiere ausschließlich die ADR-0066-Same-Parent-Rename-Produktoberfläche mit der in ADR-0069 begrenzten lesenden Scope-Auflösung für Proposal. |
+| NOW | Keine Produktwave | Nach dem Abschluss von `S-FUT11-04` ist keine weitere Produktwave ausdrücklich aktiviert. |
 | OPERATIONAL READY | `OPS-001` | Der vollständige private Collection-Abschluss prüft den Betrieb, ist aber kein Entwicklungs- oder CI-Gate. |
-| NEXT WAVE | `S-FUT11-04` | Der Same-Parent-Rename ist nach der ADR-0069-Klarstellung die einzige aktive Produktwave. |
+| NEXT WAVE | Entscheidung erforderlich | W4 und weitere W10-Produktoberflächen bleiben bis zu einer ausdrücklichen Aktivierung oder ihrem eigenen akzeptierten Gate zurückgestellt. |
 | LATER | W4 sowie die Music-Anteile aus W5 bis W7 | Music bleibt die nächste vollständige Mediendomäne nach ausdrücklicher Aktivierung; weitere Medien erhalten eigene Einstiegspunkte. |
 | DECISION | `FG-W10-SIDECAR-WRITE`, `FG-W10-EXTERNAL-LIBRARY-WRITE`, `FG-W10-REORGANIZE`, `FG-W10-ARCHIVE-REWRITE`, W10-003, W10-004 | ADR-0067 öffnet keine benachbarte Operation. Titelwrite und Quarantäne benötigen vor UI-Controls jeweils eine getrennte Produktoberflächen-Wave; die übrigen Operationen behalten zusätzlich ihr technisches Gate. |
 | BLOCKED | `FG-A-SECRET`, `FG-A3-MEMBER-BYTE` | Secretkanal und Archive-Member-Byte-Identity sind von der E-Book-Write-Freigabe nicht betroffen. |
@@ -324,7 +324,7 @@ Wave aktiviert Remote-/Mehrbenutzerbetrieb oder einen neuen Mutationstyp.
 | S-FUT11-02 | DONE | Pinnt FastAPI, Uvicorn und `argon2-cffi`; FastAPI erzeugt den versioniert getesteten OpenAPI-`3.1.0`-Vertrag. Additive Benutzer-, Bootstrap/Reset-, Session-, Grant-, Audit-, `ApplicationJob`-/Event-/Lease-Persistenz, loopback-only `/api/v1`, same-origin Shell sowie getrennte API-, Analyse- und Operatorprozesse sind vorhanden. Der Operator-Worker besitzt keine registrierte W10-Capability und keine Source-Media-Mutation. |
 | FG-FUT11-NEXT-WAVES | DONE | ADR-0069 und `FUT11_NEXT_WAVES.md` binden die ausführungsreifen Verträge für S-FUT11-03 und S-FUT11-04: Application-/Privacy-Grenze, Vanilla-Web-Assets, resource-gebundene Keyset-Cursor, Sessionrotation, operation-spezifische Operator-Jobs, Raw-Confirmation-Ausschluss, Worker-Allowlist, Stopbedingungen, Tests und sequenzieller PR-/Mergevertrag. |
 | S-FUT11-03 | DONE | Die deutschsprachige responsive read-only E-Book-Oberfläche liefert über Application-Ports Scan-/Tool-/Format-Readiness, `CollectionState`, Suche, `Library Health`, Analyse-/Quality-Coverage, Candidate-Hash-/Duplicate-/Varianten-Evidence, Review Queues, dauerhaft `NOT_EXECUTABLE`-Planreports sowie begrenzte Job-/Audit-Projektionen. Resource-gebundene Keyset-Cursor und getrennte `no-store`-Private-Projektionen bleiben bindend; Musik und Bilder sind nur als nicht aktivierte Einstiege sichtbar. |
-| S-FUT11-04 | NEXT | Adaptiert ausschließlich den ADR-0066-Same-Parent-`FILE_RENAME`: Proposal darf die ADR-0066-validierte, pfad- und capability-freie Dependency-Scope-Datei lesend auflösen; Private Preview, Review und Plan bleiben Application-bound. Authorize, Execute und Recover sind immutable, gefencete Operator-Jobs mit kurzlebigem `OPERATE`-Grant; Capability, Source-Mount und erneute Scope-Prüfung bleiben im Worker. |
+| S-FUT11-04 | DONE | Adaptiert ausschließlich den ADR-0066-Same-Parent-`FILE_RENAME`: Proposal darf die ADR-0066-validierte, pfad- und capability-freie Dependency-Scope-Datei lesend auflösen; Private Preview, Review und Plan bleiben Application-bound. Authorize, Execute und Recover sind immutable, gefencete Operator-Jobs mit kurzlebigem `OPERATE`-Grant; Capability, Source-Mount und erneute Scope-Prüfung bleiben im Worker. PR #259 wurde als Merge-Commit `c336167` integriert. |
 
 ## Book-only Produktprojektionen
 

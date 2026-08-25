@@ -1,6 +1,6 @@
 # Ausführungsvertrag für S-FUT11-03 und S-FUT11-04
 
-**Status:** ausführungsbereit
+**Status:** abgeschlossen; `S-FUT11-04` wurde über PR #259 integriert
 
 **Ausgangsbasis:** `origin/main` nach `S-FUT11-02`
 
