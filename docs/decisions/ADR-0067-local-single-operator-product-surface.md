@@ -82,10 +82,16 @@ damit eine weitere Sprache später keine fachlichen API-Verträge ändert.
 
 ## Lokales Deployment und Prozessgrenzen
 
-Das v1-Profil bindet ausschließlich an explizite Loopback-Adressen. Es
-akzeptiert keine Wildcard-, LAN- oder öffentliche Bindung und vertraut keine
-Proxy-Header. Host- und Origin-Allowlist enthalten nur die lokal konfigurierte
-same-origin Adresse. Eine nicht lokale Bindung beendet den Start fail-closed.
+Der öffentlich erreichbare Endpunkt des v1-Profils bindet ausschließlich an
+eine explizite Loopback-Adresse. Ein nativer Prozess akzeptiert keine
+Wildcard-, LAN- oder öffentliche Bindung. Für Docker oder Podman darf ein
+ausdrücklich aktivierter Containeradapter nur innerhalb eines erkannten,
+isolierten Container-Network-Namespace auf `0.0.0.0` hören, wenn Compose den
+Port fest auf `127.0.0.1` des Hosts veröffentlicht. Die Application-
+Konfiguration, Host- und Origin-Allowlist bleiben dabei auf der lokalen
+same-origin Adresse; Proxy-Header bleiben unvertraut. Der Adapter wird
+außerhalb eines erkannten Containers fail-closed abgelehnt. Diese technische
+Portübergabe öffnet weder LAN- noch Remotebetrieb.
 
 Das Deployment trennt mindestens drei Rollen:
 
@@ -104,6 +110,12 @@ Alle drei Prozesse verwenden owner-geschützte Runtime-Konfiguration und
 Persistenz außerhalb von Git. Der lokale Betrieb darf sie als getrennte
 Prozesse oder Container starten; ihre Sicherheitsrollen dürfen nicht zu einem
 Webprozess mit allgemeinem Source-Schreibzugriff zusammenfallen.
+
+Das read-only Compose-Basisprofil darf ohne Writer-Konfiguration startbar sein.
+Der `operator-worker` wird nur über ein separates operation-spezifisches
+Overlay ergänzt, das ohne exakte Dependency-Scope-Datei, Capability-Datei und
+autorisierten schreibbaren `ScanRoot` bereits bei der Compose-Auswertung
+fail-closed endet.
 
 Die Browser-UI wird als versionierter statischer Build vom `surface-api`
 same-origin ausgeliefert. Die Laufzeit lädt keine Skripte, Fonts, Analytics

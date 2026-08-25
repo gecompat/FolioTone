@@ -20,12 +20,11 @@ See `docs/decisions/ADR-0010-tool-provider-orchestration.md` and `docs/reference
 
 ## Current product surface
 
-ADR-0016 beschreibt die anfängliche CLI-only Oberfläche; die aktuell
-implementierte Runtime bleibt bis zum Abschluss der jeweiligen neuen Wave bei
-diesem Stand. ADR-0067 akzeptiert inzwischen die stufenweise
-`local-single-operator/v1`-Oberfläche mit loopback-only REST-API,
-same-origin Browser-UI und passiven Workern. CLI, HTTP und Worker verwenden
-dabei dieselben adapterneutralen Application-Verträge.
+ADR-0016 beschreibt die historische anfängliche CLI-only Oberfläche. Die in
+`S-FUT11-01` bis `S-FUT11-04` implementierte
+`local-single-operator/v1`-Oberfläche ergänzt sie um eine loopback-only
+REST-API, eine same-origin Browser-UI und getrennte Worker. CLI, HTTP und
+Worker verwenden dieselben adapterneutralen Application-Verträge.
 
 Nur die E-Book-Linie wird aktiviert. Musik und Bilder erhalten getrennte, als
 nicht aktiviert erkennbare Navigationseinstiege, aber keine vorgetäuschten
@@ -61,11 +60,11 @@ Owns domain concepts and interfaces that must not depend on specific file format
 
 Provides versioned adapter-neutral request contracts, a stable Media-Line-
 Registry and composition of existing workflows for CLI, REST and worker
-adapters. `application-contracts/v1` currently exposes only the read-only
-E-Book Toolchain-Readiness and `Library Health` queries. E-Books are the only
-activated media line; Music and Images remain visible registry entries without
-domain endpoints. The Application boundary does not grant source-media access
-or write authority.
+adapters. `application-contracts/v1` exposes the implemented read-only E-Book
+projections as well as the narrowly registered Same-Parent-Rename commands.
+E-Books are the only activated media line; Music and Images remain visible
+registry entries without domain endpoints. The Application boundary itself
+does not grant source-media access or write authority.
 
 ### Local Surface
 
@@ -74,9 +73,12 @@ eine loopback-only same-origin API, lokale Session-/CSRF-Authentisierung,
 OpenAPI-Contract, Audit und persistente Job-Fences. Ihre SQLite-Tabellen sind
 additiv; Passwörter, Bootstrap-Codes, Session- und CSRF-Werte werden nur als
 domänengetrennte Digests oder Argon2id-Hash gespeichert. `surface-api`,
-`analysis-worker` und `operator-worker` bleiben getrennte Prozessrollen.
-In `S-FUT11-02` besitzt der `operator-worker` ausdrücklich keine registrierte
-W10-Capability und kann keine Source-Media-Mutation ausführen.
+`analysis-worker` und `operator-worker` bleiben getrennte Prozessrollen. Das
+read-only Compose-Basisprofil startet ohne Operator und benötigt keine
+W10-Konfiguration. Nur das zusätzliche `compose.rename.yaml` darf den
+`operator-worker` für den ADR-0066-Same-Parent-Rename mit exakter Capability,
+Dependency Scope und genau einem autorisierten schreibbaren `ScanRoot`
+provisionieren.
 
 ### Persistence
 

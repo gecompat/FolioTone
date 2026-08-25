@@ -16,8 +16,11 @@ def test_status_command_is_non_destructive_bootstrap(
     assert result == 0
     captured = capsys.readouterr()
     assert captured.out.splitlines() == [
-        "FolioTone W2 foundation is complete; W3 e-book analysis is in progress.",
-        "The initial product surface is CLI-only.",
+        "FolioTone local-single-operator/v1 is implemented for the EBOOK product line.",
+        (
+            "The loopback-only browser surface and CLI are available; MUSIC and IMAGE "
+            "remain inactive."
+        ),
         "A read-only scan CLI is available for controlled smoke tests.",
         (
             "Read-only calibre metadata observations and versioned candidates are available "

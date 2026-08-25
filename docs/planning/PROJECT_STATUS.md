@@ -50,6 +50,57 @@ erfolgreich gebaut. Eine unbetroffene vollständige lokale Suite wurde gemäß
 `TEST_POLICY.md` nicht erneut ausgeführt; der vollständige PR-CI-Gate für den
 exakten Head steht noch aus.
 
+**FUT-011-Betriebskorrektur abgeschlossen — Endbenutzeranleitung und Compose-Start**
+
+Die E-Book-Endbenutzerdokumentation liegt gebündelt unter `docs/user-guide/`.
+Sie trennt eine kurze read-only Erstführung, ein umfassendes Handbuch der
+grafischen Oberfläche, eine gemeinsame Installationsquelle für Docker Compose,
+Podman Compose und natives Python sowie eine eigenständige CLI-Referenz. Scan,
+`CollectionState`, Suche, Details, Readiness, Pläne, Jobs, Audit und der enge
+Same-Parent-Rename sind gegen die tatsächlich implementierten UI-Texte und
+Verträge beschrieben. Gemeinsame Installation und Kontoeinrichtung werden
+nicht je Medienlinie oder je Handbuch wiederholt; `MUSIC` und `IMAGE` bleiben
+ausdrücklich nicht aktiviert.
+
+Das read-only Compose-Basisprofil ist nun ohne Rename-Capability, Dependency-
+Scope-Datei oder schreibbaren Source-Mount auswertbar und startbar. Der
+operation-spezifische `operator-worker` liegt ausschließlich im zusätzlichen
+`compose.rename.yaml` und verlangt dort weiterhin alle drei exakten Werte
+fail-closed. `surface-api` darf nur mit einem internen Containerflag innerhalb
+eines erkannten Docker-/Podman-Namespace auf dessen Port hören; am Host bleibt
+die Veröffentlichung fest `127.0.0.1:8765`. Native Starts bleiben strikt an
+explizites Loopback gebunden. Normale E-Book-Services mounten keine inaktive
+Musikquelle.
+
+Empirisch bestanden Docker Compose `v5.4.0` und Podman `6.1.0` mit
+`podman-compose 1.6.0` jeweils Basis- und Rename-Overlay-Konfiguration,
+Anwendungsbuild, read-only RootFS, exakten Host-Loopback-Publish, Health
+`READY` und die deutsche Setup-Shell. Beide Provider scannten dieselbe
+synthetische EPUB read-only und bauten daraus einen `CollectionState` mit
+genau einem physischen Item. Der Podman-Lauf verifizierte zusätzlich die vom
+Windows-Provider erwartete Hostpfadübersetzung; sein zunächst nicht
+auflösender Maschinen-DNS wurde hostseitig mit gesicherter Ausgangskonfiguration
+repariert, danach bestand ein vollständiger No-Cache-Build ohne Image-Transfer.
+Der native Python-3.12-Smoke bestand Installation aus dem aktuellen Quellstand,
+CLI-Status, denselben Scan-/Snapshot-Ablauf sowie Surface-Health und Setup-Shell.
+Reale Medien und private Laufzeitdaten wurden nicht verwendet.
+
+Die fokussierte Auswahl aus CLI-, Surface-, Compose- und
+Dokumentationsverträgen bestand mit 23 Tests; weitere acht Packaging- und
+Compose-Verträge bestanden nach der Long-Syntax-Synchronisierung. Vor dem
+Rebase auf den unabhängig gemergten `WI-0003`-Baseline-Head fand der erste
+vollständige Pytest-Lauf genau eine veraltete Assertion auf die frühere kurze
+Volume-Syntax; der Source-Mount war bereits read-only. Nach der Korrektur
+bestand die vollständige damalige Suite mit 2.278 grünen Fällen und 19
+erwarteten Plattform-Skips. Auf dem kombinierten exakten Head bestanden danach
+96 fokussierte Surface-, Migration-, Fixity-, Planning- und
+Dokumentationsfälle mit sechs erwarteten Linux-Skips. Ruff war vollständig
+grün, Mypy prüfte nun 284 Quelldateien ohne Befund und `git diff --check` war
+sauber. Der einmalige vollständige PR-CI-Gate bleibt für den stabilen Head
+auszuführen. Diese Korrektur implementiert keinen `WI-0003`-Slice und
+verändert weder dessen Status als einzige `NEXT`-Wave noch
+Source-Media-Authority.
+
 **WI-0002 abgeschlossen — FUT-009 und FUT-008 sind auf der Ausführungsfront verankert**
 
 Die projektlokale Registration Authority hat bei verifiziertem
