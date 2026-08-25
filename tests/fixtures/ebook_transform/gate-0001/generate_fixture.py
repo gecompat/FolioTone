@@ -61,9 +61,13 @@ REVIEWED_METADATA = b'''<?xml version="1.0" encoding="UTF-8"?>
   <metadata>
     <dc:identifier id="book-id">urn:uuid:11111111-2222-4333-8444-555555555555</dc:identifier>
     <dc:title>Synthetischer Zieltitel</dc:title>
-    <dc:creator>Ada Beispiel</dc:creator>
+    <dc:creator id="creator">Ada Beispiel</dc:creator>
+    <meta refines="#creator" property="role" scheme="marc:relators">aut</meta>
     <dc:language>de</dc:language>
     <dc:publisher>FolioTone Testverlag</dc:publisher>
+    <meta property="belongs-to-collection" id="series">Synthetische Reihe</meta>
+    <meta refines="#series" property="collection-type">series</meta>
+    <meta refines="#series" property="group-position">1</meta>
   </metadata>
 </package>
 '''

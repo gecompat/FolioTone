@@ -67,12 +67,13 @@ Bewertung; das Gate wählt keine unbewiesene Alternative.
 
 `GATE-0001` wurde am 2026-08-25 mit calibre 9.13.0 und dem festen
 `ebook-polish --opf`-Profil abgeschlossen. Zwei frische, netzlose und zeitlich
-getrennte Containerläufe erzeugten bei gleicher Bytelänge unterschiedliche
-SHA-256.
+getrennte Containerläufe erzeugten unterschiedliche Bytelängen und SHA-256.
 calibre setzte jeweils die reale UTC-Zeit in `dcterms:modified` und in
-ZIP-Zeitstempel; zusätzlich gingen nicht projizierte Serienverfeinerungen
-verloren. Beide Outputs waren EPUBCheck-konform, was weder Bytegleichheit noch
-Preserved Fields belegt. Der vollständige Nachweis steht in
+ZIP-Zeitstempel. Die vollständige OPF-Projektion erhielt Serienname, -typ und
+-position in beiden Outputs; eine partielle Projektion wäre wegen der
+`apply_null=True`-Semantik keine zulässige Preserve-/Patch-Schnittstelle.
+Beide Outputs waren EPUBCheck-konform, was die fehlende Bytegleichheit nicht
+aufhebt. Der vollständige Nachweis steht in
 [`GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md`](../quality/GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md).
 
 Die Entscheidung bleibt deshalb `Proposed` und `WI-0004` `BLOCKED`. Vor einem

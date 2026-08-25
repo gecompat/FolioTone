@@ -57,6 +57,12 @@ def test_gate_fixture_contains_the_required_semantic_oracles(tmp_path: Path) -> 
         assert archive.read("EPUB/chapter.xhtml") == generator.CHAPTER
         assert archive.read("EPUB/cover.png") == generator.COVER
 
+    reviewed_metadata = (tmp_path / "reviewed-metadata.opf").read_bytes()
+    assert b"Synthetischer Zieltitel" in reviewed_metadata
+    assert b"Synthetische Reihe" in reviewed_metadata
+    assert b'property="collection-type">series' in reviewed_metadata
+    assert b'property="group-position">1' in reviewed_metadata
+
 
 def test_gate_fixture_readme_forbids_committed_outputs_and_authority() -> None:
     readme = (FIXTURE_ROOT / "README.md").read_text(encoding="utf-8")

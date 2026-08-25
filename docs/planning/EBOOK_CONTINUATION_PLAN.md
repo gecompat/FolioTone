@@ -18,8 +18,8 @@ Die verbindliche Reihenfolge lautet:
    `DEC-0001`. Baseline, Verifikation, Einzelentscheidungen und die gemeinsame
    Application-/CLI-/REST-/Browser-Surface sind umgesetzt.
 2. `GATE-0001` hat calibre 9.13.0 mit einem festen EPUB-3-zu-EPUB-3-Profil
-   geprüft und wegen fehlender Byte-Reproduzierbarkeit sowie verlorener
-   Preserved Fields abgelehnt.
+   und vollständigem Metadatensnapshot geprüft. Die Serie blieb erhalten;
+   das Profil wurde wegen fehlender Byte-Reproduzierbarkeit abgelehnt.
 3. `DEC-0002` benötigt jetzt eine ausdrückliche Folgerichtung und danach ein
    neues positives Profilgate. `WI-0004` (`FUT-008`) bleibt bis dahin
    blockiert.
@@ -68,7 +68,8 @@ neuen Profilgate blockiert.
 
 `GATE-0001` wurde als `FRONTIER`-Wave mit dem gelockten Toolchain-Image lokal,
 netzlos und ausschließlich synthetisch ausgeführt. Der feste calibre-
-9.13.0-Pfad scheiterte an Byte-Reproduzierbarkeit und Preserved Fields. Der
+9.13.0-Pfad erhielt die vollständig projizierte Serie, scheiterte aber an
+Byte-Reproduzierbarkeit. Der
 Nachweis liegt unter
 [`GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md`](../quality/GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md).
 Nur ein späterer dokumentierter positiver Byte-Reproduzierbarkeits-,

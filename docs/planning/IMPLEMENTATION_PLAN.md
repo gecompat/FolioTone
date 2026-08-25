@@ -29,8 +29,9 @@ umgesetzt. `DEC-0001` bindet die
 Verifikation an den neuesten abgeschlossenen Scan-Snapshot und an die
 generische Review-Core-Paarung `FIXITY_EXPECTATION`/`FIXITY_RESULT` mit exakt
 einem immutable Ergebnis je Review. `GATE-0001` hat den vorgeschlagenen
-`DEC-0002`-Vertrag mit calibre 9.13.0 geprüft und wegen fehlender
-Byte-Reproduzierbarkeit sowie verlorener Preserved Fields abgelehnt.
+`DEC-0002`-Vertrag mit calibre 9.13.0 und vollständigem Metadatensnapshot
+geprüft. Die projizierte Serie blieb erhalten; das Profil wurde wegen
+fehlender Byte-Reproduzierbarkeit abgelehnt.
 `DEC-0002` benötigt eine ausdrückliche Folgerichtung und ein neues positives
 Profilgate. `WI-0004` (`FUT-008`) bleibt bis dahin blockiert. Diese
 registrierten Artefakte ersetzen weder historische IDs noch die permanente

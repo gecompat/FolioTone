@@ -109,9 +109,11 @@ Aktivierung ohne Browserwarnung oder -fehler.
 `DEC-0002` hält den gewählten Scope einer EPUB-3-zu-EPUB-3-Ableitung mit
 reviewten Metadaten und getrenntem Output-Root als `Proposed` fest.
 `GATE-0001` ist negativ abgeschlossen: Zwei frische netzlose calibre-9.13.0-
-Läufe mit dem festen `ebook-polish --opf`-Profil lieferten bei gleicher
-Bytelänge unterschiedliche SHA-256, weil reale Zeitwerte in OPF und ZIP einflossen;
-zusätzlich gingen nicht projizierte Serienverfeinerungen verloren. Die
+Läufe mit dem festen `ebook-polish --opf`-Profil und vollständigem
+Metadatensnapshot erhielten Serienname, -typ und -position, lieferten aber
+unterschiedliche Bytelängen und SHA-256, weil reale Zeitwerte in OPF und ZIP
+einflossen. Eine partielle OPF wäre wegen `apply_null=True` keine zulässige
+Patch-Schnittstelle. Die
 aktuelle calibre-Sicherheitsuntergrenze ist 9.12.0. `WI-0004` (`FUT-008`)
 bleibt `BLOCKED`; W9-007-Rezepte bleiben dauerhaft `NOT_EXECUTABLE` und es
 existiert kein Transformationswriter. `DEC-0002` benötigt vor einem neuen

@@ -6,6 +6,9 @@ Feste Member-Reihenfolge, Zeitstempel, Unix-Dateimodi und unkomprimierte
 Member machen den Eingang unabhängig von der zlib-Version bytegleich. Das
 Fixture enthält eine feste UUID, einen Titel, eine Rollenverfeinerung,
 Serienmetadaten, Navigation, genau ein Spine-Dokument und ein minimales Cover.
+Die reviewte vollständige Metadatenprojektion führt Rolle und Serie ebenfalls,
+damit `ebook-polish --opf` nicht irrtümlich als partielle Patch-Schnittstelle
+charakterisiert wird.
 
 Die erzeugten EPUB-/OPF-Dateien und Tooloutputs werden nicht eingecheckt. Sie
 liegen nur in einem aufgabenspezifischen Verzeichnis unter `C:\rep\tmp`.

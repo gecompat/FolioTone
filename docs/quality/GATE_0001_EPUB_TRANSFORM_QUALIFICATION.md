@@ -47,33 +47,42 @@ Tooloptionen oder geerbte Hostkonfiguration waren Teil des Profils.
 Der feste Input hatte SHA-256
 `adfb26f4a3548821485e8a1da1bfdbc60b8485d349eb971cbc347974d07edd28`
 bei 2.699 Bytes. Die reviewte OPF-Projektion hatte SHA-256
-`35fd5b46b968a93412191ea3c1771d63f2998232b1e8fe316714307b15a11d71`
-bei 483 Bytes. Zwischen den zwei frischen Containerläufen lagen mehr als drei
-Sekunden.
+`56efe6165190163bd5ac548b30820f028420eac6d43297e5e699806393e97c3a`
+bei 788 Bytes. Sie enthielt neben dem geänderten Titel ausdrücklich auch die
+reviewten Contributor- und Serienwerte. Zwischen den zwei frischen
+Containerläufen lagen mehr als drei Sekunden.
 
 | Lauf | Output-Bytes | vollständiger SHA-256 | EPUBCheck 5.3.0 |
 |---|---:|---|---|
-| A | 1.806 | `5ddc5cfb87ced6e4f382ea7d3f7bd4a2dc74d27fd73281ca174ac2d8965fa765` | 0 Fatal, 0 Error, 0 Warning |
-| B | 1.806 | `4642b079c497298a4c1b816dc5c2a3dcc0a082ebdd645944c7c6bdd4e5bb6861` | 0 Fatal, 0 Error, 0 Warning |
+| A | 1.860 | `3ed15c4e60fa5a9de358954c2e483c11a7ee3670e702763aacdf71caa98c1843` | 0 Fatal, 0 Error, 0 Warning |
+| B | 1.861 | `f653e477d6ab5688573e51716b308efc9b9f8194029805dbaef588524a9f7e5b` | 0 Fatal, 0 Error, 0 Warning |
 
-Die Quelle blieb bytegleich. Die Outputs hatten dieselbe Länge, aber nicht
-denselben vollständigen SHA-256. Kapitel, Navigation und Cover waren in
-beiden Outputs jeweils bytegleich. Die OPF-Inhalte unterschieden sich beim
-von calibre neu gesetzten `dcterms:modified`; auch die ZIP-Zeitstempel von
-`mimetype` und OPF folgten der realen Laufzeit. Die im Eingang vorhandenen
-refinierten Serienfelder fehlten in beiden Outputs, weil `--opf` die
-vollständige calibre-Metadatenprojektion mit `apply_null=True` anwendet. Damit
-scheitern sowohl die harte Byte-Reproduzierbarkeit als auch der geforderte
-Preserved-Field-Vertrag. EPUBCheck-Konformität ändert dieses Ergebnis nicht.
+Die Quelle blieb bytegleich. Die Outputs hatten weder dieselbe Länge noch
+denselben vollständigen SHA-256. Kapitel, Navigation, Cover, Containerdatei
+und ihre Zeitstempel waren in beiden Outputs jeweils bytegleich. Die
+OPF-Inhalte unterschieden sich beim von calibre neu gesetzten
+`dcterms:modified`; auch die ZIP-Zeitstempel von `mimetype` und OPF folgten der
+realen Laufzeit. Die vollständig projizierten Serienwerte blieben in beiden
+Outputs als `belongs-to-collection`, `collection-type=series` und
+`group-position=1` erhalten.
+
+calibre kann damit Serien verwalten. `ebook-polish --opf` ist jedoch keine
+partielle Patch-Schnittstelle: Der Quellstand wendet die eingelesene
+Metadatenprojektion mit `apply_null=True` an, sodass ausgelassene Werte wie
+eine nicht projizierte Serie gelöscht würden. Das korrigierte Gate verwendet
+deshalb einen vollständigen Snapshot. Es scheitert ausschließlich an der
+harten Byte-Reproduzierbarkeit; EPUBCheck-Konformität ändert dieses Ergebnis
+nicht.
 
 ## Offizielle Tool-, Security- und Lizenzprüfung
 
 calibre 9.13.0 ist ein aktuell gepflegter, signierter Release. Die offizielle
-CLI-Dokumentation beschreibt `ebook-polish --opf` als vollständige
-Metadatenaktualisierung mit getrenntem Output. Der Quellstand 9.13.0 bestätigt
-die beobachteten Ursachen: EPUB-3-Commits setzen `dcterms:modified` aus der
-aktuellen UTC-Zeit, das Repacking garantiert keine kanonische Sortierung und
-ZIP-Einträge übernehmen Dateizeiten und Hostattribute.
+CLI-Dokumentation beschreibt die Aktualisierung aus einer OPF-Datei mit
+getrenntem Output. Der Quellstand 9.13.0 belegt zusätzlich die
+`apply_null=True`-Semantik und bestätigt die beobachteten Ursachen: EPUB-3-
+Commits setzen `dcterms:modified` aus der aktuellen UTC-Zeit, das Repacking
+garantiert keine kanonische Sortierung und ZIP-Einträge übernehmen Dateizeiten
+und Hostattribute.
 
 Die neuere Advisory `GHSA-4f7g-rjfp-hmvx` betrifft calibre bis einschließlich
 9.11.0 und ist ab 9.12.0 behoben. Deshalb wurde die gemeinsame
@@ -120,7 +129,7 @@ Richtungen ausdrücklich zu entscheiden und anschließend in einem neuen Gate
 zu qualifizieren:
 
 1. calibre nur als Transformationsstufe verwenden und danach eine
-   FolioTone-eigene kanonische EPUB-Verpackung anwenden;
+   FolioTone-eigene kanonische OPF-Normalisierung und EPUB-Verpackung anwenden;
 2. die reviewten OPF-Werte mit einem neuen begrenzten FolioTone-Writer patchen
    und das gesamte EPUB anschließend kanonisch verpacken;
 3. einen anderen dokumentierten ToolProvider bewerten.

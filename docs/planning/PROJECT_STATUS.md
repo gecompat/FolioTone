@@ -10,26 +10,28 @@ Das gelockte E-Book-Toolchain-Image wurde mit einem festen
 `ebook-polish --opf`-Profil, ausschließlich synthetischem EPUB 3 und zwei
 frischen netzlosen Containerläufen charakterisiert. Trotz fester Image-ID,
 Argumente, Locale, Zeitzone, `SOURCE_DATE_EPOCH`, privater Calibre-
-Konfiguration und Ressourcenlimits unterschieden sich die vollständigen
-SHA-256 trotz gleicher Outputgröße. calibre setzte die reale UTC-Zeit in
-`dcterms:modified` und ZIP-Zeitstempel; nicht projizierte raffinierte
-Serienmetadaten gingen ebenfalls verloren. Beide Outputs bestanden
-EPUBCheck 5.3.0 ohne Fatal, Error oder Warning, was die Byte- und
-Preserved-Field-Abweichungen nicht aufhebt.
+Konfiguration und Ressourcenlimits unterschieden sich Outputgröße und
+vollständige SHA-256. calibre setzte die reale UTC-Zeit in
+`dcterms:modified` und ZIP-Zeitstempel. Die vollständige OPF-Projektion erhielt
+Serienname, -typ und -position in beiden Outputs; eine partielle OPF wäre wegen
+`apply_null=True` keine zulässige Patch-Schnittstelle. Beide Outputs bestanden
+EPUBCheck 5.3.0 ohne Fatal, Error oder Warning, was die Byteabweichung nicht
+aufhebt.
 
 Die gemeinsame calibre-Sicherheitsuntergrenze ist aufgrund der offiziellen
 Advisory `GHSA-4f7g-rjfp-hmvx` von 9.10.0 auf 9.12.0 angehoben; das gelockte
 9.13.0 liegt darüber. `GATE-0001` öffnet keine Writer- oder W10-Capability.
 `DEC-0002` bleibt `Proposed` und `WI-0004` `BLOCKED`. Vor weiterer
-Transformationsentwicklung ist ausdrücklich zwischen kanonischer
-FolioTone-Verpackung nach calibre, einem begrenzten nativen OPF-Patch mit
-kanonischer Verpackung oder einem anderen ToolProvider zu entscheiden und ein
-neues Profilgate zu registrieren. Der vollständige Nachweis steht in
+Transformationsentwicklung ist ausdrücklich zwischen kanonischer FolioTone-
+OPF-Normalisierung und Verpackung nach calibre, einem begrenzten nativen
+OPF-Patch mit kanonischer Verpackung oder einem anderen ToolProvider zu
+entscheiden und ein neues Profilgate zu registrieren. Der vollständige
+Nachweis steht in
 [`GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md`](../quality/GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md).
 
 Lokal bestanden 168 betroffene calibre-, Readiness-, Fixture- und
 Dokumentationsverträge. Nach der abschließenden Evidenzpräzisierung bestanden
-die 35 direkt betroffenen statischen Verträge erneut. Ruff war für alle
+die 38 direkt betroffenen Verträge erneut. Ruff war für alle
 geänderten Python-Dateien grün, Mypy für den geänderten Sourcevertrag,
 `git diff --check`, die Added-Files-Privacy-/Secret-Suche sowie beide
 Registry-Clients für Revision 7 mit sieben Allokationen waren ebenfalls grün.
@@ -37,7 +39,7 @@ Die zwei exakten Transformations- und EPUBCheck-Doppelläufe verwendeten nur
 synthetische Daten. Die vollständige unbetroffene lokale Suite wurde gemäß
 `TEST_POLICY.md` nicht ausgeführt; ein vollständiger PR-CI-Gate bleibt für den
 exakten stabilen Head erforderlich. Malicious-Fixture-Randfälle wurden nach
-dem harten Reproduzierbarkeits- und Preserved-Field-Fehlschlag nicht mehr als
+dem harten Reproduzierbarkeitsfehlschlag nicht mehr als
 positiv qualifiziert oder unnötig ausgeführt.
 
 ## Zuletzt abgeschlossene Produktwave
@@ -314,8 +316,9 @@ Der vollständige Vertrag und die Stopbedingungen stehen in
 `DEC-0002` dokumentiert den gewählten Produktscope einer EPUB-3-zu-EPUB-3-
 Ableitung mit reviewten Metadaten, getrenntem verwaltetem Output-Root,
 bounded Batch-Preparation und Einzel-Publish. Die Entscheidung bleibt
-`Proposed`: `GATE-0001` belegte, dass das feste rohe calibre-Profil weder
-byteidentischen Dry Run und Replay noch alle Preserved Fields liefert.
+`Proposed`: `GATE-0001` belegte trotz erhaltener vollständiger
+Serienprojektion, dass das feste rohe calibre-Profil keinen byteidentischen
+Dry Run und Replay liefert.
 `WI-0004` bleibt bis zur ausdrücklichen Folgerichtung und einem positiven
 neuen Profilgate blockiert; es existiert keine Transformations-Capability oder
 Runtime-Operation.
