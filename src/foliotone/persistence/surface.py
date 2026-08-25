@@ -2,19 +2,31 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import Engine, and_, insert, select, update
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import IntegrityError
 
+from foliotone.application.contracts import EbookRenameOperatorJobProfile
+from foliotone.core import EntityId
+from foliotone.ebook_rename.confirmation import (
+    EbookRenameConfirmationError,
+    ebook_rename_confirmation_digest,
+)
+from foliotone.persistence.ebook_rename import SQLiteEbookRenameStore
 from foliotone.persistence.surface_schema import (
     application_job_events,
     application_jobs,
+    ebook_rename_operator_job_binders,
+    ebook_rename_operator_job_results,
     surface_audit_events,
     surface_auth_attempts,
     surface_bootstrap_tokens,
+    surface_command_receipts,
     surface_grants,
     surface_sessions,
     surface_users,
@@ -51,8 +63,60 @@ class SurfaceSession:
 @dataclass(frozen=True, slots=True)
 class ClaimedJob:
     id: str
+    actor_id: str
     fence_epoch: int
     lease_token: str
+
+
+@dataclass(frozen=True, slots=True)
+class EbookRenameOperatorJobBinder:
+    """Immutable, path-free envelope for one ADR-0069 operator job."""
+
+    profile: EbookRenameOperatorJobProfile
+    plan_id: str | None
+    plan_content_hash: str | None
+    capability_id: str | None
+    operate_grant_id: str
+    authorization_id: str | None = None
+    run_id: str | None = None
+    confirmation_digest: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.operate_grant_id:
+            raise ValueError("e-book rename operator job binder is incomplete")
+        shapes = {
+            EbookRenameOperatorJobProfile.AUTHORIZE: (
+                "required",
+                "required",
+                "required",
+                None,
+                None,
+                None,
+            ),
+            EbookRenameOperatorJobProfile.EXECUTE: (
+                "required",
+                "required",
+                "required",
+                "required",
+                None,
+                "required",
+            ),
+            EbookRenameOperatorJobProfile.RECOVER: (None, None, None, None, "required", None),
+        }
+        expected = shapes[self.profile]
+        actual = (
+            self.plan_id,
+            self.plan_content_hash,
+            self.capability_id,
+            self.authorization_id,
+            self.run_id,
+            self.confirmation_digest,
+        )
+        if any(
+            (need == "required") != bool(value)
+            for need, value in zip(expected, actual, strict=True)
+        ):
+            raise ValueError("e-book rename operator job binder shape is invalid")
 
 
 class SQLiteSurfaceStore:
@@ -60,6 +124,31 @@ class SQLiteSurfaceStore:
 
     def __init__(self, engine: Engine) -> None:
         self._engine = engine
+
+    def ebook_rename_confirmation_digest(
+        self,
+        *,
+        plan_id: str,
+        plan_content_hash: str,
+        capability_id: str,
+        authorization_id: str,
+        confirmation_text: str,
+    ) -> str:
+        """Validate the raw API confirmation using persisted authority, never capability config."""
+        try:
+            authorization = SQLiteEbookRenameStore(self._engine).get_authorization(
+                EntityId.parse(authorization_id)
+            )
+            if (
+                authorization is None
+                or str(authorization.plan_id) != plan_id
+                or authorization.plan_content_hash != plan_content_hash
+                or str(authorization.ebook_rename_capability_id) != capability_id
+            ):
+                raise ValueError("authorization does not match immutable binders")
+            return ebook_rename_confirmation_digest(authorization, confirmation_text)
+        except (EbookRenameConfirmationError, TypeError, ValueError):
+            raise ValueError("e-book rename confirmation is invalid") from None
 
     def has_user(self) -> bool:
         with self._engine.connect() as connection:
@@ -331,10 +420,10 @@ class SQLiteSurfaceStore:
                 connection.execute(
                     select(surface_sessions).where(
                         and_(
-                        surface_sessions.c.token_digest == token_digest,
-                        surface_sessions.c.revoked_at.is_(None),
-                        surface_sessions.c.last_seen_at > now - timedelta(minutes=30),
-                        surface_sessions.c.expires_at > now,
+                            surface_sessions.c.token_digest == token_digest,
+                            surface_sessions.c.revoked_at.is_(None),
+                            surface_sessions.c.last_seen_at > now - timedelta(minutes=30),
+                            surface_sessions.c.expires_at > now,
                         )
                     )
                 )
@@ -409,12 +498,13 @@ class SQLiteSurfaceStore:
             )
         self.revoke_all_for_user(user_id)
 
-    def create_grant(self, session: SurfaceSession, scope: Scope) -> None:
+    def create_grant(self, session: SurfaceSession, scope: Scope) -> str:
         now = _now()
         with self._engine.begin() as connection:
+            grant_id = str(uuid4())
             connection.execute(
                 insert(surface_grants).values(
-                    id=str(uuid4()),
+                    id=grant_id,
                     session_id=session.id,
                     scope=scope.value,
                     created_at=now,
@@ -423,6 +513,50 @@ class SQLiteSurfaceStore:
                 )
             )
             self._audit(connection, session.user_id, "SESSION_GRANT_CREATED", "ACCEPTED")
+        return grant_id
+
+    def active_operate_grant_id(self, session: SurfaceSession) -> str | None:
+        """Return one current exact OPERATE grant for a job binder, never a capability."""
+        now = _now()
+        with self._engine.connect() as connection:
+            value = connection.execute(
+                select(surface_grants.c.id)
+                .where(
+                    and_(
+                        surface_grants.c.session_id == session.id,
+                        surface_grants.c.scope == Scope.OPERATE.value,
+                        surface_grants.c.revoked_at.is_(None),
+                        surface_grants.c.expires_at > now,
+                    )
+                )
+                .order_by(surface_grants.c.created_at.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+        return None if value is None else str(value)
+
+    def has_active_operate_grant(self, *, grant_id: str, actor_id: str) -> bool:
+        """Recheck the exact grant bound to a claimed W10 job."""
+        now = _now()
+        with self._engine.connect() as connection:
+            return (
+                connection.execute(
+                    select(surface_grants.c.id)
+                    .select_from(surface_grants.join(surface_sessions))
+                    .where(
+                        and_(
+                            surface_grants.c.id == grant_id,
+                            surface_grants.c.scope == Scope.OPERATE.value,
+                            surface_grants.c.revoked_at.is_(None),
+                            surface_grants.c.expires_at > now,
+                            surface_sessions.c.user_id == actor_id,
+                            surface_sessions.c.revoked_at.is_(None),
+                            surface_sessions.c.expires_at > now,
+                        )
+                    )
+                    .limit(1)
+                ).first()
+                is not None
+            )
 
     def has_active_grant(self, session_id: str, scope: Scope) -> bool:
         """Return whether exactly this still-active session has an unexpired scope grant."""
@@ -456,13 +590,17 @@ class SQLiteSurfaceStore:
         self, *, after_id: str | None, limit: int
     ) -> tuple[tuple[dict[str, object], ...], str | None]:
         """Return a bounded public projection without job inputs, digests, or leases."""
-        statement = select(
-            application_jobs.c.id,
-            application_jobs.c.command_profile,
-            application_jobs.c.created_at,
-            application_jobs.c.status,
-            application_jobs.c.worker_role,
-        ).order_by(application_jobs.c.id).limit(limit + 1)
+        statement = (
+            select(
+                application_jobs.c.id,
+                application_jobs.c.command_profile,
+                application_jobs.c.created_at,
+                application_jobs.c.status,
+                application_jobs.c.worker_role,
+            )
+            .order_by(application_jobs.c.id)
+            .limit(limit + 1)
+        )
         if after_id is not None:
             statement = statement.where(application_jobs.c.id > after_id)
         with self._engine.connect() as connection:
@@ -485,28 +623,36 @@ class SQLiteSurfaceStore:
     def job_detail(self, job_id: str) -> dict[str, object] | None:
         """Return one public job plus bounded state events, never its input envelope."""
         with self._engine.connect() as connection:
-            job = connection.execute(
-                select(
-                    application_jobs.c.id,
-                    application_jobs.c.command_profile,
-                    application_jobs.c.created_at,
-                    application_jobs.c.status,
-                    application_jobs.c.worker_role,
-                ).where(application_jobs.c.id == job_id)
-            ).mappings().one_or_none()
+            job = (
+                connection.execute(
+                    select(
+                        application_jobs.c.id,
+                        application_jobs.c.command_profile,
+                        application_jobs.c.created_at,
+                        application_jobs.c.status,
+                        application_jobs.c.worker_role,
+                    ).where(application_jobs.c.id == job_id)
+                )
+                .mappings()
+                .one_or_none()
+            )
             if job is None:
                 return None
-            events = connection.execute(
-                select(
-                    application_job_events.c.sequence_no,
-                    application_job_events.c.status,
-                    application_job_events.c.occurred_at,
-                    application_job_events.c.finding_code,
+            events = (
+                connection.execute(
+                    select(
+                        application_job_events.c.sequence_no,
+                        application_job_events.c.status,
+                        application_job_events.c.occurred_at,
+                        application_job_events.c.finding_code,
+                    )
+                    .where(application_job_events.c.job_id == job_id)
+                    .order_by(application_job_events.c.sequence_no)
+                    .limit(100)
                 )
-                .where(application_job_events.c.job_id == job_id)
-                .order_by(application_job_events.c.sequence_no)
-                .limit(100)
-            ).mappings().all()
+                .mappings()
+                .all()
+            )
         return {
             "job_id": str(job["id"]),
             "command_profile": str(job["command_profile"]),
@@ -528,14 +674,18 @@ class SQLiteSurfaceStore:
         self, *, after_id: str | None, limit: int
     ) -> tuple[tuple[dict[str, object], ...], str | None]:
         """Return an opaque, bounded append-only audit projection."""
-        statement = select(
-            surface_audit_events.c.id,
-            surface_audit_events.c.event_type,
-            surface_audit_events.c.decision,
-            surface_audit_events.c.job_id,
-            surface_audit_events.c.finding_code,
-            surface_audit_events.c.occurred_at,
-        ).order_by(surface_audit_events.c.id).limit(limit + 1)
+        statement = (
+            select(
+                surface_audit_events.c.id,
+                surface_audit_events.c.event_type,
+                surface_audit_events.c.decision,
+                surface_audit_events.c.job_id,
+                surface_audit_events.c.finding_code,
+                surface_audit_events.c.occurred_at,
+            )
+            .order_by(surface_audit_events.c.id)
+            .limit(limit + 1)
+        )
         if after_id is not None:
             statement = statement.where(surface_audit_events.c.id > after_id)
         with self._engine.connect() as connection:
@@ -565,6 +715,8 @@ class SQLiteSurfaceStore:
         idempotency_digest: str,
         worker_role: ProcessRole,
     ) -> str:
+        if worker_role is ProcessRole.OPERATOR_WORKER:
+            raise ValueError("operator jobs require an e-book rename binder")
         now = _now()
         with self._engine.begin() as connection:
             existing = connection.execute(
@@ -600,21 +752,298 @@ class SQLiteSurfaceStore:
             self._audit(connection, actor_id, "JOB_ACCEPTED", "ACCEPTED", job_id=job_id)
             return job_id
 
-    def claim_next_job(self, role: ProcessRole, lease_digest: str) -> ClaimedJob | None:
-        if role is ProcessRole.OPERATOR_WORKER:
+    def ebook_rename_command_receipt(
+        self,
+        *,
+        actor_id: str,
+        command_profile: str,
+        input_digest: str,
+        idempotency_digest: str,
+    ) -> dict[str, object] | None:
+        """Return a prior safe response or reject one key with changed semantic input."""
+        with self._engine.connect() as connection:
+            existing = (
+                connection.execute(
+                    select(
+                        surface_command_receipts.c.input_digest,
+                        surface_command_receipts.c.response_json,
+                    ).where(
+                        and_(
+                            surface_command_receipts.c.actor_id == actor_id,
+                            surface_command_receipts.c.command_profile == command_profile,
+                            surface_command_receipts.c.idempotency_digest == idempotency_digest,
+                        )
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if existing is None:
             return None
+        if str(existing["input_digest"]) != input_digest:
+            raise ValueError("idempotency key was reused with different input")
+        if existing["response_json"] is None:
+            raise RuntimeError("idempotency command is pending")
+        response = json.loads(str(existing["response_json"]))
+        if not isinstance(response, dict):
+            raise RuntimeError("surface command receipt is corrupt")
+        return response
+
+    def claim_ebook_rename_command_receipt(
+        self,
+        *,
+        actor_id: str,
+        command_profile: str,
+        input_digest: str,
+        idempotency_digest: str,
+    ) -> dict[str, object] | None:
+        """Atomically reserve one planning command before it can mutate review state."""
+        now = _now()
+        try:
+            with self._engine.begin() as connection:
+                existing = (
+                    connection.execute(
+                        select(
+                            surface_command_receipts.c.input_digest,
+                            surface_command_receipts.c.response_json,
+                            surface_command_receipts.c.status,
+                        ).where(
+                            and_(
+                                surface_command_receipts.c.actor_id == actor_id,
+                                surface_command_receipts.c.command_profile == command_profile,
+                                surface_command_receipts.c.idempotency_digest == idempotency_digest,
+                            )
+                        )
+                    )
+                    .mappings()
+                    .one_or_none()
+                )
+                if existing is not None:
+                    if str(existing["input_digest"]) != input_digest:
+                        raise ValueError("idempotency key was reused with different input")
+                    if existing["response_json"] is None:
+                        raise RuntimeError("idempotency command is pending")
+                    response = json.loads(str(existing["response_json"]))
+                    if not isinstance(response, dict):
+                        raise RuntimeError("surface command receipt is corrupt")
+                    return response
+                connection.execute(
+                    insert(surface_command_receipts).values(
+                        id=str(uuid4()),
+                        actor_id=actor_id,
+                        command_profile=command_profile,
+                        input_digest=input_digest,
+                        idempotency_digest=idempotency_digest,
+                        response_json=None,
+                        status="PENDING",
+                        created_at=now,
+                    )
+                )
+                return None
+        except IntegrityError:
+            return self.claim_ebook_rename_command_receipt(
+                actor_id=actor_id,
+                command_profile=command_profile,
+                input_digest=input_digest,
+                idempotency_digest=idempotency_digest,
+            )
+
+    def record_ebook_rename_command_receipt(
+        self,
+        *,
+        actor_id: str,
+        command_profile: str,
+        input_digest: str,
+        idempotency_digest: str,
+        response: dict[str, object],
+    ) -> dict[str, object]:
+        """Persist a path-free response for one accepted planning command retry."""
+        encoded = json.dumps(response, sort_keys=True, separators=(",", ":"))
+        with self._engine.begin() as connection:
+            changed = connection.execute(
+                update(surface_command_receipts)
+                .where(
+                    and_(
+                        surface_command_receipts.c.actor_id == actor_id,
+                        surface_command_receipts.c.command_profile == command_profile,
+                        surface_command_receipts.c.input_digest == input_digest,
+                        surface_command_receipts.c.idempotency_digest == idempotency_digest,
+                        surface_command_receipts.c.status == "PENDING",
+                        surface_command_receipts.c.response_json.is_(None),
+                    )
+                )
+                .values(response_json=encoded, status="COMPLETED")
+            ).rowcount
+            if changed != 1:
+                raise RuntimeError("surface command receipt completion differs")
+        return response
+
+    def enqueue_ebook_rename_operator_job(
+        self,
+        *,
+        actor_id: str,
+        input_digest: str,
+        idempotency_digest: str,
+        binder: EbookRenameOperatorJobBinder,
+    ) -> str:
+        """Atomically persist exactly one fixed ADR-0069 job envelope."""
+        now = _now()
+        profile = binder.profile.value
+        with self._engine.begin() as connection:
+            existing = connection.execute(
+                select(application_jobs.c.id, application_jobs.c.input_digest).where(
+                    and_(
+                        application_jobs.c.actor_id == actor_id,
+                        application_jobs.c.command_profile == profile,
+                        application_jobs.c.idempotency_digest == idempotency_digest,
+                    )
+                )
+            ).one_or_none()
+            if existing is not None:
+                if str(existing.input_digest) != input_digest:
+                    raise ValueError("idempotency key was reused with different input")
+                return str(existing.id)
+            job_id = str(uuid4())
+            connection.execute(
+                insert(application_jobs).values(
+                    id=job_id,
+                    actor_id=actor_id,
+                    command_profile=profile,
+                    input_digest=input_digest,
+                    idempotency_digest=idempotency_digest,
+                    created_at=now,
+                    status=JobStatus.WAITING.value,
+                    worker_role=ProcessRole.OPERATOR_WORKER.value,
+                    lease_digest=None,
+                    lease_expires_at=None,
+                    fence_epoch=0,
+                )
+            )
+            connection.execute(
+                insert(ebook_rename_operator_job_binders).values(
+                    job_id=job_id,
+                    profile=profile,
+                    plan_id=binder.plan_id,
+                    plan_content_hash=binder.plan_content_hash,
+                    capability_id=binder.capability_id,
+                    operate_grant_id=binder.operate_grant_id,
+                    authorization_id=binder.authorization_id,
+                    run_id=binder.run_id,
+                    confirmation_digest=binder.confirmation_digest,
+                )
+            )
+            self._event(connection, job_id, 1, JobStatus.WAITING, now)
+            self._audit(
+                connection,
+                actor_id,
+                "EBOOK_RENAME_JOB_ACCEPTED",
+                "ACCEPTED",
+                job_id=job_id,
+            )
+            return job_id
+
+    def ebook_rename_operator_job_binder(self, job_id: str) -> EbookRenameOperatorJobBinder | None:
+        """Load one immutable ADR-0069 envelope without exposing it publicly."""
+        with self._engine.connect() as connection:
+            row = (
+                connection.execute(
+                    select(ebook_rename_operator_job_binders).where(
+                        ebook_rename_operator_job_binders.c.job_id == job_id
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            return None
+        try:
+            return EbookRenameOperatorJobBinder(
+                profile=EbookRenameOperatorJobProfile(str(row["profile"])),
+                plan_id=None if row["plan_id"] is None else str(row["plan_id"]),
+                plan_content_hash=(
+                    None if row["plan_content_hash"] is None else str(row["plan_content_hash"])
+                ),
+                capability_id=(None if row["capability_id"] is None else str(row["capability_id"])),
+                operate_grant_id=str(row["operate_grant_id"]),
+                authorization_id=(
+                    None if row["authorization_id"] is None else str(row["authorization_id"])
+                ),
+                run_id=None if row["run_id"] is None else str(row["run_id"]),
+                confirmation_digest=(
+                    None if row["confirmation_digest"] is None else str(row["confirmation_digest"])
+                ),
+            )
+        except ValueError as error:
+            raise RuntimeError("e-book rename operator job binder is corrupt") from error
+
+    def record_ebook_rename_operator_job_result(
+        self,
+        *,
+        job_id: str,
+        outcome: str,
+        authorization_id: str | None = None,
+        run_id: str | None = None,
+    ) -> None:
+        """Insert the one opaque outcome reference for a completed rename job."""
+        if not outcome or (authorization_id is not None and run_id is not None):
+            raise ValueError("e-book rename operator job result is invalid")
+        expected = {
+            "job_id": job_id,
+            "outcome": outcome,
+            "authorization_id": authorization_id,
+            "run_id": run_id,
+        }
+        with self._engine.begin() as connection:
+            binder = connection.execute(
+                select(ebook_rename_operator_job_binders.c.profile).where(
+                    ebook_rename_operator_job_binders.c.job_id == job_id
+                )
+            ).one_or_none()
+            if binder is None:
+                raise ValueError("e-book rename operator job binder is unavailable")
+            profile = EbookRenameOperatorJobProfile(str(binder.profile))
+            if (
+                (profile is EbookRenameOperatorJobProfile.AUTHORIZE)
+                != (authorization_id is not None and run_id is None)
+            ) or (
+                profile
+                in {EbookRenameOperatorJobProfile.EXECUTE, EbookRenameOperatorJobProfile.RECOVER}
+                and not (authorization_id is None and run_id is not None)
+            ):
+                raise ValueError("e-book rename operator job result shape is invalid")
+            existing = (
+                connection.execute(
+                    select(ebook_rename_operator_job_results).where(
+                        ebook_rename_operator_job_results.c.job_id == job_id
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if existing is not None:
+                if any(existing[key] != value for key, value in expected.items()):
+                    raise ValueError("e-book rename operator job result retry differs")
+                return
+            connection.execute(insert(ebook_rename_operator_job_results).values(**expected))
+
+    def claim_next_job(self, role: ProcessRole, lease_digest: str) -> ClaimedJob | None:
         now = _now()
         until = now + timedelta(minutes=2)
         with self._engine.begin() as connection:
+            clauses = [
+                application_jobs.c.worker_role == role.value,
+                application_jobs.c.status == JobStatus.WAITING.value,
+            ]
+            if role is ProcessRole.OPERATOR_WORKER:
+                clauses.append(
+                    application_jobs.c.command_profile.in_(
+                        tuple(profile.value for profile in EbookRenameOperatorJobProfile)
+                    )
+                )
             row = (
                 connection.execute(
                     select(application_jobs)
-                    .where(
-                        and_(
-                            application_jobs.c.worker_role == role.value,
-                            application_jobs.c.status == JobStatus.WAITING.value,
-                        )
-                    )
+                    .where(and_(*clauses))
                     .order_by(application_jobs.c.created_at)
                     .limit(1)
                 )
@@ -649,7 +1078,109 @@ class SQLiteSurfaceStore:
                 JobStatus.ACTIVE,
                 now,
             )
-            return ClaimedJob(str(row["id"]), epoch, lease_digest)
+            return ClaimedJob(str(row["id"]), str(row["actor_id"]), epoch, lease_digest)
+
+    def complete_claimed_job(
+        self,
+        claim: ClaimedJob,
+        *,
+        status: JobStatus,
+        finding_code: str | None = None,
+    ) -> bool:
+        """Finish one leased worker job without reopening or changing its envelope."""
+        if status not in {JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.RECOVERY_REQUIRED}:
+            raise ValueError("worker job terminal status is invalid")
+        now = _now()
+        with self._engine.begin() as connection:
+            changed = connection.execute(
+                update(application_jobs)
+                .where(
+                    and_(
+                        application_jobs.c.id == claim.id,
+                        application_jobs.c.status == JobStatus.ACTIVE.value,
+                        application_jobs.c.fence_epoch == claim.fence_epoch,
+                        application_jobs.c.lease_digest == claim.lease_token,
+                        application_jobs.c.lease_expires_at > now,
+                    )
+                )
+                .values(status=status.value, lease_expires_at=now)
+            ).rowcount
+            if changed != 1:
+                return False
+            self._event(
+                connection,
+                claim.id,
+                self._next_sequence(connection, claim.id),
+                status,
+                now,
+                finding_code=finding_code,
+            )
+            self._audit(
+                connection,
+                None,
+                "EBOOK_RENAME_JOB_FINISHED",
+                status.value,
+                job_id=claim.id,
+                finding_code=finding_code,
+            )
+            return True
+
+    def heartbeat_claimed_job(self, claim: ClaimedJob) -> bool:
+        """Extend one still-current worker lease without changing its immutable binder."""
+        now = _now()
+        with self._engine.begin() as connection:
+            return (
+                connection.execute(
+                    update(application_jobs)
+                    .where(
+                        and_(
+                            application_jobs.c.id == claim.id,
+                            application_jobs.c.status == JobStatus.ACTIVE.value,
+                            application_jobs.c.fence_epoch == claim.fence_epoch,
+                            application_jobs.c.lease_digest == claim.lease_token,
+                            application_jobs.c.lease_expires_at > now,
+                        )
+                    )
+                    .values(lease_expires_at=now + timedelta(minutes=2))
+                ).rowcount
+                == 1
+            )
+
+    def abandon_claimed_job_for_recovery(self, claim: ClaimedJob, *, finding_code: str) -> bool:
+        """Fence a lost lease into a queryable recovery state without reopening its binder."""
+        now = _now()
+        with self._engine.begin() as connection:
+            changed = connection.execute(
+                update(application_jobs)
+                .where(
+                    and_(
+                        application_jobs.c.id == claim.id,
+                        application_jobs.c.status == JobStatus.ACTIVE.value,
+                        application_jobs.c.fence_epoch == claim.fence_epoch,
+                        application_jobs.c.lease_digest == claim.lease_token,
+                    )
+                )
+                .values(status=JobStatus.RECOVERY_REQUIRED.value, lease_expires_at=now)
+            ).rowcount
+            if changed != 1:
+                return False
+            self._event(
+                connection,
+                claim.id,
+                self._next_sequence(connection, claim.id),
+                JobStatus.RECOVERY_REQUIRED,
+                now,
+                finding_code=finding_code,
+            )
+            self._audit(
+                connection,
+                None,
+                "EBOOK_RENAME_JOB_FINISHED",
+                JobStatus.RECOVERY_REQUIRED.value,
+                job_id=claim.id,
+                finding_code=finding_code,
+            )
+            return True
 
     def _next_sequence(self, connection: Connection, job_id: str) -> int:
         result = connection.execute(
@@ -668,6 +1199,7 @@ class SQLiteSurfaceStore:
         sequence_no: int,
         status: JobStatus,
         occurred_at: datetime,
+        finding_code: str | None = None,
     ) -> None:
         connection.execute(
             insert(application_job_events).values(
@@ -676,7 +1208,7 @@ class SQLiteSurfaceStore:
                 sequence_no=sequence_no,
                 status=status.value,
                 occurred_at=occurred_at,
-                finding_code=None,
+                finding_code=finding_code,
             )
         )
 
@@ -688,6 +1220,7 @@ class SQLiteSurfaceStore:
         decision: str,
         *,
         job_id: str | None = None,
+        finding_code: str | None = None,
     ) -> None:
         connection.execute(
             insert(surface_audit_events).values(
@@ -697,7 +1230,7 @@ class SQLiteSurfaceStore:
                 decision=decision,
                 correlation_id=None,
                 job_id=job_id,
-                finding_code=None,
+                finding_code=finding_code,
                 occurred_at=_now(),
             )
         )

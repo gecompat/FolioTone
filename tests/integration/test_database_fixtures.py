@@ -28,7 +28,7 @@ def test_head_database_factory_returns_isolated_schema_copies(
     right_engine.dispose()
 
     assert marker is None
-    assert revision == "0033_local_surface_foundation"
+    assert revision == "0034_ebook_rename_operator_jobs"
 
 
 def test_head_database_factory_rejects_reuse_and_nested_names(

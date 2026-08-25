@@ -537,6 +537,27 @@ class EbookRenameOperatorService:
         )
         return ebook_rename_confirmation_text(authorization)
 
+    def confirmation_digest(
+        self,
+        *,
+        plan_id: EntityId,
+        plan_content_hash: str,
+        capability_id: EntityId,
+        authorization_id: EntityId,
+        confirmation_text: str,
+    ) -> str:
+        """Derive the existing domain-bound confirmation digest without persisting text."""
+        _plan, authorization, _preparation, _probe, _capability = self._bound_material(
+            plan_id,
+            plan_content_hash,
+            capability_id,
+            authorization_id,
+        )
+        try:
+            return ebook_rename_confirmation_digest(authorization, confirmation_text)
+        except EbookRenameConfirmationError:
+            _operator_fail(EbookRenameOperatorErrorCode.CONFIRMATION_INVALID)
+
     def authorize(
         self,
         *,

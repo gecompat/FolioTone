@@ -14,6 +14,7 @@ from foliotone.adapters.epubcheck import (
     epubcheck_version_policy,
     parse_epubcheck_report,
 )
+from foliotone.analyzers.ebook import resolve_observed_file
 from foliotone.core import (
     EntityId,
     FileObservation,
@@ -231,7 +232,7 @@ def test_analyzer_uses_fixed_read_only_command_and_persists_evidence(tmp_path: P
         "-Djava.io.tmpdir=.",
         "-jar",
         str(jar.resolve()),
-        str(source_file.resolve()),
+        str(resolve_observed_file(source_root, observation)),
         "--json",
         "report.json",
         "--locale",

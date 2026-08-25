@@ -186,6 +186,111 @@ def test_reauthentication_rotates_session_and_serves_only_local_assets(
     assert client.get("/assets/not-found.js").json()["code"] == "ASSET_NOT_FOUND"
 
 
+def test_operate_reauthentication_rotates_the_session(head_database_factory) -> None:
+    database = head_database_factory("surface.sqlite")
+    client = _client(database)
+    service = LocalSurfaceService(SQLiteSurfaceStore(create_sqlite_engine(database)))
+    bootstrap = service.bootstrap()
+    client.post(
+        "/api/v1/setup",
+        headers={"Origin": ORIGIN},
+        json={
+            "bootstrap_code": bootstrap,
+            "username": "Märta",
+            "password": "ein sehr langes Passwort",
+        },
+    )
+    login = client.post(
+        "/api/v1/session",
+        headers={"Origin": ORIGIN},
+        json={"username": "Märta", "password": "ein sehr langes Passwort"},
+    )
+    reauth = client.post(
+        "/api/v1/session/reauth-operate",
+        headers={"Origin": ORIGIN, "X-FolioTone-CSRF": login.json()["csrf"]},
+        json={"password": "ein sehr langes Passwort"},
+    )
+
+    assert reauth.status_code == 200
+    assert reauth.json()["status"] == "OPERATE_GRANT_ISSUED"
+    assert reauth.headers["cache-control"] == "no-store"
+    queued = client.post(
+        "/api/v1/ebooks/rename/authorizations",
+        headers={
+            "Origin": ORIGIN,
+            "X-FolioTone-CSRF": reauth.json()["csrf"],
+            "Idempotency-Key": "synthetic-authorize-1",
+        },
+        json={
+            "plan_id": str(uuid4()),
+            "plan_content_hash": "a" * 64,
+            "capability_id": str(uuid4()),
+        },
+    )
+    assert queued.status_code == 202
+    detail = client.get(f"/api/v1/jobs/{queued.json()['job_id']}")
+    assert detail.status_code == 200
+    assert "capability" not in str(detail.json()).lower()
+
+
+def test_rename_planning_requires_a_fresh_review_grant(head_database_factory) -> None:
+    database = head_database_factory("surface.sqlite")
+    client = _client(database)
+    service = LocalSurfaceService(SQLiteSurfaceStore(create_sqlite_engine(database)))
+    bootstrap = service.bootstrap()
+    client.post(
+        "/api/v1/setup",
+        headers={"Origin": ORIGIN},
+        json={
+            "bootstrap_code": bootstrap,
+            "username": "Märta",
+            "password": "ein sehr langes Passwort",
+        },
+    )
+    login = client.post(
+        "/api/v1/session",
+        headers={"Origin": ORIGIN},
+        json={"username": "Märta", "password": "ein sehr langes Passwort"},
+    )
+    request = {
+        "observation_id": str(uuid4()),
+        "dependency_scope_id": str(uuid4()),
+        "target_basename": "synthetic.epub",
+    }
+    denied = client.post(
+        "/api/v1/ebooks/rename/candidates",
+        headers={
+            "Origin": ORIGIN,
+            "X-FolioTone-CSRF": login.json()["csrf"],
+            "Idempotency-Key": "synthetic-proposal-1",
+        },
+        json=request,
+    )
+    assert denied.json()["code"] == "REVIEW_GRANT_REQUIRED"
+    reauth = client.post(
+        "/api/v1/session/reauth-review",
+        headers={"Origin": ORIGIN, "X-FolioTone-CSRF": login.json()["csrf"]},
+        json={"password": "ein sehr langes Passwort"},
+    )
+    assert reauth.json()["status"] == "REVIEW_GRANT_ISSUED"
+    csrf_denied = client.post(
+        "/api/v1/ebooks/rename/candidates",
+        headers={"Origin": ORIGIN, "Idempotency-Key": "synthetic-proposal-csrf"},
+        json=request,
+    )
+    assert csrf_denied.json()["code"] == "CSRF_REJECTED"
+    unavailable = client.post(
+        "/api/v1/ebooks/rename/candidates",
+        headers={
+            "Origin": ORIGIN,
+            "X-FolioTone-CSRF": reauth.json()["csrf"],
+            "Idempotency-Key": "synthetic-proposal-2",
+        },
+        json=request,
+    )
+    assert unavailable.json()["code"] == "EBOOK_RENAME_UNAVAILABLE"
+
+
 def test_private_boundary_requires_a_fresh_rotated_grant(head_database_factory) -> None:
     database = head_database_factory("surface.sqlite")
     client = _client(database)

@@ -109,6 +109,61 @@ application_job_events = Table(
     Column("finding_code", Text),
     UniqueConstraint("job_id", "sequence_no", name="uq_application_job_events_sequence"),
 )
+surface_command_receipts = Table(
+    "surface_command_receipts",
+    metadata,
+    Column("id", ID, primary_key=True),
+    Column("actor_id", ID, ForeignKey("surface_users.id"), nullable=False),
+    Column("command_profile", Text, nullable=False),
+    Column("input_digest", Text, nullable=False),
+    Column("idempotency_digest", Text, nullable=False),
+    Column("response_json", Text),
+    Column("status", ENUM, nullable=False),
+    Column("created_at", DATETIME, nullable=False),
+    UniqueConstraint(
+        "actor_id",
+        "command_profile",
+        "idempotency_digest",
+        name="uq_surface_command_receipts_idempotency",
+    ),
+)
+ebook_rename_operator_job_binders = Table(
+    "ebook_rename_operator_job_binders",
+    metadata,
+    Column("job_id", ID, ForeignKey("application_jobs.id"), primary_key=True),
+    Column("profile", Text, nullable=False),
+    Column("plan_id", ID),
+    Column("plan_content_hash", Text),
+    Column("capability_id", ID),
+    Column("operate_grant_id", ID, ForeignKey("surface_grants.id"), nullable=False),
+    Column("authorization_id", ID),
+    Column("run_id", ID),
+    Column("confirmation_digest", Text),
+    CheckConstraint(
+        "(profile = 'ebook-rename-operator-authorize/v1' "
+        "AND plan_id IS NOT NULL AND plan_content_hash IS NOT NULL AND capability_id IS NOT NULL "
+        "AND authorization_id IS NULL AND run_id IS NULL AND confirmation_digest IS NULL) "
+        "OR (profile = 'ebook-rename-operator-execute/v1' "
+        "AND plan_id IS NOT NULL AND plan_content_hash IS NOT NULL AND capability_id IS NOT NULL "
+        "AND authorization_id IS NOT NULL AND run_id IS NULL AND confirmation_digest IS NOT NULL) "
+        "OR (profile = 'ebook-rename-operator-recover/v1' "
+        "AND plan_id IS NULL AND plan_content_hash IS NULL AND capability_id IS NULL "
+        "AND authorization_id IS NULL AND run_id IS NOT NULL AND confirmation_digest IS NULL)",
+        name="ck_ebook_rename_operator_job_binder_shape",
+    ),
+)
+ebook_rename_operator_job_results = Table(
+    "ebook_rename_operator_job_results",
+    metadata,
+    Column("job_id", ID, ForeignKey("application_jobs.id"), primary_key=True),
+    Column("outcome", Text, nullable=False),
+    Column("authorization_id", ID),
+    Column("run_id", ID),
+    CheckConstraint(
+        "(authorization_id IS NULL) OR (run_id IS NULL)",
+        name="ck_ebook_rename_operator_job_result_reference",
+    ),
+)
 Index("ix_surface_sessions_active", surface_sessions.c.token_digest, surface_sessions.c.expires_at)
 Index(
     "ix_application_jobs_claim",

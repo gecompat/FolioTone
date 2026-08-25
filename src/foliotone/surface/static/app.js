@@ -31,8 +31,10 @@ async function initialise() {
   await loadList("/api/v1/audit-events", "#audit-list", "Audit-Ereignisse");
 }
 
-async function request(path, body) {
-  const response = await fetch(path, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "Origin": location.origin, "X-FolioTone-CSRF": window.csrf || "" }, body: JSON.stringify(body) });
+async function request(path, body, idempotency = false) {
+  const headers = { "Content-Type": "application/json", "Origin": location.origin, "X-FolioTone-CSRF": window.csrf || "" };
+  if (idempotency) { headers["Idempotency-Key"] = crypto.randomUUID(); }
+  const response = await fetch(path, { method: "POST", credentials: "same-origin", headers, body: JSON.stringify(body) });
   if (!response.ok) { throw new Error("Anfrage abgelehnt"); }
   return response.json();
 }
@@ -86,6 +88,15 @@ async function loadDetail(node, paths, label) {
 document.querySelector("#setup-form").addEventListener("submit", async (event) => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget)); await request("/api/v1/setup", data); show("login"); });
 document.querySelector("#login-form").addEventListener("submit", async (event) => { event.preventDefault(); const data = await request("/api/v1/session", Object.fromEntries(new FormData(event.currentTarget))); window.csrf = data.csrf; await initialise(); });
 document.querySelector("#reauth-form").addEventListener("submit", async (event) => { event.preventDefault(); const data = await request("/api/v1/session/reauth", Object.fromEntries(new FormData(event.currentTarget))); window.csrf = data.csrf; document.querySelector("#surface-status").textContent = "Private Locator sind für diese Session freigegeben."; });
+function renameResult(value) { document.querySelector("#rename-result").textContent = JSON.stringify(value); }
+document.querySelector("#rename-review-reauth-form").addEventListener("submit", async (event) => { event.preventDefault(); const data = await request("/api/v1/session/reauth-review", Object.fromEntries(new FormData(event.currentTarget))); window.csrf = data.csrf; renameResult({ status: "REVIEW_GRANT_ISSUED" }); });
+document.querySelector("#rename-proposal-form").addEventListener("submit", async (event) => { event.preventDefault(); renameResult(await request("/api/v1/ebooks/rename/candidates", Object.fromEntries(new FormData(event.currentTarget)), true)); });
+document.querySelector("#rename-review-form").addEventListener("submit", async (event) => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget)); const candidate = data.candidate_id; delete data.candidate_id; renameResult(await request(`/api/v1/ebooks/rename/candidates/${encodeURIComponent(candidate)}/reviews`, data, true)); });
+document.querySelector("#rename-plan-form").addEventListener("submit", async (event) => { event.preventDefault(); const { candidate_id } = Object.fromEntries(new FormData(event.currentTarget)); renameResult(await request(`/api/v1/ebooks/rename/candidates/${encodeURIComponent(candidate_id)}/plans`, {}, true)); });
+document.querySelector("#rename-operate-reauth-form").addEventListener("submit", async (event) => { event.preventDefault(); const data = await request("/api/v1/session/reauth-operate", Object.fromEntries(new FormData(event.currentTarget))); window.csrf = data.csrf; renameResult({ status: "OPERATE_GRANT_ISSUED" }); });
+document.querySelector("#rename-authorize-form").addEventListener("submit", async (event) => { event.preventDefault(); renameResult(await request("/api/v1/ebooks/rename/authorizations", Object.fromEntries(new FormData(event.currentTarget)), true)); });
+document.querySelector("#rename-execute-form").addEventListener("submit", async (event) => { event.preventDefault(); renameResult(await request("/api/v1/ebooks/rename/executions", Object.fromEntries(new FormData(event.currentTarget)), true)); });
+document.querySelector("#rename-recover-form").addEventListener("submit", async (event) => { event.preventDefault(); renameResult(await request("/api/v1/ebooks/rename/recoveries", Object.fromEntries(new FormData(event.currentTarget)), true)); });
 document.querySelector("#search-form").addEventListener("submit", async (event) => { event.preventDefault(); const data = Object.fromEntries(new FormData(event.currentTarget)); await loadList(`/api/v1/ebooks/collection-states/${encodeURIComponent(data.snapshot)}/search?query=${encodeURIComponent(data.query)}`, "#search-results", "Suche"); });
 document.querySelector("#snapshot-details-form").addEventListener("submit", async (event) => { event.preventDefault(); const { snapshot } = Object.fromEntries(new FormData(event.currentTarget)); await loadDetail(document.querySelector("#snapshot-details"), [`/api/v1/ebooks/collection-states/${encodeURIComponent(snapshot)}`, `/api/v1/ebooks/collection-states/${encodeURIComponent(snapshot)}/library-health`], "Snapshot"); });
 document.querySelector("#scan-details-form").addEventListener("submit", async (event) => { event.preventDefault(); const { scan_root } = Object.fromEntries(new FormData(event.currentTarget)); await loadDetail(document.querySelector("#scan-details"), [`/api/v1/ebooks/scan-roots/${encodeURIComponent(scan_root)}/status`, `/api/v1/ebooks/scan-roots/${encodeURIComponent(scan_root)}/inventory`], "Scan"); });

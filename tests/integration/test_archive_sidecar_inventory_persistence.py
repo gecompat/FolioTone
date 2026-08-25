@@ -62,7 +62,7 @@ def test_migration_0021_adds_exact_sidecar_schema_and_safe_empty_downgrade(
                 {"run": str(RUN_ID), "low": "books/", "high": "books/\U0010ffff"},
             )
         )
-    assert revision == "0033_local_surface_foundation"
+    assert revision == "0034_ebook_rename_operator_jobs"
     assert {table.name for table in archive_schema.ARCHIVE_SIDECAR_TABLES} <= set(
         inspector.get_table_names()
     )

@@ -523,7 +523,7 @@ def test_migration_0026_preserves_review_history_and_downgrades_when_empty(
         review_ddl = connection.execute(
             text("SELECT sql FROM sqlite_master WHERE type='table' AND name='review_items'")
         ).scalar_one()
-    assert revision == "0033_local_surface_foundation"
+    assert revision == "0034_ebook_rename_operator_jobs"
     assert retained == str(decision_id)
     assert retained_plan_review == str(plan_id)
     assert "METADATA_CORRECTION" in review_ddl
@@ -2468,7 +2468,7 @@ def test_migration_0027_empty_downgrade_restores_previous_lease_contract(
                 "SELECT sql FROM sqlite_master WHERE type='table' AND name='scan_root_write_leases'"
             )
         ).scalar_one()
-    assert version == "0033_local_surface_foundation"
+    assert version == "0034_ebook_rename_operator_jobs"
     assert "METADATA_WRITE_PREPARATION" in lease_sql
     assert "METADATA_WRITE_RUN" in lease_sql
     engine.dispose()

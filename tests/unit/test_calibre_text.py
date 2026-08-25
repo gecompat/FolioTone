@@ -19,6 +19,7 @@ from foliotone.adapters.calibre.text import (
     CalibreTextError,
     normalize_ebook_text,
 )
+from foliotone.analyzers.ebook import resolve_observed_file
 from foliotone.core import (
     EntityId,
     FileObservation,
@@ -143,7 +144,7 @@ def test_analyzer_uses_fixed_command_and_persists_status_and_fingerprint(
     )
     assert runtime.command is not None
     assert runtime.command.args == (
-        str(source_file.resolve()),
+        str(resolve_observed_file(source_root, observation)),
         "content.txt",
         "--txt-output-formatting=plain",
         "--txt-output-encoding=utf-8",

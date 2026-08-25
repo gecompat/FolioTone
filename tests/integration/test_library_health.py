@@ -196,7 +196,7 @@ def test_migration_0025_is_additive_insert_only_and_downgrade_safe(
     engine = create_sqlite_engine(database)
     with engine.connect() as connection:
         assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == (
-            "0033_local_surface_foundation"
+            "0034_ebook_rename_operator_jobs"
         )
         objects = {
             (str(row[0]), str(row[1]))

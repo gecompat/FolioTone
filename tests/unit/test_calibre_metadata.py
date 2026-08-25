@@ -17,6 +17,7 @@ from foliotone.adapters.calibre.metadata import (
 from foliotone.analyzers.ebook import (
     EBOOK_METADATA_CANDIDATE_PROFILE,
     EBOOK_METADATA_CANDIDATE_RESULT,
+    resolve_observed_file,
 )
 from foliotone.core import (
     Agent,
@@ -369,7 +370,7 @@ def test_analyzer_exposes_only_read_only_command_shape_and_persists_results(
 
     assert fake_runtime.command is not None
     assert fake_runtime.command.args == (
-        str(source_file.resolve()),
+        str(resolve_observed_file(source_root, observation)),
         "--to-opf",
         "metadata.opf",
     )
