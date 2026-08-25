@@ -192,6 +192,25 @@ def test_ebook_user_guide_screenshots_are_linked_jpegs_with_synthetic_context() 
         assert guide.count(f"images/{image.name}") == 1
 
 
+def test_ebook_user_guide_does_not_invent_the_pending_fixity_surface() -> None:
+    overview = (ROOT / "docs/user-guide/README.md").read_text(encoding="utf-8")
+    quickstart = (ROOT / "docs/user-guide/SCHNELLSTART.md").read_text(
+        encoding="utf-8"
+    )
+    handbook = (ROOT / "docs/user-guide/BENUTZERHANDBUCH.md").read_text(
+        encoding="utf-8"
+    )
+    cli = (ROOT / "docs/user-guide/CLI.md").read_text(encoding="utf-8")
+
+    assert "noch keine öffentliche Application-, CLI-, REST- oder" in overview
+    assert "## Dateiintegrität (Fixity)" in handbook
+    assert "keine `FixityBaseline`" in quickstart
+    assert "`ebook-postscan-verify`" in handbook
+    assert "noch keinen öffentlichen CLI-Befehl" in cli
+    assert "SQLite-Änderungen" in handbook
+    assert "SQLite-Änderungen" in cli
+
+
 def test_agents_routes_documentation_changes_to_canonical_policies() -> None:
     agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     assert "docs/quality/DOCUMENTATION_STYLE.md" in agents
