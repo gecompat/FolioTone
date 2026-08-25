@@ -4,36 +4,47 @@ Stand: 2026-08-25
 
 ## Aktuelle Welle
 
-**WI-0003 Baseline-Slice abgeschlossen — Verifikation an Detailentscheidung blockiert**
+**WI-0003 Verifikation und Einzelentscheidungen `NEXT`**
 
-Der read-only Startaudit des Verifikations-Slices hat zwei materielle Lücken
-in `DEC-0001` bestätigt. `UNBASELINED` verlangt entweder eine Bindung an den
-neuesten abgeschlossenen Scan-Snapshot oder eine neue vollständige read-only
-Filesystem-Discovery. Außerdem besitzt der vorhandene generische Review-Core
-weder einen Fixity-Reviewtyp noch den erforderlichen Subject-, Candidate- und
-Fingerprintvertrag. Eine Zuordnung zu einem fachfremden Reviewtyp würde die
-bestehenden Domain- und SQLite-Constraints verletzen.
+Die A/A-Detailentscheidung ergänzt `DEC-0001`. Der Verifikationslauf bindet
+den neuesten `ScanRun` insgesamt des betroffenen gefenceten E-Book-
+`ScanRoot`; er muss `COMPLETED` sein. `UNBASELINED` bezeichnet ausschließlich
+eine im gebundenen Snapshot `PRESENT` beobachtete Datei ohne aktive Erwartung.
+Nach diesem Scan neu entstandene Dateien liegen bis zum nächsten
+abgeschlossenen Scan außerhalb des Laufs. Verifikation startet weder einen
+Scan noch eine eigene Filesystem-Discovery.
 
-`DEC-0001` dokumentiert die sicheren Optionen und bevorzugt den bestehenden
-Scan-Snapshot sowie eine feste Erweiterung des generischen Review-Cores um
-`FIXITY_EXPECTATION`/`FIXITY_RESULT`. Bis zur ausdrücklichen Auswahl bleibt
-`WI-0003` `BLOCKED`; es wurde kein Verifikations-, Entscheidungs-, Migrations-
-oder Surface-Code begonnen. Der nachgelagerte Surface-Slice, `GATE-0001` und
-`WI-0004` dürfen nicht vorgezogen werden. Eine unabhängige autorisierte
-Produktwave ist derzeit nicht dokumentiert.
+Der generische append-only Review-Core wird um
+`ReviewType.FIXITY_EXPECTATION` und
+`ReviewCandidateKind.FIXITY_RESULT` erweitert. Subject ist genau ein `FILE`,
+Candidate genau ein immutable Ergebnis eines vollständig `COMPLETED`-
+Verifikationslaufs; das Kompatibilitätsprofil lautet
+`ebook-fixity-decision/v1`. Evidence- und Candidate-Set-Fingerprint binden
+Root, Baseline-Aktivierung, aktive Erwartungsrevision, Scan, Lauf, Ergebnis
+sowie vorhandene erwartete und aktuelle Byteidentitäten. Nur die neueste
+exakt passende generische `ACCEPT`-Decision darf `ACCEPT_CURRENT` für
+`UNEXPECTED_BYTE_CHANGE`/`UNBASELINED` oder `RETIRE_MISSING` für `MISSING`
+autorisieren. Jede fachliche Entscheidung ergänzt genau eine append-only
+Erwartungsrevision; Bulk-Accept und Root-Reset bleiben ausgeschlossen.
 
-Die Blockerdokumentation wurde lokal mit sechs direkt betroffenen
-Planungs-, DEC-, Artefakt- und Baseline-Governance-Tests geprüft; nach dem
-unabhängigen Review bestanden die drei korrigierten Vertragschecks erneut.
-Beide zugelassenen Registry-Clients validierten Revision 7 mit sieben
-Allokationen. Ruff-Lint über die drei geänderten Testdateien, JSON-Prüfung,
-`git diff --check`, Privacy-/Secret-Suche und der LF-Vertrag waren sauber.
-Ein zusätzlicher, nach `TEST_POLICY.md` für diesen Scope nicht erforderlicher
-Ruff-0.16.3-Formatcheck meldete ausschließlich bereits vorhandene
-Ganzdatei-Umformatierungen außerhalb der geänderten Hunks in zwei Testdateien;
-sie wurden nicht als fachfremder Massendiff übernommen. Restrisiko ist die
-ungepinnte lokale Ruff-Formatversion; der kanonische CI-Gate verwendet nur
-`ruff check`.
+Der nächste Implementierungsslice umfasst nur Domain-, Persistenz-, Workflow-
+und Review-Core-Verträge samt additiver Migration und synthetischen Tests.
+ApplicationJob, CLI, REST und Browser folgen danach. Netzwerk, Source Writes,
+W10-Capabilities, Backup-/Replica-Vergleich und Restore bleiben
+ausgeschlossen. Diese Entscheidungswelle ändert keinen Runtime- oder
+SQLite-Code.
+
+Lokal bestanden alle 32 Tests der drei direkt betroffenen Static-
+Vertragsdateien. Beide zugelassenen Registry-Clients validierten Revision 7
+mit sieben Allokationen; Ruff über die drei Testdateien, JSON-Prüfung,
+`git diff --check`, Privacy-/Secret-Suche und der LF-Vertrag waren grün. Ein
+erster Pytest-Aufruf verwendete einen nicht vorhandenen Testselektor und führte
+null Tests aus; er wurde durch den dokumentierten erfolgreichen Lauf ersetzt.
+Das unabhängige `BALANCED`-Review beanstandete zunächst einen historischen
+`BLOCKED`-Satz und einen noch offenen Fingerprint-Payload. Nach der Korrektur
+bestätigte das Re-Review `APPROVE`. Mypy, Docker, Runtime-Tests, reale Medien
+und die vollständige unbetroffene Suite wurden für diesen reinen
+Entscheidungs-/Dokumentationsscope gemäß `TEST_POLICY.md` nicht ausgeführt.
 
 Der erste `DEC-0001`-Slice implementiert `ebook-fixity-baseline/v1` ohne
 Produktoberfläche. Eine echte SQLite-`query_only`-Projektion verlangt genau
@@ -59,11 +70,8 @@ Der Klartext wird nicht gespeichert; pro Profil und `ScanRoot` ist nur eine
 Aktivierung möglich, sodass kein impliziter Trust-on-first-use oder Root-Reset
 entsteht. Die Statusprojektion enthält weder Locator noch Hashwerte.
 
-Nach der Detailentscheidung ist der Verifikations-/Einzelentscheidungs-Slice
-von `WI-0003` wieder die nächste zulässige Wave. ApplicationJob, CLI, REST und
-Browser folgen erst danach.
-Netzwerk, Source Writes, W10-Capabilities, Backup-/Replica-Vergleich und
-Restore bleiben ausgeschlossen.
+Damit ist der Verifikations-/Einzelentscheidungs-Slice von `WI-0003` die
+nächste zulässige Wave.
 
 Die Root-`.gitattributes` setzt für gewöhnliche Textdateien nun unabhängig
 von `core.autocrlf` verbindlich `LF`. Explizit binäre beziehungsweise bereits
@@ -100,10 +108,10 @@ während des Laufs veränderte Dateien. Änderungen an der Erwartung bleiben
 append-only und einzeln reviewpflichtig. Netzwerk, automatische Planung,
 Source Writes und jede W10-Capability sind ausgeschlossen.
 
-`WI-0003` bleibt die einzige geplante Produktfolge, ist aber bis zur
-Fixity-Detailentscheidung `BLOCKED`. Danach folgen
-Verifikation/Einzelentscheidungen und anschließend die
-Application-/CLI-/REST-/Browser-Surface in getrennten Pull Requests.
+Die frühere Fixity-Detailentscheidung ist inzwischen abgeschlossen.
+`WI-0003` bleibt die einzige geplante Produktfolge und führt den
+Verifikations-/Einzelentscheidungs-Slice als `NEXT`; anschließend folgt die
+Application-/CLI-/REST-/Browser-Surface in einem getrennten Pull Request.
 Der vollständige Vertrag und die Stopbedingungen stehen in
 [`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md).
 
