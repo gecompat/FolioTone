@@ -1,0 +1,28 @@
+{
+  "aliases": [
+    "FUT-008"
+  ],
+  "artifact_uid": "urn:uuid:01a037f5-aa10-748a-9f8f-401b9f442490",
+  "external_refs": [],
+  "human_ref": "WI-0004",
+  "kind": "work_item",
+  "registration_state": "REGISTERED",
+  "relations": [
+    {
+      "type": "depends_on",
+      "target": "GATE-0001"
+    },
+    {
+      "type": "governed_by",
+      "target": "DEC-0002"
+    }
+  ],
+  "schema_version": 1,
+  "title": "EPUB-zu-EPUB-Transformation implementieren",
+  "status": "BLOCKED",
+  "metadata": {
+    "scope": "ebook-transformation",
+    "tier": "FRONTIER",
+    "wave": "FUT-008"
+  }
+}

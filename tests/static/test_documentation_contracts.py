@@ -86,7 +86,16 @@ REQUIRED_GOVERNANCE_PATHS = (
     "docs/planning/AI_WORKFLOW.md",
     "docs/planning/ARTIFACT_REGISTRATION.md",
     "docs/planning/artifact_registry.json",
+    "docs/planning/EBOOK_CONTINUATION_PLAN.md",
+    "docs/decisions/DEC-0001-book-only-fixity-monitoring.md",
+    "docs/decisions/DEC-0002-deterministic-epub-transformation.md",
+    "docs/planning/artifacts/DEC-0001.json",
+    "docs/planning/artifacts/DEC-0002.json",
+    "docs/planning/artifacts/GATE-0001.json",
     "docs/planning/artifacts/WI-0001.json",
+    "docs/planning/artifacts/WI-0002.json",
+    "docs/planning/artifacts/WI-0003.json",
+    "docs/planning/artifacts/WI-0004.json",
     "docs/planning/AI_TOOL_ADAPTERS.md",
     "docs/planning/MODEL_ROUTING_POLICY.md",
     "docs/quality/TEST_POLICY.md",
@@ -145,6 +154,17 @@ def test_foundation_baseline_is_discoverable_and_versioned() -> None:
     assert "ARTIFACT_REGISTRATION_POLICY.md" in ruleset
 
 
+def test_documentation_index_links_the_registered_identity_decision() -> None:
+    documentation_index = (ROOT / "docs/README.md").read_text(encoding="utf-8")
+    decision_path = ROOT / "docs/decisions/ADR-0070-foundation-v14-identity-registration.md"
+
+    assert decision_path.is_file()
+    assert (
+        "[ADR-0070](decisions/ADR-0070-foundation-v14-identity-registration.md)"
+        in documentation_index
+    )
+
+
 def test_artifact_registration_authority_is_discoverable_and_consistent() -> None:
     registration = (ROOT / "docs/planning/ARTIFACT_REGISTRATION.md").read_text(
         encoding="utf-8"
@@ -152,19 +172,33 @@ def test_artifact_registration_authority_is_discoverable_and_consistent() -> Non
     registry = json.loads(
         (ROOT / "docs/planning/artifact_registry.json").read_text(encoding="utf-8")
     )
-    artifact = json.loads(
-        (ROOT / "docs/planning/artifacts/WI-0001.json").read_text(encoding="utf-8")
-    )
+    artifacts = {
+        path.stem: json.loads(path.read_text(encoding="utf-8"))
+        for path in (ROOT / "docs/planning/artifacts").glob("*.json")
+    }
 
     assert "ADOPT_FORWARD" in registration
     assert "DEFERRED" in registration
     assert registry["profile"] == "foundation-artifact-registry/v1"
-    assert registry["registry_revision"] == 1
-    assert registry["allocations"] == {artifact["human_ref"]: artifact["artifact_uid"]}
-    assert artifact["registration_state"] == "REGISTERED"
-    assert artifact["metadata"]["wave"] == "W0"
-    assert artifact["metadata"]["tier"] == "FRONTIER"
-    assert artifact["relations"] == [{"type": "governed_by", "target": "ADR-0070"}]
+    assert registry["registry_revision"] == 7
+    assert registry["allocations"] == {
+        artifact["human_ref"]: artifact["artifact_uid"]
+        for artifact in artifacts.values()
+    }
+    assert all(
+        artifact["registration_state"] == "REGISTERED"
+        for artifact in artifacts.values()
+    )
+    assert artifacts["WI-0001"]["metadata"]["wave"] == "W0"
+    assert artifacts["WI-0001"]["metadata"]["tier"] == "FRONTIER"
+    assert artifacts["WI-0001"]["relations"] == [
+        {"type": "governed_by", "target": "ADR-0070"}
+    ]
+    assert artifacts["DEC-0001"]["status"] == "ACCEPTED"
+    assert artifacts["WI-0003"]["status"] == "NEXT"
+    assert artifacts["GATE-0001"]["status"] == "PLANNED"
+    assert artifacts["WI-0004"]["status"] == "BLOCKED"
+
 
 def test_foundation_attribution_is_complete_and_namespaced() -> None:
     notice = (

@@ -159,6 +159,11 @@ Auf EB-08 aufbauend:
 5. Fixity- und Backup-Reconciliation;
 6. Restore-Evidence als separate spätere Fähigkeit.
 
+`DEC-0001` löst aus Punkt 5 ausschließlich das erste read-only Fixity-
+Monitoring für genau einen E-Book-`ScanRoot` heraus. `WI-0003` ist dafür
+`NEXT`. Root-/Replica-Rollen, Backup-Vergleich und Restore-Evidence bleiben
+außerhalb dieser ersten Version.
+
 Diese Phase bleibt zunächst book-only beziehungsweise technisch
 rootbezogen. Die Resultate bleiben Recommendations und Pläne und
 autorisieren keine Mutation. Eine medienübergreifende Generalisierung der
@@ -272,7 +277,9 @@ ist, existiert dafür weder REST-Endpunkt noch aktivierbares UI-Control.
 | Inbox und Importplanung | neue Objekte gegen den Bestand prüfen | strategischer Vorschlag, danach | neu | eigener Root-/Plan-Vertrag |
 | Acquisition/Desired Set | vorhandene Erwerbskandidaten und Lücken gegenüber einem expliziten Sollbestand erkennen | strategischer Vorschlag, später | FUT-007 teilweise | Sollbestand-, Provider- und Rechte-Evidence |
 | Library Health | unabhängige Zustandsdimensionen zusammenfassen | book-only implementiert | ADR-0058, ADR-0060, `CS-03`, FUT-006 | medienübergreifende Generalisierung erst nach eigener Music-Dimensionierung |
-| Fixity/Backup-Reconciliation | unerwartete Änderungen und Replica-Lücken erkennen | bestehender Plan, bewusst zurückgestellt | FUT-009 teilweise | Root-Rollen und Restore-Evidence |
+| Fixity Monitoring | unerwartete Byteänderungen in genau einem E-Book-Root erkennen und einzeln reviewen | `WI-0003` ist `NEXT` | `DEC-0001`, `WI-0003` (`FUT-009`) | zuerst Baseline, danach Verifikation/Einzelentscheidungen und Surface |
+| Backup-/Replica-Reconciliation | Replica-Lücken und Restore-Evidence erkennen | strategischer Vorschlag, später | frühere FUT-009-Idee teilweise | Root-/Replica-Rollen und eigener Restore-Vertrag |
+| EPUB-Transformation | normalisierte EPUB-3-Ableitung mit reviewten Metadaten in getrenntem Output-Root erzeugen | vorgeschlagen und technisch blockiert | ADR-0065, `DEC-0002`, `GATE-0001`, `WI-0004` (`FUT-008`) | exakte Byte-Reproduzierbarkeit sowie aktuelle Tool-, Security- und Lizenzqualifikation |
 | Music Vertical Slice | Musik auf Work-/Recording-/Release-Ebene verstehen | bestehender Plan, bewusst zurückgestellt | W4, W5, W6, W7 | nach reifer E-Book-Linie |
 | Hörbücher | Buch- und Audioidentität verbinden | strategischer Vorschlag, später | neu | Frontier-Gate für Narration/Edition/Recording |
 | Comics/Manga | Issues, Page Sequence und Publikationscontainer verstehen | strategischer Vorschlag, später | Archive-Pfad teilweise | Frontier-Gate für Comic-Identität |
@@ -282,7 +289,7 @@ ist, existiert dafür weder REST-Endpunkt noch aktivierbares UI-Control.
 | Video | technische und später fachliche audiovisuelle Evidence | Forschungsfrage | keine kanonische Welle | Tool-/Domain-/Provider-Gate |
 | Confidence-Kalibrierung | profilgebundene Scores an geprüfter Ground Truth bewerten | Forschungsfrage | FUT-005 berührt Review-Lernen | relationstypbezogener Korpus und Eval-Vertrag |
 | KI-Query/Explanation | natürliche Sprache sicher übersetzen und Evidence erklären | Forschungsfrage | keine | gleicher Query-AST; keine Decision Authority |
-| REST/API/UI | lokale stabile Application-Verträge außerhalb der CLI mit eigenen Einstiegen je Medienlinie anbieten | bestehender Plan, aktuell | ADR-0067, FUT-011, `S-FUT11-01` bis `S-FUT11-04`, `EBOOK_WRITE_PIPELINE_PLAN.md` | vier Waves in Reihenfolge umsetzen; Remote/Mehrbenutzer, MCP sowie weitere GUI-Writer getrennt entscheiden |
+| REST/API/UI | lokale stabile Application-Verträge außerhalb der CLI mit eigenen Einstiegen je Medienlinie anbieten | erster E-Book-Scope implementiert | ADR-0067, FUT-011, `S-FUT11-01` bis `S-FUT11-04`, `EBOOK_WRITE_PIPELINE_PLAN.md` | Fixity nach `DEC-0001`; Titelwriter, Quarantäne und weitere GUI-Writer weiterhin getrennt entscheiden |
 | kontrollierte Mutation | geprüfte Pläne entsprechend ihrer Reversibilitätsklasse ausführen | ADR-0056-Quarantäne, ADR-0063/ADR-0064-EPUB-Titelwriter und ADR-0066-Same-Parent-Rename einschließlich RN01 bis RN04 operativ; ADR-0065 plant sechs weitere Typen nicht ausführbar | ADR-0056, ADR-0061, ADR-0063 bis ADR-0066, `W10-005`, `FG-W10-MOVE-BACKEND` und verbleibende operation-spezifische Write-Gates | Sidecar-, externe Library-, Reorganisations-, Archive-, Rollback-, Purge- und Cleanup-Verträge getrennt entscheiden |
 
 ## Medienabdeckung

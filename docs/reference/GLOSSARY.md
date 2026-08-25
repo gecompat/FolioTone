@@ -106,6 +106,9 @@ Dieses Glossar definiert die kanonischen fachlichen Kernbegriffe des Projekts. E
 | `CollectionStateDiff` | Deterministische, pfadfreie Projektion direkt belegter Zustandsunterschiede zwischen genau zwei kompatiblen `CollectionState`-Snapshots. | Kausalitätsanalyse, Dateisystemmutation, Identity-Entscheidung |
 | `CollectionQuery` | Validierter und hart begrenzter book-only Query-AST über einen snapshotgebundenen lokalen Metadata-FTS-Index. | freies SQL, Content-Suche, Query-History, kanonische Metadatenabfrage |
 | `Library Health` | Immutable, snapshotgebundene Bewertung des book-only Sammlungszustands anhand sieben unabhängiger Dimensionen mit eigener Coverage, eigenem Status, vollständigen Finding-Counts und bounded opaque Samples. Sie besitzt keinen Gesamtscore und keine Mutation Authority. | Quality Score, Duplicate-Verdict, Ausführungsfreigabe |
+| `FixityBaseline` | Nach `DEC-0001` explizit aktivierter, immutable erwarteter Full-SHA-256-Bytezustand genau eines E-Book-`ScanRoot`. Er ist von beobachtungsgebundenen Fingerprints und Duplicate Evidence getrennt und wird erst mit `WI-0003` implementiert. | automatischer Trust-on-first-use, Backup, Bit-Rot-Ursachenbeweis |
+| `FixityVerificationRun` | Geplanter persistenter read-only Lauf, der alle gebundenen Bytes frisch liest und ausschließlich feste Fixity-Ergebnisse erzeugt. Unvollständige Roots oder verlorenes Fencing dürfen keine falschen Missing-Befunde erzeugen. | ScanRun, automatischer Baseline-Reset, W10-Operation |
+| `EbookTransformationDryRun` | Durch `DEC-0002` vorgeschlagener privater Snapshot einer EPUB-3-Ableitung mit Source-, reviewter Metadaten-, Toolchain-, Konfigurations- und Output-Hash-Bindung. Er bleibt bis zum positiven `GATE-0001` unimplementiert und ist keine Publish-Authorization. | ausführbarer W9-Plan, Source-Rewrite, semantisch ungefährer Replay |
 
 ## Wichtige Abgrenzungen
 

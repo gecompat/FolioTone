@@ -4,6 +4,25 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
+`WI-0002` verankert die nächste E-Book-Folge in
+[`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md). `DEC-0001` ist
+akzeptiert und macht `WI-0003` (`FUT-009`) zur einzigen `NEXT`-Wave. Sie
+liefert zuerst eine explizit aktivierte Full-SHA-256-Fixity-Baseline für genau
+einen E-Book-`ScanRoot`, danach frische Verifikation und append-only
+Einzelentscheidungen und zuletzt CLI plus lokale REST-/Browser-Surface. Der
+gesamte Vertrag bleibt read-only gegenüber Source Media und besitzt keine
+W10-Capability.
+
+`DEC-0002` hält den gewählten Scope einer EPUB-3-zu-EPUB-3-Ableitung mit
+reviewten Metadaten und getrenntem Output-Root als `Proposed` fest.
+`GATE-0001` muss nach Abschluss von `WI-0003` zuerst ToolProvider,
+Byte-Reproduzierbarkeit, Security, Lizenz und netzlosen Containerbetrieb mit
+synthetischen Fixtures qualifizieren. Bis zu einem positiven Gate bleibt
+`WI-0004` (`FUT-008`) `BLOCKED`; W9-007-Rezepte bleiben dauerhaft
+`NOT_EXECUTABLE` und es existiert kein Transformationswriter. Unmittelbar nach
+dem Plananker-Merge ist der dokumentierte read-only E-Book-Blocker-Audit
+auszuführen, bevor eine weitere Entscheidung geraten oder aktiviert wird.
+
 W0-013 integriert AI Repository Foundation `1.2.0` semantisch. WI-0001 aktualisiert sie auf `1.4.0`, bewahrt alle historischen FolioTone-IDs und registriert neue dauerhafte Planungsartefakte ab `WI-0001` über die projektlokale Authority in [`ARTIFACT_REGISTRATION.md`](ARTIFACT_REGISTRATION.md); ADR-0070 ist der verbindliche Adoptionsentscheid. Vor
 Projektarbeit ist über den verwalteten Block im Root-`AGENTS.md` die
 namespacete Baseline unter `.ai/foundation/` zu lesen; für Projektfakten,

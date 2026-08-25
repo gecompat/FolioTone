@@ -288,6 +288,27 @@ keine Identity-, Keep-, Quarantäne- oder andere Mutationsentscheidung.
 verschiedener Health-Snapshots desselben `ScanRoot` gegenüber. Er behauptet
 keine Kausalität und verändert keine persistierte Evidence.
 
+### Geplantes book-only Fixity-Modell
+
+`DEC-0001` trennt die spätere `FixityBaseline` von beobachtungsgebundenen
+`FILE_SHA256`-Fingerprints und von `LibraryHealthSnapshot`. Die Baseline wird
+explizit aktiviert und enthält den erwarteten Bytezustand genau eines
+E-Book-`ScanRoot`. Ein `FixityVerificationRun` liest die Bytes erneut und
+persistiert immutable Ergebnisse; nur append-only Einzelentscheidungen dürfen
+einen neuen erwarteten Zustand erzeugen. Keine dieser Identitäten beweist eine
+Ursache für die Änderung oder erteilt Mutation Authority. Diese Typen sind bis
+zur Umsetzung von `WI-0003` nur akzeptierter Planungsvertrag.
+
+### Vorgeschlagenes EPUB-Transformationsmodell
+
+Der vorhandene `EbookOperationRecipePlan` bleibt auch für
+`FORMAT_TRANSFORM` dauerhaft `NOT_EXECUTABLE`. `DEC-0002` schlägt zusätzlich
+einen privaten `EbookTransformationDryRun` vor, der Source, reviewte
+Metadatenauswahl, Toolchain-/Konfigurationsidentität und den erwarteten
+Output-Hash bindet. Erst `GATE-0001` darf dieses Modell nach einem exakten
+Byte-Replay für eine W10-Preparation konkretisieren. Bis dahin sind diese
+Begriffe kein implementierter Domain- oder Persistenzvertrag.
+
 ## Music layer
 
 ### MusicWork

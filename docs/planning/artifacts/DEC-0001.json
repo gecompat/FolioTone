@@ -1,0 +1,23 @@
+{
+  "aliases": [],
+  "artifact_uid": "urn:uuid:01a037f5-a629-7026-8df2-78faaa6b73c2",
+  "external_refs": [],
+  "human_ref": "DEC-0001",
+  "kind": "decision",
+  "registration_state": "REGISTERED",
+  "relations": [
+    {
+      "type": "implemented_by",
+      "target": "WI-0003"
+    }
+  ],
+  "schema_version": 1,
+  "title": "Book-only Fixity Monitoring mit expliziter Baseline",
+  "status": "ACCEPTED",
+  "metadata": {
+    "decision_path": "docs/decisions/DEC-0001-book-only-fixity-monitoring.md",
+    "scope": "ebook-fixity",
+    "tier": "FRONTIER",
+    "wave": "FUT-009"
+  }
+}

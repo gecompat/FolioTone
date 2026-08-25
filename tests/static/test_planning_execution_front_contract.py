@@ -10,6 +10,7 @@ HANDOVER = PLANNING / "HANDOVER.md"
 IMPLEMENTATION = PLANNING / "IMPLEMENTATION_PLAN.md"
 FUTURE_MAP = PLANNING / "FUTURE_CAPABILITY_MAP.md"
 WRITE_PIPELINE = PLANNING / "EBOOK_WRITE_PIPELINE_PLAN.md"
+EBOOK_CONTINUATION = PLANNING / "EBOOK_CONTINUATION_PLAN.md"
 SAFETY = ROOT / "docs/architecture/SAFETY.md"
 ADR = ROOT / "docs/decisions/ADR-0058-book-collection-state-and-local-projections.md"
 WRITE_AUTHORIZATION_ADR = ROOT / "docs/decisions/ADR-0061-controlled-ebook-write-development.md"
@@ -34,6 +35,12 @@ PRODUCT_SURFACE_ADR = (
 OPERATOR_JOB_HANDOFF_ADR = (
     ROOT / "docs/decisions/ADR-0069-ebook-rename-operator-job-handoff.md"
 )
+FIXITY_DECISION = (
+    ROOT / "docs/decisions/DEC-0001-book-only-fixity-monitoring.md"
+)
+TRANSFORMATION_DECISION = (
+    ROOT / "docs/decisions/DEC-0002-deterministic-epub-transformation.md"
+)
 FUT11_NEXT_WAVES = PLANNING / "FUT11_NEXT_WAVES.md"
 
 
@@ -41,14 +48,15 @@ def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_backlog_marks_when_no_product_slice_is_activated() -> None:
+def test_backlog_marks_fixity_baseline_as_the_only_active_product_slice() -> None:
     backlog = _text(BACKLOG)
 
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | Keine Produktwave |" in backlog
-    assert "| NEXT WAVE | Entscheidung erforderlich |" in backlog
+    assert "| NOW | `WI-0003` (`FUT-009`) |" in backlog
+    assert "| NEXT WAVE | Baseline-Slice von `WI-0003` |" in backlog
+    assert backlog.count("| NEXT |") == 1
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
     assert "| S-W9-006A | DONE |" in backlog
@@ -75,6 +83,12 @@ def test_backlog_marks_when_no_product_slice_is_activated() -> None:
     assert "| W10-006 | DONE |" in backlog
     assert "| S-W10-MW05 | DONE |" in backlog
     assert "| OPS-001 | READY |" in backlog
+    assert "| WI-0002 | DONE |" in backlog
+    assert "| GATE-0001 | PLANNED |" in backlog
+    assert "| WI-0004 | BLOCKED |" in backlog
+    assert "| FUT-002 | DONE |" in backlog
+    assert "| WI-0003 (`FUT-009`) | NEXT |" in backlog
+    assert "| WI-0004 (`FUT-008`) | BLOCKED |" in backlog
     assert "Andere Planungsdokumente erläutern diese Aufgaben" in backlog
 
 
@@ -125,6 +139,67 @@ def test_current_planning_sources_agree_on_delivery_front() -> None:
         assert "S-W10-RN03" in content, path
         assert "S-FUT11-01" in content, path
         assert "S-FUT11-04" in content, path
+        assert "DEC-0001" in content, path
+        assert "WI-0003" in content, path
+        assert "DEC-0002" in content, path
+        assert "GATE-0001" in content, path
+        assert "WI-0004" in content, path
+
+
+def test_ebook_continuation_plan_keeps_fixity_read_only_and_transformation_blocked() -> None:
+    plan = _text(EBOOK_CONTINUATION)
+    documentation_index = _text(ROOT / "docs/README.md")
+
+    required = (
+        "WI-0003",
+        "FUT-009",
+        "DEC-0001",
+        "Baseline-Drafts",
+        "read-only",
+        "GATE-0001",
+        "DEC-0002",
+        "WI-0004",
+        "blockiert",
+        "keine W10-Operation",
+    )
+    assert all(marker in plan for marker in required)
+    assert "EBOOK_CONTINUATION_PLAN.md" in documentation_index
+
+
+def test_fixity_decision_is_explicit_read_only_and_sliced() -> None:
+    decision = _text(FIXITY_DECISION)
+
+    required = (
+        "- Status: Accepted",
+        "ebook-fixity-baseline/v1",
+        "ebook-fixity-verification/v1",
+        "ebook-fixity-decision/v1",
+        "ACCEPT FIXITY BASELINE <manifest-id>",
+        "vollständigen SHA-256",
+        "UNEXPECTED_BYTE_CHANGE",
+        "SOURCE_CHANGED_DURING_RUN",
+        "`OPERATE`, W10-Capabilities",
+        "Source Writes",
+    )
+    assert all(marker in decision for marker in required)
+
+
+def test_epub_transformation_decision_remains_gate_bound_and_non_executable() -> None:
+    decision = _text(TRANSFORMATION_DECISION)
+
+    required = (
+        "- Status: Proposed",
+        "GATE-0001",
+        "WI-0004",
+        "verwalteten E-Book-Output-`ScanRoot`",
+        "exakt dieselbe Bytelänge",
+        "netzlos",
+        "Lizenz",
+        "keine W10-Authorization",
+        "weder Source-/Output-Mount noch Capability",
+        "operation-spezifische Capability",
+    )
+    assert all(marker in decision for marker in required)
 
 
 def test_current_status_does_not_reintroduce_superseded_w10_claims() -> None:

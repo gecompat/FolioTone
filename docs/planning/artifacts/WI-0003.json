@@ -1,0 +1,28 @@
+{
+  "aliases": [
+    "FUT-009"
+  ],
+  "artifact_uid": "urn:uuid:01a037f5-a719-756c-80b8-a902c4e3877d",
+  "external_refs": [],
+  "human_ref": "WI-0003",
+  "kind": "work_item",
+  "registration_state": "REGISTERED",
+  "relations": [
+    {
+      "type": "depends_on",
+      "target": "WI-0002"
+    },
+    {
+      "type": "governed_by",
+      "target": "DEC-0001"
+    }
+  ],
+  "schema_version": 1,
+  "title": "Book-only Fixity Monitoring implementieren",
+  "status": "NEXT",
+  "metadata": {
+    "scope": "ebook-fixity",
+    "tier": "FRONTIER",
+    "wave": "FUT-009"
+  }
+}
