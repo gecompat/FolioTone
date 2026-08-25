@@ -2222,8 +2222,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_operator_worker(args)
 
     if args.command == "status":
-        print("FolioTone W2 foundation is complete; W3 e-book analysis is in progress.")
-        print("The initial product surface is CLI-only.")
+        print("FolioTone local-single-operator/v1 is implemented for the EBOOK product line.")
+        print(
+            "The loopback-only browser surface and CLI are available; MUSIC and IMAGE "
+            "remain inactive."
+        )
         print("A read-only scan CLI is available for controlled smoke tests.")
         print(
             "Read-only calibre metadata observations and versioned candidates are available "

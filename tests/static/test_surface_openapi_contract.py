@@ -67,6 +67,7 @@ def test_local_ui_has_german_accessible_read_only_workflows() -> None:
     root = Path("src/foliotone/surface/static")
     html = (root / "index.html").read_text(encoding="utf-8")
     script = (root / "app.js").read_text(encoding="utf-8")
+    styles = (root / "app.css").read_text(encoding="utf-8")
 
     for marker in (
         'lang="de"',
@@ -92,19 +93,31 @@ def test_local_ui_has_german_accessible_read_only_workflows() -> None:
     assert "/api/v1/ebooks/readiness" in script
     assert "/api/v1/ebooks/collection-runs/" in script
     assert "renderTable" in script
+    assert 'value == null ? "—"' in script
+    assert "Array.isArray(payload.hits)" in script
+    assert "Object.entries(hit.statuses || {})" in script
     assert "innerHTML" not in script
     assert '"Idempotency-Key"' in script
     assert "/api/v1/ebooks/rename/executions" in script
+    assert "#search-results table { table-layout: fixed; }" in styles
+    assert "#search-results th:nth-child(4)" in styles
 
 
 def test_local_surface_workers_wait_for_the_schema_owner() -> None:
     compose = Path("compose.yaml").read_text(encoding="utf-8")
+    rename_compose = Path("compose.rename.yaml").read_text(encoding="utf-8")
 
-    assert compose.count("condition: service_healthy") == 2
+    assert compose.count("condition: service_healthy") == 1
     assert "urlopen('http://127.0.0.1:8765/api/v1/health')" in compose
-    assert "operator-worker:\n    profiles: [\"local-surface\"]\n    depends_on:" in compose
-    assert "analysis-worker:\n    profiles: [\"local-surface\"]\n    depends_on:" in compose
-    assert "FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE" in compose
-    assert "FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE" in compose
-    assert "FOLIOTONE_EBOOK_RENAME_WRITABLE_ROOT:?set the exact authorized ScanRoot" in compose
-    assert "${FOLIOTONE_EBOOKS_DIR:-./media/ebooks}:/media/ebooks:rw" not in compose
+    assert "analysis-worker:\n    profiles: [\"local-surface\"]" in compose
+    assert "--container-loopback-publish" in compose
+    assert 'ports:\n      - "127.0.0.1:8765:8765"' in compose
+    assert "FOLIOTONE_MUSIC_DIR" not in compose
+    assert "operator-worker:" not in compose
+    assert "operator-worker:\n    profiles: [\"ebook-rename\"]" in rename_compose
+    assert rename_compose.count("condition: service_healthy") == 1
+    assert "FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE:?" in rename_compose
+    assert "FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE:?" in rename_compose
+    assert "FOLIOTONE_EBOOK_RENAME_WRITABLE_ROOT:?" in rename_compose
+    assert "network_mode: none" in rename_compose
+    assert 'source: "${FOLIOTONE_EBOOKS_DIR:-./media/ebooks}"' not in rename_compose

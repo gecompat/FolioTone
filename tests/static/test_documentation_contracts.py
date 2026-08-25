@@ -119,6 +119,22 @@ DOCKER_CONTEXT_ALLOWLIST = (
     "!src/**",
 )
 
+USER_GUIDE_PATHS = (
+    "docs/user-guide/README.md",
+    "docs/user-guide/INSTALLATION.md",
+    "docs/user-guide/SCHNELLSTART.md",
+    "docs/user-guide/BENUTZERHANDBUCH.md",
+    "docs/user-guide/CLI.md",
+)
+
+USER_GUIDE_IMAGES = (
+    "docs/user-guide/images/01-anmeldung.jpg",
+    "docs/user-guide/images/02-ebook-uebersicht.jpg",
+    "docs/user-guide/images/03-suche-treffer.jpg",
+    "docs/user-guide/images/04-collectionstate-details.jpg",
+    "docs/user-guide/images/05-rename-workflow.jpg",
+)
+
 
 def test_root_readme_protected_license_prefix_is_unchanged() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -128,6 +144,52 @@ def test_root_readme_protected_license_prefix_is_unchanged() -> None:
 def test_documentation_governance_files_exist() -> None:
     missing = [path for path in REQUIRED_GOVERNANCE_PATHS if not (ROOT / path).is_file()]
     assert missing == []
+
+
+def test_ebook_user_guide_has_two_installation_paths_and_canonical_indexes() -> None:
+    missing = [path for path in USER_GUIDE_PATHS if not (ROOT / path).is_file()]
+    installation = (ROOT / "docs/user-guide/INSTALLATION.md").read_text(
+        encoding="utf-8"
+    )
+    quickstart = (ROOT / "docs/user-guide/SCHNELLSTART.md").read_text(
+        encoding="utf-8"
+    )
+    handbook = (ROOT / "docs/user-guide/BENUTZERHANDBUCH.md").read_text(
+        encoding="utf-8"
+    )
+    root_readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    documentation_index = (ROOT / "docs/README.md").read_text(encoding="utf-8")
+
+    assert missing == []
+    assert "## Variante A: Docker oder Podman Compose" in installation
+    assert "## Variante B: native Python-Installation" in installation
+    assert "docker compose --profile local-surface up" in installation
+    assert "podman compose --profile local-surface up" in installation
+    assert "foliotone surface-api" in installation
+    assert "[zentralen Installationsanleitung](INSTALLATION.md)" in quickstart
+    assert "[Installationsanleitung](INSTALLATION.md)" in handbook
+    assert "python -m pip install ." not in quickstart
+    assert "python -m pip install ." not in handbook
+    for path in USER_GUIDE_PATHS:
+        relative = path.removeprefix("docs/")
+        assert relative in documentation_index
+    assert "docs/user-guide/SCHNELLSTART.md" in root_readme
+    assert "docs/user-guide/BENUTZERHANDBUCH.md" in root_readme
+
+
+def test_ebook_user_guide_screenshots_are_linked_jpegs_with_synthetic_context() -> None:
+    guide = "\n".join(
+        (ROOT / path).read_text(encoding="utf-8") for path in USER_GUIDE_PATHS
+    )
+    assert "eigens erzeugten synthetischen" in guide
+    assert "Bilder enthalten keine privaten Dateinamen" in guide
+    for path in USER_GUIDE_IMAGES:
+        image = ROOT / path
+        payload = image.read_bytes()
+        assert payload.startswith(b"\xff\xd8\xff")
+        assert payload.endswith(b"\xff\xd9")
+        assert len(payload) >= 20_000
+        assert guide.count(f"images/{image.name}") == 1
 
 
 def test_agents_routes_documentation_changes_to_canonical_policies() -> None:

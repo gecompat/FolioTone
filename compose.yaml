@@ -1,6 +1,7 @@
 services:
   surface-api:
     profiles: ["local-surface"]
+    image: "${FOLIOTONE_IMAGE:-foliotone:local}"
     build:
       context: .
     ports:
@@ -12,10 +13,9 @@ services:
       retries: 15
       start_period: 2s
     volumes:
-      - "${FOLIOTONE_DATA_DIR:-./data}:/data:rw"
-      - "${FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE:-./runtime/ebook-rename-dependency-scopes.json}:/run/foliotone/ebook-rename-dependency-scopes.json:ro"
-    environment:
-      FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE: /run/foliotone/ebook-rename-dependency-scopes.json
+      - type: bind
+        source: "${FOLIOTONE_DATA_DIR:-./data}"
+        target: /data
     read_only: true
     tmpfs:
       - /tmp
@@ -23,19 +23,30 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    command: ["surface-api", "--database", "/data/foliotone.db"]
+    command:
+      [
+        "surface-api",
+        "--database",
+        "/data/foliotone.db",
+        "--container-loopback-publish",
+      ]
 
   analysis-worker:
     profiles: ["local-surface"]
+    image: "${FOLIOTONE_IMAGE:-foliotone:local}"
     depends_on:
       surface-api:
         condition: service_healthy
     build:
       context: .
     volumes:
-      - "${FOLIOTONE_DATA_DIR:-./data}:/data:rw"
-      - "${FOLIOTONE_EBOOKS_DIR:-./media/ebooks}:/media/ebooks:ro"
-      - "${FOLIOTONE_MUSIC_DIR:-./media/music}:/media/music:ro"
+      - type: bind
+        source: "${FOLIOTONE_DATA_DIR:-./data}"
+        target: /data
+      - type: bind
+        source: "${FOLIOTONE_EBOOKS_DIR:-./media/ebooks}"
+        target: /media/ebooks
+        read_only: true
     read_only: true
     network_mode: none
     tmpfs:
@@ -46,38 +57,18 @@ services:
       - ALL
     command: ["analysis-worker", "--database", "/data/foliotone.db"]
 
-  operator-worker:
-    profiles: ["local-surface"]
-    depends_on:
-      surface-api:
-        condition: service_healthy
-    build:
-      context: .
-    volumes:
-      - "${FOLIOTONE_DATA_DIR:-./data}:/data:rw"
-      - "${FOLIOTONE_EBOOK_RENAME_WRITABLE_ROOT:?set the exact authorized ScanRoot for this operator run}:/media/ebooks:rw"
-      - "${FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE:-./runtime/ebook-rename-capabilities.json}:/run/foliotone/ebook-rename-capabilities.json:ro"
-      - "${FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE:-./runtime/ebook-rename-dependency-scopes.json}:/run/foliotone/ebook-rename-dependency-scopes.json:ro"
-    environment:
-      FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE: /run/foliotone/ebook-rename-capabilities.json
-      FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE: /run/foliotone/ebook-rename-dependency-scopes.json
-    read_only: true
-    network_mode: none
-    tmpfs:
-      - /tmp
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    command: ["operator-worker", "--database", "/data/foliotone.db"]
-
   foliotone:
+    image: "${FOLIOTONE_IMAGE:-foliotone:local}"
     build:
       context: .
     volumes:
-      - "${FOLIOTONE_DATA_DIR:-./data}:/data:rw"
-      - "${FOLIOTONE_EBOOKS_DIR:-./media/ebooks}:/media/ebooks:ro"
-      - "${FOLIOTONE_MUSIC_DIR:-./media/music}:/media/music:ro"
+      - type: bind
+        source: "${FOLIOTONE_DATA_DIR:-./data}"
+        target: /data
+      - type: bind
+        source: "${FOLIOTONE_EBOOKS_DIR:-./media/ebooks}"
+        target: /media/ebooks
+        read_only: true
     read_only: true
     tmpfs:
       - /tmp
@@ -95,8 +86,13 @@ services:
       context: .
       dockerfile: packaging/ebook-tools/Dockerfile
     volumes:
-      - "${FOLIOTONE_DATA_DIR:-./data}:/data:rw"
-      - "${FOLIOTONE_EBOOKS_DIR:-./media/ebooks}:/media/ebooks:ro"
+      - type: bind
+        source: "${FOLIOTONE_DATA_DIR:-./data}"
+        target: /data
+      - type: bind
+        source: "${FOLIOTONE_EBOOKS_DIR:-./media/ebooks}"
+        target: /media/ebooks
+        read_only: true
     read_only: true
     network_mode: none
     tmpfs:

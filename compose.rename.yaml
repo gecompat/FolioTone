@@ -1,0 +1,45 @@
+services:
+  surface-api:
+    volumes:
+      - type: bind
+        source: "${FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE:?set the exact owner-only dependency-scope file}"
+        target: /run/foliotone/ebook-rename-dependency-scopes.json
+        read_only: true
+    environment:
+      FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE: /run/foliotone/ebook-rename-dependency-scopes.json
+
+  operator-worker:
+    profiles: ["ebook-rename"]
+    image: "${FOLIOTONE_IMAGE:-foliotone:local}"
+    depends_on:
+      surface-api:
+        condition: service_healthy
+    build:
+      context: .
+    volumes:
+      - type: bind
+        source: "${FOLIOTONE_DATA_DIR:-./data}"
+        target: /data
+      - type: bind
+        source: "${FOLIOTONE_EBOOK_RENAME_WRITABLE_ROOT:?set the exact authorized ScanRoot for this operator run}"
+        target: /media/ebooks
+      - type: bind
+        source: "${FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE:?set the exact owner-only rename-capability file}"
+        target: /run/foliotone/ebook-rename-capabilities.json
+        read_only: true
+      - type: bind
+        source: "${FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE:?set the exact owner-only dependency-scope file}"
+        target: /run/foliotone/ebook-rename-dependency-scopes.json
+        read_only: true
+    environment:
+      FOLIOTONE_EBOOK_RENAME_CAPABILITIES_FILE: /run/foliotone/ebook-rename-capabilities.json
+      FOLIOTONE_EBOOK_RENAME_DEPENDENCY_SCOPES_FILE: /run/foliotone/ebook-rename-dependency-scopes.json
+    read_only: true
+    network_mode: none
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    command: ["operator-worker", "--database", "/data/foliotone.db"]

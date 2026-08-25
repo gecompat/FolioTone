@@ -34,6 +34,8 @@ from foliotone.workflows.ebook_rename_operation import (
 from foliotone.workflows.ebook_rename_planning import EbookRenamePlanningService
 from foliotone.workflows.library_health import SQLiteLibraryHealthReportReader
 
+_CONTAINER_RUNTIME_MARKERS = (Path("/.dockerenv"), Path("/run/.containerenv"))
+
 
 def add_surface_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register local-only surface commands without modifying existing media commands."""
@@ -51,6 +53,14 @@ def add_surface_commands(subparsers: argparse._SubParsersAction[argparse.Argumen
         if name == "surface-api":
             command.add_argument("--host", default="127.0.0.1", choices=("127.0.0.1", "::1"))
             command.add_argument("--port", default=8765, type=int)
+            command.add_argument(
+                "--container-loopback-publish",
+                action="store_true",
+                help=(
+                    "Listen on the container namespace for a host-loopback-only "
+                    "published port; rejected outside Docker or Podman."
+                ),
+            )
         if name == "analysis-worker":
             command.add_argument(
                 "--once", action="store_true", help="Claim at most one read-only job."
@@ -91,8 +101,18 @@ def run_auth_reset(args: argparse.Namespace) -> int:
 
 
 def run_surface_api(args: argparse.Namespace) -> int:
-    """Start only an explicit loopback listener, never a wildcard listener."""
+    """Start the local surface directly or behind a fixed host-loopback publish."""
     config = SurfaceRuntimeConfig(bind_host=args.host, port=args.port)
+    listener_host = config.bind_host
+    if args.container_loopback_publish:
+        if config.bind_host != "127.0.0.1" or not _container_runtime_detected():
+            print(
+                "surface-api failed: container loopback publishing requires an "
+                "IPv4 Docker or Podman container.",
+                file=sys.stderr,
+            )
+            return 2
+        listener_host = "0.0.0.0"  # noqa: S104 - isolated namespace, host publish is fixed loopback
     migrate(args.database)
     engine = create_sqlite_engine(args.database)
     surface_store = SQLiteSurfaceStore(engine)
@@ -109,8 +129,14 @@ def run_surface_api(args: argparse.Namespace) -> int:
             EbookRenameDependencyScopeResolver(),
         ),
     )
-    uvicorn.run(app, host=config.bind_host, port=config.port, proxy_headers=False, access_log=False)
+    uvicorn.run(app, host=listener_host, port=config.port, proxy_headers=False, access_log=False)
     return 0
+
+
+def _container_runtime_detected() -> bool:
+    """Recognize the standard Docker and Podman in-container marker files."""
+
+    return any(path.is_file() for path in _CONTAINER_RUNTIME_MARKERS)
 
 
 def run_analysis_worker(args: argparse.Namespace) -> int:

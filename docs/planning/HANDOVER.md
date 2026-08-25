@@ -4,6 +4,53 @@
 
 FolioTone ist eine Orchestration- und Reconciliation-Plattform für große E-Book- und Musiksammlungen. Das Projekt kombiniert Filesystem-Evidenz, etablierte Spezialwerkzeuge, strukturierte Wissensquellen, Entity Resolution, Classification und Fingerprints in einem Provenance-erhaltenden Modell.
 
+Die abgeschlossene FUT-011-Betriebskorrektur bündelt die E-Book-
+Endbenutzerdokumentation unter `docs/user-guide/`: Schnellstart,
+Installationsanleitung für Docker Compose, Podman Compose und natives Python,
+umfassendes GUI-Handbuch sowie eigenständige CLI-Referenz. Die Anleitung folgt
+der tatsächlich implementierten deutschen Oberfläche und benennt deren
+aktuelle Grenzen, insbesondere CLI-Vorlauf für Scan und `CollectionState`,
+JSON-Suchfilter, opaque IDs, Private-Projection-Lücke und den getrennten
+Same-Parent-Rename-Worker.
+
+Fünf geprüfte JPEG-Aufnahmen zeigen Anmeldung, Übersicht, Details, Suche und
+Rename mit ausschließlich synthetischen Daten. Die Aufnahmeprüfung behob
+zugleich den bislang falschen Search-Renderer-Vertrag (`hits` statt `items`):
+Die UI rendert nun die allowlist-beschränkten öffentlichen Trefferfelder und
+Komponentenstatus; fehlende optionale Tabellenwerte werden als Gedankenstrich
+dargestellt. Ein erneuter Browserlauf zeigte drei synthetische EPUB-Treffer.
+Ruff für die geänderten Static-Contracts sowie 84 statische Dokumentations-/
+Surface- und lokale API-Integrationsfälle waren grün. `node --check` war auf
+dem Host mangels Node-Installation nicht verfügbar; die JavaScript-Änderung
+wurde durch den erfolgreichen realen Browserlauf ausgeführt und verifiziert.
+
+Das Compose-Basisprofil ist read-only und startet ohne Writer-Konfiguration.
+Der Rename-Operator wurde in `compose.rename.yaml` isoliert und bleibt ohne
+exakte Dependency-Scope-Datei, Capability-Datei und autorisierten schreibbaren
+`ScanRoot` fail-closed. Ein internes Containerflag löst ausschließlich die
+Portübergabe im erkannten Docker-/Podman-Namespace; der Host-Publish bleibt
+fest auf `127.0.0.1:8765`, während native Prozesse unverändert nur Loopback
+akzeptieren. Docker Compose, Podman Compose und eine native Python-3.12-
+Installation bestanden jeweils Build beziehungsweise Installation, Health,
+Setup-Shell sowie einen synthetischen read-only Scan mit anschließendem
+Ein-Item-`CollectionState`. Beim Windows-Podman-Provider ist die dokumentierte
+Windows-Pfadform bindend; `/mnt/c/...` würde dort doppelt übersetzt. Reale
+Medien und private Laufzeitdaten wurden nicht verwendet.
+
+Die fokussierten 23 CLI-, Surface-, Compose- und Dokumentationsverträge sowie
+weitere acht Packaging-/Compose-Verträge waren grün. Vor dem Rebase auf den
+unabhängig gemergten `WI-0003`-Baseline-Head deckte der erste vollständige
+Pytest-Lauf genau eine veraltete Short-Syntax-Assertion auf; nach deren
+Korrektur bestand die damalige vollständige Suite mit 2.278 grünen Fällen und
+19 erwarteten Plattform-Skips. Auf dem kombinierten exakten Head bestanden
+anschließend 96 fokussierte Surface-, Migration-, Fixity-, Planning- und
+Dokumentationsfälle mit sechs erwarteten Linux-Skips. Ruff war vollständig
+grün, Mypy prüfte 284 Source-Dateien ohne Befund und `git diff --check` war
+sauber. Der einmalige vollständige PR-CI-Gate bleibt für den stabilen Head
+offen. Die Korrektur verändert weder `WI-0003` als aktuellen `NEXT`-
+Verifikations-/Einzelentscheidungs-Slice noch dessen Baseline-Scope und öffnet
+keine zusätzliche Source-Media-Operation.
+
 `WI-0002` verankert die nächste E-Book-Folge in
 [`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md). `DEC-0001` ist
 akzeptiert. Der erste `WI-0003`-Slice implementiert die explizit aktivierte

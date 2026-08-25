@@ -2,6 +2,21 @@
 
 Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwicklung sind `AGENTS.md`, Projektstatus, Handover, Backlog und die relevanten ADRs maßgeblich. Für fachliche Nutzung führen Einstieg, Architektur und Referenzen von der allgemeinen Orientierung zu den technischen Details.
 
+## Benutzeranleitung
+
+- [Übersicht der Benutzeranleitung](user-guide/README.md) grenzt die aktive
+  E-Book-Linie und die Sicherheitsgrenzen der lokalen Oberfläche ein.
+- [Schnellstart](user-guide/SCHNELLSTART.md) führt durch den ersten read-only
+  E-Book-Workflow in der grafischen Oberfläche.
+- [Installation und erster Start](user-guide/INSTALLATION.md) beschreibt
+  Docker Compose, Podman Compose und die native Python-Installation ohne
+  Wiederholung in den übrigen Anleitungen.
+- [Umfassendes Benutzerhandbuch](user-guide/BENUTZERHANDBUCH.md) erklärt
+  Navigation, Suche, Details, Jobs, Audit und den begrenzten Same-Parent-
+  Rename.
+- [CLI-Referenz](user-guide/CLI.md) bündelt Scan, Analyse, Berichte und
+  operation-spezifische Terminalbefehle.
+
 ## Produktvision und langfristige Einordnung
 
 - [Evidence-driven Collection Intelligence](vision/EVIDENCE_DRIVEN_COLLECTION_INTELLIGENCE.md) beschreibt als strategischer Entwurf die langfristige local-first Produktthese, Medienfolge und Informationsgrenzen. Das Dokument entscheidet keine neuen Architekturverträge oder Aufgabenstatus.
@@ -50,7 +65,7 @@ Ein Eintrag in einer Tool- oder Provider-Registry ist keine automatische Abhäng
 
 Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue wesentliche Architekturentscheidungen werden als ADR dokumentiert; eine redaktionelle Änderung darf einen technischen Vertrag nicht stillschweigend ersetzen.
 
-- [ADR-0016](decisions/ADR-0016-cli-first-product-surface.md) legt die CLI als anfängliche Produktoberfläche fest und verschiebt Web-API, Desktop-Oberfläche und Dashboard aus dem aktiven Scope.
+- [ADR-0016](decisions/ADR-0016-cli-first-product-surface.md) dokumentiert die historische CLI als anfängliche Produktoberfläche; ADR-0067 erweitert sie um die inzwischen implementierte lokale REST-/Browseroberfläche.
 - [ADR-0017](decisions/ADR-0017-provider-accepted-exit-codes.md) trennt einen adapter-akzeptierten Domain-Befund mit Nonzero-Exitcode von technischen Toolfehlern.
 - [ADR-0018](decisions/ADR-0018-versioned-ebook-quality-profile.md) definiert das versionierte, mehrdimensionale E-Book-Qualitätsprofil ohne skalaren Score oder Identitätsaussage.
 - [ADR-0019](decisions/ADR-0019-provider-neutral-ebook-evidence-comparison.md) definiert den read-only Vergleich persistierter Datei-, Text-, Metadaten-, Struktur- und Cover-Evidence ohne Match- oder Identitätsurteil.

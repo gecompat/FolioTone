@@ -34,6 +34,13 @@ FolioTone ist eine **Orchestration- und Reconciliation-Plattform für große E-B
 
 ## Aktueller Stand
 
+Die lokale Einzelbenutzeroberfläche `local-single-operator/v1` ist für die
+E-Book-Linie implementiert. Sie umfasst eine loopback-only Browser-UI und REST-
+API für Suche, Projektionen, Jobs und Audit sowie den separat abgesicherten
+Same-Parent-Rename. Musik und Bilder sind sichtbar, aber nicht aktiviert. Die
+CLI bleibt für Scan, Analyse, Berichte und operation-spezifische Abläufe
+verfügbar.
+
 FolioTone hat **W2 — Incremental Index + Filename/Path Context + Tool Runtime**
 abgeschlossen. In W3 sind die E-Book-Toolchain-Bewertung, feste read-only
 calibre-/Poppler-Analysepfade für EPUB, MOBI, AZW, AZW3 und PDF sowie die
@@ -144,9 +151,9 @@ Der aktive W3-Stand ergänzt die CLI-Analyse und ihre Testgrundlage:
   unterstützten Formate, Sparse-/Malformed-Evidence und kalibrierte Cover-
   Distanzen, ohne eine Matching Engine vorwegzunehmen.
 
-Die anfängliche Produktoberfläche bleibt ausschließlich die CLI. Eine Web-API, Desktop-Oberfläche oder ein Dashboard gehört nicht zum aktuellen Scope. [ADR-0016](docs/decisions/ADR-0016-cli-first-product-surface.md) hält diese Entscheidung fest.
+Die anfängliche CLI-only Entscheidung aus [ADR-0016](docs/decisions/ADR-0016-cli-first-product-surface.md) ist durch die implementierte lokale REST-/Browseroberfläche aus [ADR-0067](docs/decisions/ADR-0067-local-single-operator-product-surface.md) erweitert. Remote-, Mehrbenutzer- und Desktopbetrieb bleiben außerhalb des aktuellen Scopes.
 
-Siehe außerdem [Projektstatus](docs/planning/PROJECT_STATUS.md), [Backlog](docs/planning/BACKLOG.md) und [Dokumentationsübersicht](docs/README.md).
+Für die Bedienung siehe [Schnellstart](docs/user-guide/SCHNELLSTART.md), [umfassendes Benutzerhandbuch](docs/user-guide/BENUTZERHANDBUCH.md), [Installation mit Docker, Podman oder Python](docs/user-guide/INSTALLATION.md) und [CLI-Referenz](docs/user-guide/CLI.md). Siehe außerdem [Projektstatus](docs/planning/PROJECT_STATUS.md), [Backlog](docs/planning/BACKLOG.md) und [Dokumentationsübersicht](docs/README.md).
 
 ## Positionierung: Spezialisten orchestrieren statt neu erfinden
 
@@ -169,16 +176,16 @@ Siehe [External Analysis Tools](docs/reference/EXTERNAL_TOOLS.md) und [ADR-0010]
 ## Kernprinzipien
 
 - Python 3.12+; Docker/Linux ist der primäre Runtime-Kontext.
-- Die anfängliche Produktoberfläche ist ausschließlich die CLI; die CLI bleibt ein dünner Adapter zu Anwendungs- und Core-Verträgen.
+- Die lokale E-Book-Produktoberfläche besteht aus Browser-UI, REST-API und CLI; alle Adapter verwenden gemeinsame Application- und Core-Verträge.
 - Runtime State liegt host-persistent unter `/data`.
-- Source Media wird read-only unter `/media` eingebunden.
+- Normale Scan- und Analyseprozesse binden Source Media read-only unter `/media` ein; nur ein operation-spezifisch autorisierter W10-Worker erhält einen engen schreibbaren Mount.
 - SQLite ist die initiale Persistence Engine; SQLAlchemy Core und Alembic bleiben auf die Persistence-Schicht begrenzt.
 - External Tool-/Provider-Ergebnisse sind Evidence und keine ungeprüfte kanonische Wahrheit.
 - Observed, Derived, External, Canonical und User-confirmed Values bleiben getrennt und nachvollziehbar.
 - Autoren, Interpreten und Komponisten werden als `Agent`-Identitäten mit Rollen modelliert.
 - Buch-`Work`/`Edition` und Musik-`MusicWork`/`Recording`/`ReleaseGroup`/`Release` bleiben getrennte Identitätsebenen.
 - Matching ist kandidatengesteuert, versioniert, erklärbar und reviewbar.
-- Source-Media-Mutationen bleiben bis W10 blockiert.
+- Source-Media-Mutationen bleiben außer den ausdrücklich entschiedenen, vollständig abgesicherten W10-Operationen blockiert.
 
 ## Zielarchitektur
 

@@ -13,4 +13,8 @@ section { margin-block: 1.5rem; }
 #job-list, #audit-list, #search-results, #snapshot-details, #scan-details, #run-details, #readiness-details, #plan-list { border: 1px solid CanvasText; margin-top: .75rem; overflow-x: auto; padding: .75rem; }
 table { border-collapse: collapse; width: 100%; }
 th, td { border-bottom: 1px solid CanvasText; padding: .4rem; text-align: left; vertical-align: top; }
+#search-results table { table-layout: fixed; }
+#search-results th, #search-results td { overflow-wrap: anywhere; }
+#search-results th:nth-child(3), #search-results td:nth-child(3) { width: 5rem; }
+#search-results th:nth-child(4), #search-results td:nth-child(4) { width: 45%; }
 @media (max-width: 40rem) { .site-header { align-items: flex-start; gap: 1rem; } }

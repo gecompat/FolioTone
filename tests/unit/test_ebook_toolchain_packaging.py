@@ -68,12 +68,13 @@ def test_windows_provisioning_is_explicit_and_supports_wsl_linux_docker() -> Non
 def test_optional_compose_profile_keeps_sources_read_only() -> None:
     compose = (REPOSITORY_ROOT / "compose.yaml").read_text(encoding="utf-8")
     dockerignore = (REPOSITORY_ROOT / ".dockerignore").read_text(encoding="utf-8")
+    ebook_profile = compose.split("  foliotone-ebook:\n", maxsplit=1)[1]
 
     assert 'profiles: ["ebook-tools"]' in compose
     assert "packaging/ebook-tools/Dockerfile" in compose
-    assert ':/media/ebooks:ro"' in compose
-    assert "read_only: true" in compose
-    assert "network_mode: none" in compose
+    assert "target: /media/ebooks\n        read_only: true" in ebook_profile
+    assert "read_only: true" in ebook_profile
+    assert "network_mode: none" in ebook_profile
     assert "!packaging/ebook-tools/**" in dockerignore
 
 
