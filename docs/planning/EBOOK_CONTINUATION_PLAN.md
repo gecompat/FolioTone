@@ -15,9 +15,9 @@ Ausführungsachse und autorisiert keine W10-Operation.
 Die verbindliche Reihenfolge lautet:
 
 1. `WI-0003` (`FUT-009`) implementiert book-only Fixity Monitoring nach
-   `DEC-0001`. Baseline, Verifikation und Einzelentscheidungen sind umgesetzt;
-   die gemeinsame Application-/CLI-/REST-/Browser-Surface ist `NEXT`.
-2. `GATE-0001` qualifiziert danach das deterministische EPUB-3-zu-EPUB-3-
+   `DEC-0001`. Baseline, Verifikation, Einzelentscheidungen und die gemeinsame
+   Application-/CLI-/REST-/Browser-Surface sind umgesetzt.
+2. `GATE-0001` qualifiziert als nächste Wave das deterministische EPUB-3-zu-EPUB-3-
    Transformationsprofil und entscheidet, ob `DEC-0002` akzeptiert werden kann.
 3. `WI-0004` (`FUT-008`) bleibt bis zu diesem positiven Gate blockiert und
    liefert anschließend die Transformationskette in kleinen Pull Requests.
@@ -57,8 +57,8 @@ Einzelentscheidungen verwenden die feste generische Review-Core-Paarung
 Decision zu genau einem Ergebnis eines `COMPLETED`-Laufs darf
 `ACCEPT_CURRENT` oder `RETIRE_MISSING` auslösen. Jede fachliche Entscheidung
 ergänzt genau eine append-only Erwartungsrevision; Bulk-Accept und Root-Reset
-bleiben ausgeschlossen. Die Fixity-Surface ist die einzige `NEXT`-
-Produktwave. `GATE-0001` und `WI-0004` bleiben nachgelagert.
+bleiben ausgeschlossen. Die Fixity-Surface ist umgesetzt. `GATE-0001` ist die
+einzige `NEXT`-Wave; `WI-0004` bleibt bis zu einem positiven Gate blockiert.
 
 ## GATE-0001 und WI-0004 — EPUB-Transformation
 

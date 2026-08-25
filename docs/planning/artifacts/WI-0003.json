@@ -19,7 +19,7 @@
   ],
   "schema_version": 1,
   "title": "Book-only Fixity Monitoring implementieren",
-  "status": "NEXT",
+  "status": "DONE",
   "metadata": {
     "scope": "ebook-fixity",
     "tier": "FRONTIER",

@@ -194,42 +194,51 @@ class SQLiteResolutionReviewStore:
     def enqueue_or_get_review(self, item: ReviewItem) -> ReviewItem:
         """Insert one exact review case without overwriting prior history."""
 
+        with self._engine.begin() as connection:
+            return self.enqueue_or_get_review_in_transaction(connection, item)
+
+    def enqueue_or_get_review_in_transaction(
+        self,
+        connection: Connection,
+        item: ReviewItem,
+    ) -> ReviewItem:
+        """Connection-scoped core for a caller-owned atomic command."""
+
         if item.state is not ReviewItemState.PENDING:
             raise ResolutionReviewStoreError("new review items must be PENDING")
-        with self._engine.begin() as connection:
-            if item.review_type is ReviewType.AUTHORITY_RESOLUTION:
-                if item.candidate_kind is not ReviewCandidateKind.RESOLUTION_CANDIDATE:
-                    raise ResolutionReviewStoreError(
-                        "authority review requires a resolution candidate"
-                    )
-                candidate = self._get_candidate(connection, item.candidate_id)
-                if candidate is None:
-                    raise ResolutionReviewStoreError("resolution candidate does not exist")
-                _require_item_matches_candidate(item, candidate)
-                if candidate.disposition is ResolutionDisposition.AUTO_SAFE:
-                    raise ResolutionReviewStoreError("AUTO_SAFE candidates must not enter review")
-            elif item.review_type is ReviewType.METADATA_CORRECTION:
-                _require_metadata_correction_review(connection, item)
-            elif item.review_type is ReviewType.EBOOK_OPERATION_RECIPE:
-                _require_ebook_operation_recipe_review(connection, item)
-            elif item.review_type is ReviewType.FIXITY_EXPECTATION:
-                _require_fixity_expectation_review(connection, item)
-            else:
-                raise ResolutionReviewStoreError("review type is not supported by this store")
-            result = connection.execute(
-                insert(rr_schema.review_items)
-                .values(**self._review_codec.encode(item))
-                .prefix_with("OR IGNORE")
-            )
-            if result.rowcount == 1:
-                return item
-            persisted = self._review_by_exact_case(connection, item)
-            if persisted is None:
-                raise ResolutionReviewStoreError("review item could not be persisted")
-            expected = replace(item, id=persisted.id, producer_version=persisted.producer_version)
-            if persisted != expected:
-                raise ResolutionReviewStoreError("review case is nondeterministic")
-            return persisted
+        if item.review_type is ReviewType.AUTHORITY_RESOLUTION:
+            if item.candidate_kind is not ReviewCandidateKind.RESOLUTION_CANDIDATE:
+                raise ResolutionReviewStoreError(
+                    "authority review requires a resolution candidate"
+                )
+            candidate = self._get_candidate(connection, item.candidate_id)
+            if candidate is None:
+                raise ResolutionReviewStoreError("resolution candidate does not exist")
+            _require_item_matches_candidate(item, candidate)
+            if candidate.disposition is ResolutionDisposition.AUTO_SAFE:
+                raise ResolutionReviewStoreError("AUTO_SAFE candidates must not enter review")
+        elif item.review_type is ReviewType.METADATA_CORRECTION:
+            _require_metadata_correction_review(connection, item)
+        elif item.review_type is ReviewType.EBOOK_OPERATION_RECIPE:
+            _require_ebook_operation_recipe_review(connection, item)
+        elif item.review_type is ReviewType.FIXITY_EXPECTATION:
+            _require_fixity_expectation_review(connection, item)
+        else:
+            raise ResolutionReviewStoreError("review type is not supported by this store")
+        result = connection.execute(
+            insert(rr_schema.review_items)
+            .values(**self._review_codec.encode(item))
+            .prefix_with("OR IGNORE")
+        )
+        if result.rowcount == 1:
+            return item
+        persisted = self._review_by_exact_case(connection, item)
+        if persisted is None:
+            raise ResolutionReviewStoreError("review item could not be persisted")
+        expected = replace(item, id=persisted.id, producer_version=persisted.producer_version)
+        if persisted != expected:
+            raise ResolutionReviewStoreError("review case is nondeterministic")
+        return persisted
 
     def list_queue(
         self,
@@ -268,6 +277,34 @@ class SQLiteResolutionReviewStore:
             cursor = (items[-1].created_at, items[-1].id)
         return ReviewItemPage(items=items, next_cursor=cursor)
 
+    def list_fixity_queue_by_id(
+        self,
+        *,
+        after_id: EntityId | None = None,
+        limit: int = 50,
+    ) -> tuple[tuple[ReviewItem, ...], EntityId | None]:
+        """Return a bounded path-free Fixity queue with an opaque-ID keyset."""
+
+        _validate_limit(limit, 100)
+        table = rr_schema.review_items
+        statement = (
+            select(table)
+            .where(
+                table.c.review_type == ReviewType.FIXITY_EXPECTATION.value,
+                table.c.state.in_(
+                    [ReviewItemState.PENDING.value, ReviewItemState.DEFERRED.value]
+                ),
+            )
+            .order_by(table.c.id)
+            .limit(limit + 1)
+        )
+        if after_id is not None:
+            statement = statement.where(table.c.id > str(after_id))
+        with self._engine.connect() as connection:
+            rows = connection.execute(statement).mappings().all()
+        items = tuple(self._review_codec.decode(row) for row in rows[:limit])
+        return items, (None if len(rows) <= limit or not items else items[-1].id)
+
     def get_review_item(self, item_id: EntityId) -> ReviewItem | None:
         """Return one review item without resolving private Evidence values."""
 
@@ -292,46 +329,79 @@ class SQLiteResolutionReviewStore:
         """Append one optimistically fenced decision and update only item state."""
 
         with self._engine.begin() as connection:
-            existing = self._get_decision(connection, decision.id)
-            if existing is not None:
-                if existing != decision:
-                    raise ResolutionReviewStoreError("decision id has different content")
-                return existing
-            table = rr_schema.review_items
-            fence = connection.execute(
-                update(table)
-                .where(
-                    table.c.id == str(decision.review_item_id),
-                    table.c.evidence_fingerprint == decision.evidence_fingerprint,
-                    table.c.candidate_set_fingerprint == decision.candidate_set_fingerprint,
-                    table.c.decision_compatibility_version
-                    == decision.decision_compatibility_version,
-                )
-                .values(state=table.c.state)
+            return self.append_decision_in_transaction(
+                connection,
+                decision,
+                expected_latest_decision_id=expected_latest_decision_id,
             )
-            if fence.rowcount != 1:
-                raise ResolutionReviewStoreError("review item snapshot is stale")
-            latest = self._latest_decision(connection, decision.review_item_id)
-            latest_id = None if latest is None else latest.id
-            if latest_id != expected_latest_decision_id:
-                raise ResolutionReviewStoreError("review decision history changed")
-            expected_sequence = 1 if latest is None else latest.sequence_no + 1
-            if decision.sequence_no != expected_sequence:
-                raise ResolutionReviewStoreError("review decision sequence is not current")
-            connection.execute(
-                insert(rr_schema.review_decisions).values(**self._decision_codec.encode(decision))
+
+    def append_decision_in_transaction(
+        self,
+        connection: Connection,
+        decision: ReviewDecision,
+        *,
+        expected_latest_decision_id: EntityId | None,
+    ) -> ReviewDecision:
+        """Connection-scoped append preserving the optimistic history fence."""
+
+        existing = self._get_decision(connection, decision.id)
+        if existing is not None:
+            if existing != decision:
+                raise ResolutionReviewStoreError("decision id has different content")
+            return existing
+        table = rr_schema.review_items
+        fence = connection.execute(
+            update(table)
+            .where(
+                table.c.id == str(decision.review_item_id),
+                table.c.evidence_fingerprint == decision.evidence_fingerprint,
+                table.c.candidate_set_fingerprint == decision.candidate_set_fingerprint,
+                table.c.decision_compatibility_version
+                == decision.decision_compatibility_version,
             )
-            state = (
-                ReviewItemState.DEFERRED
-                if decision.decision is ReviewDecisionValue.DEFER
-                else ReviewItemState.DECIDED
-            )
-            connection.execute(
-                update(table)
-                .where(table.c.id == str(decision.review_item_id))
-                .values(state=state.value)
-            )
-            return decision
+            .values(state=table.c.state)
+        )
+        if fence.rowcount != 1:
+            raise ResolutionReviewStoreError("review item snapshot is stale")
+        latest = self._latest_decision(connection, decision.review_item_id)
+        latest_id = None if latest is None else latest.id
+        if latest_id != expected_latest_decision_id:
+            raise ResolutionReviewStoreError("review decision history changed")
+        expected_sequence = 1 if latest is None else latest.sequence_no + 1
+        if decision.sequence_no != expected_sequence:
+            raise ResolutionReviewStoreError("review decision sequence is not current")
+        connection.execute(
+            insert(rr_schema.review_decisions).values(**self._decision_codec.encode(decision))
+        )
+        state = (
+            ReviewItemState.DEFERRED
+            if decision.decision is ReviewDecisionValue.DEFER
+            else ReviewItemState.DECIDED
+        )
+        connection.execute(
+            update(table)
+            .where(table.c.id == str(decision.review_item_id))
+            .values(state=state.value)
+        )
+        return decision
+
+    def exact_review_in_transaction(
+        self,
+        connection: Connection,
+        item: ReviewItem,
+    ) -> ReviewItem | None:
+        """Return an existing exact immutable case for command composition."""
+
+        return self._review_by_exact_case(connection, item)
+
+    def latest_decision_in_transaction(
+        self,
+        connection: Connection,
+        item_id: EntityId,
+    ) -> ReviewDecision | None:
+        """Return the latest append-only decision inside a caller transaction."""
+
+        return self._latest_decision(connection, item_id)
 
     def get_effective_decision(self, item_id: EntityId) -> ReviewDecision | None:
         with self._engine.connect() as connection:

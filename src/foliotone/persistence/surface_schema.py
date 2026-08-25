@@ -7,6 +7,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    String,
     Table,
     Text,
     UniqueConstraint,
@@ -162,6 +163,36 @@ ebook_rename_operator_job_results = Table(
     CheckConstraint(
         "(authorization_id IS NULL) OR (run_id IS NULL)",
         name="ck_ebook_rename_operator_job_result_reference",
+    ),
+)
+
+ebook_fixity_analysis_job_binders = Table(
+    "ebook_fixity_analysis_job_binders",
+    metadata,
+    Column("job_id", ID, ForeignKey("application_jobs.id"), primary_key=True),
+    Column("profile", String(64), nullable=False),
+    Column("scan_root_id", ID, ForeignKey("scan_roots.id"), nullable=False),
+    Column("worker_count", Integer, nullable=False),
+    CheckConstraint(
+        "profile IN ('ebook-fixity-baseline-build/v1', 'ebook-fixity-verification/v1')",
+        name="ck_ebook_fixity_analysis_job_binder_profile",
+    ),
+    CheckConstraint(
+        "worker_count BETWEEN 1 AND 2",
+        name="ck_ebook_fixity_analysis_job_binder_workers",
+    ),
+)
+
+ebook_fixity_analysis_job_results = Table(
+    "ebook_fixity_analysis_job_results",
+    metadata,
+    Column("job_id", ID, ForeignKey("application_jobs.id"), primary_key=True),
+    Column("manifest_id", ID, ForeignKey("ebook_fixity_baseline_manifests.manifest_id")),
+    Column("verification_run_id", ID, ForeignKey("ebook_fixity_verification_runs.id")),
+    CheckConstraint(
+        "(manifest_id IS NOT NULL AND verification_run_id IS NULL) OR "
+        "(manifest_id IS NULL AND verification_run_id IS NOT NULL)",
+        name="ck_ebook_fixity_analysis_job_result_reference",
     ),
 )
 Index("ix_surface_sessions_active", surface_sessions.c.token_digest, surface_sessions.c.expires_at)

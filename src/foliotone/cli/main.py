@@ -126,6 +126,13 @@ from foliotone.surface.cli import (
     run_analysis_worker,
     run_auth_bootstrap,
     run_auth_reset,
+    run_ebook_fixity_baseline_activate,
+    run_ebook_fixity_baseline_build,
+    run_ebook_fixity_baseline_status,
+    run_ebook_fixity_expectation_revise,
+    run_ebook_fixity_result_review,
+    run_ebook_fixity_verification_run,
+    run_ebook_fixity_verification_status,
     run_operator_worker,
     run_surface_api,
 )
@@ -2220,6 +2227,27 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "operator-worker":
         return run_operator_worker(args)
+
+    if args.command == "ebook-fixity-baseline-build":
+        return run_ebook_fixity_baseline_build(args)
+
+    if args.command == "ebook-fixity-baseline-status":
+        return run_ebook_fixity_baseline_status(args)
+
+    if args.command == "ebook-fixity-baseline-activate":
+        return run_ebook_fixity_baseline_activate(args)
+
+    if args.command == "ebook-fixity-verification-run":
+        return run_ebook_fixity_verification_run(args)
+
+    if args.command == "ebook-fixity-verification-status":
+        return run_ebook_fixity_verification_status(args)
+
+    if args.command == "ebook-fixity-result-review":
+        return run_ebook_fixity_result_review(args)
+
+    if args.command == "ebook-fixity-expectation-revise":
+        return run_ebook_fixity_expectation_revise(args)
 
     if args.command == "status":
         print("FolioTone local-single-operator/v1 is implemented for the EBOOK product line.")

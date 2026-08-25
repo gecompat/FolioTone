@@ -192,7 +192,7 @@ def test_ebook_user_guide_screenshots_are_linked_jpegs_with_synthetic_context() 
         assert guide.count(f"images/{image.name}") == 1
 
 
-def test_ebook_user_guide_does_not_invent_the_pending_fixity_surface() -> None:
+def test_ebook_user_guide_documents_the_bounded_fixity_surface() -> None:
     overview = (ROOT / "docs/user-guide/README.md").read_text(encoding="utf-8")
     quickstart = (ROOT / "docs/user-guide/SCHNELLSTART.md").read_text(
         encoding="utf-8"
@@ -202,11 +202,22 @@ def test_ebook_user_guide_does_not_invent_the_pending_fixity_surface() -> None:
     )
     cli = (ROOT / "docs/user-guide/CLI.md").read_text(encoding="utf-8")
 
-    assert "noch keine öffentliche Application-, CLI-, REST- oder" in overview
+    assert "Die Fixity-Surface ergänzt manuell gestartete" in overview
     assert "## Dateiintegrität (Fixity)" in handbook
     assert "keine `FixityBaseline`" in quickstart
     assert "`ebook-postscan-verify`" in handbook
-    assert "noch keinen öffentlichen CLI-Befehl" in cli
+    for command in (
+        "ebook-fixity-baseline-build",
+        "ebook-fixity-baseline-status",
+        "ebook-fixity-baseline-activate",
+        "ebook-fixity-verification-run",
+        "ebook-fixity-verification-status",
+        "ebook-fixity-result-review",
+        "ebook-fixity-expectation-revise",
+    ):
+        assert command in cli
+    assert "`PRIVATE_READ`" in handbook
+    assert "`--retry-id`" in cli
     assert "SQLite-Änderungen" in handbook
     assert "SQLite-Änderungen" in cli
 
@@ -276,8 +287,8 @@ def test_artifact_registration_authority_is_discoverable_and_consistent() -> Non
         {"type": "governed_by", "target": "ADR-0070"}
     ]
     assert artifacts["DEC-0001"]["status"] == "ACCEPTED"
-    assert artifacts["WI-0003"]["status"] == "NEXT"
-    assert artifacts["GATE-0001"]["status"] == "PLANNED"
+    assert artifacts["WI-0003"]["status"] == "DONE"
+    assert artifacts["GATE-0001"]["status"] == "NEXT"
     assert artifacts["WI-0004"]["status"] == "BLOCKED"
 
 

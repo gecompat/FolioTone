@@ -463,7 +463,9 @@ benötigen getrennte Produktoberflächen-Waves.
 aktivierte Baseline bindet frisch gestreamte Full-SHA-256-Werte genau eines
 E-Book-`ScanRoot`; spätere Verifikationen und append-only Einzelentscheidungen
 erzeugen Evidence, aber keine Ursache, Identity-Entscheidung oder Mutation
-Authority. `WI-0003` liefert Baseline, Verifikation und Surface nacheinander.
+Authority. `WI-0003` liefert Baseline, Verifikation und die gemeinsame
+Application-/CLI-/REST-/Browser-Surface; `GATE-0001` ist die nächste
+Ausführungsfront.
 
 `DEC-0002` ist der vorgeschlagene technische Rahmen für eine neue EPUB-3-
 Ableitung in einem getrennten Output-Root. Der bestehende W9-

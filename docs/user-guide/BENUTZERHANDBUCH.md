@@ -52,6 +52,7 @@ Bereichsnavigation.
 |---|---|---|
 | **Suche** | begrenzte Abfrage eines vorhandenen `CollectionState` | nein |
 | **Details** | Snapshot-, Health-, Scan-, Inventar-, Analyse-, Evidence- und Review-Projektionen | nein |
+| **Fixity** | Baseline, Verifikation, private Byte-Evidence und Einzelreview | nein |
 | **Umbenennen** | enger, reviewter Same-Parent-Rename mit separatem Worker | nur nach vollständiger Freigabekette |
 | **Jobs** | Status dauerhafter Aufträge | nein |
 | **Audit** | pfadfreie Ereignisse zu Authentisierung und Aufträgen | nein |
@@ -94,26 +95,67 @@ Snapshots bleiben unveränderlich und können über die CLI verglichen werden.
 
 ## Dateiintegrität (Fixity)
 
-FolioTone besitzt intern bereits Verträge und Persistenz für eine explizit
-aktivierte `FixityBaseline`, einen daran gebundenen `FixityVerificationRun`
-und append-only Einzelentscheidungen. Dieser interne Stand ist noch nicht als
-Application-, CLI-, REST- oder Browserbedienung veröffentlicht.
+Die Fixity-Surface erkennt unerwartete Byteänderungen in genau einem
+E-Book-`ScanRoot`. Sie baut eine explizit zu aktivierende `FixityBaseline`,
+bindet spätere Verifikationen an einen abgeschlossenen Scan-Snapshot und lässt
+nur einzelne reviewte Erwartungsänderungen zu. Sie schreibt nicht in Source
+Media und ist keine W10-Operation.
 
-Für Endbenutzer bedeutet diese Grenze:
+### Baseline vorbereiten und aktivieren
 
-- In der grafischen Oberfläche lässt sich noch keine `FixityBaseline` bauen
-  oder aktivieren.
-- Es lässt sich noch kein `FixityVerificationRun` starten oder anzeigen.
-- Die Ergebnisse `UNEXPECTED_BYTE_CHANGE`, `MISSING` und `UNBASELINED` können
-  noch nicht über einen öffentlichen Bedienweg einzeln reviewt werden.
-- `Library Health` bewertet den snapshotgebundenen Sammlungszustand und ist
-  keine Fixity-Verifikation.
-- `ebook-postscan-verify` prüft die vorhandene Hash-, Inventar- und
-  Collection-Kette; der Befehl baut oder verifiziert keine `FixityBaseline`.
+1. Trage die opaque `ScanRoot-ID` des vollständig abgeschlossenen E-Book-
+   Scans unter **Baseline** ein und lege den Baseline-Build-Job an.
+2. Starte den getrennten read-only `analysis-worker`, wie in der
+   [CLI-Referenz](CLI.md#abgrenzung-zum-fixity-monitoring) beschrieben. Der
+   Browser selbst liest keine Source-Datei.
+3. Übernimm die `Manifest-ID` aus dem Jobresultat und lade den Baseline-Status.
+   Nur ein vollständig vorbereitetes, noch nicht abgelaufenes Manifest kann
+   aktiviert werden.
+4. Gib dein Passwort unter **Review freigeben** erneut ein. Dieser Schritt
+   rotiert die Session und erteilt nur einen kurzlebigen `REVIEW`-Grant.
+5. Gib die angezeigte exakte Bestätigung
+   `ACCEPT FIXITY BASELINE <Manifest-ID>` ein und aktiviere die Baseline.
 
-Verwende keine internen Python-Klassen, direkten SQLite-Änderungen oder
-selbst erfundenen Befehle als Ersatz. Der bedienbare Workflow wird erst mit der
-getrennten Fixity-Surface dokumentiert.
+Bestätigung und Passwort werden nach dem Absenden aus den Feldern entfernt
+und weder in Ergebnissen noch im Audit ausgegeben. Eine Aktivierung öffnet
+keine allgemeine Schreibfähigkeit und kann nicht als Root-Reset verwendet
+werden.
+
+### Verifikation und Ergebnisse
+
+1. Lege unter **Verifikation** einen manuellen Job für denselben `ScanRoot` an
+   und lasse ihn vom getrennten `analysis-worker` ausführen.
+2. Lade den Status über die ausgegebene `Verifikationslauf-ID`.
+3. Lade die öffentlichen Ergebnisse. Sie enthalten opaque Datei- und
+   Ergebnis-IDs sowie Befunde, aber keine relativen Locator oder Hashwerte.
+4. Wenn du die zugrunde liegenden Bytewerte prüfen musst, erteile unter
+   **Privater Fixity-Bereich** mit erneuter Passworteingabe einen kurzlebigen
+   `PRIVATE_READ`-Grant. Private Baseline-Einträge und Ergebnisdetails werden
+   mit `no-store` geladen.
+
+Jeder Sessionwechsel entfernt dargestellte private Werte. Auch eine
+abgelaufene oder abgewiesene Session leert sie. Nach einem vollständigen
+Neuladen gilt weiterhin die im Abschnitt
+[Anmeldung und Sitzung](#anmeldung-und-sitzung) beschriebene CSRF-Grenze.
+
+### Review und Einzelrevision
+
+Öffentliche Ergebnisse bieten **Review auswählen**. Nach einer frischen
+Review-Reauthentisierung kannst du `ACCEPT`, `REJECT` oder `DEFER` anhängen.
+Nur ein aktuelles, exakt passendes `ACCEPT` kann danach genau eine passende
+Einzelrevision freigeben:
+
+- `ACCEPT_CURRENT` gilt nur für `UNEXPECTED_BYTE_CHANGE` oder `UNBASELINED`;
+- `RETIRE_MISSING` gilt nur für `MISSING`;
+- `VERIFIED`, `UNREADABLE` und `SOURCE_CHANGED_DURING_RUN` sind keine
+  Entscheidungskandidaten.
+
+Jede erfolgreiche Einzelrevision ist append-only. Bulk-Accept, automatische
+Akzeptanz, Zeitplanung, Backup-/Replica-Vergleich, Restore und Root-weite
+Reinitialisierung bleiben ausgeschlossen. `Library Health` und
+`ebook-postscan-verify` sind getrennte Prüfungen und ersetzen keine
+Fixity-Verifikation. Direkte SQLite-Änderungen oder interne Python-Aufrufe sind
+kein zulässiger Ersatz für diese Bedienwege.
 
 ## Suche
 

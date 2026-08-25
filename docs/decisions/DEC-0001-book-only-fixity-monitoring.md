@@ -206,8 +206,9 @@ Der Verifikations- und Entscheidungsslice verwendet dafür eine additive
 Persistenzmigration mit
 immutable Verifikationsläufen, gapless Events, Ergebnissen und
 Erwartungsrevisionen, erweitert die geschlossenen generischen Review-Literale
-und ergänzt den Lease-Owner `EBOOK_FIXITY_VERIFICATION`. Er enthält noch keine
-Application-, CLI-, REST- oder Browserpfade.
+und ergänzt den Lease-Owner `EBOOK_FIXITY_VERIFICATION`. Der nachgelagerte
+Surface-Slice adaptiert diese Verträge über Application, CLI, REST und Browser,
+ohne ihre Domain- oder Safety-Grenzen zu verändern.
 
 ## Prozess- und Privacy-Grenze
 
@@ -228,7 +229,7 @@ automatische Nach-Scan-Starts und Zeitplanung bleiben ausgeschlossen.
 
 ## Liefergrenze
 
-`WI-0003` wird in getrennten Pull Requests geliefert: zuerst immutable
+`WI-0003` wurde in getrennten Pull Requests geliefert: zuerst immutable
 Baseline-Verträge und Persistenz, danach Verifikation und Einzelentscheidungen,
 zuletzt Application-/CLI-/REST-/Browser-Surface. Backup-/Replica-Vergleich,
 Restore, automatische Planung und Source-Mutation benötigen eigene spätere

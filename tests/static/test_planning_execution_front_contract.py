@@ -48,14 +48,14 @@ def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_backlog_advances_to_fixity_surface_after_verification() -> None:
+def test_backlog_advances_to_epub_transformation_gate_after_fixity() -> None:
     backlog = _text(BACKLOG)
 
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | Surface-Slice von `WI-0003` (`FUT-009`) |" in backlog
-    assert "| NEXT WAVE | `WI-0003` Surface |" in backlog
+    assert "| NOW | `GATE-0001` |" in backlog
+    assert "| NEXT WAVE | `GATE-0001` |" in backlog
     assert backlog.count("| NEXT |") == 1
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
@@ -84,10 +84,10 @@ def test_backlog_advances_to_fixity_surface_after_verification() -> None:
     assert "| S-W10-MW05 | DONE |" in backlog
     assert "| OPS-001 | READY |" in backlog
     assert "| WI-0002 | DONE |" in backlog
-    assert "| GATE-0001 | PLANNED |" in backlog
+    assert "| GATE-0001 | NEXT |" in backlog
     assert "| WI-0004 | BLOCKED |" in backlog
     assert "| FUT-002 | DONE |" in backlog
-    assert "| WI-0003 (`FUT-009`) | NEXT |" in backlog
+    assert "| WI-0003 (`FUT-009`) | DONE |" in backlog
     assert "| WI-0004 (`FUT-008`) | BLOCKED |" in backlog
     assert "Andere Planungsdokumente erläutern diese Aufgaben" in backlog
 

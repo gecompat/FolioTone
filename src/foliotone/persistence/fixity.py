@@ -275,39 +275,59 @@ class SQLiteEbookFixityBaselineStore:
         expires_at = acquired_at + lease_duration
         try:
             with self._engine.begin() as connection:
-                current = self._leases.current_in_transaction(connection, scan_root_id)
-                if current is None:
-                    return self._leases.acquire_in_transaction(
-                        connection,
-                        scan_root_id,
-                        ScanRootWriteOwnerKind.EBOOK_FIXITY_BASELINE,
-                        owner_id,
-                        lease_token=token,
-                        acquired_at=acquired_at,
-                        lease_expires_at=expires_at,
-                    )
-                if (
-                    current.owner_kind is ScanRootWriteOwnerKind.EBOOK_FIXITY_BASELINE
-                    and current.lease_expires_at <= acquired_at
-                ):
-                    recovered = self._leases.takeover_expired_in_transaction(
-                        connection,
-                        current,
-                        owner_id,
-                        lease_token=token,
-                        acquired_at=acquired_at,
-                        lease_expires_at=expires_at,
-                    )
-                    self._fail_expired_build_in_transaction(
-                        connection,
-                        current.owner_run_id,
-                        failed_at=acquired_at,
-                    )
-                    return recovered
+                return self._acquire_lease_in_transaction(
+                    connection,
+                    scan_root_id,
+                    owner_id,
+                    lease_token=token,
+                    acquired_at=acquired_at,
+                    lease_expires_at=expires_at,
+                )
         except ScanRootWriteLeaseError as error:
             raise EbookFixityBaselineStoreError(
                 "fixity baseline ScanRoot lease is unavailable"
             ) from error
+        raise EbookFixityBaselineStoreError("fixity baseline ScanRoot lease is unavailable")
+
+    def _acquire_lease_in_transaction(
+        self,
+        connection: Connection,
+        scan_root_id: EntityId,
+        owner_id: EntityId,
+        *,
+        lease_token: str,
+        acquired_at: datetime,
+        lease_expires_at: datetime,
+    ) -> OwnedScanRootWriteLease:
+        current = self._leases.current_in_transaction(connection, scan_root_id)
+        if current is None:
+            return self._leases.acquire_in_transaction(
+                connection,
+                scan_root_id,
+                ScanRootWriteOwnerKind.EBOOK_FIXITY_BASELINE,
+                owner_id,
+                lease_token=lease_token,
+                acquired_at=acquired_at,
+                lease_expires_at=lease_expires_at,
+            )
+        if (
+            current.owner_kind is ScanRootWriteOwnerKind.EBOOK_FIXITY_BASELINE
+            and current.lease_expires_at <= acquired_at
+        ):
+            recovered = self._leases.takeover_expired_in_transaction(
+                connection,
+                current,
+                owner_id,
+                lease_token=lease_token,
+                acquired_at=acquired_at,
+                lease_expires_at=lease_expires_at,
+            )
+            self._fail_expired_build_in_transaction(
+                connection,
+                current.owner_run_id,
+                failed_at=acquired_at,
+            )
+            return recovered
         raise EbookFixityBaselineStoreError("fixity baseline ScanRoot lease is unavailable")
 
     def heartbeat(
@@ -563,6 +583,31 @@ class SQLiteEbookFixityBaselineStore:
         with self._engine.connect() as connection:
             return self._read_manifest(connection, manifest_id)
 
+    def list_private_entries(
+        self, manifest_id: EntityId, *, after_ordinal: int | None = None, limit: int = 50
+    ) -> tuple[tuple[EbookFixityBaselineEntry, ...], int | None]:
+        """Return one bounded private manifest page."""
+        if not 1 <= limit <= 100 or (after_ordinal is not None and after_ordinal < 0):
+            raise ValueError("fixity entry page is invalid")
+        table = fixity_schema.ebook_fixity_baseline_entries
+        statement = select(table).where(table.c.manifest_id == str(manifest_id)).order_by(
+            table.c.ordinal
+        ).limit(limit + 1)
+        if after_ordinal is not None:
+            statement = statement.where(table.c.ordinal > after_ordinal)
+        with self._engine.connect() as connection:
+            exists = connection.execute(
+                select(fixity_schema.ebook_fixity_baseline_manifests.c.manifest_id).where(
+                    fixity_schema.ebook_fixity_baseline_manifests.c.manifest_id
+                    == str(manifest_id)
+                )
+            ).scalar_one_or_none()
+            if exists is None:
+                raise ValueError("fixity baseline manifest is unavailable")
+            rows = connection.execute(statement).mappings().all()
+        entries = tuple(self._decode_entry(row) for row in rows[:limit])
+        return entries, (None if len(rows) <= limit or not entries else entries[-1].ordinal)
+
     def read_status(self, manifest_id: EntityId) -> EbookFixityBaselineStatusSnapshot | None:
         with self._engine.connect() as connection:
             row = (
@@ -637,68 +682,79 @@ class SQLiteEbookFixityBaselineStore:
         activated_at: datetime,
         lease_duration: timedelta = DEFAULT_EBOOK_FIXITY_LEASE_DURATION,
     ) -> EbookFixityBaselineActivation:
-        confirmation_digest = verify_fixity_baseline_confirmation(manifest_id, confirmation)
-        manifest = self.get_manifest(manifest_id)
-        if manifest is None:
-            raise EbookFixityBaselineStoreError("fixity baseline manifest is unavailable")
-        activation_id = EntityId.new()
-        lease = self.acquire_lease(
-            manifest.scan_root_id,
-            activation_id,
-            acquired_at=activated_at,
-            lease_duration=lease_duration,
-        )
+        # Preserve the direct store's established validation error contract.
+        # The connection-scoped path verifies again inside its transaction.
+        verify_fixity_baseline_confirmation(manifest_id, confirmation)
         try:
             with self._engine.begin() as connection:
-                self._leases.fence(connection, lease, activated_at)
-                current = self._read_manifest(connection, manifest_id)
-                if current is None or current != manifest:
-                    raise EbookFixityBaselineStoreError(
-                        "fixity baseline manifest changed before activation"
-                    )
-                if not current.prepared_at <= activated_at < current.expires_at:
-                    raise EbookFixityBaselineStoreError(
-                        "fixity baseline manifest activation window expired"
-                    )
-                self._require_latest_completed_scan(
+                return self.activate_in_transaction(
                     connection,
-                    current.scan_root_id,
-                    current.source_scan_run_id,
-                )
-                self._require_no_active_baseline(connection, current.scan_root_id)
-                activation = EbookFixityBaselineActivation(
-                    activation_id=activation_id,
-                    manifest_id=manifest_id,
-                    scan_root_id=current.scan_root_id,
+                    manifest_id,
+                    confirmation,
                     activated_at=activated_at,
-                    manifest_content_digest=current.content_digest,
-                    confirmation_digest=confirmation_digest,
+                    lease_duration=lease_duration,
                 )
-                connection.execute(
-                    insert(fixity_schema.ebook_fixity_baseline_activations),
-                    {
-                        "activation_id": str(activation.activation_id),
-                        "manifest_id": str(activation.manifest_id),
-                        "scan_root_id": str(activation.scan_root_id),
-                        "profile": EBOOK_FIXITY_BASELINE_PROFILE,
-                        "activated_at": _datetime_to_db(activation.activated_at),
-                        "manifest_content_digest": activation.manifest_content_digest,
-                        "confirmation_digest": activation.confirmation_digest,
-                        "activation_digest": activation.activation_digest,
-                    },
-                )
-                self._leases.release_in_transaction(
-                    connection,
-                    lease,
-                    released_at=activated_at,
-                )
-            return activation
-        except EbookFixityBaselineStoreError:
-            self._release_best_effort(lease, released_at=activated_at)
-            raise
         except (IntegrityError, ScanRootWriteLeaseError, ValueError) as error:
-            self._release_best_effort(lease, released_at=activated_at)
             raise EbookFixityBaselineStoreError("fixity baseline could not be activated") from error
+
+    def activate_in_transaction(
+        self,
+        connection: Connection,
+        manifest_id: EntityId,
+        confirmation: str,
+        *,
+        activated_at: datetime,
+        lease_duration: timedelta = DEFAULT_EBOOK_FIXITY_LEASE_DURATION,
+    ) -> EbookFixityBaselineActivation:
+        """Validate and activate within a caller-owned crash-atomic transaction."""
+
+        confirmation_digest = verify_fixity_baseline_confirmation(manifest_id, confirmation)
+        current = self._read_manifest(connection, manifest_id)
+        if current is None:
+            raise EbookFixityBaselineStoreError("fixity baseline manifest is unavailable")
+        if not current.prepared_at <= activated_at < current.expires_at:
+            raise EbookFixityBaselineStoreError(
+                "fixity baseline manifest activation window expired"
+            )
+        activation_id = EntityId.new()
+        lease = self._acquire_lease_in_transaction(
+            connection,
+            current.scan_root_id,
+            activation_id,
+            lease_token=str(EntityId.new()),
+            acquired_at=activated_at,
+            lease_expires_at=activated_at + lease_duration,
+        )
+        self._leases.fence(connection, lease, activated_at)
+        self._require_latest_completed_scan(
+            connection,
+            current.scan_root_id,
+            current.source_scan_run_id,
+        )
+        self._require_no_active_baseline(connection, current.scan_root_id)
+        activation = EbookFixityBaselineActivation(
+            activation_id=activation_id,
+            manifest_id=manifest_id,
+            scan_root_id=current.scan_root_id,
+            activated_at=activated_at,
+            manifest_content_digest=current.content_digest,
+            confirmation_digest=confirmation_digest,
+        )
+        connection.execute(
+            insert(fixity_schema.ebook_fixity_baseline_activations),
+            {
+                "activation_id": str(activation.activation_id),
+                "manifest_id": str(activation.manifest_id),
+                "scan_root_id": str(activation.scan_root_id),
+                "profile": EBOOK_FIXITY_BASELINE_PROFILE,
+                "activated_at": _datetime_to_db(activation.activated_at),
+                "manifest_content_digest": activation.manifest_content_digest,
+                "confirmation_digest": activation.confirmation_digest,
+                "activation_digest": activation.activation_digest,
+            },
+        )
+        self._leases.release_in_transaction(connection, lease, released_at=activated_at)
+        return activation
 
     def _release_best_effort(
         self,

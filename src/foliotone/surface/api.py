@@ -19,6 +19,14 @@ from foliotone.application import (
     ApplicationJobDetailQuery,
     CollectionSearchQuery,
     CollectionStateQuery,
+    EbookFixityAnalysisJobCommand,
+    EbookFixityAnalysisJobProfile,
+    EbookFixityBaselineActivationCommand,
+    EbookFixityExpectationRevisionCommand,
+    EbookFixityPrivateBaselineEntryPageQuery,
+    EbookFixityPrivateResultDetailQuery,
+    EbookFixityResultPageQuery,
+    EbookFixityReviewCommand,
     EbookProjectionQuery,
     EbookRenameOperatorJobProfile,
     EbookRenamePlanCommand,
@@ -41,7 +49,10 @@ from foliotone.application.services import (
 )
 from foliotone.collection_state import parse_collection_query_spec
 from foliotone.core import EntityId, ReviewDecisionValue
-from foliotone.persistence.surface import EbookRenameOperatorJobBinder, SurfaceSession
+from foliotone.persistence.surface import (
+    EbookRenameOperatorJobBinder,
+    SurfaceSession,
+)
 from foliotone.surface.contracts import (
     CSRF_HEADER_NAME,
     MAX_REQUEST_BYTES,
@@ -104,6 +115,23 @@ class EbookRenameExecutionRequest(EbookRenameAuthorizationRequest):
 
 class EbookRenameRecoveryRequest(BaseModel):
     run_id: str = Field(min_length=36, max_length=36)
+
+
+class EbookFixityJobRequest(BaseModel):
+    scan_root_id: str = Field(min_length=36, max_length=36)
+    worker_count: int = Field(default=1, ge=1, le=2)
+
+
+class EbookFixityActivationRequest(BaseModel):
+    confirmation: str = Field(min_length=1, max_length=256)
+
+
+class EbookFixityReviewRequest(BaseModel):
+    decision: str = Field(pattern="^(ACCEPT|REJECT|DEFER)$")
+
+
+class EbookFixityExpectationRequest(BaseModel):
+    action: str = Field(pattern="^(ACCEPT_CURRENT|RETIRE_MISSING)$")
 
 
 class SurfaceSecurityMiddleware(BaseHTTPMiddleware):
@@ -208,6 +236,13 @@ def create_surface_app(
             response.headers["Cache-Control"] = "no-store"
         return response
 
+    @app.exception_handler(Exception)
+    async def _unexpected_exception(request: Request, _error: Exception) -> JSONResponse:
+        response = problem(500, "INTERNAL_ERROR")
+        if request.url.path.startswith("/api/v1/private/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
     def session_dependency(
         token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
     ) -> SurfaceSession:
@@ -308,7 +343,46 @@ def create_surface_app(
             "input_digest": secret_digest(material, purpose="ebook-rename-planning-input"),
             "idempotency_digest": secret_digest(key, purpose="ebook-rename-planning-idempotency"),
         }
-        return service.claim_ebook_rename_command_receipt(**arguments), arguments
+        return service.claim_command_receipt(**arguments), arguments
+
+    def enqueue_fixity_job(
+        *,
+        profile: EbookFixityAnalysisJobProfile,
+        payload: EbookFixityJobRequest,
+        session: SurfaceSession,
+        key: str | None,
+    ) -> dict[str, object]:
+        idempotency_key = require_idempotency(key)
+        try:
+            scan_root_id = EntityId.parse(payload.scan_root_id)
+        except ValueError:
+            raise HTTPException(400, "FIXITY_JOB_REJECTED") from None
+        material = json.dumps(
+            {
+                "profile": profile.value,
+                "scan_root_id": str(scan_root_id),
+                "worker_count": payload.worker_count,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        try:
+            job_id = application.enqueue_ebook_fixity_job(
+                service,
+                EbookFixityAnalysisJobCommand(
+                    profile=profile,
+                    scan_root_id=scan_root_id,
+                    worker_count=payload.worker_count,
+                ),
+                actor_id=session.user_id,
+                input_digest=secret_digest(material, purpose="ebook-fixity-job-input"),
+                idempotency_digest=secret_digest(
+                    idempotency_key, purpose="ebook-fixity-job-idempotency"
+                ),
+            )
+        except (RuntimeError, ValueError):
+            raise HTTPException(409, "FIXITY_JOB_REJECTED") from None
+        return {"job_id": job_id, "profile": profile.value, "status": "WAITING"}
 
     @app.get("/", include_in_schema=False, response_class=HTMLResponse)
     async def shell() -> FileResponse:
@@ -422,6 +496,369 @@ def create_surface_app(
             headers={"Cache-Control": "no-store"},
         )
 
+    @app.post("/api/v1/ebooks/fixity/baselines", status_code=201)
+    async def enqueue_fixity_baseline(
+        payload: EbookFixityJobRequest,
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+        session: SurfaceSession = Depends(csrf_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        return enqueue_fixity_job(
+            profile=EbookFixityAnalysisJobProfile.BASELINE_BUILD,
+            payload=payload,
+            session=session,
+            key=idempotency_key,
+        )
+
+    @app.get("/api/v1/ebooks/fixity/baselines/{manifest_id}")
+    async def fixity_baseline_status(
+        manifest_id: str,
+        _session: SurfaceSession = Depends(session_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        try:
+            status = application.ebook_fixity_baseline_status(service, EntityId.parse(manifest_id))
+        except (RuntimeError, ValueError):
+            status = None
+        if status is None:
+            raise HTTPException(404, "FIXITY_BASELINE_UNAVAILABLE")
+        return {
+            "manifest_id": str(status.manifest_id),
+            "scan_root_id": str(status.scan_root_id),
+            "source_scan_run_id": str(status.source_scan_run_id),
+            "status": status.status,
+            "started_at": status.started_at,
+            "prepared_at": status.prepared_at,
+            "expires_at": status.expires_at,
+            "item_count": status.item_count,
+            "activated_at": None if status.activated_at is None else status.activated_at,
+        }
+
+    @app.post("/api/v1/ebooks/fixity/baselines/{manifest_id}/activation")
+    async def activate_fixity_baseline(
+        manifest_id: str,
+        payload: EbookFixityActivationRequest,
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+        session: SurfaceSession = Depends(review_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        try:
+            parsed_manifest_id = EntityId.parse(manifest_id)
+            command = EbookFixityBaselineActivationCommand(
+                manifest_id=parsed_manifest_id,
+                confirmation=payload.confirmation,
+            )
+            key = require_idempotency(idempotency_key)
+            material = json.dumps(
+                {"manifest_id": manifest_id, "confirmation": payload.confirmation},
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            activation = application.activate_ebook_fixity_baseline(
+                service,
+                command,
+                actor_id=session.user_id,
+                session_id=session.id,
+                input_digest=secret_digest(
+                    material, purpose="ebook-fixity-activation-input"
+                ),
+                idempotency_digest=secret_digest(
+                    key, purpose="ebook-fixity-activation-idempotency"
+                ),
+            )
+        except (RuntimeError, TypeError, ValueError):
+            raise HTTPException(409, "FIXITY_BASELINE_ACTIVATION_REJECTED") from None
+        return {
+            "activation_id": str(activation.activation_id),
+            "manifest_id": str(activation.manifest_id),
+            "status": "ACTIVE",
+        }
+
+    @app.post("/api/v1/ebooks/fixity/verifications", status_code=201)
+    async def enqueue_fixity_verification(
+        payload: EbookFixityJobRequest,
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+        session: SurfaceSession = Depends(csrf_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        return enqueue_fixity_job(
+            profile=EbookFixityAnalysisJobProfile.VERIFICATION,
+            payload=payload,
+            session=session,
+            key=idempotency_key,
+        )
+
+    @app.get("/api/v1/ebooks/fixity/verifications/{run_id}")
+    async def fixity_verification_status(
+        run_id: str,
+        _session: SurfaceSession = Depends(session_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        try:
+            status = application.ebook_fixity_verification_status(service, EntityId.parse(run_id))
+        except (RuntimeError, ValueError):
+            status = None
+        if status is None:
+            raise HTTPException(404, "FIXITY_VERIFICATION_UNAVAILABLE")
+        return {
+            "run_id": str(status.run_id),
+            "scan_root_id": str(status.scan_root_id),
+            "baseline_activation_id": str(status.baseline_activation_id),
+            "source_scan_run_id": str(status.source_scan_run_id),
+            "expectation_revision_no": status.expectation_revision_no,
+            "status": status.status,
+            "started_at": status.started_at,
+            "completed_at": status.completed_at,
+            "expected_result_count": status.expected_result_count,
+            "result_count": status.result_count,
+            "failure_code": status.failure_code,
+        }
+
+    @app.get("/api/v1/private/ebooks/fixity/baselines/{manifest_id}/entries")
+    async def fixity_baseline_entries(
+        manifest_id: str,
+        cursor: str | None = None,
+        limit: int = 50,
+        _session: SurfaceSession = Depends(private_read_dependency),  # noqa: B008
+    ) -> JSONResponse:
+        try:
+            after = None
+            if cursor is not None:
+                after = int(cursor_codec.decode(
+                    cursor, resource=f"fixity-baseline-entry/v1:{manifest_id}", sort="ORDINAL_ASC"
+                ).last_id)
+            page = application.private_ebook_fixity_baseline_entries(
+                service,
+                EbookFixityPrivateBaselineEntryPageQuery(
+                    manifest_id=EntityId.parse(manifest_id),
+                    after_ordinal=after,
+                    limit=limit,
+                ),
+            )
+        except CursorError:
+            raise HTTPException(400, "CURSOR_INVALID") from None
+        except (RuntimeError, ValueError):
+            raise HTTPException(404, "FIXITY_BASELINE_ENTRIES_UNAVAILABLE") from None
+        return JSONResponse(
+            content={
+                "manifest_id": str(page.manifest_id),
+                "entries": [
+                    {
+                        "file_id": str(item.file_id),
+                        "relative_locator": item.relative_locator,
+                        "size_bytes": item.size_bytes,
+                        "sha256": item.sha256,
+                    }
+                    for item in page.entries
+                ],
+                "next_cursor": None
+                if page.next_after_ordinal is None
+                else cursor_codec.encode(
+                    resource=f"fixity-baseline-entry/v1:{manifest_id}", sort="ORDINAL_ASC",
+                    last_id=str(page.next_after_ordinal)
+                ),
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get("/api/v1/ebooks/fixity/verifications/{run_id}/results")
+    async def fixity_result_summaries(
+        run_id: str,
+        cursor: str | None = None,
+        limit: int = 50,
+        _session: SurfaceSession = Depends(session_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        try:
+            after = None if cursor is None else EntityId.parse(cursor_codec.decode(
+                cursor, resource=f"fixity-result-summary/v1:{run_id}", sort="ID_ASC"
+            ).last_id)
+            items, next_after = application.ebook_fixity_results(
+                service,
+                EbookFixityResultPageQuery(
+                    run_id=EntityId.parse(run_id),
+                    after_id=after,
+                    limit=limit,
+                ),
+            )
+        except CursorError:
+            raise HTTPException(400, "CURSOR_INVALID") from None
+        except (RuntimeError, ValueError):
+            raise HTTPException(404, "FIXITY_RESULTS_UNAVAILABLE") from None
+        return {
+            "run_id": run_id,
+            "results": [
+                {"result_id": str(item.result_id), "file_id": str(item.file_id),
+                 "result": item.result, "failure_code": item.failure_code}
+                for item in items
+            ],
+            "next_cursor": None if next_after is None else cursor_codec.encode(
+                resource=f"fixity-result-summary/v1:{run_id}",
+                sort="ID_ASC",
+                last_id=str(next_after),
+            ),
+        }
+
+    @app.get("/api/v1/private/ebooks/fixity/results/{result_id}")
+    async def fixity_result_detail(
+        result_id: str,
+        _session: SurfaceSession = Depends(private_read_dependency),  # noqa: B008
+    ) -> JSONResponse:
+        try:
+            item = application.private_ebook_fixity_result_detail(
+                service,
+                EbookFixityPrivateResultDetailQuery(result_id=EntityId.parse(result_id)),
+            )
+        except (RuntimeError, ValueError):
+            item = None
+        if item is None:
+            raise HTTPException(404, "FIXITY_RESULT_UNAVAILABLE")
+        return JSONResponse(
+            content={
+                "result_id": str(item.result_id),
+                "run_id": str(item.run_id),
+                "file_id": str(item.file_id),
+                "result": item.result,
+                "expected": {
+                    "observation_id": None
+                    if item.expected.observation_id is None
+                    else str(item.expected.observation_id),
+                    "relative_locator": item.expected.relative_locator,
+                    "size_bytes": item.expected.size_bytes,
+                    "sha256": item.expected.sha256,
+                },
+                "current": {
+                    "observation_id": None
+                    if item.current.observation_id is None
+                    else str(item.current.observation_id),
+                    "relative_locator": item.current.relative_locator,
+                    "size_bytes": item.current.size_bytes,
+                    "sha256": item.current.sha256,
+                },
+                "failure_code": item.failure_code,
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get("/api/v1/ebooks/fixity/reviews")
+    async def fixity_review_queue(
+        cursor: str | None = None,
+        limit: int = 50,
+        _session: SurfaceSession = Depends(session_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        try:
+            after_id = None
+            if cursor is not None:
+                after_id = cursor_codec.decode(
+                    cursor,
+                    resource="fixity-review-queue/v1",
+                    sort="ID_ASC",
+                ).last_id
+            items, next_after = application.ebook_fixity_review_queue(
+                service,
+                SurfacePageQuery(after_id=after_id, limit=limit),
+            )
+        except CursorError:
+            raise HTTPException(400, "CURSOR_INVALID") from None
+        except (RuntimeError, ValueError):
+            raise HTTPException(404, "FIXITY_REVIEWS_UNAVAILABLE") from None
+        return {
+            "reviews": [
+                {
+                    "review_item_id": str(item.review_item_id),
+                    "result_id": str(item.result_id),
+                    "file_id": str(item.file_id),
+                    "state": item.state,
+                    "created_at": item.created_at,
+                }
+                for item in items
+            ],
+            "next_cursor": None
+            if next_after is None
+            else cursor_codec.encode(
+                resource="fixity-review-queue/v1",
+                sort="ID_ASC",
+                last_id=str(next_after),
+            ),
+        }
+
+    @app.post("/api/v1/ebooks/fixity/results/{result_id}/reviews", status_code=201)
+    async def review_fixity_result(
+        result_id: str,
+        payload: EbookFixityReviewRequest,
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+        session: SurfaceSession = Depends(review_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        key = require_idempotency(idempotency_key)
+        try:
+            parsed_result_id = EntityId.parse(result_id)
+            material = json.dumps(
+                {"result_id": str(parsed_result_id), "decision": payload.decision},
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            result = application.review_ebook_fixity_result(
+                service,
+                EbookFixityReviewCommand(
+                    result_id=parsed_result_id,
+                    decision=payload.decision,
+                ),
+                actor_id=session.user_id,
+                session_id=session.id,
+                input_digest=secret_digest(
+                    material,
+                    purpose="ebook-fixity-review-input",
+                ),
+                idempotency_digest=secret_digest(
+                    key,
+                    purpose="ebook-fixity-review-idempotency",
+                ),
+            )
+        except (RuntimeError, ValueError):
+            raise HTTPException(409, "FIXITY_REVIEW_REJECTED") from None
+        return {
+            "result_id": str(result.result_id),
+            "review_item_id": str(result.review_item_id),
+            "decision_id": str(result.decision_id),
+            "decision": result.decision,
+            "sequence_no": result.sequence_no,
+        }
+
+    @app.post("/api/v1/ebooks/fixity/results/{result_id}/expectations", status_code=201)
+    async def revise_fixity_expectation(
+        result_id: str,
+        payload: EbookFixityExpectationRequest,
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+        session: SurfaceSession = Depends(review_dependency),  # noqa: B008
+    ) -> dict[str, object]:
+        key = require_idempotency(idempotency_key)
+        try:
+            parsed_result_id = EntityId.parse(result_id)
+            material = json.dumps(
+                {"result_id": str(parsed_result_id), "action": payload.action},
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            result = application.revise_ebook_fixity_expectation(
+                service,
+                EbookFixityExpectationRevisionCommand(
+                    result_id=parsed_result_id,
+                    action=payload.action,
+                ),
+                actor_id=session.user_id,
+                session_id=session.id,
+                input_digest=secret_digest(
+                    material,
+                    purpose="ebook-fixity-expectation-input",
+                ),
+                idempotency_digest=secret_digest(
+                    key,
+                    purpose="ebook-fixity-expectation-idempotency",
+                ),
+            )
+        except (RuntimeError, ValueError):
+            raise HTTPException(409, "FIXITY_EXPECTATION_REJECTED") from None
+        return {
+            "result_id": str(result.result_id),
+            "revision_id": str(result.revision_id),
+            "action": result.action,
+            "revision_no": result.revision_no,
+        }
+
     @app.post("/api/v1/ebooks/rename/candidates", status_code=201)
     async def ebook_rename_propose(
         payload: EbookRenameProposalRequest,
@@ -457,7 +894,7 @@ def create_surface_app(
             "review_state": result.review_state.value,
             "dependency_states": [value.value for value in result.dependency_states],
         }
-        return service.record_ebook_rename_command_receipt(**receipt, response=response)
+        return service.complete_command_receipt(**receipt, response=response)
 
     def ebook_rename_preview_response(
         candidate_id: str, *, private_details: bool
@@ -540,7 +977,7 @@ def create_surface_app(
             "decision": result.decision.value,
             "sequence_no": result.sequence_no,
         }
-        return service.record_ebook_rename_command_receipt(**receipt, response=response)
+        return service.complete_command_receipt(**receipt, response=response)
 
     @app.post("/api/v1/ebooks/rename/candidates/{candidate_id}/plans", status_code=201)
     async def ebook_rename_plan(
@@ -570,7 +1007,7 @@ def create_surface_app(
             "review_state": result.review_state.value,
             "blocker_codes": list(result.blocker_codes),
         }
-        return service.record_ebook_rename_command_receipt(**receipt, response=response)
+        return service.complete_command_receipt(**receipt, response=response)
 
     def enqueue_rename_job(
         *,

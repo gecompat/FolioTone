@@ -31,12 +31,12 @@ Analyseabdeckung, Evidence, Reviews, nicht ausführbare Pläne, Jobs und Audit.
 Der erste Scan und der Aufbau eines `CollectionState` werden derzeit noch über
 die CLI gestartet.
 
-Die internen Verträge für `FixityBaseline`, `FixityVerificationRun` und
-append-only Einzelentscheidungen sind implementiert. Dafür existiert im
-aktuellen Stand jedoch noch keine öffentliche Application-, CLI-, REST- oder
-Browserbedienung. `Library Health` und `ebook-postscan-verify` ersetzen diese
-Fixity-Surface nicht. Das Benutzerhandbuch beschreibt deshalb noch keinen
-ausführbaren Fixity-Workflow.
+Die Fixity-Surface ergänzt manuell gestartete Baseline- und
+Verifikationsjobs, Status- und Ergebnisprojektionen, private Details sowie
+append-only Reviews und Einzelrevisionen in CLI, REST und Browser.
+`Library Health` und `ebook-postscan-verify` bleiben davon getrennte
+Prüfungen. Fixity liest Source Media, öffnet aber keine W10- oder
+Source-Write-Capability.
 
 Die Bildschirmaufnahmen wurden mit einer eigens erzeugten synthetischen
 E-Book-Datenbank aufgenommen. Sichtbare opaque IDs sind nur Beispiele für

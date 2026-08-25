@@ -11,7 +11,10 @@ from sqlalchemy import Engine, and_, insert, select, update
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 
-from foliotone.application.contracts import EbookRenameOperatorJobProfile
+from foliotone.application.contracts import (
+    EbookFixityAnalysisJobProfile,
+    EbookRenameOperatorJobProfile,
+)
 from foliotone.core import EntityId
 from foliotone.ebook_rename.confirmation import (
     EbookRenameConfirmationError,
@@ -21,6 +24,8 @@ from foliotone.persistence.ebook_rename import SQLiteEbookRenameStore
 from foliotone.persistence.surface_schema import (
     application_job_events,
     application_jobs,
+    ebook_fixity_analysis_job_binders,
+    ebook_fixity_analysis_job_results,
     ebook_rename_operator_job_binders,
     ebook_rename_operator_job_results,
     surface_audit_events,
@@ -117,6 +122,19 @@ class EbookRenameOperatorJobBinder:
             for need, value in zip(expected, actual, strict=True)
         ):
             raise ValueError("e-book rename operator job binder shape is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityAnalysisJobBinder:
+    """Immutable path-free binder for one manually queued fixity job."""
+
+    profile: EbookFixityAnalysisJobProfile
+    scan_root_id: str
+    worker_count: int = 1
+
+    def __post_init__(self) -> None:
+        if not self.scan_root_id or not 1 <= self.worker_count <= 2:
+            raise ValueError("fixity analysis job binder is invalid")
 
 
 class SQLiteSurfaceStore:
@@ -717,6 +735,8 @@ class SQLiteSurfaceStore:
     ) -> str:
         if worker_role is ProcessRole.OPERATOR_WORKER:
             raise ValueError("operator jobs require an e-book rename binder")
+        if worker_role is ProcessRole.ANALYSIS_WORKER:
+            raise ValueError("analysis jobs require a fixed fixity binder")
         now = _now()
         with self._engine.begin() as connection:
             existing = connection.execute(
@@ -752,7 +772,179 @@ class SQLiteSurfaceStore:
             self._audit(connection, actor_id, "JOB_ACCEPTED", "ACCEPTED", job_id=job_id)
             return job_id
 
-    def ebook_rename_command_receipt(
+    def enqueue_ebook_fixity_analysis_job(
+        self,
+        *,
+        actor_id: str,
+        input_digest: str,
+        idempotency_digest: str,
+        binder: EbookFixityAnalysisJobBinder,
+    ) -> str:
+        """Atomically insert a fixed read-only job and its minimal binder."""
+        now = _now()
+        replay = self._ebook_fixity_job_replay(
+            actor_id=actor_id,
+            profile=binder.profile,
+            input_digest=input_digest,
+            idempotency_digest=idempotency_digest,
+        )
+        if replay is not None:
+            return replay
+        try:
+            with self._engine.begin() as connection:
+                job_id = str(uuid4())
+                connection.execute(
+                    insert(application_jobs).values(
+                        id=job_id,
+                        actor_id=actor_id,
+                        command_profile=binder.profile.value,
+                        input_digest=input_digest,
+                        idempotency_digest=idempotency_digest,
+                        created_at=now,
+                        status=JobStatus.WAITING.value,
+                        worker_role=ProcessRole.ANALYSIS_WORKER.value,
+                        lease_digest=None,
+                        lease_expires_at=None,
+                        fence_epoch=0,
+                    )
+                )
+                connection.execute(
+                    insert(ebook_fixity_analysis_job_binders).values(
+                        job_id=job_id,
+                        profile=binder.profile.value,
+                        scan_root_id=binder.scan_root_id,
+                        worker_count=binder.worker_count,
+                    )
+                )
+                self._event(connection, job_id, 1, JobStatus.WAITING, now)
+                self._audit(
+                    connection,
+                    actor_id,
+                    "JOB_ACCEPTED",
+                    "ACCEPTED",
+                    job_id=job_id,
+                )
+                return job_id
+        except IntegrityError:
+            replay = self._ebook_fixity_job_replay(
+                actor_id=actor_id,
+                profile=binder.profile,
+                input_digest=input_digest,
+                idempotency_digest=idempotency_digest,
+            )
+            if replay is not None:
+                return replay
+            raise
+
+    def _ebook_fixity_job_replay(
+        self,
+        *,
+        actor_id: str,
+        profile: EbookFixityAnalysisJobProfile,
+        input_digest: str,
+        idempotency_digest: str,
+    ) -> str | None:
+        with self._engine.connect() as connection:
+            existing = connection.execute(
+                select(application_jobs.c.id, application_jobs.c.input_digest).where(
+                    and_(
+                        application_jobs.c.actor_id == actor_id,
+                        application_jobs.c.command_profile == profile.value,
+                        application_jobs.c.idempotency_digest == idempotency_digest,
+                    )
+                )
+            ).one_or_none()
+        if existing is None:
+            return None
+        if str(existing.input_digest) != input_digest:
+            raise ValueError("idempotency key was reused with different input")
+        return str(existing.id)
+
+    def ebook_fixity_analysis_job_binder(self, job_id: str) -> EbookFixityAnalysisJobBinder | None:
+        with self._engine.connect() as connection:
+            row = (
+                connection.execute(
+                    select(ebook_fixity_analysis_job_binders).where(
+                        ebook_fixity_analysis_job_binders.c.job_id == job_id
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            return None
+        try:
+            return EbookFixityAnalysisJobBinder(
+                profile=EbookFixityAnalysisJobProfile(str(row["profile"])),
+                scan_root_id=str(row["scan_root_id"]),
+                worker_count=int(row["worker_count"]),
+            )
+        except (TypeError, ValueError) as error:
+            raise RuntimeError("fixity analysis job binder is corrupt") from error
+
+    def complete_ebook_fixity_analysis_job(
+        self,
+        claim: ClaimedJob,
+        *,
+        manifest_id: str | None = None,
+        verification_run_id: str | None = None,
+    ) -> bool:
+        """Atomically bind one result and terminally succeed its exact current claim."""
+        if (manifest_id is None) == (verification_run_id is None):
+            raise ValueError("fixity analysis job result is invalid")
+        now = _now()
+        with self._engine.begin() as connection:
+            binder = connection.execute(
+                select(ebook_fixity_analysis_job_binders.c.profile).where(
+                    ebook_fixity_analysis_job_binders.c.job_id == claim.id
+                )
+            ).one_or_none()
+            if binder is None:
+                raise ValueError("fixity analysis job binder is unavailable")
+            profile = EbookFixityAnalysisJobProfile(str(binder.profile))
+            if (profile is EbookFixityAnalysisJobProfile.BASELINE_BUILD) != (
+                manifest_id is not None
+            ):
+                raise ValueError("fixity analysis job result shape is invalid")
+            changed = connection.execute(
+                update(application_jobs)
+                .where(
+                    and_(
+                        application_jobs.c.id == claim.id,
+                        application_jobs.c.status == JobStatus.ACTIVE.value,
+                        application_jobs.c.fence_epoch == claim.fence_epoch,
+                        application_jobs.c.lease_digest == claim.lease_token,
+                        application_jobs.c.lease_expires_at > now,
+                    )
+                )
+                .values(status=JobStatus.SUCCEEDED.value, lease_expires_at=now)
+            ).rowcount
+            if changed != 1:
+                return False
+            connection.execute(
+                insert(ebook_fixity_analysis_job_results).values(
+                    job_id=claim.id,
+                    manifest_id=manifest_id,
+                    verification_run_id=verification_run_id,
+                )
+            )
+            self._event(
+                connection,
+                claim.id,
+                self._next_sequence(connection, claim.id),
+                JobStatus.SUCCEEDED,
+                now,
+            )
+            self._audit(
+                connection,
+                None,
+                "EBOOK_FIXITY_JOB_FINISHED",
+                JobStatus.SUCCEEDED.value,
+                job_id=claim.id,
+            )
+            return True
+
+    def command_receipt(
         self,
         *,
         actor_id: str,
@@ -789,7 +981,7 @@ class SQLiteSurfaceStore:
             raise RuntimeError("surface command receipt is corrupt")
         return response
 
-    def claim_ebook_rename_command_receipt(
+    def claim_command_receipt(
         self,
         *,
         actor_id: str,
@@ -841,14 +1033,14 @@ class SQLiteSurfaceStore:
                 )
                 return None
         except IntegrityError:
-            return self.claim_ebook_rename_command_receipt(
+            return self.claim_command_receipt(
                 actor_id=actor_id,
                 command_profile=command_profile,
                 input_digest=input_digest,
                 idempotency_digest=idempotency_digest,
             )
 
-    def record_ebook_rename_command_receipt(
+    def complete_command_receipt(
         self,
         *,
         actor_id: str,
@@ -877,6 +1069,21 @@ class SQLiteSurfaceStore:
             if changed != 1:
                 raise RuntimeError("surface command receipt completion differs")
         return response
+
+    # Compatibility names preserve the shipped rename adapter while new
+    # features use the media-neutral receipt contract.
+    def ebook_rename_command_receipt(self, **arguments: str) -> dict[str, object] | None:
+        return self.command_receipt(**arguments)
+
+    def claim_ebook_rename_command_receipt(
+        self, **arguments: str
+    ) -> dict[str, object] | None:
+        return self.claim_command_receipt(**arguments)
+
+    def record_ebook_rename_command_receipt(
+        self, *, response: dict[str, object], **arguments: str
+    ) -> dict[str, object]:
+        return self.complete_command_receipt(**arguments, response=response)
 
     def enqueue_ebook_rename_operator_job(
         self,
@@ -1040,6 +1247,12 @@ class SQLiteSurfaceStore:
                         tuple(profile.value for profile in EbookRenameOperatorJobProfile)
                     )
                 )
+            elif role is ProcessRole.ANALYSIS_WORKER:
+                clauses.append(
+                    application_jobs.c.command_profile.in_(
+                        tuple(profile.value for profile in EbookFixityAnalysisJobProfile)
+                    )
+                )
             row = (
                 connection.execute(
                     select(application_jobs)
@@ -1118,7 +1331,7 @@ class SQLiteSurfaceStore:
             self._audit(
                 connection,
                 None,
-                "EBOOK_RENAME_JOB_FINISHED",
+                self._finished_job_audit_type(connection, claim.id),
                 status.value,
                 job_id=claim.id,
                 finding_code=finding_code,
@@ -1175,7 +1388,7 @@ class SQLiteSurfaceStore:
             self._audit(
                 connection,
                 None,
-                "EBOOK_RENAME_JOB_FINISHED",
+                self._finished_job_audit_type(connection, claim.id),
                 JobStatus.RECOVERY_REQUIRED.value,
                 job_id=claim.id,
                 finding_code=finding_code,
@@ -1191,6 +1404,17 @@ class SQLiteSurfaceStore:
         )
         prior = result.scalar_one_or_none()
         return 1 if prior is None else int(prior) + 1
+
+    @staticmethod
+    def _finished_job_audit_type(connection: Connection, job_id: str) -> str:
+        profile = connection.execute(
+            select(application_jobs.c.command_profile).where(application_jobs.c.id == job_id)
+        ).scalar_one_or_none()
+        if profile in tuple(item.value for item in EbookFixityAnalysisJobProfile):
+            return "EBOOK_FIXITY_JOB_FINISHED"
+        if profile in tuple(item.value for item in EbookRenameOperatorJobProfile):
+            return "EBOOK_RENAME_JOB_FINISHED"
+        return "APPLICATION_JOB_FINISHED"
 
     @staticmethod
     def _event(

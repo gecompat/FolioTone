@@ -4,59 +4,72 @@ Stand: 2026-08-25
 
 ## Aktuelle Welle
 
-**WI-0003 Surface `NEXT` — Verifikation und Einzelentscheidungen implementiert**
+**WI-0003 Surface `DONE` — vollständige read-only Fixity-Bedienung implementiert**
 
-Die A/A-Detailentscheidung ergänzt `DEC-0001`. Der Verifikationslauf bindet
-den neuesten `ScanRun` insgesamt des betroffenen gefenceten E-Book-
-`ScanRoot`; er muss `COMPLETED` sein. `UNBASELINED` bezeichnet ausschließlich
-eine im gebundenen Snapshot `PRESENT` beobachtete Datei ohne aktive Erwartung.
-Nach diesem Scan neu entstandene Dateien liegen bis zum nächsten
-abgeschlossenen Scan außerhalb des Laufs. Verifikation startet weder einen
-Scan noch eine eigene Filesystem-Discovery.
+`WI-0003` liefert jetzt die drei geplanten Slices gemeinsam: die explizit
+aktivierte `ebook-fixity-baseline/v1`, scan-snapshotgebundene Verifikation und
+append-only Einzelentscheidungen sowie die Application-/CLI-/REST-/Browser-
+Surface. Migration `0036_ebook_fixity_verification` bleibt die immutable
+Verifikations- und Entscheidungsbasis; Migration
+`0037_ebook_fixity_surface_jobs` ergänzt Binder und Ergebnisse für zwei feste
+`ApplicationJob`-Profile. Der getrennte
+`analysis-worker` verarbeitet sie ausschließlich manuell, ohne Netzwerk-
+Listener, eigene Discovery oder automatischen Nach-Scan-Start.
 
-Der generische append-only Review-Core ist um
-`ReviewType.FIXITY_EXPECTATION` und
-`ReviewCandidateKind.FIXITY_RESULT` erweitert. Subject ist genau ein `FILE`,
-Candidate genau ein immutable Ergebnis eines vollständig `COMPLETED`-
-Verifikationslaufs; das Kompatibilitätsprofil lautet
-`ebook-fixity-decision/v1`. Evidence- und Candidate-Set-Fingerprint binden
-Root, Baseline-Aktivierung, aktive Erwartungsrevision, Scan, Lauf, Ergebnis
-sowie vorhandene erwartete und aktuelle Byteidentitäten. Nur die neueste
-exakt passende generische `ACCEPT`-Decision darf `ACCEPT_CURRENT` für
-`UNEXPECTED_BYTE_CHANGE`/`UNBASELINED` oder `RETIRE_MISSING` für `MISSING`
-autorisieren. Jeder neuere Verifikationslauf, auch ein fehlgeschlagener,
-invalidiert die ältere Review-Lineage. Jede fachliche Entscheidung ergänzt
-genau eine append-only Erwartungsrevision; Bulk-Accept und Root-Reset bleiben
-ausgeschlossen.
+Die sieben owner-lokalen CLI-Kommandos enqueueen Baseline- und
+Verifikationsjobs, lesen deren fachlichen Status, aktivieren ein vorbereitetes
+Manifest und führen generische Reviews beziehungsweise einzelne
+Erwartungsrevisionen aus. Die fünf mutierenden Kommandos verlangen eine
+begrenzte `--retry-id`; Klartext-Retry-IDs, Passwörter und Bestätigungen werden
+weder persistiert noch ausgegeben. Aktivierung, Review und Einzelrevision
+erfordern eine frische `REVIEW`-Reauthentisierung. Unerwartete Adapter- oder
+Persistenzfehler enden mit generischen Fehlercodes ohne Traceback-Inhalte.
 
-Migration `0036_ebook_fixity_verification` persistiert immutable Runs,
-gapless Events, je Run/File eindeutige Results und rootlokal gapless
-Erwartungsrevisionen insert-only. Der Store leitet aktive Baseline, neueste
-ScanRun- und Revisionsbinder atomar ab, liefert die exakte Vereinigungsmenge
-bounded per Keyset und schließt nur nach SQL-Anti-Join-Coverage sowie
-streaming Ergebnis-Digest ab. Ein abgelaufener Verification-Lease wird beim
-sicheren Takeover unter dem alten Run `FAILED/LEASE_EXPIRED`; partielle
-Results bleiben nicht reviewbar.
+Die loopback-only REST-API liefert path- und hashfreie öffentliche Job-,
+Baseline-, Verifikations-, Ergebnis- und Reviewprojektionen. Relative Locator
+und Hashwerte bleiben auf resource-gebundene `/api/v1/private`-Projektionen mit
+`PRIVATE_READ` und `Cache-Control: no-store` begrenzt. Bounded Keyset-Cursor,
+CSRF, command-spezifische Idempotenz und atomare Command-Receipts gelten für
+den exakten stabilen Input. Ein divergierender Retry wird fail-closed
+abgewiesen. Auch unerwartete Fehler auf privaten Routen liefern nur den
+stabilen Problemcode `INTERNAL_ERROR` und bleiben ausdrücklich `no-store`.
 
-Der interne Coordinator hält den neuen Lease-Owner
-`EBOOK_FIXITY_VERIFICATION`, erneuert das Fence im Hintergrund und verwendet
-höchstens zwei frische no-follow Full-SHA-256-Worker. Root-Ausfall,
-unsicherer Locator oder verlorenes Fencing beenden den gesamten Lauf
-fail-closed. Ein sicher aufgelöster einzelner Lesefehler beziehungsweise
-Source-Drift bleibt dagegen als `UNREADABLE` beziehungsweise
-`SOURCE_CHANGED_DURING_RUN` unter genau diesem Run nachvollziehbar. Der Lauf
-startet weder Scan noch Discovery und verändert keine Source Media.
+Die deutsche Browseroberfläche bedient Baseline-Build und -Aktivierung,
+Verifikation, öffentliche und private Ergebnisprojektionen, die begrenzte
+Reviewqueue sowie `ACCEPT_CURRENT` und `RETIRE_MISSING`. Reauthentisierung
+rotiert die Session und entfernt zuvor dargestellte private Fixity-Werte; jede
+401/403-Antwort verwendet denselben Clearing-Pfad. Ein realer Browserlauf mit
+ausschließlich synthetischen Daten bestätigte Jobanlage, Status, Ergebnisse,
+private Projektionen, Session-Clearing, Review, Einzelrevision und Aktivierung
+ohne Browserwarnung oder -fehler.
 
-Die feste generische Review-Paarung und die kanonischen Result-, Evidence-
-und Candidate-Set-Fingerprints erlauben nur eine aktuelle exakt passende
-`ACCEPT`-Decision. `ACCEPT_CURRENT` und `RETIRE_MISSING` ergänzen jeweils
-genau eine append-only Revision; nur deren Revisions-ID ist die
-Idempotenzidentität. Ein divergierender Retry, Bulk-Accept oder Root-Reset
-wird abgewiesen.
+Der gesamte Slice bleibt read-only gegenüber Source Media. Höchstens zwei
+frische no-follow Hash-Worker, rootweites Lease/Fencing und die unveränderten
+`DEC-0001`-Binder gelten weiterhin. Netzwerk, Source Writes,
+W10-Capabilities, Backup-/Replica-Vergleich, Restore, automatische Planung und
+Zeitsteuerung bleiben ausgeschlossen. `GATE-0001` ist die nächste
+Ausführungsfront; `DEC-0002` bleibt `Proposed` und `WI-0004` bis zu einem
+positiven Gate `BLOCKED`.
 
-ApplicationJob, CLI, REST und Browser sind damit der letzte `WI-0003`-Slice
-und `NEXT`. Netzwerk, Source Writes, W10-Capabilities, Backup-/Replica-
-Vergleich und Restore bleiben ausgeschlossen.
+Für den finalen betroffenen lokalen Satz bestanden 232 Tests für CLI,
+Application-Verträge, REST, Browser-Assets, Job-Fencing, Fixity-Persistenz,
+Migrationen und Dokumentationsfront; drei Linux-spezifische Dateisystemfälle
+wurden auf Windows erwartungsgemäß übersprungen. Ruff war repositoryweit grün,
+Mypy prüfte 293 Quelldateien ohne Befund, `git diff --check` und die
+Added-Lines-Privacy-/Secret-Prüfung waren sauber. Ein separater
+`node --check`-Lauf war mangels Node-Installation nicht verfügbar; die
+JavaScript-Datei wurde stattdessen in der echten lokalen Browseroberfläche
+geladen und über alle geänderten Kernwege ohne Console-Warnung oder -Fehler
+ausgeführt. Unabhängige Reviews bestätigten Backend-/Nebenläufigkeits-, CLI-
+und UI-/Privacy-Verträge nach den jeweils behobenen Findings mit `APPROVE`.
+Nach der finalen Privacy-Korrektur bestanden zusätzlich alle 18 direkt
+betroffenen API-Integrationstests; der gezielte 500-Negativtest und das
+unabhängige Re-Review bestätigten generische, nicht cachebare Antworten ohne
+internen Pfad- oder Exceptioninhalt. Ruff über die beiden geänderten Dateien
+und Mypy über den API-Adapter waren ebenfalls grün.
+Der vollständige PR-CI-Gate bleibt für den exakten stabilen Head vor dem Merge
+verbindlich; eine unbetroffene vollständige lokale Suite wurde gemäß
+`TEST_POLICY.md` nicht zusätzlich ausgeführt.
 
 Für die vorausgehende A/A-Entscheidungswave bestanden lokal alle 32 Tests der
 drei direkt betroffenen Static-
@@ -101,9 +114,11 @@ unter Windows absoluten Testpfad. Es handelte sich nicht um einen Produkt- oder
 Migrationsfehler. Die Head-Verträge wurden auf `0036` und das exakte
 Vier-Tabellen-Delta aktualisiert, die Testpfade hostneutral abgeleitet. Alle 16
 zuvor roten Knoten bestanden danach unabhängig lokal; die beiden
-Workflowfälle bestanden zusätzlich im Linux-Testcontainer. Der vollständige
-PR-CI-Gate muss auf dem korrigierten stabilen Head vor dem Merge erneut grün
-sein.
+Workflowfälle bestanden zusätzlich im Linux-Testcontainer. Der korrigierte
+exakte Head `a3b46ba1643d7188348bff2af7c15bd734a00cf6` bestand danach den
+vollständigen PR-CI-Gate. PR #266 wurde als regulärer Zwei-Eltern-Merge-Commit
+`2ec02f4cdbbefffe59650fbf62572e2336248e5b` integriert; Post-Merge-Run
+`32846832193` war auf genau diesem `origin/main` grün.
 
 Der erste `DEC-0001`-Slice implementiert `ebook-fixity-baseline/v1` ohne
 Produktoberfläche. Eine echte SQLite-`query_only`-Projektion verlangt genau
@@ -129,7 +144,8 @@ Der Klartext wird nicht gespeichert; pro Profil und `ScanRoot` ist nur eine
 Aktivierung möglich, sodass kein impliziter Trust-on-first-use oder Root-Reset
 entsteht. Die Statusprojektion enthält weder Locator noch Hashwerte.
 
-Damit ist der Surface-Slice von `WI-0003` die nächste zulässige Wave.
+Damit war der Surface-Slice von `WI-0003` nach dem Baseline-Abschluss die
+nächste zulässige Wave; er ist inzwischen ebenfalls umgesetzt.
 
 Die Root-`.gitattributes` setzt für gewöhnliche Textdateien nun unabhängig
 von `core.autocrlf` verbindlich `LF`. Explizit binäre beziehungsweise bereits
@@ -215,16 +231,13 @@ wurde als regulärer Zwei-Eltern-Merge-Commit
 `cda6b3a5448c21e5384de52423b9eb8011494293` integriert; Push-/Post-Merge-Run
 `32851122034` bestand auf genau diesem `origin/main`.
 
-Der anschließende Dokumentationsabgleich grenzt den inzwischen intern
-implementierten `WI-0003`-Stand ausdrücklich von der noch fehlenden
-Application-/CLI-/REST-/Browser-Surface ab. `foliotone --help` enthält keinen
-Fixity-Befehl, und das aktuelle Surface-Routing enthält keinen Fixity-Endpunkt.
-Das Handbuch erfindet deshalb weder Befehle noch einen ausführbaren Workflow
-und erklärt zusätzlich, dass `Library Health` und `ebook-postscan-verify`
-keine `FixityBaseline` bauen oder verifizieren. Ein realer Browserlauf gegen
-eine neue synthetische Drei-EPUB-Datenbank am Schema-Head `0036` zeigte die
-unveränderte Oberfläche, alle drei Suchtreffer sowie weder Browserwarnungen
-noch Browserfehler. Die fünf vorhandenen Hardcopies bleiben repräsentativ.
+Der damalige Dokumentationsabgleich grenzte den zu diesem Zeitpunkt nur intern
+implementierten `WI-0003`-Stand von der noch fehlenden Surface ab. Zu diesem
+historischen Head enthielten weder CLI noch Routing einen Fixity-Einstieg; das
+Handbuch erfand deshalb keinen Workflow. Der reale Browserlauf gegen Schema-
+Head `0036` bestätigte diese damalige Grenze. Die nachfolgend implementierte
+Surface und ihr Schema-Head `0037` sind im aktuellen Abschnitt oben
+dokumentiert.
 Für den Nachzieh-Slice bestanden alle 32 betroffenen Dokumentations- und
 Planungsfrontverträge. Ruff für die geänderte Testdatei, `git diff --check` und
 die Privacy-Suche über ausschließlich neue Diff-Zeilen waren grün. Der stabile
@@ -254,9 +267,9 @@ append-only und einzeln reviewpflichtig. Netzwerk, automatische Planung,
 Source Writes und jede W10-Capability sind ausgeschlossen.
 
 Die frühere Fixity-Detailentscheidung ist inzwischen abgeschlossen.
-`WI-0003` bleibt die einzige geplante Produktfolge. Baseline, Verifikation und
-Einzelentscheidungen sind implementiert; die Application-/CLI-/REST-/Browser-
-Surface ist als letzter getrennter Slice `NEXT`.
+`WI-0003` ist mit Baseline, Verifikation, Einzelentscheidungen und gemeinsamer
+Application-/CLI-/REST-/Browser-Surface abgeschlossen. `GATE-0001` ist die
+nächste Produktfolge.
 Der vollständige Vertrag und die Stopbedingungen stehen in
 [`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md).
 
