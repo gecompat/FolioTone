@@ -246,7 +246,7 @@ def test_migration_0020_upgrades_0019_with_closed_tables_and_writer_checks(
                 {"run": str(EntityId.new())},
             ).all()
         )
-    assert revision == "0036_ebook_fixity_verification"
+    assert revision == "0037_ebook_fixity_surface_jobs"
     assert {
         "archive_collection_runs",
         "archive_collection_items",

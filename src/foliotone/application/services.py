@@ -9,6 +9,22 @@ from foliotone.application.contracts import (
     ApplicationJobDetailQuery,
     CollectionSearchQuery,
     CollectionStateQuery,
+    EbookFixityAnalysisJobCommand,
+    EbookFixityBaselineActivationCommand,
+    EbookFixityBaselineActivationResult,
+    EbookFixityBaselineStatus,
+    EbookFixityExpectationRevisionCommand,
+    EbookFixityExpectationRevisionResult,
+    EbookFixityPrivateBaselineEntryPage,
+    EbookFixityPrivateBaselineEntryPageQuery,
+    EbookFixityPrivateResultDetail,
+    EbookFixityPrivateResultDetailQuery,
+    EbookFixityResultPageQuery,
+    EbookFixityResultSummary,
+    EbookFixityReviewCommand,
+    EbookFixityReviewQueueItem,
+    EbookFixityReviewResult,
+    EbookFixityVerificationStatus,
     EbookProjectionQuery,
     EbookRenamePlanCommand,
     EbookRenamePreviewQuery,
@@ -114,6 +130,71 @@ class EbookRenamePlanningPort(Protocol):
     ) -> EbookRenameReviewResult: ...
 
     def plan(self, candidate_id: EntityId) -> EbookRenamePlanResult: ...
+
+
+class EbookFixitySurfacePort(Protocol):
+    """Adapter-neutral port for the bounded manual fixity surface."""
+
+    def enqueue_ebook_fixity_command(
+        self,
+        *,
+        actor_id: str,
+        input_digest: str,
+        idempotency_digest: str,
+        command: EbookFixityAnalysisJobCommand,
+    ) -> str: ...
+
+    def fixity_baseline_status(self, manifest_id: EntityId) -> EbookFixityBaselineStatus | None: ...
+
+    def fixity_verification_status(
+        self, run_id: EntityId
+    ) -> EbookFixityVerificationStatus | None: ...
+
+    def activate_fixity_baseline_command(
+        self,
+        command: EbookFixityBaselineActivationCommand,
+        *,
+        actor_id: str,
+        session_id: str,
+        input_digest: str,
+        idempotency_digest: str,
+    ) -> EbookFixityBaselineActivationResult: ...
+
+    def fixity_result_summaries(
+        self, run_id: EntityId, *, after_id: EntityId | None, limit: int
+    ) -> tuple[tuple[EbookFixityResultSummary, ...], EntityId | None]: ...
+
+    def private_fixity_baseline_entries(
+        self, query: EbookFixityPrivateBaselineEntryPageQuery
+    ) -> EbookFixityPrivateBaselineEntryPage: ...
+
+    def private_fixity_result_detail(
+        self, query: EbookFixityPrivateResultDetailQuery
+    ) -> EbookFixityPrivateResultDetail | None: ...
+
+    def fixity_review_queue(
+        self, *, after_id: EntityId | None, limit: int
+    ) -> tuple[tuple[EbookFixityReviewQueueItem, ...], EntityId | None]: ...
+
+    def review_fixity_result_command(
+        self,
+        command: EbookFixityReviewCommand,
+        *,
+        actor_id: str,
+        session_id: str,
+        input_digest: str,
+        idempotency_digest: str,
+    ) -> EbookFixityReviewResult: ...
+
+    def revise_fixity_expectation_command(
+        self,
+        command: EbookFixityExpectationRevisionCommand,
+        *,
+        actor_id: str,
+        session_id: str,
+        input_digest: str,
+        idempotency_digest: str,
+    ) -> EbookFixityExpectationRevisionResult: ...
 
 
 class FolioToneApplication:
@@ -244,3 +325,119 @@ class FolioToneApplication:
         self, service: EbookRenamePlanningPort, command: EbookRenamePlanCommand
     ) -> EbookRenamePlanResult:
         return service.plan(command.candidate_id)
+
+    def enqueue_ebook_fixity_job(
+        self,
+        port: EbookFixitySurfacePort,
+        command: EbookFixityAnalysisJobCommand,
+        *,
+        actor_id: str,
+        input_digest: str,
+        idempotency_digest: str,
+    ) -> str:
+        """Submit the fixed path-free fixity command through the Application boundary."""
+        return port.enqueue_ebook_fixity_command(
+            actor_id=actor_id,
+            input_digest=input_digest,
+            idempotency_digest=idempotency_digest,
+            command=command,
+        )
+
+    def ebook_fixity_baseline_status(
+        self, port: EbookFixitySurfacePort, manifest_id: EntityId
+    ) -> EbookFixityBaselineStatus | None:
+        return port.fixity_baseline_status(manifest_id)
+
+    def ebook_fixity_verification_status(
+        self, port: EbookFixitySurfacePort, run_id: EntityId
+    ) -> EbookFixityVerificationStatus | None:
+        return port.fixity_verification_status(run_id)
+
+    def ebook_fixity_results(
+        self,
+        port: EbookFixitySurfacePort,
+        query: EbookFixityResultPageQuery,
+    ) -> tuple[tuple[EbookFixityResultSummary, ...], EntityId | None]:
+        return port.fixity_result_summaries(
+            query.run_id,
+            after_id=query.after_id,
+            limit=query.limit,
+        )
+
+    def private_ebook_fixity_baseline_entries(
+        self,
+        port: EbookFixitySurfacePort,
+        query: EbookFixityPrivateBaselineEntryPageQuery,
+    ) -> EbookFixityPrivateBaselineEntryPage:
+        """Read private locators and hashes only through the explicit private contract."""
+        return port.private_fixity_baseline_entries(query)
+
+    def private_ebook_fixity_result_detail(
+        self,
+        port: EbookFixitySurfacePort,
+        query: EbookFixityPrivateResultDetailQuery,
+    ) -> EbookFixityPrivateResultDetail | None:
+        """Read one private result only through the explicit private contract."""
+        return port.private_fixity_result_detail(query)
+
+    def ebook_fixity_review_queue(
+        self,
+        port: EbookFixitySurfacePort,
+        page: SurfacePageQuery,
+    ) -> tuple[tuple[EbookFixityReviewQueueItem, ...], EntityId | None]:
+        after = None if page.after_id is None else EntityId.parse(page.after_id)
+        return port.fixity_review_queue(after_id=after, limit=page.limit)
+
+    def review_ebook_fixity_result(
+        self,
+        port: EbookFixitySurfacePort,
+        command: EbookFixityReviewCommand,
+        *,
+        actor_id: str,
+        session_id: str,
+        input_digest: str,
+        idempotency_digest: str,
+    ) -> EbookFixityReviewResult:
+        return port.review_fixity_result_command(
+            command,
+            actor_id=actor_id,
+            session_id=session_id,
+            input_digest=input_digest,
+            idempotency_digest=idempotency_digest,
+        )
+
+    def revise_ebook_fixity_expectation(
+        self,
+        port: EbookFixitySurfacePort,
+        command: EbookFixityExpectationRevisionCommand,
+        *,
+        actor_id: str,
+        session_id: str,
+        input_digest: str,
+        idempotency_digest: str,
+    ) -> EbookFixityExpectationRevisionResult:
+        return port.revise_fixity_expectation_command(
+            command,
+            actor_id=actor_id,
+            session_id=session_id,
+            input_digest=input_digest,
+            idempotency_digest=idempotency_digest,
+        )
+
+    def activate_ebook_fixity_baseline(
+        self,
+        port: EbookFixitySurfacePort,
+        command: EbookFixityBaselineActivationCommand,
+        *,
+        actor_id: str,
+        session_id: str,
+        input_digest: str,
+        idempotency_digest: str,
+    ) -> EbookFixityBaselineActivationResult:
+        return port.activate_fixity_baseline_command(
+            command,
+            actor_id=actor_id,
+            session_id=session_id,
+            input_digest=input_digest,
+            idempotency_digest=idempotency_digest,
+        )

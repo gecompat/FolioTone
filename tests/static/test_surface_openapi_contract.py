@@ -46,6 +46,15 @@ def test_openapi_contract_is_pinned_and_has_no_unregistered_media_crud(
         "/api/v1/ebooks/rename/authorizations",
         "/api/v1/ebooks/rename/executions",
         "/api/v1/ebooks/rename/recoveries",
+        "/api/v1/ebooks/fixity/baselines",
+        "/api/v1/ebooks/fixity/baselines/{manifest_id}",
+        "/api/v1/ebooks/fixity/baselines/{manifest_id}/activation",
+        "/api/v1/ebooks/fixity/verifications",
+        "/api/v1/ebooks/fixity/verifications/{run_id}",
+        "/api/v1/ebooks/fixity/verifications/{run_id}/results",
+        "/api/v1/ebooks/fixity/reviews",
+        "/api/v1/ebooks/fixity/results/{result_id}/reviews",
+        "/api/v1/ebooks/fixity/results/{result_id}/expectations",
         "/api/v1/media-lines",
         "/api/v1/setup-status",
         "/api/v1/setup",
@@ -55,11 +64,13 @@ def test_openapi_contract_is_pinned_and_has_no_unregistered_media_crud(
         "/api/v1/session/reauth-review",
         "/api/v1/private/ebooks/collection-states/{snapshot_id}/search",
         "/api/v1/private/ebooks/rename/candidates/{candidate_id}",
+        "/api/v1/private/ebooks/fixity/baselines/{manifest_id}/entries",
+        "/api/v1/private/ebooks/fixity/results/{result_id}",
         "/api/v1/private/session",
     }
     assert (
         hashlib.sha256(payload).hexdigest()
-        == "1cb2d81c7a4de1df3633cd6ac2b8d0107d60cf1e8fcd411b8314683044a46ce1"
+        == "2132ab0743143eb19de73b38376c4f15d706676486a7eefe47b6e916b2bb9947"
     )
 
 

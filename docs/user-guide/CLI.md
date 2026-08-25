@@ -163,13 +163,46 @@ Beschädigung der Datenbank.
 
 `ebook-postscan-verify` prüft die abgeschlossene Hash-, Inventar- und
 Collection-Kette. Der Befehl baut oder aktiviert keine `FixityBaseline` und
-startet keinen `FixityVerificationRun`.
+startet keinen `FixityVerificationRun`. Dafür stehen getrennte owner-lokale
+Fixity-Kommandos bereit:
 
-Für Baseline, Fixity-Verifikation und append-only Einzelentscheidungen gibt es
-im aktuellen Stand noch keinen öffentlichen CLI-Befehl. Verwende weder interne
-Python-Klassen noch direkte SQLite-Änderungen als Ersatz. Die geplanten CLI-
-Aufrufe werden erst zusammen mit der gemeinsamen Application-/REST-/Browser-
-Surface dokumentiert.
+| Befehl | Zweck | Zusätzliche Grenze |
+|---|---|---|
+| `ebook-fixity-baseline-build` | manuellen Baseline-Job für einen `ScanRoot` anlegen | `--retry-id`, höchstens zwei Worker |
+| `ebook-fixity-baseline-status` | path- und hashfreien Manifeststatus lesen | read-only |
+| `ebook-fixity-baseline-activate` | vorbereitetes Manifest nach exakter Bestätigung aktivieren | `--retry-id`, frische `REVIEW`-Reauthentisierung |
+| `ebook-fixity-verification-run` | manuellen Verifikationsjob anlegen | `--retry-id`, höchstens zwei Worker |
+| `ebook-fixity-verification-status` | path- und hashfreien Laufstatus lesen | read-only |
+| `ebook-fixity-result-review` | `ACCEPT`, `REJECT` oder `DEFER` anhängen | `--retry-id`, frische `REVIEW`-Reauthentisierung |
+| `ebook-fixity-expectation-revise` | genau eine akzeptierte Erwartung mit `ACCEPT_CURRENT` oder `RETIRE_MISSING` revidieren | `--retry-id`, frische `REVIEW`-Reauthentisierung |
+
+Ein minimaler Ablauf beginnt nach einem vollständig abgeschlossenen Scan:
+
+```text
+foliotone ebook-fixity-baseline-build --database <Datenbankpfad> --scan-root-id <ScanRoot-ID> --worker-count 1 --retry-id <Retry-ID>
+foliotone analysis-worker --database <Datenbankpfad> --ebook-root <E-Book-Root> --once
+foliotone ebook-fixity-baseline-status --database <Datenbankpfad> <Manifest-ID>
+foliotone ebook-fixity-baseline-activate --database <Datenbankpfad> --retry-id <Retry-ID> <Manifest-ID>
+foliotone ebook-fixity-verification-run --database <Datenbankpfad> --scan-root-id <ScanRoot-ID> --worker-count 1 --retry-id <Retry-ID>
+foliotone analysis-worker --database <Datenbankpfad> --ebook-root <E-Book-Root> --once
+foliotone ebook-fixity-verification-status --database <Datenbankpfad> <Verifikationslauf-ID>
+```
+
+Die Kommandos fragen Benutzername und Passwort verdeckt am interaktiven
+owner-lokalen Terminal ab. Die Aktivierung fragt zusätzlich die aus der
+Manifest-ID gebildete exakte Bestätigung verdeckt ab. Verwende dieselbe
+`--retry-id` nur
+für den exakten Retry desselben Kommandos und Inputs; ein anderer Input mit
+derselben ID wird abgewiesen. Die Retry-ID ist kein Secret, bleibt aber
+begrenzt und wird weder im Klartext persistiert noch ausgegeben.
+
+Der `analysis-worker` erhält den absoluten E-Book-Root ausschließlich lokal.
+Dieser Root wird nicht in den Jobbinder übernommen. Der Worker startet keinen
+Scan, keine Discovery und keinen Netzwerkzugriff und verändert keine Source
+Media. Öffentliche CLI-Ausgaben enthalten keine Locator oder Hashwerte;
+private Details werden ausschließlich über die kurzlebige private REST-/
+Browserprojektion angezeigt. Direkte SQLite-Änderungen sind kein zulässiger
+Ersatz für einen Fixity-Befehl.
 
 ## CollectionState, Suche und Berichte
 

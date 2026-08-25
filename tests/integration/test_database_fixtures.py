@@ -28,7 +28,7 @@ def test_head_database_factory_returns_isolated_schema_copies(
     right_engine.dispose()
 
     assert marker is None
-    assert revision == "0036_ebook_fixity_verification"
+    assert revision == "0037_ebook_fixity_surface_jobs"
 
 
 def test_head_database_factory_rejects_reuse_and_nested_names(

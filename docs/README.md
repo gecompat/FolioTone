@@ -41,7 +41,7 @@ Die Dokumentation ist nach Nutzungssituation gegliedert. Für die Weiterentwickl
 13. [Begrenzter EPUB-Titelwriter](operations/EBOOK_METADATA_WRITE.md) beschreibt Voraussetzungen, Runtime-Konfiguration, Bestätigung, Status und Recovery des einzigen freigegebenen Source-Metadata-Profils.
 14. [Begrenzte E-Book-Duplikatquarantäne](operations/EBOOK_QUARANTINE.md) beschreibt Authorization, gefencetes Execute und die feste no-move Exact-State-Recovery für genau einen reviewten Duplicate Candidate.
 15. [Ausführungsvertrag für S-FUT11-03 und S-FUT11-04](planning/FUT11_NEXT_WAVES.md) bindet den decision-complete Application-, API-, UI-, Privacy-, Operator-Worker-, Test- und Git-Scope der beiden nächsten Produktwaves.
-16. [Nächste E-Book-Entwicklung](planning/EBOOK_CONTINUATION_PLAN.md) verankert `WI-0003` Fixity Monitoring als einzige `NEXT`-Wave und ordnet danach `GATE-0001` sowie die blockierte EPUB-Transformation `WI-0004` ein.
+16. [Nächste E-Book-Entwicklung](planning/EBOOK_CONTINUATION_PLAN.md) dokumentiert den Abschluss von `WI-0003`, `GATE-0001` als einzige `NEXT`-Wave sowie die davon blockierte EPUB-Transformation `WI-0004`.
 
 ## Architektur
 

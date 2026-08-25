@@ -52,16 +52,13 @@ wurde als Zwei-Eltern-Merge-Commit
 `cda6b3a5448c21e5384de52423b9eb8011494293` integriert; der Push-/Post-Merge-
 Run `32851122034` war auf genau diesem `origin/main` grün.
 
-Der direkte Nachzieh-Slice dokumentiert den neuen internen `WI-0003`-Stand,
-ohne eine noch nicht vorhandene Bedienung vorzutäuschen. `FixityBaseline`,
-`FixityVerificationRun` und append-only Einzelentscheidungen besitzen noch
-keinen öffentlichen Application-, CLI-, REST- oder Browserpfad;
-`Library Health` und `ebook-postscan-verify` sind kein Ersatz. Der aktuelle
-CLI-Hilfetext und das Surface-Routing bestätigten diese Grenze. Ein realer
-Browserlauf gegen eine neue synthetische Drei-EPUB-Datenbank am Schema-Head
-`0036` zeigte weiterhin alle drei Suchtreffer, weder Browserwarnungen noch
-Browserfehler und keine Fixity-Controls. Die fünf vorhandenen Hardcopies
-bleiben repräsentativ. Alle 32 betroffenen Dokumentations- und
+Der historische direkte Nachzieh-Slice dokumentierte den damaligen internen
+`WI-0003`-Stand, ohne eine noch nicht vorhandene Bedienung vorzutäuschen. Am
+Schema-Head `0036` besaßen `FixityBaseline`, `FixityVerificationRun` und
+append-only Einzelentscheidungen noch keinen öffentlichen Adapter; die CLI-
+und Browsergrenze wurde zu diesem Zeitpunkt real verifiziert. Die inzwischen
+implementierte Surface ist davon getrennt im aktuellen Abschnitt unten
+dokumentiert. Alle 32 damals betroffenen Dokumentations- und
 Planungsfrontverträge bestanden; Ruff für die geänderte Testdatei,
 `git diff --check` und die Privacy-Suche über ausschließlich neue Diff-Zeilen
 waren grün. Der stabile Folge-Head
@@ -69,7 +66,8 @@ waren grün. Der stabile Folge-Head
 und Linux-Image-Run `32852577531`. PR #267 wurde als Zwei-Eltern-Merge-Commit
 `7d69870d0c7c6f2dd35ad507293642e32b0f177f` integriert; Push-/Post-Merge-Run
 `32852910444` war auf genau diesem `origin/main` grün. Die Korrektur verändert
-`WI-0003 = NEXT`, dessen Baseline-Scope und Source-Media-Authority nicht.
+den damaligen Status `WI-0003 = NEXT`, dessen Baseline-Scope und Source-Media-
+Authority nicht.
 
 `WI-0002` verankert die nächste E-Book-Folge in
 [`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md). `DEC-0001` ist
@@ -87,21 +85,30 @@ ist genau ein `FILE`, Candidate genau ein immutable Ergebnis eines
 `COMPLETED`-Verifikationslaufs. Nur eine aktuelle exakt passende `ACCEPT`-
 Decision des neuesten Verifikationslaufs darf eine einzelne append-only
 Erwartungsrevision erzeugen; jeder neuere Lauf invalidiert die ältere Review-
-Lineage. CLI plus lokale REST-/Browser-Surface sind `NEXT` und bleiben der
-letzte `WI-0003`-Slice. Der gesamte Vertrag bleibt read-only gegenüber Source
-Media und besitzt keine W10-Capability.
+Lineage. Migration `0037_ebook_fixity_surface_jobs`, die Application-Ports,
+sieben owner-lokale CLI-Kommandos, path-freie REST-Projektionen und die
+deutsche Browseroberfläche schließen den letzten `WI-0003`-Slice ab. Der
+gesamte Vertrag bleibt read-only gegenüber Source Media und besitzt keine
+W10-Capability.
 
 Migration `0036_ebook_fixity_verification` und der interne Coordinator bilden
 die exakte Vereinigungsmenge bounded per SQL-Keyset ab, versiegeln nur
 vollständige Runs und erhalten Lease-Expiry, partielle Ergebnisse sowie
 Einzelentscheidungen append-only. Standardstatus bleibt pfad- und hashfrei.
-Die nächste Wave darf ausschließlich die gemeinsame manuelle Job-/
-Application-/CLI-/REST-/Browser-Surface ergänzen; sie darf weder Discovery,
-Netzwerk noch eine W10- oder Source-Write-Capability hinzufügen.
+Die fünf mutierenden CLI-Kommandos verlangen eine begrenzte `--retry-id` und
+verwenden command-spezifisch getrennte Digests; exakte Retries werden
+wiedererkannt, divergente Wiederverwendung wird abgewiesen. Baseline und
+Verifikation laufen nur als manuell angelegte persistente Jobs im getrennten
+`analysis-worker`. Öffentliche Projektionen bleiben path- und hashfrei;
+relative Locator und Hashwerte benötigen `PRIVATE_READ` und `no-store`.
+`REVIEW`-Reauthentisierung, CSRF und Idempotenz binden Aktivierung und
+Einzelentscheidungen. Der echte synthetische Browserlauf bestätigte Jobanlage,
+Status, private Projektionen, Session-Clearing, Review, Einzelrevision und
+Aktivierung ohne Browserwarnung oder -fehler.
 
 `DEC-0002` hält den gewählten Scope einer EPUB-3-zu-EPUB-3-Ableitung mit
 reviewten Metadaten und getrenntem Output-Root als `Proposed` fest.
-`GATE-0001` muss nach Abschluss von `WI-0003` zuerst ToolProvider,
+`GATE-0001` ist nach Abschluss von `WI-0003` die nächste Wave und muss zuerst ToolProvider,
 Byte-Reproduzierbarkeit, Security, Lizenz und netzlosen Containerbetrieb mit
 synthetischen Fixtures qualifizieren. Bis zu einem positiven Gate bleibt
 `WI-0004` (`FUT-008`) `BLOCKED`; W9-007-Rezepte bleiben dauerhaft

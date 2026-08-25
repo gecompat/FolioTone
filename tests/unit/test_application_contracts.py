@@ -7,6 +7,10 @@ from foliotone.application import (
     ApplicationCommand,
     ApplicationContext,
     ApplicationError,
+    EbookFixityPrivateBaselineEntryPage,
+    EbookFixityPrivateBaselineEntryPageQuery,
+    EbookFixityPrivateResultDetail,
+    EbookFixityPrivateResultDetailQuery,
     EbookToolchainReadinessQuery,
     FolioToneApplication,
     LibraryHealthQuery,
@@ -103,3 +107,42 @@ def test_application_passes_the_health_query_to_the_persistence_port() -> None:
         "baseline_snapshot_id": baseline_id,
         "sample_limit": 3,
     }
+
+
+def test_private_fixity_queries_cross_only_the_explicit_application_port() -> None:
+    manifest_id = EntityId.new()
+    result_id = EntityId.new()
+    baseline_page = EbookFixityPrivateBaselineEntryPage(
+        manifest_id=manifest_id,
+        entries=(),
+        next_after_ordinal=None,
+    )
+    captured: list[object] = []
+
+    class Port:
+        def private_fixity_baseline_entries(
+            self, query: EbookFixityPrivateBaselineEntryPageQuery
+        ) -> EbookFixityPrivateBaselineEntryPage:
+            captured.append(query)
+            return baseline_page
+
+        def private_fixity_result_detail(
+            self, query: EbookFixityPrivateResultDetailQuery
+        ) -> EbookFixityPrivateResultDetail | None:
+            captured.append(query)
+            return None
+
+    application = FolioToneApplication(
+        media_lines=MediaLineRegistry.default(),
+        toolchain_inspector=lambda **_kwargs: None,  # type: ignore[arg-type]
+    )
+    page_query = EbookFixityPrivateBaselineEntryPageQuery(
+        manifest_id=manifest_id,
+        after_ordinal=3,
+        limit=4,
+    )
+    detail_query = EbookFixityPrivateResultDetailQuery(result_id=result_id)
+
+    assert application.private_ebook_fixity_baseline_entries(Port(), page_query) is baseline_page  # type: ignore[arg-type]
+    assert application.private_ebook_fixity_result_detail(Port(), detail_query) is None  # type: ignore[arg-type]
+    assert captured == [page_query, detail_query]

@@ -25,6 +25,13 @@ class EbookRenameOperatorJobProfile(StrEnum):
     RECOVER = "ebook-rename-operator-recover/v1"
 
 
+class EbookFixityAnalysisJobProfile(StrEnum):
+    """The only read-only fixity commands an analysis worker may execute."""
+
+    BASELINE_BUILD = "ebook-fixity-baseline-build/v1"
+    VERIFICATION = "ebook-fixity-verification/v1"
+
+
 class MediaLine(StrEnum):
     """A separately activated product entry point."""
 
@@ -104,6 +111,169 @@ class EbookRenameOperatorJobCommand(ApplicationCommand):
             or any(value not in "0123456789abcdef" for value in self.plan_content_hash)
         ):
             raise ApplicationError("E-book rename operator plan hash is invalid")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class EbookFixityAnalysisJobCommand(ApplicationCommand):
+    """Immutable, path-free input for a read-only fixity analysis job."""
+
+    profile: EbookFixityAnalysisJobProfile
+    scan_root_id: EntityId
+    worker_count: int = 1
+
+    def __post_init__(self) -> None:
+        if not 1 <= self.worker_count <= 2:
+            raise ApplicationError("fixity analysis worker count is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityBaselineStatus:
+    manifest_id: EntityId
+    scan_root_id: EntityId
+    source_scan_run_id: EntityId
+    status: str
+    started_at: str
+    prepared_at: str | None
+    expires_at: str | None
+    item_count: int | None
+    activated_at: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityVerificationStatus:
+    run_id: EntityId
+    scan_root_id: EntityId
+    baseline_activation_id: EntityId
+    source_scan_run_id: EntityId
+    expectation_revision_no: int
+    status: str
+    started_at: str
+    completed_at: str | None
+    expected_result_count: int
+    result_count: int
+    failure_code: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityBaselineActivationResult:
+    activation_id: EntityId
+    manifest_id: EntityId
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityReviewResult:
+    result_id: EntityId
+    review_item_id: EntityId
+    decision_id: EntityId
+    decision: str
+    sequence_no: int
+
+    def __post_init__(self) -> None:
+        if self.decision not in {"ACCEPT", "REJECT", "DEFER"} or self.sequence_no < 1:
+            raise ApplicationError("fixity review result is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityExpectationRevisionResult:
+    result_id: EntityId
+    revision_id: EntityId
+    action: str
+    revision_no: int
+
+    def __post_init__(self) -> None:
+        if self.action not in {"ACCEPT_CURRENT", "RETIRE_MISSING"} or self.revision_no < 1:
+            raise ApplicationError("fixity expectation result is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityReviewQueueItem:
+    review_item_id: EntityId
+    result_id: EntityId
+    file_id: EntityId
+    state: str
+    created_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityResultSummary:
+    result_id: EntityId
+    file_id: EntityId
+    result: str
+    failure_code: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityPrivateBaselineEntry:
+    """One explicitly private baseline entry exposed only after PRIVATE_READ."""
+
+    ordinal: int
+    file_id: EntityId
+    observation_id: EntityId
+    relative_locator: str = field(repr=False)
+    size_bytes: int
+    sha256: str = field(repr=False)
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityPrivateBaselineEntryPage:
+    manifest_id: EntityId
+    entries: tuple[EbookFixityPrivateBaselineEntry, ...]
+    next_after_ordinal: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityPrivateResultMaterial:
+    observation_id: EntityId | None
+    relative_locator: str | None = field(repr=False)
+    size_bytes: int | None
+    sha256: str | None = field(repr=False)
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityPrivateResultDetail:
+    result_id: EntityId
+    run_id: EntityId
+    file_id: EntityId
+    result: str
+    expected: EbookFixityPrivateResultMaterial
+    current: EbookFixityPrivateResultMaterial
+    failure_code: str | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class EbookFixityBaselineActivationCommand(ApplicationCommand):
+    """Ephemeral exact activation input; adapters must never retain its plaintext."""
+
+    manifest_id: EntityId
+    confirmation: str = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if not 1 <= len(self.confirmation) <= 256:
+            raise ApplicationError("fixity baseline activation confirmation is invalid")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class EbookFixityExpectationRevisionCommand(ApplicationCommand):
+    """A path-free, single-result expectation action; material is derived server-side."""
+
+    result_id: EntityId
+    action: str
+
+    def __post_init__(self) -> None:
+        if self.action not in {"ACCEPT_CURRENT", "RETIRE_MISSING"}:
+            raise ApplicationError("fixity expectation action is invalid")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class EbookFixityReviewCommand(ApplicationCommand):
+    """A path-free decision for one immutable Fixity result."""
+
+    result_id: EntityId
+    decision: str
+
+    def __post_init__(self) -> None:
+        if self.decision not in {"ACCEPT", "REJECT", "DEFER"}:
+            raise ApplicationError("fixity review decision is invalid")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -233,3 +403,32 @@ class EbookProjectionQuery(ApplicationQuery):
     """Read one bounded E-Book projection by its opaque persisted identifier."""
 
     projection_id: EntityId
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityResultPageQuery(ApplicationQuery):
+    run_id: EntityId
+    after_id: EntityId | None = None
+    limit: int = 50
+
+    def __post_init__(self) -> None:
+        if not 1 <= self.limit <= 100:
+            raise ApplicationError("fixity result page limit is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityPrivateBaselineEntryPageQuery(ApplicationQuery):
+    manifest_id: EntityId
+    after_ordinal: int | None = None
+    limit: int = 50
+
+    def __post_init__(self) -> None:
+        if self.after_ordinal is not None and self.after_ordinal < 0:
+            raise ApplicationError("fixity baseline entry cursor is invalid")
+        if not 1 <= self.limit <= 100:
+            raise ApplicationError("fixity baseline entry page limit is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class EbookFixityPrivateResultDetailQuery(ApplicationQuery):
+    result_id: EntityId

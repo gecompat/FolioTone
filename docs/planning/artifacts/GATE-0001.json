@@ -21,7 +21,7 @@
   ],
   "schema_version": 1,
   "title": "EPUB-Transformationsprofil und ToolProvider qualifizieren",
-  "status": "PLANNED",
+  "status": "NEXT",
   "metadata": {
     "scope": "ebook-transformation-tool-qualification",
     "tier": "FRONTIER",

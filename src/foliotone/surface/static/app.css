@@ -5,16 +5,20 @@ body { margin: 0; line-height: 1.5; }
 main { margin: auto; max-width: 70rem; padding: 2rem 1rem; }
 .skip-link { left: .5rem; position: absolute; top: -4rem; }
 .skip-link:focus { top: .5rem; }
-button { font: inherit; padding: .4rem .8rem; }
+button, select { font: inherit; padding: .4rem .8rem; }
 form { display: grid; gap: .75rem; max-width: 34rem; }
 label { display: grid; gap: .25rem; }
 input { font: inherit; padding: .4rem; }
 section { margin-block: 1.5rem; }
-#job-list, #audit-list, #search-results, #snapshot-details, #scan-details, #run-details, #readiness-details, #plan-list { border: 1px solid CanvasText; margin-top: .75rem; overflow-x: auto; padding: .75rem; }
+.section-nav { display: flex; flex-wrap: wrap; gap: .75rem; }
+.fixity-card { border: 1px solid CanvasText; padding: 1rem; }
+.fixity-card form + form { margin-top: 1rem; }
+#job-list, #audit-list, #search-results, #snapshot-details, #scan-details, #run-details, #readiness-details, #plan-list, #fixity-baseline-job-result, #fixity-baseline-status, #fixity-baseline-activation-result, #fixity-verification-job-result, #fixity-verification-status, #fixity-results, #fixity-private-entries, #fixity-private-result, #fixity-review-queue, #fixity-review-result, #fixity-expectation-result { border: 1px solid CanvasText; margin-top: .75rem; overflow-x: auto; padding: .75rem; }
 table { border-collapse: collapse; width: 100%; }
 th, td { border-bottom: 1px solid CanvasText; padding: .4rem; text-align: left; vertical-align: top; }
+#fixity-results td:last-child { display: flex; flex-wrap: wrap; gap: .4rem; }
 #search-results table { table-layout: fixed; }
 #search-results th, #search-results td { overflow-wrap: anywhere; }
 #search-results th:nth-child(3), #search-results td:nth-child(3) { width: 5rem; }
 #search-results th:nth-child(4), #search-results td:nth-child(4) { width: 45%; }
-@media (max-width: 40rem) { .site-header { align-items: flex-start; gap: 1rem; } }
+@media (max-width: 40rem) { .site-header { align-items: flex-start; gap: 1rem; } main { padding-inline: .75rem; } .fixity-card { padding: .75rem; } button { width: 100%; } }

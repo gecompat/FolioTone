@@ -17,19 +17,19 @@ konkurrierende Statusachse.
 
 ADR-0016 bleibt für die anfängliche CLI-only Implementierung historisch und
 fachlich gültig. ADR-0067 entscheidet inzwischen die stufenweise lokale
-Einzelbenutzer-Produktoberfläche. Bis die jeweilige FUT-011-Wave umgesetzt
-ist, bleibt die CLI der einzige ausführbare Adapter. CLI, REST und Worker
-verwenden danach dieselben Application-Verträge.
+Einzelbenutzer-Produktoberfläche. Für den aktuellen E-Book-Scope verwenden
+CLI, REST, Browser und Worker dieselben Application-Verträge; spätere
+Produktoberflächen bleiben an ihre jeweilige Wave gebunden.
 
 [`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md) setzt die
 Lieferfolge nach `S-FUT11-04` fort. `DEC-0001` aktiviert `WI-0003`
 (`FUT-009`) für read-only Fixity Monitoring. Baseline, Verifikation und
-append-only Einzelentscheidungen sind umgesetzt. `DEC-0001` bindet die
+append-only Einzelentscheidungen sowie die gemeinsame Produktoberfläche sind
+umgesetzt. `DEC-0001` bindet die
 Verifikation an den neuesten abgeschlossenen Scan-Snapshot und an die
 generische Review-Core-Paarung `FIXITY_EXPECTATION`/`FIXITY_RESULT` mit exakt
-einem immutable Ergebnis je Review. Die Produktoberfläche ist `NEXT`. Erst
-nach deren Abschluss
-qualifiziert `GATE-0001` den vorgeschlagenen
+einem immutable Ergebnis je Review. Als nächste Front qualifiziert
+`GATE-0001` den vorgeschlagenen
 `DEC-0002`-Vertrag für eine deterministische EPUB-3-zu-EPUB-3-Ableitung.
 `WI-0004` (`FUT-008`) bleibt bis zu einem positiven Gate blockiert. Diese
 registrierten Artefakte ersetzen weder historische IDs noch die permanente

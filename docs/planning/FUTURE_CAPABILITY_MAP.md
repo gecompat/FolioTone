@@ -162,9 +162,9 @@ Auf EB-08 aufbauend:
 
 `DEC-0001` löst aus Punkt 5 ausschließlich das erste read-only Fixity-
 Monitoring für genau einen E-Book-`ScanRoot` heraus. Der Baseline-Slice von
-`WI-0003` sowie scan-snapshotgebundene Verifikation und generisch reviewte
-Einzelentscheidungen sind implementiert. Die gemeinsame Application-/CLI-/
-REST-/Browser-Surface ist `NEXT`. Root-/Replica-Rollen, Backup-Vergleich und
+`WI-0003` sowie scan-snapshotgebundene Verifikation, generisch reviewte
+Einzelentscheidungen und die gemeinsame Application-/CLI-/REST-/Browser-
+Surface sind implementiert. Root-/Replica-Rollen, Backup-Vergleich und
 Restore-Evidence bleiben außerhalb dieser ersten Version.
 
 Diese Phase bleibt zunächst book-only beziehungsweise technisch
@@ -280,7 +280,7 @@ ist, existiert dafür weder REST-Endpunkt noch aktivierbares UI-Control.
 | Inbox und Importplanung | neue Objekte gegen den Bestand prüfen | strategischer Vorschlag, danach | neu | eigener Root-/Plan-Vertrag |
 | Acquisition/Desired Set | vorhandene Erwerbskandidaten und Lücken gegenüber einem expliziten Sollbestand erkennen | strategischer Vorschlag, später | FUT-007 teilweise | Sollbestand-, Provider- und Rechte-Evidence |
 | Library Health | unabhängige Zustandsdimensionen zusammenfassen | book-only implementiert | ADR-0058, ADR-0060, `CS-03`, FUT-006 | medienübergreifende Generalisierung erst nach eigener Music-Dimensionierung |
-| Fixity Monitoring | unerwartete Byteänderungen in genau einem E-Book-Root erkennen und einzeln reviewen | Baseline, Verifikation und Einzelentscheidungen implementiert; `WI-0003` Surface `NEXT` | `DEC-0001`, `WI-0003` (`FUT-009`) | Gemeinsame Application-/CLI-/REST-/Browser-Surface ohne W10 oder Source Writes |
+| Fixity Monitoring | unerwartete Byteänderungen in genau einem E-Book-Root erkennen und einzeln reviewen | Baseline, Verifikation, Einzelentscheidungen und Surface implementiert | `DEC-0001`, `WI-0003` (`FUT-009`) | Root-/Replica-Vergleich benötigt einen eigenen späteren Vertrag |
 | Backup-/Replica-Reconciliation | Replica-Lücken und Restore-Evidence erkennen | strategischer Vorschlag, später | frühere FUT-009-Idee teilweise | Root-/Replica-Rollen und eigener Restore-Vertrag |
 | EPUB-Transformation | normalisierte EPUB-3-Ableitung mit reviewten Metadaten in getrenntem Output-Root erzeugen | vorgeschlagen und technisch blockiert | ADR-0065, `DEC-0002`, `GATE-0001`, `WI-0004` (`FUT-008`) | exakte Byte-Reproduzierbarkeit sowie aktuelle Tool-, Security- und Lizenzqualifikation |
 | Music Vertical Slice | Musik auf Work-/Recording-/Release-Ebene verstehen | bestehender Plan, bewusst zurückgestellt | W4, W5, W6, W7 | nach reifer E-Book-Linie |

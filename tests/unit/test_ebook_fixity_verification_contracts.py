@@ -32,6 +32,8 @@ from foliotone.fixity.verification_fingerprints import (
 NOW = datetime(2026, 8, 25, 12, 0, tzinfo=UTC)
 DIGEST_A = "a" * 64
 DIGEST_B = "b" * 64
+_RESULT = EbookFixityVerificationResult
+_ACTION = EbookFixityExpectationAction
 
 
 def _result(
@@ -282,3 +284,107 @@ def test_expectation_revisions_bind_accept_current_and_retire_missing() -> None:
         expected_size_bytes=None,
     )
     assert retired.expected_observation_id is None
+
+
+@pytest.mark.parametrize(
+    ("kind", "action", "allowed"),
+    [
+        (_RESULT.UNEXPECTED_BYTE_CHANGE, _ACTION.ACCEPT_CURRENT, True),
+        (_RESULT.UNBASELINED, _ACTION.ACCEPT_CURRENT, True),
+        (_RESULT.MISSING, _ACTION.RETIRE_MISSING, True),
+        (_RESULT.UNEXPECTED_BYTE_CHANGE, _ACTION.RETIRE_MISSING, False),
+        (_RESULT.UNBASELINED, _ACTION.RETIRE_MISSING, False),
+        (_RESULT.MISSING, _ACTION.ACCEPT_CURRENT, False),
+        (_RESULT.VERIFIED, _ACTION.ACCEPT_CURRENT, False),
+        (_RESULT.VERIFIED, _ACTION.RETIRE_MISSING, False),
+        (_RESULT.UNREADABLE, _ACTION.ACCEPT_CURRENT, False),
+        (_RESULT.UNREADABLE, _ACTION.RETIRE_MISSING, False),
+        (_RESULT.SOURCE_CHANGED_DURING_RUN, _ACTION.ACCEPT_CURRENT, False),
+        (_RESULT.SOURCE_CHANGED_DURING_RUN, _ACTION.RETIRE_MISSING, False),
+    ],
+)
+def test_expectation_action_matrix_is_closed(
+    kind: EbookFixityVerificationResult,
+    action: EbookFixityExpectationAction,
+    allowed: bool,
+) -> None:
+    no_expected = kind is EbookFixityVerificationResult.UNBASELINED
+    no_current = kind is EbookFixityVerificationResult.MISSING
+    unsafe = kind in {
+        EbookFixityVerificationResult.UNREADABLE,
+        EbookFixityVerificationResult.SOURCE_CHANGED_DURING_RUN,
+    }
+    expected_observation_id = None if no_expected else EntityId.new()
+    current_observation_id = None if no_current else EntityId.new()
+    expected_size = None if no_expected else 10
+    current_size = (
+        None
+        if no_current
+        else 10
+        if kind is EbookFixityVerificationResult.VERIFIED
+        else 11
+    )
+    expected_sha = None if no_expected else DIGEST_A
+    current_sha = (
+        None
+        if no_current or unsafe
+        else DIGEST_A
+        if kind is EbookFixityVerificationResult.VERIFIED
+        else DIGEST_B
+    )
+    result = EbookFixityVerificationResultRecord(
+        result_id=EntityId.new(),
+        run_id=EntityId.new(),
+        file_id=EntityId.new(),
+        result=kind,
+        expected_observation_id=expected_observation_id,
+        expected_size_bytes=expected_size,
+        expected_sha256=expected_sha,
+        expected_relative_locator=None if no_expected else "book.epub",
+        current_observation_id=current_observation_id,
+        current_size_bytes=current_size,
+        current_sha256=current_sha,
+        current_relative_locator=None if no_current else "book.epub",
+        failure_code=(
+            "SOURCE_UNREADABLE"
+            if kind is EbookFixityVerificationResult.UNREADABLE
+            else "SOURCE_CHANGED"
+            if kind is EbookFixityVerificationResult.SOURCE_CHANGED_DURING_RUN
+            else None
+        ),
+    )
+    expected_values = (
+        (
+            result.current_observation_id,
+            result.current_size_bytes,
+            result.current_sha256,
+            result.current_relative_locator,
+        )
+        if action is EbookFixityExpectationAction.ACCEPT_CURRENT
+        else (None, None, None, None)
+    )
+    arguments = dict(
+        id=EntityId.new(),
+        file_id=result.file_id,
+        source_result_id=result.result_id,
+        action=action,
+        result=result,
+        scan_root_id=EntityId.new(),
+        baseline_activation_id=EntityId.new(),
+        revision_no=1,
+        previous_revision_digest=DIGEST_A,
+        revision_digest=DIGEST_B,
+        review_decision_id=EntityId.new(),
+        created_at=NOW,
+        evidence_fingerprint=DIGEST_A,
+        candidate_set_fingerprint=DIGEST_B,
+        expected_observation_id=expected_values[0],
+        expected_size_bytes=expected_values[1],
+        expected_sha256=expected_values[2],
+        expected_relative_locator=expected_values[3],
+    )
+    if allowed:
+        EbookFixityExpectationRevision(**arguments)
+    else:
+        with pytest.raises(ValueError):
+            EbookFixityExpectationRevision(**arguments)

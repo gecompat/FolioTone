@@ -396,6 +396,100 @@ class SQLiteEbookFixityVerificationStore:
             )
         return None if row is None else _decode_result(row)
 
+    def list_result_summaries(
+        self, run_id: EntityId, *, after_id: EntityId | None = None, limit: int = 50
+    ) -> tuple[
+        tuple[tuple[EntityId, EntityId, EbookFixityVerificationResult, str | None], ...],
+        EntityId | None,
+    ]:
+        """Read a bounded public projection without locators, hashes, or material values."""
+        if not 1 <= limit <= 100:
+            raise ValueError("fixity result page is invalid")
+        table = fv_schema.ebook_fixity_verification_results
+        statement = (
+            select(table.c.id, table.c.file_id, table.c.result_type, table.c.failure_code)
+            .where(table.c.run_id == str(run_id))
+            .order_by(table.c.id)
+            .limit(limit + 1)
+        )
+        if after_id is not None:
+            statement = statement.where(table.c.id > str(after_id))
+        with self._engine.connect() as connection:
+            exists = connection.execute(
+                select(fv_schema.ebook_fixity_verification_runs.c.id).where(
+                    fv_schema.ebook_fixity_verification_runs.c.id == str(run_id)
+                )
+            ).scalar_one_or_none()
+            if exists is None:
+                raise ValueError("fixity verification run is unavailable")
+            rows = connection.execute(statement).mappings().all()
+        items = tuple(
+            (
+                EntityId.parse(str(row["id"])),
+                EntityId.parse(str(row["file_id"])),
+                EbookFixityVerificationResult(str(row["result_type"])),
+                _text_or_none(row["failure_code"]),
+            )
+            for row in rows[:limit]
+        )
+        return items, (None if len(rows) <= limit or not items else items[-1][0])
+
+    def review_material_in_transaction(
+        self,
+        connection: Connection,
+        result_id: EntityId,
+    ) -> tuple[EbookFixityVerificationResultRecord, str, str]:
+        """Derive the closed review binders for the latest actionable result."""
+
+        result_row, run_row = self._result_and_run(connection, result_id)
+        record = _decode_result(result_row)
+        scan_root_id = EntityId.parse(str(run_row["scan_root_id"]))
+        terminal = self._require_completed_run(connection, record.run_id)
+        self._require_latest_verification_run(connection, scan_root_id, record.run_id)
+        self._require_latest_completed_scan(
+            connection,
+            scan_root_id,
+            EntityId.parse(str(run_row["source_scan_run_id"])),
+        )
+        revision_no, revision_digest = self._current_revision(
+            connection,
+            scan_root_id,
+            EntityId.parse(str(run_row["baseline_activation_id"])),
+        )
+        if (
+            revision_no != int(run_row["expectation_revision_no"])
+            or revision_digest != str(run_row["expectation_revision_digest"])
+        ):
+            raise EbookFixityVerificationStoreError(
+                "fixity review expectation lineage is stale"
+            )
+        if record.result not in {
+            EbookFixityVerificationResult.UNEXPECTED_BYTE_CHANGE,
+            EbookFixityVerificationResult.UNBASELINED,
+            EbookFixityVerificationResult.MISSING,
+        }:
+            raise EbookFixityVerificationStoreError(
+                "fixity result is not decision-actionable"
+            )
+        run_digest = _text_or_none(terminal["content_digest"])
+        if run_digest is None:
+            raise EbookFixityVerificationStoreError(
+                "completed fixity run has no content digest"
+            )
+        evidence = verification_evidence_fingerprint(
+            subject_id=record.file_id,
+            scan_root_id=scan_root_id,
+            baseline_activation_id=EntityId.parse(str(run_row["baseline_activation_id"])),
+            expectation_revision_no=revision_no,
+            expectation_revision_digest=revision_digest,
+            scan_run_id=EntityId.parse(str(run_row["source_scan_run_id"])),
+            verification_run_id=record.run_id,
+            verification_run_content_digest=run_digest,
+            result_id=record.result_id,
+            result_content_digest=record.content_digest,
+        )
+        return record, evidence, verification_candidate_set_fingerprint(record)
+
     def append_results(
         self,
         owned: OwnedEbookFixityVerificationRun,
@@ -586,136 +680,126 @@ class SQLiteEbookFixityVerificationStore:
         lease_token: str,
         lease_expires_at: datetime,
     ) -> EbookFixityExpectationRevision:
-        with self._engine.connect() as connection:
-            existing = self._revision_by_id(
-                connection,
-                decision.expectation_revision_id,
-            )
-            if existing is not None:
-                self._require_revision_retry_matches(existing, decision, created_at)
-                return existing
-            result_row, run_row = self._result_and_run(connection, decision.result_id)
-        if str(result_row["run_id"]) != str(decision.run_id) or str(result_row["file_id"]) != str(
-            decision.file_id
+        try:
+            with self._engine.begin() as connection:
+                return self.append_expectation_revision_in_transaction(
+                    connection,
+                    decision,
+                    created_at=created_at,
+                    lease_token=lease_token,
+                    lease_expires_at=lease_expires_at,
+                )
+        except EbookFixityVerificationStoreError:
+            raise
+        except (IntegrityError, ScanRootWriteLeaseError, TypeError, ValueError) as error:
+            raise EbookFixityVerificationStoreError(
+                "fixity expectation revision could not be appended"
+            ) from error
+
+    def append_expectation_revision_in_transaction(
+        self,
+        connection: Connection,
+        decision: EbookFixityExpectationDecisionInput,
+        *,
+        created_at: datetime,
+        lease_token: str,
+        lease_expires_at: datetime,
+    ) -> EbookFixityExpectationRevision:
+        """Connection-scoped core preserving all revision and lease fences."""
+
+        existing = self._revision_by_id(connection, decision.expectation_revision_id)
+        if existing is not None:
+            self._require_revision_retry_matches(existing, decision, created_at)
+            return existing
+        result_row, run_row = self._result_and_run(connection, decision.result_id)
+        if (
+            str(result_row["run_id"]) != str(decision.run_id)
+            or str(result_row["file_id"]) != str(decision.file_id)
         ):
             raise EbookFixityVerificationStoreError(
                 "expectation decision does not bind the selected result"
             )
         scan_root_id = EntityId.parse(str(run_row["scan_root_id"]))
-        lease: OwnedScanRootWriteLease | None = None
-        try:
-            with self._engine.begin() as connection:
-                lease = self._leases.acquire_in_transaction(
-                    connection,
-                    scan_root_id,
-                    ScanRootWriteOwnerKind.EBOOK_FIXITY_VERIFICATION,
-                    decision.expectation_revision_id,
-                    lease_token=lease_token,
-                    acquired_at=created_at,
-                    lease_expires_at=lease_expires_at,
-                )
-                self._leases.fence(connection, lease, created_at)
-                existing = self._revision_by_id(
-                    connection,
-                    decision.expectation_revision_id,
-                )
-                if existing is not None:
-                    self._require_revision_retry_matches(existing, decision, created_at)
-                    self._leases.release_in_transaction(
-                        connection,
-                        lease,
-                        released_at=created_at,
-                    )
-                    return existing
-                result_row, run_row = self._result_and_run(connection, decision.result_id)
-                self._require_completed_run(connection, decision.run_id)
-                self._require_latest_verification_run(
-                    connection,
-                    scan_root_id,
-                    decision.run_id,
-                )
-                self._require_latest_completed_scan(
-                    connection,
-                    scan_root_id,
-                    EntityId.parse(str(run_row["source_scan_run_id"])),
-                )
-                activation_id = EntityId.parse(str(run_row["baseline_activation_id"]))
-                revision_no, previous_digest = self._current_revision(
-                    connection,
-                    scan_root_id,
-                    activation_id,
-                )
-                if (
-                    int(run_row["expectation_revision_no"]) != revision_no
-                    or str(run_row["expectation_revision_digest"]) != previous_digest
-                ):
-                    raise EbookFixityVerificationStoreError(
-                        "verification result expectation lineage is stale"
-                    )
-                self._require_latest_accept(connection, decision, result_row, run_row)
-                expected = self._revision_expected_state(decision, result_row)
-                next_revision_no = revision_no + 1
-                review_decision_id = _required_review_decision_id(decision)
-                revision_digest = _sha256(
-                    {
-                        "profile": EBOOK_FIXITY_DECISION_PROFILE,
-                        "serializer": EBOOK_FIXITY_SERIALIZER,
-                        "scan_root_id": str(scan_root_id),
-                        "baseline_activation_id": str(activation_id),
-                        "revision_no": next_revision_no,
-                        "previous_revision_digest": previous_digest,
-                        "file_id": str(decision.file_id),
-                        "action": decision.action.value,
-                        "source_result_id": str(decision.result_id),
-                        "review_decision_id": str(review_decision_id),
-                        "expected": {
-                            "observation_id": (None if expected[0] is None else str(expected[0])),
-                            "size_bytes": expected[1],
-                            "sha256": expected[2],
-                            "relative_locator": expected[3],
-                        },
-                    }
-                )
-                revision = EbookFixityExpectationRevision(
-                    id=decision.expectation_revision_id,
-                    file_id=decision.file_id,
-                    source_result_id=decision.result_id,
-                    action=decision.action,
-                    result=_decode_result(result_row),
-                    scan_root_id=scan_root_id,
-                    baseline_activation_id=activation_id,
-                    revision_no=next_revision_no,
-                    previous_revision_digest=previous_digest,
-                    revision_digest=revision_digest,
-                    review_decision_id=review_decision_id,
-                    expected_observation_id=expected[0],
-                    expected_size_bytes=expected[1],
-                    expected_sha256=expected[2],
-                    expected_relative_locator=expected[3],
-                    evidence_fingerprint=decision.evidence_fingerprint,
-                    candidate_set_fingerprint=decision.candidate_set_fingerprint,
-                    created_at=created_at,
-                )
-                connection.execute(
-                    insert(fv_schema.ebook_fixity_expectation_revisions),
-                    self._revision_row(revision),
-                )
-                self._leases.release_in_transaction(
-                    connection,
-                    lease,
-                    released_at=created_at,
-                )
-                return revision
-        except EbookFixityVerificationStoreError:
-            if lease is not None:
-                self._release_best_effort(lease, created_at)
-            raise
-        except (IntegrityError, ScanRootWriteLeaseError, TypeError, ValueError) as error:
-            if lease is not None:
-                self._release_best_effort(lease, created_at)
+        lease = self._leases.acquire_in_transaction(
+            connection,
+            scan_root_id,
+            ScanRootWriteOwnerKind.EBOOK_FIXITY_VERIFICATION,
+            decision.expectation_revision_id,
+            lease_token=lease_token,
+            acquired_at=created_at,
+            lease_expires_at=lease_expires_at,
+        )
+        self._leases.fence(connection, lease, created_at)
+        self._require_completed_run(connection, decision.run_id)
+        self._require_latest_verification_run(connection, scan_root_id, decision.run_id)
+        self._require_latest_completed_scan(
+            connection,
+            scan_root_id,
+            EntityId.parse(str(run_row["source_scan_run_id"])),
+        )
+        activation_id = EntityId.parse(str(run_row["baseline_activation_id"]))
+        revision_no, previous_digest = self._current_revision(
+            connection,
+            scan_root_id,
+            activation_id,
+        )
+        if (
+            int(run_row["expectation_revision_no"]) != revision_no
+            or str(run_row["expectation_revision_digest"]) != previous_digest
+        ):
             raise EbookFixityVerificationStoreError(
-                "fixity expectation revision could not be appended"
-            ) from error
+                "verification result expectation lineage is stale"
+            )
+        self._require_latest_accept(connection, decision, result_row, run_row)
+        expected = self._revision_expected_state(decision, result_row)
+        next_revision_no = revision_no + 1
+        review_decision_id = _required_review_decision_id(decision)
+        revision_digest = _sha256(
+            {
+                "profile": EBOOK_FIXITY_DECISION_PROFILE,
+                "serializer": EBOOK_FIXITY_SERIALIZER,
+                "scan_root_id": str(scan_root_id),
+                "baseline_activation_id": str(activation_id),
+                "revision_no": next_revision_no,
+                "previous_revision_digest": previous_digest,
+                "file_id": str(decision.file_id),
+                "action": decision.action.value,
+                "source_result_id": str(decision.result_id),
+                "review_decision_id": str(review_decision_id),
+                "expected": {
+                    "observation_id": None if expected[0] is None else str(expected[0]),
+                    "size_bytes": expected[1],
+                    "sha256": expected[2],
+                    "relative_locator": expected[3],
+                },
+            }
+        )
+        revision = EbookFixityExpectationRevision(
+            id=decision.expectation_revision_id,
+            file_id=decision.file_id,
+            source_result_id=decision.result_id,
+            action=decision.action,
+            result=_decode_result(result_row),
+            scan_root_id=scan_root_id,
+            baseline_activation_id=activation_id,
+            revision_no=next_revision_no,
+            previous_revision_digest=previous_digest,
+            revision_digest=revision_digest,
+            review_decision_id=review_decision_id,
+            expected_observation_id=expected[0],
+            expected_size_bytes=expected[1],
+            expected_sha256=expected[2],
+            expected_relative_locator=expected[3],
+            evidence_fingerprint=decision.evidence_fingerprint,
+            candidate_set_fingerprint=decision.candidate_set_fingerprint,
+            created_at=created_at,
+        )
+        connection.execute(
+            insert(fv_schema.ebook_fixity_expectation_revisions),
+            self._revision_row(revision),
+        )
+        self._leases.release_in_transaction(connection, lease, released_at=created_at)
+        return revision
 
     def _release_best_effort(
         self,
