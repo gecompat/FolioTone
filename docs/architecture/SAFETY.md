@@ -22,8 +22,10 @@ Capability und eine kurzlebige Authorization gebunden.
 - external ToolProviders may use only analysis-safe operations against source media;
 - W9 consolidation and metadata-correction plans are data records only and
   remain permanently `NOT_EXECUTABLE`.
-- `DEC-0001` Fixity Monitoring remains read-only and grants no W10 authority;
-  `DEC-0002` is only `Proposed`, so no EPUB transformation command or
+- `DEC-0001` Fixity Monitoring remains read-only and grants no W10 authority.
+  Its baseline builder uses query-only SQLite projection, no-follow bounded
+  reads, a root-wide fence and no implicit Trust-on-first-use or reset.
+- `DEC-0002` is only `Proposed`, so no EPUB transformation command or
   capability exists before a positive `GATE-0001` and an accepted technical
   decision.
 

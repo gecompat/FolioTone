@@ -81,10 +81,11 @@ If repository code and documentation disagree, treat the discrepancy as a defect
   Quarantäne, der ADR-0063/ADR-0064-EPUB-3-Titelwriter und der
   ADR-0066-Same-Parent-Rename; keine dieser Ketten öffnet einen benachbarten
   Mutationstyp.
-- Current implemented product surface: CLI. ADR-0067 authorizes only the
-  staged `local-single-operator/v1` REST/browser surface in `S-FUT11-01` to
-  `S-FUT11-04`; no runtime capability exists before its wave is implemented.
-  Remote/multi-user deployment, MCP and native desktop UI remain out of scope.
+- Current implemented product surface: CLI plus the completed staged
+  `local-single-operator/v1` REST/browser surface from `S-FUT11-01` through
+  `S-FUT11-04`. Its only write-capable UI chain is the already authorized
+  ADR-0066 Same-Parent-Rename. Remote/multi-user deployment, MCP and native
+  desktop UI remain out of scope.
 - **Orchestration first:** before implementing substantial specialist media functionality, evaluate maintained tools with stable documented automation interfaces.
 - External specialist tools are replaceable `ToolProvider` integrations; their schemas/commands do not define the core model.
 - External tool results are provenance-preserving observations/evidence, never unquestioned canonical truth.

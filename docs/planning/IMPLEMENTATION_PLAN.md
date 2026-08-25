@@ -23,8 +23,10 @@ verwenden danach dieselben Application-Verträge.
 
 [`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md) setzt die
 Lieferfolge nach `S-FUT11-04` fort. `DEC-0001` aktiviert `WI-0003`
-(`FUT-009`) als einzige `NEXT`-Wave für read-only Fixity Monitoring. Erst nach
-deren Abschluss qualifiziert `GATE-0001` den vorgeschlagenen
+(`FUT-009`) für read-only Fixity Monitoring. Der Baseline-Slice ist umgesetzt;
+Verifikation und append-only Einzelentscheidungen bilden die einzige
+`NEXT`-Wave, gefolgt von der Produktoberfläche. Erst nach deren Abschluss
+qualifiziert `GATE-0001` den vorgeschlagenen
 `DEC-0002`-Vertrag für eine deterministische EPUB-3-zu-EPUB-3-Ableitung.
 `WI-0004` (`FUT-008`) bleibt bis zu einem positiven Gate blockiert. Diese
 registrierten Artefakte ersetzen weder historische IDs noch die permanente
