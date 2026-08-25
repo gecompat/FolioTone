@@ -31,6 +31,11 @@ Analyseabdeckung, Evidence, Reviews, nicht ausführbare Pläne, Jobs und Audit.
 Der erste Scan und der Aufbau eines `CollectionState` werden derzeit noch über
 die CLI gestartet.
 
+Die Bildschirmaufnahmen wurden mit einer eigens erzeugten synthetischen
+E-Book-Datenbank aufgenommen. Sichtbare opaque IDs sind nur Beispiele für
+diesen Dokumentationslauf und dürfen nicht in einen eigenen Workflow kopiert
+werden. Die Bilder enthalten keine privaten Dateinamen, Pfade oder Medieninhalte.
+
 Als einziger schreibender Browserablauf ist der bereits separat abgesicherte
 Same-Parent-`FILE_RENAME` verfügbar. Er benennt genau eine Datei im vorhandenen
 Ordner um. Er ist weder ein allgemeiner Datei-Manager noch eine Freigabe für

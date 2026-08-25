@@ -262,6 +262,15 @@ Nicht erlaubt sind insbesondere:
 - Löschen, Purge oder Verzeichnisbereinigung;
 - Metadaten-, Sidecar- oder Calibre-Write als Teil dieses Ablaufs.
 
+Die Oberfläche ordnet Review, Vorschlag, Plan, Authorization, Execute und
+Recovery bewusst als getrennte Formulare an. Leere Felder in der folgenden
+Abbildung sind beabsichtigt; die benötigten IDs dürfen ausschließlich aus dem
+eigenen gebundenen Lauf übernommen werden.
+
+![Formulare für den begrenzten Same-Parent-Rename](images/05-rename-workflow.jpg)
+
+*Abbildung 5: Beginn der operation-spezifischen Rename-Kette.*
+
 ### Administrative Voraussetzungen
 
 Beginne den Ablauf nur, wenn ein vertrauenswürdiger Betreiber für exakt diesen
@@ -335,9 +344,6 @@ betriebsrelevante Referenzen enthalten kann.
 - Mehrere Formulare benötigen opaque IDs aus früheren CLI- oder Browserläufen.
 - Der `PRIVATE_READ`-Grant hat noch keine eigene sichtbare Browserprojektion.
 - Die Rename-Private-Preview ist in der aktuellen Browserseite nicht verdrahtet.
-- Fehlende optionale Werte können in einzelnen Tabellen derzeit als
-  `undefined` statt als Gedankenstrich erscheinen. Das bedeutet, dass dieses
-  Feld in der betreffenden Projektion fehlt; es ist keine Dateiinhaltsanzeige.
 - Abgelehnte POST-Formulare zeigen teilweise nur einen allgemeinen Fehler. Prüfe
   dann ID-Bindung, Grant-Ablauf, Jobstatus, Audit und das lokale Serverterminal,
   ohne private Werte in einen Fehlerbericht zu übernehmen.

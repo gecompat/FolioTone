@@ -46,7 +46,7 @@ async function loadList(path, selector, label) {
   renderPage(node, await response.json(), label, path);
 }
 
-function scalar(value) { return value === null ? "—" : String(value); }
+function scalar(value) { return value == null ? "—" : String(value); }
 
 function renderTable(items) {
   const table = document.createElement("table");
@@ -64,8 +64,18 @@ function renderValue(node, value, label) {
   node.textContent = `${label}: keine anzeigbaren Werte.`;
 }
 
+function publicSearchItems(payload) {
+  if (!Array.isArray(payload.hits)) { return []; }
+  return payload.hits.map((hit) => ({
+    file_id: hit.file_id,
+    observation_id: hit.observation_id,
+    format: hit.format,
+    statuses: Object.entries(hit.statuses || {}).map(([component, status]) => `${component}: ${status}`).join(", "),
+  }));
+}
+
 function renderPage(node, payload, label, path) {
-  const items = Array.isArray(payload.items) ? payload.items : [];
+  const items = Array.isArray(payload.items) ? payload.items : publicSearchItems(payload);
   const content = items.length ? renderTable(items) : document.createTextNode(`${label}: keine Einträge.`);
   node.replaceChildren(content);
   if (!payload.next_cursor) { return; }

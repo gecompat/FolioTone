@@ -67,6 +67,7 @@ def test_local_ui_has_german_accessible_read_only_workflows() -> None:
     root = Path("src/foliotone/surface/static")
     html = (root / "index.html").read_text(encoding="utf-8")
     script = (root / "app.js").read_text(encoding="utf-8")
+    styles = (root / "app.css").read_text(encoding="utf-8")
 
     for marker in (
         'lang="de"',
@@ -92,9 +93,14 @@ def test_local_ui_has_german_accessible_read_only_workflows() -> None:
     assert "/api/v1/ebooks/readiness" in script
     assert "/api/v1/ebooks/collection-runs/" in script
     assert "renderTable" in script
+    assert 'value == null ? "—"' in script
+    assert "Array.isArray(payload.hits)" in script
+    assert "Object.entries(hit.statuses || {})" in script
     assert "innerHTML" not in script
     assert '"Idempotency-Key"' in script
     assert "/api/v1/ebooks/rename/executions" in script
+    assert "#search-results table { table-layout: fixed; }" in styles
+    assert "#search-results th:nth-child(4)" in styles
 
 
 def test_local_surface_workers_wait_for_the_schema_owner() -> None:

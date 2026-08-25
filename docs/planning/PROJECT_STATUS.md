@@ -62,6 +62,21 @@ Verträge beschrieben. Gemeinsame Installation und Kontoeinrichtung werden
 nicht je Medienlinie oder je Handbuch wiederholt; `MUSIC` und `IMAGE` bleiben
 ausdrücklich nicht aktiviert.
 
+Fünf echte Browseraufnahmen ergänzen Anmeldung, Übersicht, gebundene Details,
+Suche und den begrenzten Rename-Ablauf. Sie stammen ausschließlich aus einer
+neu erzeugten synthetischen Drei-EPUB-Datenbank und enthalten keine privaten
+Pfade, Dateinamen oder Medieninhalte. Die visuelle Aufnahmeprüfung deckte dabei
+eine reale Surface-Lücke auf: Die Collection-Search-API liefert Treffer unter
+`hits`, während der Browserrenderer nur allgemeine `items` auswertete. Der
+Renderer bildet nun ausschließlich die öffentlichen Trefferfelder und
+Komponentenstatus in die Tabelle ab; fehlende optionale Tabellenwerte erscheinen
+als Gedankenstrich. Der erneute Browserlauf zeigte alle drei gebundenen Treffer.
+Für diese Erweiterung bestanden Ruff für die geänderten Static-Contracts sowie
+84 statische Dokumentations-/Surface- und lokale API-Integrationsfälle. Ein
+separater Shell-Aufruf von `node --check` war mangels Node-Installation nicht
+verfügbar; die geänderte JavaScript-Datei wurde stattdessen von der echten
+lokalen Browseroberfläche erfolgreich geladen und ausgeführt.
+
 Das read-only Compose-Basisprofil ist nun ohne Rename-Capability, Dependency-
 Scope-Datei oder schreibbaren Source-Mount auswertbar und startbar. Der
 operation-spezifische `operator-worker` liegt ausschließlich im zusätzlichen

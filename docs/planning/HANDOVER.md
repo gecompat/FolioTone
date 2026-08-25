@@ -13,6 +13,17 @@ aktuelle Grenzen, insbesondere CLI-Vorlauf für Scan und `CollectionState`,
 JSON-Suchfilter, opaque IDs, Private-Projection-Lücke und den getrennten
 Same-Parent-Rename-Worker.
 
+Fünf geprüfte JPEG-Aufnahmen zeigen Anmeldung, Übersicht, Details, Suche und
+Rename mit ausschließlich synthetischen Daten. Die Aufnahmeprüfung behob
+zugleich den bislang falschen Search-Renderer-Vertrag (`hits` statt `items`):
+Die UI rendert nun die allowlist-beschränkten öffentlichen Trefferfelder und
+Komponentenstatus; fehlende optionale Tabellenwerte werden als Gedankenstrich
+dargestellt. Ein erneuter Browserlauf zeigte drei synthetische EPUB-Treffer.
+Ruff für die geänderten Static-Contracts sowie 84 statische Dokumentations-/
+Surface- und lokale API-Integrationsfälle waren grün. `node --check` war auf
+dem Host mangels Node-Installation nicht verfügbar; die JavaScript-Änderung
+wurde durch den erfolgreichen realen Browserlauf ausgeführt und verifiziert.
+
 Das Compose-Basisprofil ist read-only und startet ohne Writer-Konfiguration.
 Der Rename-Operator wurde in `compose.rename.yaml` isoliert und bleibt ohne
 exakte Dependency-Scope-Datei, Capability-Datei und autorisierten schreibbaren

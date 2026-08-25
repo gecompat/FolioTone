@@ -359,6 +359,13 @@ Beim ersten Browseraufruf erscheint **Lokale Einrichtung**:
 5. Melde dich anschließend im Dialog **Anmelden** mit Benutzername und Passwort
    an.
 
+Nach der erfolgreichen Einrichtung erscheint die lokale Anmeldung ohne
+vorbelegte Zugangsdaten:
+
+![Anmeldedialog der lokalen FolioTone-Oberfläche](images/01-anmeldung.jpg)
+
+*Abbildung 1: Lokale Anmeldung über die Loopback-Oberfläche.*
+
 FolioTone unterstützt in diesem Profil genau ein lokales Konto. Es gibt keine
 E-Mail-Recovery, Sicherheitsfragen, OAuth- oder Mehrbenutzerverwaltung.
 

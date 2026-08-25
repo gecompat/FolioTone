@@ -48,6 +48,10 @@ möchtest.
 Die Bereichsnavigation führt zu **Suche**, **Details**, **Umbenennen**,
 **Jobs** und **Audit**. Der Schnellstart bleibt in den read-only Bereichen.
 
+![E-Book-Übersicht mit aktiver EBOOK-Linie und Bereichsnavigation](images/02-ebook-uebersicht.jpg)
+
+*Abbildung 2: Startansicht der lokalen E-Book-Oberfläche.*
+
 ## 3. Snapshot und Library Health laden
 
 1. Wechsle über **Details** zum gleichnamigen Abschnitt.
@@ -76,6 +80,10 @@ Freigabe für eine Änderung.
 erfolgreichen Scan nicht beobachtet wurde. Es bedeutet weder, dass FolioTone
 die Datei gelöscht hat, noch dass sie automatisch gelöscht werden darf.
 
+![CollectionState, Library Health, Scanstatus und Inventar eines synthetischen Bestands](images/04-collectionstate-details.jpg)
+
+*Abbildung 3: Gebundene Detailprojektionen mit einem abgeschlossenen Scan.*
+
 ## 5. E-Books suchen
 
 1. Wechsle zu **Suche**.
@@ -94,6 +102,10 @@ die Datei gelöscht hat, noch dass sie automatisch gelöscht werden darf.
 Normale Suchergebnisse bleiben bewusst pfadfrei und zeigen opaque Datei- und
 Observation-IDs sowie Format- und Statusinformationen. Weitere Filterbeispiele
 stehen im Abschnitt [Suche](BENUTZERHANDBUCH.md#suche).
+
+![Pfadfreie EPUB-Suchergebnisse eines synthetischen CollectionState](images/03-suche-treffer.jpg)
+
+*Abbildung 4: Drei synthetische EPUB-Treffer ohne private Locator.*
 
 ## 6. Readiness, Pläne, Jobs und Audit prüfen
 
