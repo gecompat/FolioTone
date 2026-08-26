@@ -295,14 +295,15 @@ def test_artifact_registration_authority_is_discoverable_and_consistent() -> Non
         "FAIL_EXACT_REPRODUCIBILITY"
     )
     assert artifacts["DEC-0002"]["status"] == "ACCEPTED"
-    assert artifacts["GATE-0002"]["status"] == "READY"
+    assert artifacts["GATE-0002"]["status"] == "DONE"
     assert artifacts["GATE-0002"]["metadata"]["tier"] == "FRONTIER"
+    assert artifacts["GATE-0002"]["metadata"]["outcome"] == "PASS"
     assert artifacts["GATE-0002"]["relations"] == [
         {"type": "depends_on", "target": "GATE-0001"},
         {"type": "governed_by", "target": "DEC-0002"},
         {"type": "blocks", "target": "WI-0004"},
     ]
-    assert artifacts["WI-0004"]["status"] == "BLOCKED"
+    assert artifacts["WI-0004"]["status"] == "READY"
     assert {"type": "depends_on", "target": "GATE-0002"} in artifacts[
         "WI-0004"
     ]["relations"]

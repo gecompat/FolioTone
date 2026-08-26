@@ -342,10 +342,10 @@ Der vorhandene `EbookOperationRecipePlan` bleibt auch für
 einen privaten `EbookTransformationDryRun`, der Source, getrennte Review-/
 Preserve-Metadaten, Toolchain-/Konfigurationsidentität und den erwarteten
 Output-Hash bindet. Das negative `GATE-0001` konkretisiert dieses Modell nicht.
-`GATE-0002` muss calibre plus FolioTone-eigene kanonische OPF-Normalisierung
-und EPUB-Verpackung mit exaktem Byte-Replay qualifizieren. Erst dessen
-positives Ergebnis darf eine spätere W10-Preparation öffnen. Bis dahin sind
-diese Begriffe kein implementierter Domain- oder Persistenzvertrag.
+`GATE-0002` qualifiziert calibre plus FolioTone-eigene kanonische OPF-
+Normalisierung und EPUB-Verpackung mit exaktem Byte-Replay positiv. Es macht
+die getrennte `WI-0004`-Implementierung bereit, implementiert aber noch keinen
+Domain-, Persistenz-, Preparation- oder W10-Vertrag.
 
 ## Music layer
 

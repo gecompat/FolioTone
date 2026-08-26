@@ -21,11 +21,15 @@
   ],
   "schema_version": 1,
   "title": "EPUB-3-zu-EPUB-3-Profil nach kanonischer FolioTone-Normalisierung und Verpackung qualifizieren",
-  "status": "READY",
+  "status": "DONE",
   "metadata": {
     "scope": "ebook-transformation-canonical-profile-qualification",
     "specification_path": "docs/quality/GATE_0002_EPUB_TRANSFORM_QUALIFICATION_PLAN.md",
     "tier": "FRONTIER",
-    "wave": "FUT-008-GATE-2"
+    "wave": "FUT-008-GATE-2",
+    "outcome": "PASS",
+    "canonical_sha256": "c1f02fa795de03fa445b6d2917be8d089acf22b3c5f3ad47dba67e9536e15c54",
+    "profile_sha256": "6b059d7e62f42ae21531c4356869ed995675ac882d53b4ed3373e3a6eefafbd6",
+    "snapshot_sha256": "c7a7d976cee966805a48b9f5996bcc4c6462d490b2894e9e80e84030c90aac17"
   }
 }

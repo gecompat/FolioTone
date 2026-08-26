@@ -25,10 +25,9 @@ Capability und eine kurzlebige Authorization gebunden.
 - `DEC-0001` Fixity Monitoring remains read-only and grants no W10 authority.
   Its baseline builder uses query-only SQLite projection, no-follow bounded
   reads, a root-wide fence and no implicit Trust-on-first-use or reset.
-- `DEC-0002` accepts only Option A and the synthetic output-only
-  `GATE-0002`. The negative `GATE-0001` and the accepted decision grant no EPUB
-  transformation command, publish path or capability. `WI-0004` remains
-  blocked until the new gate is positive.
+- `DEC-0002` accepts only Option A. The synthetic output-only `GATE-0002` is
+  positive and makes `WI-0004` ready, but grants no EPUB transformation
+  command, publish path, capability or W10 authorization by itself.
 
 ## External tool safety
 

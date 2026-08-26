@@ -22,8 +22,8 @@ Die verbindliche Reihenfolge lautet:
    das Profil wurde wegen fehlender Byte-Reproduzierbarkeit abgelehnt.
 3. `DEC-0002` akzeptiert Option A: calibre 9.13.0 verarbeitet den vollständigen
    Transformations-Metadaten-Snapshot; FolioTone normalisiert OPF und EPUB-
-   Verpackung kanonisch. `GATE-0002` ist die nächste Wave. `WI-0004`
-   (`FUT-008`) bleibt bis zu deren positivem Ergebnis blockiert.
+   Verpackung kanonisch. `GATE-0002` hat das kombinierte Profil positiv
+   qualifiziert. `WI-0004` (`FUT-008`) ist `READY` und die nächste Wave.
 
 `FUT-002` ist durch EPUBCheck, `ebook-quality/v1` und die getrennte
 Struktur-/Format-Risk-Projektion bereits umgesetzt und wird im Backlog
@@ -62,7 +62,7 @@ Decision zu genau einem Ergebnis eines `COMPLETED`-Laufs darf
 ergänzt genau eine append-only Erwartungsrevision; Bulk-Accept und Root-Reset
 bleiben ausgeschlossen. Die Fixity-Surface ist umgesetzt. Das nachfolgende
 `GATE-0001` ist negativ abgeschlossen. `DEC-0002` akzeptiert Option A;
-`GATE-0002` ist `NEXT`. `WI-0004` bleibt bis zum positiven Ergebnis blockiert.
+`GATE-0002` ist positiv `DONE`. `WI-0004` ist `READY` und `NEXT`.
 
 ## GATE-0001, GATE-0002 und WI-0004 — EPUB-Transformation
 
@@ -73,15 +73,13 @@ Byte-Reproduzierbarkeit. Der
 Nachweis liegt unter
 [`GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md`](../quality/GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md).
 `DEC-0002` ist nach Owner-Freigabe von Option A `Accepted`. Das registrierte
-`GATE-0002` qualifiziert als nächste `FRONTIER`-Wave das kombinierte Profil:
-vollständiger Snapshot mit getrennten Review-/Preserve-Bindungen, calibre als
-externe Transformationsstufe sowie FolioTone-eigene kanonische OPF-
-Normalisierung und EPUB-Verpackung. Nur ein dokumentierter positiver Byte-
-Reproduzierbarkeits-, Preserved-Field-, Security-, Lizenz- und
-Automationsnachweis darf `WI-0004` auf `READY` setzen.
+`GATE-0002` hat das kombinierte Profil positiv qualifiziert: vollständiger
+Snapshot mit getrennten Review-/Preserve-Bindungen, calibre als externe
+Transformationsstufe sowie FolioTone-eigene kanonische OPF-Normalisierung und
+EPUB-Verpackung. Exaktes Byte-Replay, Preserved Fields, Security, Lizenz und
+Automation sind dokumentiert; `WI-0004` steht auf `READY`.
 
-Nach positivem `GATE-0002` folgt `WI-0004` in
-dieser Reihenfolge:
+`WI-0004` folgt in dieser Reihenfolge:
 
 | Slice | Ergebnis | Tier | Stopbedingung |
 |---|---|---|---|

@@ -119,10 +119,12 @@ aktuelle calibre-Sicherheitsuntergrenze ist 9.12.0. Der Owner hat am
 2026-08-26 Option A freigegeben: calibre bleibt die vollständige
 Snapshot-Transformationsstufe; eine FolioTone-eigene kanonische OPF-
 Normalisierung und EPUB-Verpackung verarbeitet nur den privaten, erneut
-bounded geprüften Tooloutput. `GATE-0002` ist registriert und `NEXT`.
-`WI-0004` (`FUT-008`) bleibt bis zu dessen positivem Ergebnis `BLOCKED`;
-W9-007-Rezepte bleiben dauerhaft `NOT_EXECUTABLE` und es existiert kein
-Transformationswriter.
+bounded geprüften Tooloutput. `GATE-0002` ist positiv `DONE`: zwei verschiedene
+rohe calibre-Outputs ergeben nach der kanonischen Stufe und beim Replay exakt
+denselben 2.073-Byte-Output; EPUBCheck 5.3.0 und unabhängige Read-backs
+bestätigen Serie, Struktur und Preserved Payloads. `WI-0004` (`FUT-008`) ist
+`READY` und `NEXT`; W9-007-Rezepte bleiben dauerhaft `NOT_EXECUTABLE` und es
+existiert noch kein Transformationswriter oder W10-Authority.
 
 W0-013 integriert AI Repository Foundation `1.2.0` semantisch. WI-0001 aktualisiert sie auf `1.4.0`, bewahrt alle historischen FolioTone-IDs und registriert neue dauerhafte Planungsartefakte ab `WI-0001` über die projektlokale Authority in [`ARTIFACT_REGISTRATION.md`](ARTIFACT_REGISTRATION.md); ADR-0070 ist der verbindliche Adoptionsentscheid. Vor
 Projektarbeit ist über den verwalteten Block im Root-`AGENTS.md` die

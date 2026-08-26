@@ -34,10 +34,11 @@ geprüft. Die projizierte Serie blieb erhalten; das Profil wurde wegen
 fehlender Byte-Reproduzierbarkeit abgelehnt.
 `DEC-0002` akzeptiert Option A: calibre 9.13.0 verarbeitet den vollständigen
 Transformations-Metadaten-Snapshot; FolioTone normalisiert OPF und EPUB-
-Verpackung anschließend kanonisch. `GATE-0002` ist die registrierte nächste
-`FRONTIER`-Wave und muss exaktes Byte-Replay, Idempotenz, getrennte Review-/
-Preserve-Lineage sowie die vollständigen Safety-, Tool- und Lizenzgrenzen
-positiv belegen. `WI-0004` (`FUT-008`) bleibt bis dahin blockiert. Diese
+Verpackung anschließend kanonisch. `GATE-0002` hat exaktes Byte-Replay,
+Idempotenz, getrennte Review-/Preserve-Lineage sowie die vollständigen Safety-,
+Tool- und Lizenzgrenzen positiv belegt. `WI-0004` (`FUT-008`) ist `READY` und
+die registrierte nächste Wave; sie beginnt mit Planvertrag und privatem Dry
+Run, nicht mit W10-Authority. Diese
 registrierten Artefakte ersetzen weder historische IDs noch die permanente
 W9-Non-Execution-Grenze.
 
