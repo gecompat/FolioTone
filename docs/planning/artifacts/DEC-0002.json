@@ -15,13 +15,17 @@
       "target": "GATE-0001"
     },
     {
+      "type": "evaluated_by",
+      "target": "GATE-0002"
+    },
+    {
       "type": "implemented_by",
       "target": "WI-0004"
     }
   ],
   "schema_version": 1,
   "title": "Deterministische EPUB-Transformation in einen getrennten Output-Root",
-  "status": "PROPOSED",
+  "status": "ACCEPTED",
   "metadata": {
     "decision_path": "docs/decisions/DEC-0002-deterministic-epub-transformation.md",
     "scope": "ebook-transformation",
