@@ -112,6 +112,18 @@ FolioTone-eigenen lexikalischen Zwei-Spannen-Patch im privaten Staging.
 EPUBCheck 5.3.0 die unabhängige Formatprüfung. Diese Entscheidung öffnet weder
 allgemeine calibre-Setter noch `ebook-polish` als `ToolProvider`-Writer.
 
+`GATE-0001` hat `ebook-polish --opf` danach mit einem vollständigen
+Transformations-Metadaten-Snapshot als getrennte EPUB-3-Ausgabestufe
+charakterisiert. Contributor- und Serienwerte blieben erhalten, der rohe
+Output war wegen realer `dcterms:modified`- und ZIP-Zeitwerte jedoch nicht
+byte-reproduzierbar. `DEC-0002` akzeptiert deshalb Option A: calibre bleibt der
+getrennte externe Prozess; eine FolioTone-eigene Stufe revalidiert den
+untrusted Tooloutput und normalisiert OPF und EPUB-Verpackung kanonisch.
+`GATE-0002` muss dieses kombinierte Profil ausschließlich synthetisch positiv
+qualifizieren. FolioTone importiert dafür keine GPL-calibre-Interna, und weder
+die Entscheidung noch das Gate autorisiert Source-, Calibre-Library-, Publish-
+oder W10-Writes oder die Veröffentlichung des lokalen Toolchain-Images.
+
 ADR-0066 wählt auch für den ersten E-Book-Datei-Rename keinen ToolProvider.
 Calibre, Shell-`mv` und frei parametrierbare Prozessaufrufe können die exakte
 Plan-/Capability-/Fence-/Journalgrenze sowie atomare Target-Abwesenheit nicht

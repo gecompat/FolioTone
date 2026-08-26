@@ -1,46 +1,47 @@
 # Projektstatus
 
-Stand: 2026-08-25
+Stand: 2026-08-26
 
 ## Aktuelle Welle
 
-**GATE-0001 `DONE` (negativ) — rohes calibre-Profil nicht reproduzierbar**
+**DEC-0002 `DONE` — Option A akzeptiert; GATE-0002 ist `NEXT`**
 
-Das gelockte E-Book-Toolchain-Image wurde mit einem festen
-`ebook-polish --opf`-Profil, ausschließlich synthetischem EPUB 3 und zwei
-frischen netzlosen Containerläufen charakterisiert. Trotz fester Image-ID,
-Argumente, Locale, Zeitzone, `SOURCE_DATE_EPOCH`, privater Calibre-
-Konfiguration und Ressourcenlimits unterschieden sich Outputgröße und
-vollständige SHA-256. calibre setzte die reale UTC-Zeit in
-`dcterms:modified` und ZIP-Zeitstempel. Die vollständige OPF-Projektion erhielt
-Serienname, -typ und -position in beiden Outputs; eine partielle OPF wäre wegen
-`apply_null=True` keine zulässige Patch-Schnittstelle. Beide Outputs bestanden
-EPUBCheck 5.3.0 ohne Fatal, Error oder Warning, was die Byteabweichung nicht
-aufhebt.
+Der Projekteigentümer hat am 2026-08-26 Option A für die EPUB-3-Transformation
+freigegeben. calibre 9.13.0 bleibt die getrennte, fest profilierte
+Transformationsstufe und erhält einen vollständigen immutable Snapshot. Der
+Snapshot trennt reviewte neue oder ersetzte `CANONICAL`-/`USER_CONFIRMED`-
+Werte von `OBSERVED`-/`EXTERNAL`-Source-Werten mit Preserve-Obligation. Wegen
+der belegten `apply_null=True`-Semantik ist ein ausgelassener Inventareintrag
+keine zulässige Abwesenheit.
 
-Die gemeinsame calibre-Sicherheitsuntergrenze ist aufgrund der offiziellen
-Advisory `GHSA-4f7g-rjfp-hmvx` von 9.10.0 auf 9.12.0 angehoben; das gelockte
-9.13.0 liegt darüber. `GATE-0001` öffnet keine Writer- oder W10-Capability.
-`DEC-0002` bleibt `Proposed` und `WI-0004` `BLOCKED`. Vor weiterer
-Transformationsentwicklung ist ausdrücklich zwischen kanonischer FolioTone-
-OPF-Normalisierung und Verpackung nach calibre, einem begrenzten nativen
-OPF-Patch mit kanonischer Verpackung oder einem anderen ToolProvider zu
-entscheiden und ein neues Profilgate zu registrieren. Der vollständige
-Nachweis steht in
-[`GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md`](../quality/GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md).
+Eine neue FolioTone-eigene Stufe revalidiert den untrusted calibre-Output
+bounded und normalisiert OPF sowie EPUB-Verpackung auf ein im Gate gelocktes
+Profil. Die technische Metadaten-Delta-Allowlist enthält genau den vor dem
+Toollauf gebundenen Wert `dcterms:modified`; weitere Änderungen müssen
+reviewte Snapshotwerte sein. Zeitwerte, XML-Serialisierung, Entry-Reihenfolge,
+Kompression, ZIP-Header, Flags, Attribute, Extra Fields und Kommentare dürfen
+nicht von realer Laufzeit oder Hostzustand abhängen.
 
-Lokal bestanden 168 betroffene calibre-, Readiness-, Fixture- und
-Dokumentationsverträge. Nach der abschließenden Evidenzpräzisierung bestanden
-die 38 direkt betroffenen Verträge erneut. Ruff war für alle
-geänderten Python-Dateien grün, Mypy für den geänderten Sourcevertrag,
-`git diff --check`, die Added-Files-Privacy-/Secret-Suche sowie beide
-Registry-Clients für Revision 7 mit sieben Allokationen waren ebenfalls grün.
-Die zwei exakten Transformations- und EPUBCheck-Doppelläufe verwendeten nur
-synthetische Daten. Die vollständige unbetroffene lokale Suite wurde gemäß
-`TEST_POLICY.md` nicht ausgeführt; ein vollständiger PR-CI-Gate bleibt für den
-exakten stabilen Head erforderlich. Malicious-Fixture-Randfälle wurden nach
-dem harten Reproduzierbarkeitsfehlschlag nicht mehr als
-positiv qualifiziert oder unnötig ausgeführt.
+`GATE-0002` ist über die Registration Authority als `READY` registriert und
+die einzige nächste Entwicklungswave. Es prüft ausschließlich synthetische,
+private Outputs, exaktes Byte-Replay, Idempotenz, Snapshot-/Preserved-Field-
+Erhalt, bounded Malicious Fixtures sowie aktuelle Tool-, Security-, Lizenz-
+und Automationsbedingungen. `GATE-0001` bleibt unverändert `DONE` mit
+`FAIL_EXACT_REPRODUCIBILITY`. `WI-0004` bleibt `BLOCKED`, sein W9-Rezept
+`NOT_EXECUTABLE`; es existiert weiterhin keine Transformations-, Publish- oder
+W10-Capability.
+
+Die Entscheidungs-Wave ändert nur Dokumentations-, Planungs- und
+Registrierungsverträge. Im finalen lokalen Dokumentationsprofil bestanden 35
+direkt betroffene statische Verträge. Ruff war für die drei geänderten
+Testdateien grün; Python- und PowerShell-Registry-Client bestätigten Revision 8
+mit acht Allokationen. `git diff --check`, die Added-Lines-Privacy-/Secret-
+Prüfung und der LF-Vertrag aller 21 geänderten oder neuen Dateien waren sauber.
+Der erste fokussierte Lauf fand genau eine veraltete Planungsfront-Assertion;
+nach ihrer Korrektur bestand der identische betroffene Satz. Die vollständige
+unbetroffene lokale Suite wurde gemäß `TEST_POLICY.md` nicht ausgeführt. Der
+vollständige PR-CI-Gate bleibt für den exakten stabilen Head erforderlich;
+Python-Runtime, Datenbank, Container und reale Medien sind nicht betroffen.
 
 ## Zuletzt abgeschlossene Produktwave
 
@@ -88,8 +89,9 @@ frische no-follow Hash-Worker, rootweites Lease/Fencing und die unveränderten
 `DEC-0001`-Binder gelten weiterhin. Netzwerk, Source Writes,
 W10-Capabilities, Backup-/Replica-Vergleich, Restore, automatische Planung und
 Zeitsteuerung bleiben ausgeschlossen. Das nachfolgende `GATE-0001` ist
-inzwischen negativ abgeschlossen; `DEC-0002` bleibt `Proposed` und `WI-0004`
-bis zu einem positiven neuen Profilgate `BLOCKED`.
+inzwischen negativ abgeschlossen; `DEC-0002` akzeptiert Option A,
+`GATE-0002` ist `NEXT` und `WI-0004` bleibt bis zu dessen positivem Ergebnis
+`BLOCKED`.
 
 Für den finalen betroffenen lokalen Satz bestanden 232 Tests für CLI,
 Application-Verträge, REST, Browser-Assets, Job-Fencing, Fixity-Persistenz,
@@ -292,10 +294,11 @@ dessen Status `NEXT` nicht und öffnet keine Source-Media-Authority.
 
 Die projektlokale Registration Authority hat bei verifiziertem
 `origin/main` und exklusiver `DIRECT`-Allokation `DEC-0001`, `WI-0003`,
-`DEC-0002`, `GATE-0001` und `WI-0004` registriert. `WI-0002` bezeichnet den
-gemeinsamen docs-only Plananker. Registry und Artefakte verwenden UUIDv7-URN,
-stabile flache Referenzen und explizite Beziehungen; historische Labels
-`FUT-009` und `FUT-008` bleiben als Aliase der beiden Work Items erhalten.
+`DEC-0002`, `GATE-0001`, `WI-0004` und inzwischen `GATE-0002` registriert.
+`WI-0002` bezeichnet den gemeinsamen docs-only Plananker. Registry und
+Artefakte verwenden UUIDv7-URN, stabile flache Referenzen und explizite
+Beziehungen; historische Labels `FUT-009` und `FUT-008` bleiben als Aliase der
+beiden Work Items erhalten.
 
 `DEC-0001` akzeptiert ausschließlich lesendes book-only Fixity Monitoring für
 genau einen E-Book-`ScanRoot`. Eine Baseline entsteht aus frisch gestreamten
@@ -314,14 +317,13 @@ Der vollständige Vertrag und die Stopbedingungen stehen in
 [`EBOOK_CONTINUATION_PLAN.md`](EBOOK_CONTINUATION_PLAN.md).
 
 `DEC-0002` dokumentiert den gewählten Produktscope einer EPUB-3-zu-EPUB-3-
-Ableitung mit reviewten Metadaten, getrenntem verwaltetem Output-Root,
-bounded Batch-Preparation und Einzel-Publish. Die Entscheidung bleibt
-`Proposed`: `GATE-0001` belegte trotz erhaltener vollständiger
-Serienprojektion, dass das feste rohe calibre-Profil keinen byteidentischen
-Dry Run und Replay liefert.
-`WI-0004` bleibt bis zur ausdrücklichen Folgerichtung und einem positiven
-neuen Profilgate blockiert; es existiert keine Transformations-Capability oder
-Runtime-Operation.
+Ableitung mit getrennten Review-/Preserve-Metadaten, verwaltetem Output-Root,
+bounded Batch-Preparation und Einzel-Publish. Die Entscheidung ist für Option
+A `Accepted`: Das feste rohe calibre-Profil bleibt wegen des negativen
+`GATE-0001` unzureichend; `GATE-0002` muss die nachgelagerte FolioTone-eigene
+kanonische OPF-Normalisierung und EPUB-Verpackung positiv qualifizieren.
+`WI-0004` bleibt bis dahin blockiert; es existiert keine Transformations-
+Capability oder Runtime-Operation.
 
 Der Plananker verändert weder Python-Runtime, SQLite-Schema, API, UI,
 Container noch Source-Media-Authority. Lokal bestanden die 29 betroffenen

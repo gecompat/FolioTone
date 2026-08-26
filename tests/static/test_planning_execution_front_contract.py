@@ -48,14 +48,14 @@ def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_backlog_records_negative_gate_and_stops_at_decision() -> None:
+def test_backlog_records_option_a_gate_as_next_without_unblocking_writer() -> None:
     backlog = _text(BACKLOG)
 
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `DEC-0002` |" in backlog
-    assert "| NEXT WAVE | — |" in backlog
+    assert "| NOW | `GATE-0002` |" in backlog
+    assert "| NEXT WAVE | `GATE-0002` |" in backlog
     assert backlog.count("| NEXT |") == 0
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
@@ -85,6 +85,8 @@ def test_backlog_records_negative_gate_and_stops_at_decision() -> None:
     assert "| OPS-001 | READY |" in backlog
     assert "| WI-0002 | DONE |" in backlog
     assert "| GATE-0001 | DONE |" in backlog
+    assert "| GATE-0002 | READY |" in backlog
+    assert "| DEC-0002 | DONE |" in backlog
     assert "| WI-0004 | BLOCKED |" in backlog
     assert "| FUT-002 | DONE |" in backlog
     assert "| WI-0003 (`FUT-009`) | DONE |" in backlog
@@ -143,10 +145,11 @@ def test_current_planning_sources_agree_on_delivery_front() -> None:
         assert "WI-0003" in content, path
         assert "DEC-0002" in content, path
         assert "GATE-0001" in content, path
+        assert "GATE-0002" in content, path
         assert "WI-0004" in content, path
 
 
-def test_ebook_continuation_plan_keeps_fixity_read_only_and_transformation_blocked() -> None:
+def test_ebook_continuation_plan_keeps_option_a_gate_bound_and_writer_blocked() -> None:
     plan = _text(EBOOK_CONTINUATION)
     documentation_index = _text(ROOT / "docs/README.md")
 
@@ -157,7 +160,9 @@ def test_ebook_continuation_plan_keeps_fixity_read_only_and_transformation_block
         "Baseline-Drafts",
         "read-only",
         "GATE-0001",
+        "GATE-0002",
         "DEC-0002",
+        "Option A",
         "WI-0004",
         "blockiert",
         "keine W10-Operation",
@@ -209,14 +214,17 @@ def test_epub_transformation_decision_remains_gate_bound_and_non_executable() ->
     decision = _text(TRANSFORMATION_DECISION)
 
     required = (
-        "- Status: Proposed",
+        "- Status: Accepted",
         "GATE-0001",
+        "GATE-0002",
         "WI-0004",
         "verwalteten E-Book-Output-`ScanRoot`",
         "exakt dieselbe Bytelänge",
         "netzlos",
         "Lizenz",
         "keine W10-Authorization",
+        "`OBSERVED`-/`EXTERNAL`-Provenance",
+        "`dcterms:modified`",
         "weder Source-/Output-Mount noch Capability",
         "operation-spezifische Capability",
     )

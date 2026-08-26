@@ -335,16 +335,17 @@ verändert nur erwartete Evidence. Keine dieser Identitäten beweist eine
 Ursache für die Änderung, verändert Source Media oder erteilt Mutation
 Authority.
 
-### Vorgeschlagenes EPUB-Transformationsmodell
+### Akzeptierter, noch unimplementierter EPUB-Transformationsrahmen
 
 Der vorhandene `EbookOperationRecipePlan` bleibt auch für
-`FORMAT_TRANSFORM` dauerhaft `NOT_EXECUTABLE`. `DEC-0002` schlägt zusätzlich
-einen privaten `EbookTransformationDryRun` vor, der Source, reviewte
-Metadatenauswahl, Toolchain-/Konfigurationsidentität und den erwarteten
-Output-Hash bindet. Das negative `GATE-0001` konkretisiert dieses Modell
-nicht. Erst ein neues positives Profilgate nach exaktem Byte-Replay darf eine
-W10-Preparation öffnen. Bis dahin sind diese Begriffe kein implementierter
-Domain- oder Persistenzvertrag.
+`FORMAT_TRANSFORM` dauerhaft `NOT_EXECUTABLE`. `DEC-0002` akzeptiert zusätzlich
+einen privaten `EbookTransformationDryRun`, der Source, getrennte Review-/
+Preserve-Metadaten, Toolchain-/Konfigurationsidentität und den erwarteten
+Output-Hash bindet. Das negative `GATE-0001` konkretisiert dieses Modell nicht.
+`GATE-0002` muss calibre plus FolioTone-eigene kanonische OPF-Normalisierung
+und EPUB-Verpackung mit exaktem Byte-Replay qualifizieren. Erst dessen
+positives Ergebnis darf eine spätere W10-Preparation öffnen. Bis dahin sind
+diese Begriffe kein implementierter Domain- oder Persistenzvertrag.
 
 ## Music layer
 

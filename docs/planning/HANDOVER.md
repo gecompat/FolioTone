@@ -107,18 +107,22 @@ Status, private Projektionen, Session-Clearing, Review, Einzelrevision und
 Aktivierung ohne Browserwarnung oder -fehler.
 
 `DEC-0002` hält den gewählten Scope einer EPUB-3-zu-EPUB-3-Ableitung mit
-reviewten Metadaten und getrenntem Output-Root als `Proposed` fest.
+getrennten Review-/Preserve-Metadaten und verwaltetem Output-Root als
+`Accepted` fest.
 `GATE-0001` ist negativ abgeschlossen: Zwei frische netzlose calibre-9.13.0-
 Läufe mit dem festen `ebook-polish --opf`-Profil und vollständigem
 Metadatensnapshot erhielten Serienname, -typ und -position, lieferten aber
 unterschiedliche Bytelängen und SHA-256, weil reale Zeitwerte in OPF und ZIP
 einflossen. Eine partielle OPF wäre wegen `apply_null=True` keine zulässige
 Patch-Schnittstelle. Die
-aktuelle calibre-Sicherheitsuntergrenze ist 9.12.0. `WI-0004` (`FUT-008`)
-bleibt `BLOCKED`; W9-007-Rezepte bleiben dauerhaft `NOT_EXECUTABLE` und es
-existiert kein Transformationswriter. `DEC-0002` benötigt vor einem neuen
-Gate die ausdrückliche Wahl zwischen kanonischer FolioTone-Verpackung nach
-calibre, nativem OPF-Patch plus Verpackung oder einem anderen ToolProvider.
+aktuelle calibre-Sicherheitsuntergrenze ist 9.12.0. Der Owner hat am
+2026-08-26 Option A freigegeben: calibre bleibt die vollständige
+Snapshot-Transformationsstufe; eine FolioTone-eigene kanonische OPF-
+Normalisierung und EPUB-Verpackung verarbeitet nur den privaten, erneut
+bounded geprüften Tooloutput. `GATE-0002` ist registriert und `NEXT`.
+`WI-0004` (`FUT-008`) bleibt bis zu dessen positivem Ergebnis `BLOCKED`;
+W9-007-Rezepte bleiben dauerhaft `NOT_EXECUTABLE` und es existiert kein
+Transformationswriter.
 
 W0-013 integriert AI Repository Foundation `1.2.0` semantisch. WI-0001 aktualisiert sie auf `1.4.0`, bewahrt alle historischen FolioTone-IDs und registriert neue dauerhafte Planungsartefakte ab `WI-0001` über die projektlokale Authority in [`ARTIFACT_REGISTRATION.md`](ARTIFACT_REGISTRATION.md); ADR-0070 ist der verbindliche Adoptionsentscheid. Vor
 Projektarbeit ist über den verwalteten Block im Root-`AGENTS.md` die

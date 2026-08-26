@@ -1,0 +1,31 @@
+{
+  "aliases": [],
+  "artifact_uid": "urn:uuid:01a03cca-930f-702f-82f2-839d4407eac6",
+  "external_refs": [],
+  "human_ref": "GATE-0002",
+  "kind": "gate",
+  "registration_state": "REGISTERED",
+  "relations": [
+    {
+      "type": "depends_on",
+      "target": "GATE-0001"
+    },
+    {
+      "type": "governed_by",
+      "target": "DEC-0002"
+    },
+    {
+      "type": "blocks",
+      "target": "WI-0004"
+    }
+  ],
+  "schema_version": 1,
+  "title": "EPUB-3-zu-EPUB-3-Profil nach kanonischer FolioTone-Normalisierung und Verpackung qualifizieren",
+  "status": "READY",
+  "metadata": {
+    "scope": "ebook-transformation-canonical-profile-qualification",
+    "specification_path": "docs/quality/GATE_0002_EPUB_TRANSFORM_QUALIFICATION_PLAN.md",
+    "tier": "FRONTIER",
+    "wave": "FUT-008-GATE-2"
+  }
+}

@@ -2,7 +2,7 @@
 
 **Status:** verankert
 
-**Stand:** 2026-08-25
+**Stand:** 2026-08-26
 
 **Plananker:** `WI-0002`
 
@@ -20,9 +20,10 @@ Die verbindliche Reihenfolge lautet:
 2. `GATE-0001` hat calibre 9.13.0 mit einem festen EPUB-3-zu-EPUB-3-Profil
    und vollständigem Metadatensnapshot geprüft. Die Serie blieb erhalten;
    das Profil wurde wegen fehlender Byte-Reproduzierbarkeit abgelehnt.
-3. `DEC-0002` benötigt jetzt eine ausdrückliche Folgerichtung und danach ein
-   neues positives Profilgate. `WI-0004` (`FUT-008`) bleibt bis dahin
-   blockiert.
+3. `DEC-0002` akzeptiert Option A: calibre 9.13.0 verarbeitet den vollständigen
+   Transformations-Metadaten-Snapshot; FolioTone normalisiert OPF und EPUB-
+   Verpackung kanonisch. `GATE-0002` ist die nächste Wave. `WI-0004`
+   (`FUT-008`) bleibt bis zu deren positivem Ergebnis blockiert.
 
 `FUT-002` ist durch EPUBCheck, `ebook-quality/v1` und die getrennte
 Struktur-/Format-Risk-Projektion bereits umgesetzt und wird im Backlog
@@ -60,11 +61,10 @@ Decision zu genau einem Ergebnis eines `COMPLETED`-Laufs darf
 `ACCEPT_CURRENT` oder `RETIRE_MISSING` auslösen. Jede fachliche Entscheidung
 ergänzt genau eine append-only Erwartungsrevision; Bulk-Accept und Root-Reset
 bleiben ausgeschlossen. Die Fixity-Surface ist umgesetzt. Das nachfolgende
-`GATE-0001` ist negativ abgeschlossen; derzeit ist keine Transformationswave
-`NEXT`, und `WI-0004` bleibt bis zu einer Entscheidung und einem positiven
-neuen Profilgate blockiert.
+`GATE-0001` ist negativ abgeschlossen. `DEC-0002` akzeptiert Option A;
+`GATE-0002` ist `NEXT`. `WI-0004` bleibt bis zum positiven Ergebnis blockiert.
 
-## GATE-0001 und WI-0004 — EPUB-Transformation
+## GATE-0001, GATE-0002 und WI-0004 — EPUB-Transformation
 
 `GATE-0001` wurde als `FRONTIER`-Wave mit dem gelockten Toolchain-Image lokal,
 netzlos und ausschließlich synthetisch ausgeführt. Der feste calibre-
@@ -72,11 +72,15 @@ netzlos und ausschließlich synthetisch ausgeführt. Der feste calibre-
 Byte-Reproduzierbarkeit. Der
 Nachweis liegt unter
 [`GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md`](../quality/GATE_0001_EPUB_TRANSFORM_QUALIFICATION.md).
-Nur ein späterer dokumentierter positiver Byte-Reproduzierbarkeits-,
-Security-, Lizenz- und Automationsnachweis darf `DEC-0002` auf `Accepted` und
-`WI-0004` auf `READY` setzen.
+`DEC-0002` ist nach Owner-Freigabe von Option A `Accepted`. Das registrierte
+`GATE-0002` qualifiziert als nächste `FRONTIER`-Wave das kombinierte Profil:
+vollständiger Snapshot mit getrennten Review-/Preserve-Bindungen, calibre als
+externe Transformationsstufe sowie FolioTone-eigene kanonische OPF-
+Normalisierung und EPUB-Verpackung. Nur ein dokumentierter positiver Byte-
+Reproduzierbarkeits-, Preserved-Field-, Security-, Lizenz- und
+Automationsnachweis darf `WI-0004` auf `READY` setzen.
 
-Nach ausdrücklicher Folgerichtung und positivem neuem Gate folgt `WI-0004` in
+Nach positivem `GATE-0002` folgt `WI-0004` in
 dieser Reihenfolge:
 
 | Slice | Ergebnis | Tier | Stopbedingung |

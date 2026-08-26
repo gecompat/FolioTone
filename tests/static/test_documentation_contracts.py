@@ -89,9 +89,11 @@ REQUIRED_GOVERNANCE_PATHS = (
     "docs/planning/EBOOK_CONTINUATION_PLAN.md",
     "docs/decisions/DEC-0001-book-only-fixity-monitoring.md",
     "docs/decisions/DEC-0002-deterministic-epub-transformation.md",
+    "docs/quality/GATE_0002_EPUB_TRANSFORM_QUALIFICATION_PLAN.md",
     "docs/planning/artifacts/DEC-0001.json",
     "docs/planning/artifacts/DEC-0002.json",
     "docs/planning/artifacts/GATE-0001.json",
+    "docs/planning/artifacts/GATE-0002.json",
     "docs/planning/artifacts/WI-0001.json",
     "docs/planning/artifacts/WI-0002.json",
     "docs/planning/artifacts/WI-0003.json",
@@ -272,7 +274,7 @@ def test_artifact_registration_authority_is_discoverable_and_consistent() -> Non
     assert "ADOPT_FORWARD" in registration
     assert "DEFERRED" in registration
     assert registry["profile"] == "foundation-artifact-registry/v1"
-    assert registry["registry_revision"] == 7
+    assert registry["registry_revision"] == 8
     assert registry["allocations"] == {
         artifact["human_ref"]: artifact["artifact_uid"]
         for artifact in artifacts.values()
@@ -292,7 +294,18 @@ def test_artifact_registration_authority_is_discoverable_and_consistent() -> Non
     assert artifacts["GATE-0001"]["metadata"]["outcome"] == (
         "FAIL_EXACT_REPRODUCIBILITY"
     )
+    assert artifacts["DEC-0002"]["status"] == "ACCEPTED"
+    assert artifacts["GATE-0002"]["status"] == "READY"
+    assert artifacts["GATE-0002"]["metadata"]["tier"] == "FRONTIER"
+    assert artifacts["GATE-0002"]["relations"] == [
+        {"type": "depends_on", "target": "GATE-0001"},
+        {"type": "governed_by", "target": "DEC-0002"},
+        {"type": "blocks", "target": "WI-0004"},
+    ]
     assert artifacts["WI-0004"]["status"] == "BLOCKED"
+    assert {"type": "depends_on", "target": "GATE-0002"} in artifacts[
+        "WI-0004"
+    ]["relations"]
 
 
 def test_foundation_attribution_is_complete_and_namespaced() -> None:
