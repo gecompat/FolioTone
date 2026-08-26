@@ -23,7 +23,7 @@
   ],
   "schema_version": 1,
   "title": "EPUB-zu-EPUB-Transformation implementieren",
-  "status": "BLOCKED",
+  "status": "READY",
   "metadata": {
     "scope": "ebook-transformation",
     "tier": "FRONTIER",

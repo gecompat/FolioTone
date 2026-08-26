@@ -99,7 +99,7 @@ Die akzeptierten Entscheidungen liegen unter [`decisions/`](decisions/). Neue we
 - [ADR-0069](decisions/ADR-0069-ebook-rename-operator-job-handoff.md) bindet die operation-spezifische Jobübergabe des ersten GUI-Writers, verwirft die Raw Confirmation vor Persistenz und erhält alle ADR-0066-W10-Gates.
 - [ADR-0070](decisions/ADR-0070-foundation-v14-identity-registration.md) bewahrt historische FolioTone-IDs und aktiviert die registrygestützte persistente Identität für neue Planungsartefakte im Modus `ADOPT_FORWARD`.
 - [DEC-0001](decisions/DEC-0001-book-only-fixity-monitoring.md) akzeptiert die explizit aktivierte, read-only Full-SHA-256-Baseline sowie frische Verifikation und append-only Einzelentscheidungen für genau einen E-Book-`ScanRoot`.
-- [DEC-0002](decisions/DEC-0002-deterministic-epub-transformation.md) akzeptiert Option A aus calibre-Transformation, FolioTone-eigener kanonischer OPF-Normalisierung und EPUB-Verpackung; `WI-0004` bleibt bis zum positiven `GATE-0002` blockiert.
+- [DEC-0002](decisions/DEC-0002-deterministic-epub-transformation.md) akzeptiert Option A aus calibre-Transformation, FolioTone-eigener kanonischer OPF-Normalisierung und EPUB-Verpackung; `GATE-0002` qualifiziert das Profil positiv und setzt `WI-0004` auf `READY`.
 
 ## Qualität, Sprache und Dokumentationsregeln
 

@@ -1,0 +1,120 @@
+{
+  "profile": "ebook-transform-metadata-snapshot/v1",
+  "technical_modified_utc": "2026-08-26T09:00:00Z",
+  "technical_delta_allowlist": [
+    "dcterms:modified"
+  ],
+  "fields": [
+    {
+      "key": "title",
+      "values": ["main|Synthetischer Zieltitel"],
+      "provenance": "USER_CONFIRMED",
+      "disposition": "REVIEWED",
+      "review_reference": "synthetic-review-0001"
+    },
+    {
+      "key": "title_sort",
+      "values": ["Zieltitel, Synthetischer"],
+      "provenance": "USER_CONFIRMED",
+      "disposition": "REVIEWED",
+      "review_reference": "synthetic-review-0001"
+    },
+    {
+      "key": "identifiers",
+      "values": [
+        "urn:uuid|urn:uuid:11111111-2222-4333-8444-555555555555",
+        "uuid|uuid:11111111-2222-4333-8444-555555555555"
+      ],
+      "provenance": "OBSERVED",
+      "disposition": "PRESERVE",
+      "review_reference": null
+    },
+    {
+      "key": "contributors",
+      "values": [
+        "contributor|Berta Muster|trl|Muster, Berta",
+        "creator|Ada Beispiel|aut|Beispiel, Ada"
+      ],
+      "provenance": "OBSERVED",
+      "disposition": "PRESERVE",
+      "review_reference": null
+    },
+    {
+      "key": "language",
+      "values": ["de"],
+      "provenance": "OBSERVED",
+      "disposition": "PRESERVE",
+      "review_reference": null
+    },
+    {
+      "key": "publisher",
+      "values": ["FolioTone Testverlag"],
+      "provenance": "OBSERVED",
+      "disposition": "PRESERVE",
+      "review_reference": null
+    },
+    {
+      "key": "publication_date",
+      "values": ["2026-08-01T00:00:00+00:00"],
+      "provenance": "OBSERVED",
+      "disposition": "PRESERVE",
+      "review_reference": null
+    },
+    {
+      "key": "subjects",
+      "values": ["Qualifikation", "Synthetik"],
+      "provenance": "OBSERVED",
+      "disposition": "PRESERVE",
+      "review_reference": null
+    },
+    {
+      "key": "description",
+      "values": ["Vollstaendig synthetische Beschreibung."],
+      "provenance": "OBSERVED",
+      "disposition": "PRESERVE",
+      "review_reference": null
+    },
+    {
+      "key": "rights",
+      "values": ["CC0-1.0"],
+      "provenance": "EXTERNAL",
+      "disposition": "PRESERVE",
+      "review_reference": null
+    },
+    {
+      "key": "type",
+      "values": ["Text"],
+      "provenance": "OBSERVED",
+      "disposition": "PRESERVE",
+      "review_reference": null
+    },
+    {
+      "key": "rating",
+      "values": ["4"],
+      "provenance": "OBSERVED",
+      "disposition": "PRESERVE",
+      "review_reference": null
+    },
+    {
+      "key": "series_name",
+      "values": ["Synthetische Reihe"],
+      "provenance": "OBSERVED",
+      "disposition": "PRESERVE",
+      "review_reference": null
+    },
+    {
+      "key": "series_type",
+      "values": ["series"],
+      "provenance": "OBSERVED",
+      "disposition": "PRESERVE",
+      "review_reference": null
+    },
+    {
+      "key": "series_position",
+      "values": ["1.5"],
+      "provenance": "OBSERVED",
+      "disposition": "PRESERVE",
+      "review_reference": null
+    }
+  ]
+}

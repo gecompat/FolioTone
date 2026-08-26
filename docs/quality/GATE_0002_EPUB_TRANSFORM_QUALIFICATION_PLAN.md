@@ -1,6 +1,6 @@
 # GATE-0002: Kombiniertes EPUB-Transformationsprofil qualifizieren
 
-- Status: `READY`
+- Status: `DONE`
 - Datum: 2026-08-26
 - Artefakt: `urn:uuid:01a03cca-930f-702f-82f2-839d4407eac6`
 - Entscheidung: `DEC-0002`
@@ -120,6 +120,79 @@ Nachweise erfüllt:
    Gate autorisiert weiterhin keine Veröffentlichung des Toolchain-Images.
 9. Fokussierte Tests, betroffene statische Verträge, `git diff --check` und
    genau ein vollständiger PR-CI-Gate sind für denselben stabilen Head grün.
+
+## Ergebnis
+
+`GATE-0002` endet mit `PASS`. Zwei getrennte frische, netzlose und identisch
+begrenzte calibre-9.13.0-Läufe erzeugten erwartungsgemäß unterschiedliche rohe
+Zwischenausgaben: 2.058 und 2.057 Byte mit den SHA-256
+`186a4428e84526318a1e036948bb8d8868582a559e8d6b2f455039542e1e5c46`
+und
+`20ef99fcf5ee24acf8cd1546b5abaf045aa30c0a925cbe6cab78b4659b650f59`.
+Die nachgelagerte FolioTone-Normalisierung erzeugte aus beiden Outputs sowie
+bei idempotentem Replay jeweils exakt 2.073 Byte mit SHA-256
+`c1f02fa795de03fa445b6d2917be8d089acf22b3c5f3ad47dba67e9536e15c54`.
+
+Der vollständige Metadaten-Snapshot ist mit SHA-256
+`c7a7d976cee966805a48b9f5996bcc4c6462d490b2894e9e80e84030c90aac17`
+gebunden. Das kanonische Profil trägt SHA-256
+`6b059d7e62f42ae21531c4356869ed995675ac882d53b4ed3373e3a6eefafbd6`
+und bindet das lokal gebaute `linux/amd64`-Image
+`sha256:61c760dc60283af8ac11b0aeb1833417eae88d67092176b7070bbcfc09561e67`,
+calibre 9.13.0, CPython 3.12.11, zlib 1.3.1, EPUBCheck 5.3.0, OpenJDK
+21.0.12, Base-, Tool- und JAR-Digests, die kanonische Inventarliste aus
+Toolchain-Lock, 145 Debian- und 25 Python-Paketen sowie alle Command-,
+Environment-, Serializer-, Packer-, Kompressions- und ZIP-Konstanten.
+
+Die übrigen vollständigen Binder sind:
+
+- Base-Image-Digest
+  `0b29ab9e420820f53d1cd5ce0157dfe07bea8a7cff5b4754d6d95c07b0e5bc47`;
+- calibre-Archiv-SHA-256
+  `d664fe74953463f1b679945a5460234b61cbf539da48fc78f2111ff8d9503cc0`;
+- EPUBCheck-JAR-SHA-256
+  `f7f96617c929371821609b88c8484d6dc9f24fe916499863c46094c5fb778a65`;
+- kanonischer Toolchain-Inventar-SHA-256
+  `7afd8f60306ed9653f963e24164a81514059a04889f3d0033b53115023bbbd39`;
+- Command-/Limit-Konfigurations-SHA-256
+  `1ef351820ad7c4362a491cf7dc1b81b82f0f3e20aa4a9c613fc6f22aa58cc651`;
+- Environment-SHA-256
+  `ffd0ade581e2256a3c6bac7d785d3def6a3767090a8b9d5ec08127bb1aeeefab`.
+
+Das Toolchain-Inventar ist das sortierte kanonische JSON aus dem gelockten
+Toolchain-Dokument, allen `dpkg-query`-Paaren und `pip freeze --all`-Paaren.
+Die Command-Bindung umfasst feste `ebook-polish --opf`-Argumente, Inputprofil,
+Plattform, netzlose und read-only Ausführung, Capability-Drop,
+No-new-privileges, Speicher-, CPU-, PID-, File-Descriptor- und Temp-Limits.
+
+EPUBCheck 5.3.0 meldete für den finalen Output 0 Fatal-, 0 Error-, 0 Warning-
+und 0 Usage-Befunde. Ein von der Produktimplementierung unabhängiger
+ZIP-/XML-Read-back bestätigte dieselbe Membermenge, den Zieltitel,
+Serienname `Synthetische Reihe`,
+Serientyp `series`, Position `1.5`, Navigation, Spine und Cover. `mimetype`
+blieb erster unkomprimierter Entry; Container, Navigation, Text und Cover
+waren gegenüber der direkt in den Gate-Runner gebundenen Quelle in ihren
+unkomprimierten Bytes identisch. Preserve-Metadaten wurden ebenfalls vor A,
+vor B und nach der Kanonisierung gegen die Quelle verglichen. Ein eigener
+kanonischer OPF-Strukturhash bindet Package-, Manifest- und Spine-Semantik;
+die von calibre geänderte reine Manifest-Reihenfolge wird fest sortiert. Die
+Quelle blieb bei 3.556 Byte und SHA-256
+`03de1f669683d99c192a68a3faba71fd29efe3ae8908f3832545edc73f6b2929`
+unverändert.
+
+Die fokussierte synthetische Suite prüft die vollständige Positiv- und
+Negativmatrix einschließlich bösartiger Template-Payloads vor dem Toolprozess.
+Verwaiste oder mehrdeutige OPF-Refinements, unbekannte Metadatenattribute und
+vollständig OCF-widrige Dateinamen werden fail-closed abgewiesen. Die aktuelle
+offizielle Prüfung bestätigt calibre 9.13.0 als
+gepflegte, gegenüber `GHSA-4f7g-rjfp-hmvx` gepatchte Version und EPUBCheck
+5.3.0 als aktuellen Validator. calibre bleibt als GPL-3.0-Prozess getrennt;
+EPUBCheck bleibt BSD-3-Clause. Es werden weder deren Code importiert noch das
+lokal gebaute Image oder Drittanbieterartefakte veröffentlicht.
+
+Damit wird `WI-0004` auf `READY` gesetzt. Das Gate selbst implementiert weder
+Dry Run, Persistenz, Application-/CLI-/REST-/Browser-Fläche, Publish,
+Capability, Authorization noch W10-Operation.
 
 ## Stopbedingungen und Ergebnis
 

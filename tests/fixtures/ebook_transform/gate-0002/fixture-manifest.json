@@ -1,0 +1,10 @@
+{
+  "profile": "ebook-transform-gate-0002-input/v1",
+  "source_sha256": "03de1f669683d99c192a68a3faba71fd29efe3ae8908f3832545edc73f6b2929",
+  "source_size_bytes": 3556,
+  "reviewed_metadata_sha256": "dc09467d2f98b954df38da578c812075d55b28cb204c2b6c66a42fc23a547197",
+  "reviewed_metadata_size_bytes": 1666,
+  "metadata_snapshot_sha256": "c7a7d976cee966805a48b9f5996bcc4c6462d490b2894e9e80e84030c90aac17",
+  "zip_timestamp": "2026-08-26T09:00:00Z",
+  "fixture_policy": "synthetic-generated-not-committed"
+}

@@ -4,44 +4,40 @@ Stand: 2026-08-26
 
 ## Aktuelle Welle
 
-**DEC-0002 `DONE` — Option A akzeptiert; GATE-0002 ist `NEXT`**
+**GATE-0002 `DONE` — kombiniertes EPUB-Profil positiv; WI-0004 ist `NEXT`**
 
-Der Projekteigentümer hat am 2026-08-26 Option A für die EPUB-3-Transformation
-freigegeben. calibre 9.13.0 bleibt die getrennte, fest profilierte
-Transformationsstufe und erhält einen vollständigen immutable Snapshot. Der
-Snapshot trennt reviewte neue oder ersetzte `CANONICAL`-/`USER_CONFIRMED`-
-Werte von `OBSERVED`-/`EXTERNAL`-Source-Werten mit Preserve-Obligation. Wegen
-der belegten `apply_null=True`-Semantik ist ein ausgelassener Inventareintrag
-keine zulässige Abwesenheit.
+`GATE-0002` qualifiziert Option A positiv. Zwei getrennte frische, netzlose
+calibre-9.13.0-Läufe erzeugten unterschiedliche rohe Outputs. Die reine
+FolioTone-Normalisierung lieferte aus beiden sowie beim idempotenten Replay
+exakt denselben 2.073-Byte-Output mit SHA-256
+`c1f02fa795de03fa445b6d2917be8d089acf22b3c5f3ad47dba67e9536e15c54`.
+Der vollständige immutable Metadaten-Snapshot und das kanonische Profil sind
+separat gehasht; technische OPF-Deltas bleiben auf das vorab gebundene
+`dcterms:modified` begrenzt.
 
-Eine neue FolioTone-eigene Stufe revalidiert den untrusted calibre-Output
-bounded und normalisiert OPF sowie EPUB-Verpackung auf ein im Gate gelocktes
-Profil. Die technische Metadaten-Delta-Allowlist enthält genau den vor dem
-Toollauf gebundenen Wert `dcterms:modified`; weitere Änderungen müssen
-reviewte Snapshotwerte sein. Zeitwerte, XML-Serialisierung, Entry-Reihenfolge,
-Kompression, ZIP-Header, Flags, Attribute, Extra Fields und Kommentare dürfen
-nicht von realer Laufzeit oder Hostzustand abhängen.
+EPUBCheck 5.3.0 meldete 0 Fatal-, Error-, Warning- und Usage-Befunde. Ein
+unabhängiger ZIP-/XML-Read-back bestätigte Zieltitel, Serienname, Serientyp,
+Serienposition, Navigation, Spine, Cover, OPF-Struktur und bytegleiche
+nicht-OPF-Payloads.
+Die synthetische Source blieb vollständig bytegleich. Die Negativmatrix weist
+unsichere OCF-/ZIP-/XML-Profile, Limits und Python-Template-Payloads vor jedem
+Toolprozess fail-closed ab. Die aktuelle Toolprüfung bindet calibre 9.13.0,
+EPUBCheck 5.3.0 sowie Image-, Runtime-, SBOM-, Tool-, Konfigurations- und
+Environment-Identitäten; das lokale Image wird nicht veröffentlicht.
 
-`GATE-0002` ist über die Registration Authority als `READY` registriert und
-die einzige nächste Entwicklungswave. Es prüft ausschließlich synthetische,
-private Outputs, exaktes Byte-Replay, Idempotenz, Snapshot-/Preserved-Field-
-Erhalt, bounded Malicious Fixtures sowie aktuelle Tool-, Security-, Lizenz-
-und Automationsbedingungen. `GATE-0001` bleibt unverändert `DONE` mit
-`FAIL_EXACT_REPRODUCIBILITY`. `WI-0004` bleibt `BLOCKED`, sein W9-Rezept
-`NOT_EXECUTABLE`; es existiert weiterhin keine Transformations-, Publish- oder
-W10-Capability.
+`GATE-0002` und sein Registrierungsartefakt stehen auf `DONE`/`PASS`.
+`WI-0004` ist jetzt `READY` und die einzige nächste Entwicklungswave. Ihr
+erster Vertikalschnitt implementiert den transform-spezifischen W9-Snapshot
+und privaten Dry Run. Das Gate selbst liefert keine Persistenz, öffentliche
+Produktoberfläche, Publish-, Capability-, Authorization- oder W10-Operation;
+die vorhandenen W9-Rezepte bleiben `NOT_EXECUTABLE`.
 
-Die Entscheidungs-Wave ändert nur Dokumentations-, Planungs- und
-Registrierungsverträge. Im finalen lokalen Dokumentationsprofil bestanden 35
-direkt betroffene statische Verträge. Ruff war für die drei geänderten
-Testdateien grün; Python- und PowerShell-Registry-Client bestätigten Revision 8
-mit acht Allokationen. `git diff --check`, die Added-Lines-Privacy-/Secret-
-Prüfung und der LF-Vertrag aller 21 geänderten oder neuen Dateien waren sauber.
-Der erste fokussierte Lauf fand genau eine veraltete Planungsfront-Assertion;
-nach ihrer Korrektur bestand der identische betroffene Satz. Die vollständige
-unbetroffene lokale Suite wurde gemäß `TEST_POLICY.md` nicht ausgeführt. Der
-vollständige PR-CI-Gate bleibt für den exakten stabilen Head erforderlich;
-Python-Runtime, Datenbank, Container und reale Medien sind nicht betroffen.
+Die 79 fokussierten Unit- und statischen Gate-Tests bestanden nach der finalen
+Fixture-Präzisierung; Ruff und Mypy waren für den neuen Scope grün. Die
+betroffenen Planungs-, Dokumentations- und Registry-Verträge werden im selben
+Head geprüft. Eine unbetroffene vollständige lokale Suite wird gemäß
+`TEST_POLICY.md` nicht ausgeführt. Der vollständige PR-CI-Gate bleibt für den
+exakten stabilen Head vor dem Merge erforderlich.
 
 ## Zuletzt abgeschlossene Produktwave
 
@@ -90,8 +86,7 @@ frische no-follow Hash-Worker, rootweites Lease/Fencing und die unveränderten
 W10-Capabilities, Backup-/Replica-Vergleich, Restore, automatische Planung und
 Zeitsteuerung bleiben ausgeschlossen. Das nachfolgende `GATE-0001` ist
 inzwischen negativ abgeschlossen; `DEC-0002` akzeptiert Option A,
-`GATE-0002` ist `NEXT` und `WI-0004` bleibt bis zu dessen positivem Ergebnis
-`BLOCKED`.
+`GATE-0002` ist inzwischen positiv `DONE`; `WI-0004` ist `READY` und `NEXT`.
 
 Für den finalen betroffenen lokalen Satz bestanden 232 Tests für CLI,
 Application-Verträge, REST, Browser-Assets, Job-Fencing, Fixity-Persistenz,
@@ -320,10 +315,10 @@ Der vollständige Vertrag und die Stopbedingungen stehen in
 Ableitung mit getrennten Review-/Preserve-Metadaten, verwaltetem Output-Root,
 bounded Batch-Preparation und Einzel-Publish. Die Entscheidung ist für Option
 A `Accepted`: Das feste rohe calibre-Profil bleibt wegen des negativen
-`GATE-0001` unzureichend; `GATE-0002` muss die nachgelagerte FolioTone-eigene
-kanonische OPF-Normalisierung und EPUB-Verpackung positiv qualifizieren.
-`WI-0004` bleibt bis dahin blockiert; es existiert keine Transformations-
-Capability oder Runtime-Operation.
+`GATE-0001` unzureichend; `GATE-0002` qualifiziert die nachgelagerte
+FolioTone-eigene kanonische OPF-Normalisierung und EPUB-Verpackung positiv.
+`WI-0004` ist damit `READY`; eine Transformations-Capability oder
+Runtime-Operation existiert weiterhin noch nicht.
 
 Der Plananker verändert weder Python-Runtime, SQLite-Schema, API, UI,
 Container noch Source-Media-Authority. Lokal bestanden die 29 betroffenen

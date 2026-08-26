@@ -119,10 +119,13 @@ Output war wegen realer `dcterms:modified`- und ZIP-Zeitwerte jedoch nicht
 byte-reproduzierbar. `DEC-0002` akzeptiert deshalb Option A: calibre bleibt der
 getrennte externe Prozess; eine FolioTone-eigene Stufe revalidiert den
 untrusted Tooloutput und normalisiert OPF und EPUB-Verpackung kanonisch.
-`GATE-0002` muss dieses kombinierte Profil ausschließlich synthetisch positiv
-qualifizieren. FolioTone importiert dafür keine GPL-calibre-Interna, und weder
-die Entscheidung noch das Gate autorisiert Source-, Calibre-Library-, Publish-
-oder W10-Writes oder die Veröffentlichung des lokalen Toolchain-Images.
+`GATE-0002` qualifiziert dieses kombinierte Profil ausschließlich synthetisch
+positiv. Zwei verschiedene rohe calibre-Outputs ergeben nach der kanonischen
+Stufe und beim Replay denselben vollständigen SHA-256; Serienname, -typ und
+-position bleiben erhalten, und EPUBCheck 5.3.0 meldet keine Befunde.
+FolioTone importiert dafür keine GPL-calibre-Interna, und weder die Entscheidung
+noch das Gate autorisiert Source-, Calibre-Library-, Publish- oder W10-Writes
+oder die Veröffentlichung des lokalen Toolchain-Images.
 
 ADR-0066 wählt auch für den ersten E-Book-Datei-Rename keinen ToolProvider.
 Calibre, Shell-`mv` und frei parametrierbare Prozessaufrufe können die exakte

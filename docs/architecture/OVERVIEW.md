@@ -466,17 +466,18 @@ erzeugen Evidence, aber keine Ursache, Identity-Entscheidung oder Mutation
 Authority. `WI-0003` liefert Baseline, Verifikation und die gemeinsame
 Application-/CLI-/REST-/Browser-Surface. Das nachfolgende `GATE-0001` ist
 negativ abgeschlossen; `DEC-0002` akzeptiert inzwischen Option A und
-`GATE-0002` ist die nächste reine Profilqualifikation.
+`GATE-0002` hat das kombinierte Profil positiv qualifiziert.
 
 `DEC-0002` ist der akzeptierte technische Rahmen für eine neue EPUB-3-
 Ableitung in einem getrennten Output-Root. Der bestehende W9-
 `FORMAT_TRANSFORM`-Plan bleibt `NOT_EXECUTABLE`. `GATE-0001` hat das rohe
 calibre-9.13.0-Profil trotz erhaltener vollständiger Serienprojektion wegen
 fehlendem exaktem Byte-Replay abgelehnt. Option A ergänzt calibre deshalb um
-eine FolioTone-eigene kanonische OPF-Normalisierung und EPUB-Verpackung. Nur
-ein positives `GATE-0002` nach aktueller Tool-, Security- und
-Lizenzqualifikation darf die spätere
-operation-spezifische W10-Kette öffnen; bis dahin ist `WI-0004` blockiert.
+eine FolioTone-eigene kanonische OPF-Normalisierung und EPUB-Verpackung.
+`GATE-0002` bestätigt exaktes Byte-Replay nach aktueller Tool-, Security- und
+Lizenzqualifikation. `WI-0004` ist damit `READY`; operative Authority entsteht
+weiterhin erst in seiner späteren vollständig implementierten
+operation-spezifischen W10-Kette.
 
 Für die Interim-Quarantäne stellen `S-W10-05A` bis `S-W10-05D` private
 Capability-Auflösung, current-state-gebundenes Authorize, das einmalige

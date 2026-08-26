@@ -54,8 +54,8 @@ def test_backlog_records_option_a_gate_as_next_without_unblocking_writer() -> No
     assert backlog.count("| CS-01 | DONE |") == 1
     assert backlog.count("| CS-02 | DONE |") == 1
     assert backlog.count("| CS-03 | DONE |") == 1
-    assert "| NOW | `GATE-0002` |" in backlog
-    assert "| NEXT WAVE | `GATE-0002` |" in backlog
+    assert "| NOW | `WI-0004` |" in backlog
+    assert "| NEXT WAVE | `WI-0004` |" in backlog
     assert backlog.count("| NEXT |") == 0
     assert "| W9-006 | DONE |" in backlog
     assert "| FG-W9-006 | DONE |" in backlog
@@ -85,12 +85,12 @@ def test_backlog_records_option_a_gate_as_next_without_unblocking_writer() -> No
     assert "| OPS-001 | READY |" in backlog
     assert "| WI-0002 | DONE |" in backlog
     assert "| GATE-0001 | DONE |" in backlog
-    assert "| GATE-0002 | READY |" in backlog
+    assert "| GATE-0002 | DONE |" in backlog
     assert "| DEC-0002 | DONE |" in backlog
-    assert "| WI-0004 | BLOCKED |" in backlog
+    assert "| WI-0004 | READY |" in backlog
     assert "| FUT-002 | DONE |" in backlog
     assert "| WI-0003 (`FUT-009`) | DONE |" in backlog
-    assert "| WI-0004 (`FUT-008`) | BLOCKED |" in backlog
+    assert "| WI-0004 (`FUT-008`) | READY |" in backlog
     assert "Andere Planungsdokumente erläutern diese Aufgaben" in backlog
 
 
@@ -149,7 +149,7 @@ def test_current_planning_sources_agree_on_delivery_front() -> None:
         assert "WI-0004" in content, path
 
 
-def test_ebook_continuation_plan_keeps_option_a_gate_bound_and_writer_blocked() -> None:
+def test_ebook_continuation_plan_keeps_option_a_gate_bound_and_writer_non_executable() -> None:
     plan = _text(EBOOK_CONTINUATION)
     documentation_index = _text(ROOT / "docs/README.md")
 
@@ -164,7 +164,7 @@ def test_ebook_continuation_plan_keeps_option_a_gate_bound_and_writer_blocked() 
         "DEC-0002",
         "Option A",
         "WI-0004",
-        "blockiert",
+        "READY",
         "keine W10-Operation",
     )
     assert all(marker in plan for marker in required)
